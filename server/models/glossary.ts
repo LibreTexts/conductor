@@ -33,6 +33,15 @@ const GlossarySchema = new Schema<GlossaryInterface>(
     }
 );
 
+// Case-insensitive uniqueness (collation strength 2) so "Cell" and "cell"
+// can't end up as two separate terms with two different termIDs — the DB is
+// the actual guard against that race; see glossary-service.ts's
+// _addGlossaryToDatabase for the atomic upsert that relies on it.
+GlossarySchema.index(
+  { term: 1 },
+  { unique: true, collation: { locale: "en", strength: 2 } },
+);
+
 const Glossary = model<GlossaryInterface>("Glossary", GlossarySchema);
 
 export default Glossary;

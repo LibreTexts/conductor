@@ -113,7 +113,12 @@ import {
 } from "./types/Shapeshift";
 import { BookBotRun, BookBotType } from "./types/BookBot";
 import { PublishDestination, PublishStatus } from "./types/Publish";
-import { GlossaryEntry } from "./screens/commons/Glossary/model";
+import {
+  GlossaryEntry,
+  GlossaryConfig,
+  GlossaryConfigMode,
+  GlossaryConfigGroup,
+} from "./screens/commons/Glossary/model";
 
 /**
  * @fileoverview
@@ -2668,6 +2673,7 @@ class API {
     imageLicense?: string;
     aliases?: string[];
     imageSource?: string;
+    italic?: boolean;
   }) {
     const { coverID, library, imageFile, removeImage, aliases, ...rest } =
       props;
@@ -2738,6 +2744,55 @@ class API {
     );
     return res.data;
   }
+  async importGlossaryTermsFromCsv(props: {
+    library: string;
+    coverID: string;
+    file: File;
+    glossaryID?: string;
+    duplicateAction?: "overwrite" | "skip";
+  }) {
+    const { library, coverID, file, glossaryID, duplicateAction } = props;
+    const formData = new FormData();
+    formData.append("file", file);
+    if (glossaryID) {
+      formData.append("glossaryID", glossaryID);
+    }
+    if (duplicateAction) {
+      formData.append("duplicateAction", duplicateAction);
+    }
+
+    const res = await axios.post<
+      {
+        jobID?: string;
+        totalRows: number;
+        requiresConfirmation?: boolean;
+        duplicateTerms?: string[];
+      } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary/csv-import`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  }
+
+  async getGlossaryCsvImportJobStatus(jobID: string) {
+    const res = await axios.get<
+      {
+        job: {
+          jobID: string;
+          status: "pending" | "running" | "success" | "error";
+          totalRows: number;
+          processedRows: number;
+          /** Rows that added a new term. */
+          imported: number;
+          /** Rows that overwrote an existing term. */
+          updated: number;
+          errorMessage?: string;
+        };
+      } & ConductorBaseResponse
+    >(`/commons/glossary/csv-import/${jobID}`);
+    return res.data;
+  }
+
   async getExistingGlossary(library: string, coverID: string) {
     const res = await axios.put<ConductorBaseResponse>(
       `/commons/book/${library}/${coverID}/glossary/existing`,
@@ -2756,6 +2811,72 @@ class API {
     const { usageId } = props;
     const res = await axios.delete<ConductorBaseResponse>(
       `/commons/glossary/usage/${usageId}`,
+    );
+    return res.data;
+  }
+
+  async bulkDeleteGlossaryTerms(props: {
+    library: string;
+    coverID: string;
+    usageIds: string[];
+  }) {
+    const { library, coverID, usageIds } = props;
+    const res = await axios.delete<
+      { deletedCount: number } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary/usage/bulk`, {
+      data: { usageIds },
+    });
+    return res.data;
+  }
+
+  async bulkUpdateGlossaryAttribution(props: {
+    library: string;
+    coverID: string;
+    usageIds: string[];
+    author?: string;
+    link?: string;
+    source?: string;
+  }) {
+    const { library, coverID, usageIds, author, link, source } = props;
+    const res = await axios.patch<
+      { modifiedCount: number } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary/usage/bulk/attribution`, {
+      usageIds,
+      author,
+      link,
+      source,
+    });
+    return res.data;
+  }
+
+  async getGlossaryConfig(library: string, coverID: string) {
+    const res = await axios.get<
+      { exists: boolean; config: GlossaryConfig | null } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary-config`);
+    return res.data;
+  }
+
+  async saveGlossaryConfig(props: {
+    library: string;
+    coverID: string;
+    mode: GlossaryConfigMode;
+    glossaryPageId?: string;
+    groups: GlossaryConfigGroup[];
+  }) {
+    const { library, coverID, mode, glossaryPageId, groups } = props;
+    const res = await axios.put<
+      { config: GlossaryConfig } & ConductorBaseResponse
+    >(`/commons/book/${library}/${coverID}/glossary-config`, {
+      mode,
+      glossaryPageId,
+      groups,
+    });
+    return res.data;
+  }
+
+  async deleteGlossaryConfig(library: string, coverID: string) {
+    const res = await axios.delete<ConductorBaseResponse>(
+      `/commons/book/${library}/${coverID}/glossary-config`,
     );
     return res.data;
   }
@@ -2903,6 +3024,7 @@ class API {
       autoNumbering?: boolean;
       copyModeState?: string;
       pathLevelFormats?: unknown[];
+      importGlossaryTerms?: boolean;
     },
   ) {
     return this.streamJson<
@@ -3040,6 +3162,15 @@ class API {
       {
         status: "pending" | "completed" | "failed" | "notfound";
         processing: boolean;
+        bulkJob?: {
+          jobID: string;
+          status: "running" | "completed" | "failed";
+          total: number;
+          processed: number;
+          updated: number;
+          failed: number;
+          skipped: number;
+        };
         total: number;
         completed: number;
         failed: number;
@@ -3049,12 +3180,16 @@ class API {
     return res.data;
   }
 
-  async reloadRestacker(id: string) {
+  /**
+   * Re-runs the license scan. "content" rescans every page's HTML (slow);
+   * "page" only re-reads page and book license tags (fast).
+   */
+  async reloadRestacker(id: string, mode: "content" | "page" = "content") {
     const res = await axios.post<
       {
         toc: TableOfContents;
       } & ConductorBaseResponse & { status: "pending" | "completed" | "failed" }
-    >(`/projects/${id}/restacker/toc`);
+    >(`/projects/${id}/restacker/toc`, { mode });
     return res.data;
   }
 
@@ -3074,6 +3209,26 @@ class API {
         warningMsg?: string;
       } & ConductorBaseResponse
     >(`/projects/${projectID}/restacker/license`, data);
+    return res.data;
+  }
+
+  async bulkUpdateRestackerLicense(
+    projectID: string,
+    data: {
+      pageIDs: string[];
+      license: string;
+      version?: string;
+    },
+  ) {
+    const res = await axios.patch<
+      {
+        license?: RestackerTocLicense;
+        /** Set when pages were queued; poll getRestackerStatus for `bulkJob`. */
+        jobID?: string;
+        queued: number;
+        skipped: { pageID: string; reason: string }[];
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/restacker/license/bulk`, data);
     return res.data;
   }
 }

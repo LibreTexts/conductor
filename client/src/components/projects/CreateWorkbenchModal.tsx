@@ -306,7 +306,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
                   {/* Super Admins can use the dev library for debugging */}
                   <p
                     className="underline cursor-pointer mt-1"
-                    onClick={() => setValue("library", "dev")}
+                    onClick={() => setValue("library", "21", { shouldDirty: false })}
                   >
                     Use Dev (Super Admins Only)
                   </p>

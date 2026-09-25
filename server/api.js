@@ -64,6 +64,7 @@ import * as ProjectInvitationValidators from "./api/validators/project-invitatio
 import * as ShapeshiftValidators from "./api/validators/shapeshift.js";
 import * as BookBotsValidators from "./api/validators/book-bots.js";
 import * as PublishValidators from "./api/validators/publish.js";
+import * as GlossaryConfigValidators from "./api/validators/glossaryconfig.js";
 
 import remixerAPI from "./api/remixer.js";
 import * as RemixerValidators from "./api/validators/remixer.js";
@@ -1264,7 +1265,56 @@ router.route("/commons/book/:library/:coverID/glossary")
     middleware.validateZod(BookValidators.addPageWithCoverIDParamSchema),
     booksAPI.addPageToGlossaryUsage
   );
-  
+
+  // bulk-import glossary terms from an uploaded CSV file (runs as a background job)
+  router.route("/commons/book/:library/:coverID/glossary/csv-import").post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    booksAPI.glossaryCsvUploadHandler,
+    middleware.validateZod(BookValidators.importGlossaryFromCsvSchema),
+    booksAPI.startGlossaryCsvImportJob
+  );
+
+  router.route("/commons/glossary/csv-import/:jobID").get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.getGlossaryCsvImportJobStatusSchema),
+    booksAPI.getGlossaryCsvImportJobStatus
+  );
+
+  router.route("/commons/book/:library/:coverID/glossary/usage/bulk").delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.bulkDeleteGlossaryUsageSchema),
+    booksAPI.bulkDeleteGlossaryUsage
+  );
+
+  router.route("/commons/book/:library/:coverID/glossary/usage/bulk/attribution").patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(BookValidators.bulkUpdateGlossaryAttributionSchema),
+    booksAPI.bulkUpdateGlossaryAttribution
+  );
+
+  router.route("/commons/book/:library/:coverID/glossary-config")
+    .get(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(GlossaryConfigValidators.getGlossaryConfigSchema),
+      booksAPI.getGlossaryConfig
+    )
+    .put(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(GlossaryConfigValidators.saveGlossaryConfigSchema),
+      booksAPI.saveGlossaryConfig
+    )
+    .delete(
+      authAPI.verifyRequest,
+      authAPI.getUserAttributes,
+      middleware.validateZod(GlossaryConfigValidators.deleteGlossaryConfigSchema),
+      booksAPI.deleteGlossaryConfig
+    );
 
   router.route("/commons/glossary/usage/:usageID").delete(
     authAPI.verifyRequest,
@@ -3483,7 +3533,7 @@ router.route('/projects/:projectID/restacker/toc').get(
 .post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes ,
-  middleware.validateZod(RestackerValidators.GetRestackerPageSchema),
+  middleware.validateZod(RestackerValidators.RestackerReloadSchema),
   restackerAPI.restackerReload
 );
 
@@ -3506,6 +3556,13 @@ router.route('/projects/:projectID/restacker/license').patch(
   authAPI.getUserAttributes ,
   middleware.validateZod(RestackerValidators.UpdateRestackerLicenseSchema),
   restackerAPI.updateRestackerLicense
+);
+
+router.route('/projects/:projectID/restacker/license/bulk').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes ,
+  middleware.validateZod(RestackerValidators.BulkUpdateRestackerLicenseSchema),
+  restackerAPI.bulkUpdateRestackerLicense
 );
 
 

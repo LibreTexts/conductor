@@ -42,6 +42,8 @@ export interface GlossaryUsageInterface extends Document {
   imageSource?: string;
   imageAuthor?: string;
   imageLicense?: string;
+  /** Render the term itself in italics (e.g. species names, foreign words). */
+  italic?: boolean;
 }
 
 const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
@@ -95,6 +97,7 @@ const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
   imageSource: { type: String, required: false },
   imageAuthor: { type: String, required: false },
   imageLicense: { type: String, required: false },
+  italic: { type: Boolean, required: false, default: false },
   author: { type: String, required: false },
   aliases: {
     type: [
@@ -110,6 +113,19 @@ const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
     default: undefined,
   },
 });
+
+// One usage record per term per book — prevents the same term ending up as
+// two separate GlossaryUsage documents in the same book (e.g. from a race
+// between two concurrent adds). See glossary-service.ts's
+// _addGlossaryUsageToDatabase, which recovers from the resulting duplicate-key
+// error instead of treating it as a failure.
+GlossaryUsageSchema.index(
+  { termID: 1, coverID: 1, library: 1 },
+  { unique: true },
+);
+
+// Per-book lookups (glossary listing, CSV duplicate checks).
+GlossaryUsageSchema.index({ coverID: 1, library: 1 });
 
 const GlossaryUsage = model<GlossaryUsageInterface>(
   "GlossaryUsage",

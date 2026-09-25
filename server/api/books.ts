@@ -1,6 +1,7 @@
 import logger, { childLogger } from "../logger.js";
 import { Request, Response, NextFunction } from "express";
 import multer, { memoryStorage, MulterError } from "multer";
+import { parse as parseCsv } from "csv-parse/sync";
 import fs from "fs-extra";
 import AdoptionReport from "../models/adoptionreport.js";
 import Book, { BookInterface } from "../models/book.js";
@@ -61,7 +62,11 @@ import {
   conductor500Err,
   serializeError,
 } from "../util/errorutils.js";
-import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
+import {
+  TypedReqUser,
+  ZodReqWithOptionalUser,
+  ZodReqWithUser,
+} from "../types/Express.js";
 import User from "../models/user.js";
 import centralIdentity from "./central-identity.js";
 import { PipelineStage, Types } from "mongoose";
@@ -86,7 +91,16 @@ import {
   getWithUsageIDParamSchema,
   addPageWithCoverIDParamSchema,
   readFromCxOneGlossaryAndAddToGlossaryUsageSchema,
+  importGlossaryFromCsvSchema,
+  getGlossaryCsvImportJobStatusSchema,
+  bulkDeleteGlossaryUsageSchema,
+  bulkUpdateGlossaryAttributionSchema,
 } from "./validators/book.js";
+import {
+  getGlossaryConfigSchema,
+  saveGlossaryConfigSchema,
+  deleteGlossaryConfigSchema,
+} from "./validators/glossaryconfig.js";
 import BookService, { BookPageConflictError } from "./services/book-service.js";
 import LibrarySyncService, {
   describeLimits,
@@ -117,10 +131,13 @@ import {
 import { archiveBookInStripe } from "./services/store-book-sync-service.js";
 import { PressBookScraper } from "../util/pressbookutils.js";
 import PressbooksImportJob from "../models/pressbooksimportjob.js";
+import GlossaryCsvImportJob from "../models/glossarycsvimportjob.js";
 import base62 from "base62-random";
 import Glossary from "../models/glossary.js";
 import GlossaryService, {
   GlossaryNotFoundError,
+  GlossaryConfigValidationError,
+  GlossaryTermConflictError,
 } from "./services/glossary-service.js";
 import GlossaryUsage from "../models/glossaryusage.js";
 import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
@@ -3148,21 +3165,9 @@ async function getBookGlossary(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-
-    const user = await User.findOne({ uuid: userID }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
 
     const glossary = await glossaryService.getGlossary({
@@ -3182,7 +3187,7 @@ async function addBookGlossary(
   res: Response,
 ) {
   try {
-    const { glossaryID, term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage } = req.body;
+    const { glossaryID, term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage, italic } = req.body;
     const { coverID, library } = req.params;
 
     const glossaryService = new GlossaryService();
@@ -3190,20 +3195,9 @@ async function addBookGlossary(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: userID }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
     if (usageID) {
       await glossaryService.updateGlossaryUsage(usageID, {
@@ -3226,6 +3220,7 @@ async function addBookGlossary(
         imageSource: imageSource?.trim() || undefined,
         imageAuthor: imageAuthor?.trim() || undefined,
         imageLicense: imageLicense?.trim() || undefined,
+        italic,
       });
       return res.send({ err: false, pageId, termID: usageID });
     }
@@ -3249,9 +3244,13 @@ async function addBookGlossary(
       imageAuthor: imageAuthor?.trim() || undefined,
       imageLicense: imageLicense?.trim() || undefined,
       glossaryID: glossaryID?.toString().trim() === "" ? undefined : glossaryID?.toString().trim(),
+      italic,
     });
     return res.send({ err: false, pageId, termID });
   } catch (err) {
+    if (err instanceof GlossaryTermConflictError) {
+      return res.status(409).send({ err: true, errMsg: err.message });
+    }
     logger.error({ err }, "addBookGlossary failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
@@ -3269,25 +3268,173 @@ async function addPageToGlossaryUsage(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
     await glossaryService.addPageToGlossaryUsage(pageIds, usageIds, coverID.toString(), library);
     return res.send({ err: false, msg: "Page added to glossary usage successfully." });
   } catch (err) {
     logger.error({ err }, "addPageToGlossaryUsage failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function bulkDeleteGlossaryUsage(
+  req: ZodReqWithUser<z.infer<typeof bulkDeleteGlossaryUsageSchema>>,
+  res: Response,
+) {
+  try {
+    const { usageIds } = req.body;
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+    const deletedCount = await glossaryService.bulkDeleteGlossaryUsage(
+      usageIds,
+      coverID.toString(),
+      library,
+    );
+    return res.send({ err: false, deletedCount });
+  } catch (err) {
+    logger.error({ err }, "bulkDeleteGlossaryUsage failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function bulkUpdateGlossaryAttribution(
+  req: ZodReqWithUser<z.infer<typeof bulkUpdateGlossaryAttributionSchema>>,
+  res: Response,
+) {
+  try {
+    const { usageIds, author, link, source } = req.body;
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+    const modifiedCount = await glossaryService.bulkUpdateAttribution(
+      usageIds,
+      coverID.toString(),
+      library,
+      {
+        author: author?.trim() || undefined,
+        link: link?.trim() || undefined,
+        source: source?.trim() || undefined,
+      },
+    );
+    return res.send({ err: false, modifiedCount });
+  } catch (err) {
+    logger.error({ err }, "bulkUpdateGlossaryAttribution failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+/**
+ * Glossary edits require the book's linked project. A book with no project is
+ * a 404 for everyone (including superadmins); privileged LibreTexts roles are
+ * already let through by checkProjectMemberPermission when given the request user.
+ */
+function checkGlossaryProjectAccess(
+  project: unknown,
+  user: TypedReqUser,
+): { err: true; status: number; errMsg: string } | { err: false } {
+  if (!project) {
+    return { err: true, status: 404, errMsg: "Project not found for this book." };
+  }
+  if (!projectsAPI.checkProjectMemberPermission(project, user)) {
+    return { err: true, status: 403, errMsg: conductorErrors.err8 };
+  }
+  return { err: false };
+}
+
+async function checkGlossaryConfigAccess(
+  req: ZodReqWithUser<{ params: { coverID: number; library: string } }>,
+  glossaryService: GlossaryService,
+): Promise<{ err: true; status: number; errMsg: string } | { err: false }> {
+  const { coverID, library } = req.params;
+  const project = await glossaryService.getProject({
+    coverID: coverID.toString(),
+    library,
+  });
+  return checkGlossaryProjectAccess(project, req.user);
+}
+
+async function getGlossaryConfig(
+  req: ZodReqWithUser<z.infer<typeof getGlossaryConfigSchema>>,
+  res: Response,
+) {
+  try {
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const access = await checkGlossaryConfigAccess(req, glossaryService);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+    const config = await glossaryService.getGlossaryConfig(
+      coverID.toString(),
+      library,
+    );
+    return res.send({ err: false, exists: !!config, config: config ?? null });
+  } catch (err) {
+    logger.error({ err }, "getGlossaryConfig failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function saveGlossaryConfig(
+  req: ZodReqWithUser<z.infer<typeof saveGlossaryConfigSchema>>,
+  res: Response,
+) {
+  try {
+    const { coverID, library } = req.params;
+    const { mode, glossaryPageId, groups } = req.body;
+    const glossaryService = new GlossaryService();
+    const access = await checkGlossaryConfigAccess(req, glossaryService);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+    const config = await glossaryService.saveGlossaryConfig(
+      coverID.toString(),
+      library,
+      { mode, glossaryPageId, groups },
+    );
+    return res.send({ err: false, config });
+  } catch (err) {
+    if (err instanceof GlossaryConfigValidationError) {
+      return res.status(400).send({ err: true, errMsg: err.message });
+    }
+    logger.error({ err }, "saveGlossaryConfig failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+async function deleteGlossaryConfig(
+  req: ZodReqWithUser<z.infer<typeof deleteGlossaryConfigSchema>>,
+  res: Response,
+) {
+  try {
+    const { coverID, library } = req.params;
+    const glossaryService = new GlossaryService();
+    const access = await checkGlossaryConfigAccess(req, glossaryService);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+    await glossaryService.deleteGlossaryConfig(coverID.toString(), library);
+    return res.send({ err: false });
+  } catch (err) {
+    logger.error({ err }, "deleteGlossaryConfig failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
   }
 }
@@ -3303,20 +3450,9 @@ async function deleteBookGlossary(
       coverID: coverID.toString(),
       library,
     });
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
 
     await glossaryService.deleteBookGlossary({
@@ -3339,26 +3475,15 @@ async function deleteBookGlossaryUsage(
   try {
     const glossaryService = new GlossaryService();
     const project = await glossaryService.getProjectByUsageID(usageID.toString());
-    const { uuid: userID } = req.user.decoded;
-    const user = await User.findOne({ uuid: { $eq: userID } }).orFail();
-    const isSuperAdmin = authAPI.checkHasRole(
-      req.user,
-      "libretexts",
-      "superadmin",
-      true,
-    );
-    if (!project && !isSuperAdmin) {
-      return res.status(404).send({ err: true, errMsg: "Project not found for this book." });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canAccess && !isSuperAdmin) {
-      throw new Error(conductorErrors.err8);
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
     }
     await glossaryService.deleteGlossaryUsage(usageID, pageID?.toString() || undefined);
     return res.send({ err: false, msg: "Glossary usage deleted successfully." });
   }
   catch (err) {
-
+    logger.error({ err }, "deleteBookGlossaryUsage failed");
     return res.status(500).send({ err: true, errMsg: "Failed to delete glossary usage." });
   }
 }
@@ -3412,6 +3537,14 @@ async function addExternalGlossaryToGlossaryUsage(
     const { library, coverID } = req.params;
     const { auxGlossaryID, auxGlossaryParentID } = req.body;
     const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
     if (!auxGlossaryID && !auxGlossaryParentID) {
       const result = await glossaryService.addExternalGlossaryToGlossaryUsage(glossaryID.toString(), coverID.toString(), library, req.user.decoded.uuid);
       return res.send({ err: false, msg: "External glossary added to glossary usage successfully.", data: result });
@@ -3459,6 +3592,352 @@ async function glossaryImageUploadHandler(
     }
     return next();
   });
+}
+
+async function glossaryCsvUploadHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const config = multer({
+    storage: memoryStorage(),
+    limits: { files: 1, fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const validMimeTypes = [
+        "text/csv",
+        "application/csv",
+        "application/vnd.ms-excel",
+        "text/plain",
+      ];
+      if (
+        !validMimeTypes.includes(file.mimetype) &&
+        !file.originalname.toLowerCase().endsWith(".csv")
+      ) {
+        return cb(new Error("notcsvfile"));
+      }
+      return cb(null, true);
+    },
+  }).single("file");
+
+  return config(req, res, (err) => {
+    if (err) {
+      let errMsg = conductorErrors.err6;
+      if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
+        errMsg = "CSV file must be smaller than 5 MB.";
+      }
+      if (err.message === "notcsvfile") {
+        errMsg = "Please upload a valid CSV file.";
+      }
+      return res.status(400).send({ err: true, errMsg });
+    }
+    return next();
+  });
+}
+
+/**
+ * Parses an uploaded two-column (term, definition) CSV file. A first row
+ * whose two cells read "term"/"definition" (case-insensitive) is treated as
+ * a header and skipped; otherwise every row is treated as data.
+ */
+/**
+ * Most data rows one CSV import accepts. Each row costs several sequential DB
+ * writes, and 5 MB of short rows would otherwise be hundreds of thousands.
+ */
+const GLOSSARY_CSV_MAX_ROWS = 2000;
+
+class GlossaryCsvTooManyRowsError extends Error {}
+
+function parseGlossaryCsvEntries(
+  buffer: Buffer,
+): { term: string; definition: string }[] {
+  const rows: string[][] = parseCsv(buffer, {
+    // Strip a UTF-8 byte-order mark (added by Excel and by our own CSV
+    // export) so the header row is still recognized as "Term,Definition".
+    bom: true,
+    skip_empty_lines: true,
+    trim: true,
+    relax_column_count: true,
+    // Header + the cap + one more, enough to detect an oversized file
+    // without parsing all of it.
+    to: GLOSSARY_CSV_MAX_ROWS + 2,
+  });
+
+  const looksLikeHeader =
+    rows.length > 0 &&
+    rows[0].length >= 2 &&
+    /^term$/i.test(rows[0][0] ?? "") &&
+    /^definition$/i.test(rows[0][1] ?? "");
+  const dataRows = looksLikeHeader ? rows.slice(1) : rows;
+  if (dataRows.length > GLOSSARY_CSV_MAX_ROWS) {
+    throw new GlossaryCsvTooManyRowsError();
+  }
+
+  // Match the length limits `addWithCoverIDParamSchema` enforces on the
+  // manual add form, so a CSV row can't slip in a term/definition the
+  // normal path would reject. HTML/script content is neutralized later, in
+  // GlossaryService's shared write path (`_addGlossaryToDatabase` /
+  // `_addGlossaryUsageToDatabase`), which every import route funnels
+  // through — CSV rows get no special exemption from that sanitization.
+  return dataRows
+    .filter((row) => row.length >= 2 && row[0]?.trim() && row[1]?.trim())
+    .map((row) => ({
+      term: unneutralizeCsvFormula(row[0].trim()).slice(0, 50),
+      definition: unneutralizeCsvFormula(row[1].trim()).slice(0, 1000),
+    }));
+}
+
+/**
+ * Undoes the glossary CSV export's formula-injection guard, which prefixes
+ * `'` to cells starting with `= + - @` (see `neutralizeCsvFormula` in the
+ * client's Glossary/services.ts), so an export re-imports unchanged.
+ */
+function unneutralizeCsvFormula(value: string): string {
+  return /^'[=+\-@]/.test(value) ? value.slice(1) : value;
+}
+
+/**
+ * Kicks off a background job to bulk-add glossary terms from an uploaded
+ * CSV file. Runs asynchronously (rather than inline in the request) because
+ * imports of hundreds of rows can take long enough to trip upstream/proxy
+ * request timeouts; the client polls `getGlossaryCsvImportJobStatus` for
+ * progress instead of waiting on this response.
+ */
+async function startGlossaryCsvImportJob(
+  req: ZodReqWithUser<z.infer<typeof importGlossaryFromCsvSchema>> & {
+    file?: Express.Multer.File;
+  },
+  res: Response,
+) {
+  try {
+    const { coverID, library } = req.params;
+    const { glossaryID, duplicateAction } = req.body;
+
+    if (!req.file) {
+      return res
+        .status(400)
+        .send({ err: true, errMsg: "No CSV file provided." });
+    }
+
+    const glossaryService = new GlossaryService();
+    const project = await glossaryService.getProject({
+      coverID: coverID.toString(),
+      library,
+    });
+    const access = checkGlossaryProjectAccess(project, req.user);
+    if (access.err) {
+      return res.status(access.status).send({ err: true, errMsg: access.errMsg });
+    }
+
+    const { uuid: userID } = req.user.decoded;
+
+    let entries: { term: string; definition: string }[];
+    try {
+      entries = parseGlossaryCsvEntries(req.file.buffer);
+    } catch (err) {
+      return res.status(400).send({
+        err: true,
+        errMsg:
+          err instanceof GlossaryCsvTooManyRowsError
+            ? `CSV files can have at most ${GLOSSARY_CSV_MAX_ROWS} rows. Split the file and import each part.`
+            : "Failed to parse CSV file.",
+      });
+    }
+
+    if (entries.length === 0) {
+      return res.status(400).send({
+        err: true,
+        errMsg:
+          "No valid term/definition rows found in CSV. Expected two columns: term, definition.",
+      });
+    }
+
+    if (!duplicateAction) {
+      const duplicateTerms = await glossaryService.findExistingUsageTerms(
+        entries.map((e) => e.term),
+        coverID.toString(),
+        library,
+      );
+      if (duplicateTerms.length > 0) {
+        return res.send({
+          err: false,
+          requiresConfirmation: true,
+          duplicateTerms,
+          totalRows: entries.length,
+        });
+      }
+    } else if (duplicateAction === "skip") {
+      const duplicateTerms = new Set(
+        (
+          await glossaryService.findExistingUsageTerms(
+            entries.map((e) => e.term),
+            coverID.toString(),
+            library,
+          )
+        ).map((t) => t.toLowerCase()),
+      );
+      entries = entries.filter(
+        (e) => !duplicateTerms.has(e.term.toLowerCase()),
+      );
+      if (entries.length === 0) {
+        return res.status(400).send({
+          err: true,
+          errMsg: "All terms in the CSV already exist in this glossary.",
+        });
+      }
+    }
+
+    const jobID = base62(10);
+    await GlossaryCsvImportJob.create({
+      jobID,
+      coverID: coverID,
+      library,
+      userID,
+      glossaryID: glossaryID?.toString().trim() || undefined,
+      status: "pending",
+      totalRows: entries.length,
+      processedRows: 0,
+      imported: 0,
+    });
+
+    res.send({ err: false, jobID, totalRows: entries.length });
+
+    void runGlossaryCsvImportJob({
+      jobID,
+      entries,
+      coverID: coverID.toString(),
+      library,
+      userID,
+      glossaryID: glossaryID?.toString().trim() || undefined,
+    });
+  } catch (err) {
+    logger.error({ err }, "startGlossaryCsvImportJob failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+}
+
+/** How long a pending/running CSV import job may go without a progress write. */
+const GLOSSARY_CSV_JOB_STALE_MS = 5 * 60_000;
+
+type GlossaryCsvImportJobParams = {
+  jobID: string;
+  entries: { term: string; definition: string }[];
+  coverID: string;
+  library: string;
+  userID: string;
+  glossaryID?: string;
+};
+
+async function runGlossaryCsvImportJob(params: GlossaryCsvImportJobParams) {
+  const { jobID, entries, coverID, library, userID, glossaryID } = params;
+  try {
+    await GlossaryCsvImportJob.updateOne(
+      { jobID: { $eq: jobID } },
+      { $set: { status: "running" } },
+    );
+
+    const glossaryService = new GlossaryService();
+    const { imported, updated } = await glossaryService.addGlossaryEntries(
+      entries,
+      coverID,
+      library,
+      userID,
+      glossaryID,
+      async (processed, _total, counts) => {
+        // Awaited, and guarded on `processedRows` so a slow write can never
+        // move progress backwards. Each write also refreshes `updatedAt`,
+        // the heartbeat the status endpoint uses to detect a dead job.
+        await GlossaryCsvImportJob.updateOne(
+          {
+            jobID: { $eq: jobID },
+            status: "running",
+            processedRows: { $lt: processed },
+          },
+          {
+            $set: {
+              processedRows: processed,
+              imported: counts.imported,
+              updated: counts.updated,
+            },
+          },
+        ).catch((err) => {
+          logger.warn({ err, jobID }, "Failed to update glossary CSV import job progress");
+        });
+      },
+    );
+
+    await GlossaryCsvImportJob.updateOne(
+      { jobID: { $eq: jobID } },
+      {
+        $set: {
+          status: "success",
+          processedRows: entries.length,
+          imported,
+          updated,
+        },
+      },
+    );
+  } catch (err: any) {
+    logger.error({ err }, "runGlossaryCsvImportJob failed");
+    await GlossaryCsvImportJob.updateOne(
+      { jobID: { $eq: jobID } },
+      {
+        $set: {
+          status: "error",
+          errorMessage: err?.message || conductorErrors.err6,
+        },
+      },
+    );
+  }
+}
+
+async function getGlossaryCsvImportJobStatus(
+  req: ZodReqWithUser<z.infer<typeof getGlossaryCsvImportJobStatusSchema>>,
+  res: Response,
+) {
+  try {
+    const { jobID } = req.params;
+    const requesterID = req.user.decoded.uuid;
+
+    const job = await GlossaryCsvImportJob.findOne({ jobID: { $eq: jobID } }).lean();
+    if (!job) {
+      return res.status(404).send({ err: true, errMsg: "Import job not found." });
+    }
+    if (job.userID !== requesterID) {
+      return res.status(403).send({ err: true, errMsg: conductorErrors.err8 });
+    }
+
+    // A live job writes progress every batch of rows; one silent this long
+    // died with its server (restart/deploy), so stop the client waiting on it.
+    if (
+      (job.status === "pending" || job.status === "running") &&
+      Date.now() - new Date(job.updatedAt).getTime() > GLOSSARY_CSV_JOB_STALE_MS
+    ) {
+      const errorMessage =
+        "The import was interrupted. Some rows may have been imported; re-upload the file to finish.";
+      await GlossaryCsvImportJob.updateOne(
+        { jobID: { $eq: jobID }, status: { $in: ["pending", "running"] } },
+        { $set: { status: "error", errorMessage } },
+      );
+      job.status = "error";
+      job.errorMessage = errorMessage;
+    }
+
+    return res.send({
+      err: false,
+      job: {
+        jobID: job.jobID,
+        status: job.status,
+        totalRows: job.totalRows,
+        processedRows: job.processedRows,
+        imported: job.imported,
+        updated: job.updated ?? 0,
+        errorMessage: job.errorMessage,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "getGlossaryCsvImportJobStatus failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
 }
 
 async function getGlossaryUsageImage(
@@ -3518,4 +3997,12 @@ export default {
   getGlossaryUsageImage,
   addPageToGlossaryUsage,
   addExternalGlossaryToGlossaryUsage,
+  glossaryCsvUploadHandler,
+  startGlossaryCsvImportJob,
+  getGlossaryCsvImportJobStatus,
+  bulkDeleteGlossaryUsage,
+  bulkUpdateGlossaryAttribution,
+  getGlossaryConfig,
+  saveGlossaryConfig,
+  deleteGlossaryConfig,
 };

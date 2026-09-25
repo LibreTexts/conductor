@@ -1309,7 +1309,7 @@ export class PressBookScraper {
       const glossaryPageID = await getPageID(glossaryPagePath, this.subdomain);
       try {
         const glossaryService = new GlossaryService();
-        const imported = await glossaryService.addGlossaryEntries(
+        const { imported, updated } = await glossaryService.addGlossaryEntries(
           glossary.map((g) => ({
             term: g.term,
             definition: g.definition,
@@ -1323,7 +1323,7 @@ export class PressBookScraper {
           glossaryPageID ?? undefined,
         );
         log(
-          `  [BM glossary] Imported ${imported} term(s) into GlossaryUsage (cover ${coverID})`,
+          `  [BM glossary] Imported ${imported} new and updated ${updated} existing term(s) in GlossaryUsage (cover ${coverID})`,
         );
       } catch (err) {
         log(

@@ -20,6 +20,17 @@ interface RestackerSubPageState {
     status: RestackerStatus;
 }
 
+/** Progress of the most recent background bulk license update. */
+export interface RestackerBulkLicenseJob {
+    jobID: string;
+    status: "running" | "completed" | "failed";
+    total: number;
+    processed: number;
+    updated: number;
+    failed: number;
+    skipped: number;
+}
+
 export interface RestackerInterface extends Document {
 
     projectID: string;
@@ -29,6 +40,11 @@ export interface RestackerInterface extends Document {
     restackerCurrentBook: RestackerSubPageState[];
     message: string[];
     processing: boolean;
+    /** Owner of the `processing` lock, so a superseded run can't write or release it. */
+    processingLockID?: string;
+    /** Refreshed while the lock is held; a stale value means the holder died. */
+    processingHeartbeatAt?: Date;
+    bulkLicenseJob?: RestackerBulkLicenseJob;
 
 }
 
@@ -69,6 +85,23 @@ const RestackerSchema = new Schema<RestackerInterface>(
         restackerCurrentBook: { type: [RestackerSubPageStateSchema], required: true },
         message: { type: [String], required: true, default: [] },
         processing: { type: Boolean, required: true, default: false },
+        processingLockID: { type: String, required: false },
+        processingHeartbeatAt: { type: Date, required: false },
+        bulkLicenseJob: {
+            type: new Schema<RestackerBulkLicenseJob>(
+                {
+                    jobID: { type: String, required: true },
+                    status: { type: String, enum: ["running", "completed", "failed"], required: true },
+                    total: { type: Number, required: true, default: 0 },
+                    processed: { type: Number, required: true, default: 0 },
+                    updated: { type: Number, required: true, default: 0 },
+                    failed: { type: Number, required: true, default: 0 },
+                    skipped: { type: Number, required: true, default: 0 },
+                },
+                { _id: false },
+            ),
+            required: false,
+        },
     },
 );
 

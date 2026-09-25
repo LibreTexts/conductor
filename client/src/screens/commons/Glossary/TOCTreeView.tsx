@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, List } from "semantic-ui-react";
-import { IconDownload, IconExternalLink, IconPlus } from "@tabler/icons-react";
+import {
+  IconDownload,
+  IconExternalLink,
+  IconPlus,
+  IconTableExport,
+} from "@tabler/icons-react";
 import { TableOfContents } from "../../../types/Book";
 
 interface TOCTreeViewProps {
@@ -11,6 +16,9 @@ interface TOCTreeViewProps {
   bookId?: string;
   onImportGlossary?: (auxGlossaryID: string, auxGlossaryParentID?: string) => void;
   importingGlossary?: boolean;
+  onExportPageCsv?: (pageId: string, pageTitle: string) => void;
+  /** Page ids that have at least one glossary term — gates the per-row export icon. */
+  pageIdsWithTerms?: Set<string>;
 }
 
 interface TOC {
@@ -22,6 +30,8 @@ interface TOC {
   onNodeClick: (nodeId: string) => void;
   onImportGlossary?: (auxGlossaryID: string, auxGlossaryParentID?: string) => void;
   importingGlossary?: boolean;
+  onExportPageCsv?: (pageId: string, pageTitle: string) => void;
+  pageIdsWithTerms?: Set<string>;
 }
 
 function collectIdsWithChildren(items: TableOfContents[]): string[] {
@@ -69,8 +79,11 @@ const TOCTreeNode: React.FC<TOC> = ({
   parentId,
   onImportGlossary,
   importingGlossary,
+  onExportPageCsv,
+  pageIdsWithTerms,
 }) => {
   const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+  const canExportCsv = onExportPageCsv && pageIdsWithTerms?.has(item.id);
   const expanded = hasChildren && expandedIds.has(item.id);
 
   return (
@@ -130,6 +143,19 @@ const TOCTreeNode: React.FC<TOC> = ({
                 <IconDownload size={20} aria-label="Import glossary terms" />
               </button>
             )}
+            {canExportCsv && (
+              <button
+                type="button"
+                className="inline-flex shrink-0 rounded p-0.5 text-info-500 opacity-0 transition-opacity group-hover/node:opacity-100 group-focus-within/node:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500"
+                aria-label={`Export glossary terms for “${item.title}” as CSV`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExportPageCsv!(item.id, item.title);
+                }}
+              >
+                <IconTableExport size={20} aria-label="Export glossary as CSV" />
+              </button>
+            )}
           </span>
         </List.Header>
         {hasChildren && expanded && (
@@ -145,6 +171,8 @@ const TOCTreeNode: React.FC<TOC> = ({
                 parentId={item.id}
                 onImportGlossary={onImportGlossary}
                 importingGlossary={importingGlossary}
+                onExportPageCsv={onExportPageCsv}
+                pageIdsWithTerms={pageIdsWithTerms}
               />
             ))}
           </List.List>
@@ -162,6 +190,8 @@ const TOCTreeView: React.FC<TOCTreeViewProps> = ({
   bookId,
   onImportGlossary,
   importingGlossary,
+  onExportPageCsv,
+  pageIdsWithTerms,
 }) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() =>
     readExpandedIds(storageKey),
@@ -219,6 +249,8 @@ const TOCTreeView: React.FC<TOCTreeViewProps> = ({
             parentId={bookId}
             onImportGlossary={onImportGlossary}
             importingGlossary={importingGlossary}
+            onExportPageCsv={onExportPageCsv}
+            pageIdsWithTerms={pageIdsWithTerms}
           />
         ))}
       </List>

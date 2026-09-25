@@ -58,6 +58,17 @@
 .glossary-list__table-wrapper {
   min-width: 0;
   max-width: 100%;
+  /*
+   * DataTable's own wrapper always sets `overflow: auto`, which — since it
+   * never gets a bounded height itself — makes it the sticky positioning
+   * context for `stickyHeader` instead of `.glossary-page__panel-scroll`
+   * (the ancestor that actually scrolls). A scroll container claims sticky
+   * regardless of whether it currently overflows, so the header never
+   * visibly pins without this override. The table is fixed-layout, full
+   * width, and wraps cell text (see `.glossary-list__cell`), so there is no
+   * horizontal overflow to lose by disabling the wrapper's own scrollbox.
+   */
+  overflow: visible !important;
 }
 
 .glossary-list__table {
@@ -73,6 +84,22 @@
   vertical-align: top;
 }
 
+/*
+ * The "Rows per page" select ships with no room reserved for the native
+ * dropdown arrow, so on Windows/Chrome it overlaps the page-size number.
+ * Replace it with a custom arrow with padding sized to clear it.
+ */
+.glossary-list select[aria-label="Rows per page"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 1.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%236b7280' stroke-width='1.5'%3E%3Cpath d='M6 8l4 4 4-4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  background-size: 0.8em;
+}
+
 .glossary-list__pages-table th:first-child,
 .glossary-list__pages-table td:first-child {
   width: 70%;
@@ -84,14 +111,16 @@
   color: #007bff;
 }
 
+/*
+  Undo Tailwind Preflight's `svg { display: block }`, which otherwise breaks
+  MathJax's SVG output (loaded via tex-mml-svg.js, i.e. jax="SVG") by forcing
+  each glyph run onto its own block box instead of flowing horizontally.
+*/
 mjx-container {
-  display: inline-block !important;
-}
-
-mjx-container[jax="CHTML"] {
   display: inline-block !important;
   margin: 0 !important;
 }
-mjx-container[jax="CHTML"][display="true"] {
-  display: inline-block !important; /* only if you WANT display math inline too */
+
+mjx-container > svg {
+  display: inline-block !important;
 }

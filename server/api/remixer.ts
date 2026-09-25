@@ -256,8 +256,13 @@ const publishRemixerProject = async (
 ) => {
   try {
     const { id } = req.params;
-    const { currentBook, autoNumbering, copyModeState, pathLevelFormats } =
-      req.body;
+    const {
+      currentBook,
+      autoNumbering,
+      copyModeState,
+      pathLevelFormats,
+      importGlossaryTerms,
+    } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
     const ctx = await ProjectContext.load(id);
@@ -339,6 +344,7 @@ const publishRemixerProject = async (
         projectID: id,
         subdomain,
         coverId: project.libreCoverID ?? "",
+        importGlossaryTerms: Boolean(importGlossaryTerms),
       })
       .catch((error: unknown) => {
         logger.error({ err: error }, "Failed to run remixer job");

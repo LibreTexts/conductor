@@ -3,6 +3,8 @@
 // LicenseOptions.js
 //
 
+import licenseVersionsData from "../../../../shared/license-versions.json";
+
 const licenses = [
     { key: 'arr',           text: 'All Rights Reserved',    value: 'arr'            },
     { key: 'ccby',          text: 'CC BY',                  value: 'ccby'           },
@@ -17,7 +19,7 @@ const licenses = [
     { key: 'gnugpl',        text: 'GNU GPL',                value: 'gnugpl'         },
     { key: 'publicdomain',  text: 'Public Domain',          value: 'publicdomain'   },
     { key: 'ck12',          text: 'CK-12 License',          value: 'ck12'           },
-    { key: 'multiple',      text: 'Multiple Licenses',      value: 'multiple'       }
+    { key: 'mixed',      text: 'Multiple Licenses',      value: 'mixed'       }
 ];
 
 const licenseOptions = [
@@ -25,126 +27,60 @@ const licenseOptions = [
     ...licenses
 ];
 
-const licenseVersions = [
-    {
-      "license": "arr",
-      "versions": []
-    },
-    {
-      "license": "ccby",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbync",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbyncnd",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbyncsa",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbynd",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "ccbysa",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "25", "label": "2.5" },
-        { "key": "30", "label": "3.0" },
-        { "key": "40", "label": "4.0" }
-      ]
-    },
-    {
-      "license": "gnu",
-      "versions": []
-    },
-    {
-      "license": "gnudsl",
-      "versions": [
-        { "key": "10", "label": "1.0" }
-      ]
-    },
-    {
-      "license": "gnufdl",
-      "versions": [
-        { "key": "11", "label": "1.1" },
-        { "key": "12", "label": "1.2" },
-        { "key": "13", "label": "1.3" }
-      ]
-    },
-    {
-      "license": "gnugpl",
-      "versions": [
-        { "key": "10", "label": "1.0" },
-        { "key": "20", "label": "2.0" },
-        { "key": "30", "label": "3.0" }
-      ]
-    },
-    {
-      "license": "publicdomain",
-      "versions": []
-    },
-    {
-      "license": "ck12",
-      "versions": []
-    },
-    {
-      "license": "multiple",
-      "versions": []
-    }
-  ]
+// Licenses and the versions each is issued in. Shared with the server's
+// license validation (server/api/validators/Restacker.ts) so they can't drift.
+const licenseVersions = licenseVersionsData;
+
+/**
+ * Older identifiers that were renamed, mapped to their current value. Stored data
+ * (synced books, glossary entries, library page tags) can still use the old names.
+ */
+const LEGACY_LICENSE_ALIASES = {
+    multiple: 'mixed',
+};
+
+/**
+ * Maps a legacy license identifier to its current value; other values pass through.
+ * @param {string} license - The license's raw identifier.
+ * @returns {string} The current identifier.
+ */
+const normalizeLicenseKey = (license) => LEGACY_LICENSE_ALIASES[license] ?? license;
 
   const getLicenseVersionOptions = (license) => {
-    return licenseVersions.find((item) => item.license === license)?.versions || [];
+    const key = normalizeLicenseKey(license);
+    return licenseVersions.find((item) => item.license === key)?.versions || [];
   }
+
+/**
+ * Returns `version` only when it is one of the license's versions (e.g. GNU DSL
+ * has no 4.0); otherwise an empty string, so a stale version never carries over.
+ * @param {string} license - The license's raw identifier.
+ * @param {string} [version] - The version key, e.g. '40'.
+ * @returns {string} The version key, or '' when it doesn't belong to the license.
+ */
+const getValidLicenseVersion = (license, version) => {
+    if (!version) return '';
+    return getLicenseVersionOptions(license).some((item) => item.key === version)
+        ? version
+        : '';
+};
 
 /**
  * Returns the UI-ready presentation of a license title.
  * @param {string} license - The license's raw identifier.
- * @param {string} [version] - The license version in format 'x.x'. 
+ * @param {string} [version] - The license version in format 'x.x'. Ignored for
+ *  licenses that have no versions (e.g. Public Domain), even if one was tagged.
  * @returns {string} The UI-ready license title presentation.
  */
 const getLicenseText = (license, version) => {
     if (license !== '') {
-        let foundLicense = licenseOptions.find((item) => item.value === license);
+        const key = normalizeLicenseKey(license);
+        let foundLicense = licenseOptions.find((item) => item.value === key);
         if (foundLicense !== undefined) {
-            if (typeof (version) === 'string') return `${foundLicense.text} ${version}`;
+            const hasVersions = getLicenseVersionOptions(license).length > 0;
+            if (hasVersions && typeof (version) === 'string' && version !== '') {
+                return `${foundLicense.text} ${version}`;
+            }
             return foundLicense.text;
         }
         return 'Unknown License';
@@ -156,5 +92,7 @@ export {
     licenses,
     licenseOptions,
     getLicenseText,
-    getLicenseVersionOptions
+    getLicenseVersionOptions,
+    getValidLicenseVersion,
+    normalizeLicenseKey
 };
