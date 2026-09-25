@@ -19,6 +19,8 @@ type ContextMenuAction =
 interface ContextMenuProps {
   contextMenu: ContextMenuPosition | null;
   canAddSibling: boolean;
+  /** False for core matter pages, which can't hold children. */
+  canAddChild?: boolean;
   canDuplicate: boolean;
   isDeleted: boolean;
   addAboveLabel: string;
@@ -38,6 +40,7 @@ const itemStyle: React.CSSProperties = {
 const ContextMenu: React.FC<ContextMenuProps> = ({
   contextMenu,
   canAddSibling,
+  canAddChild = true,
   canDuplicate,
   isDeleted,
   addAboveLabel,
@@ -72,14 +75,16 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
           <Icon name="arrow up" /> {addAboveLabel}
         </div>
       )}
-      <div
-        style={itemStyle}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f0f0")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-        onClick={() => onAction("add-to")}
-      >
-        <Icon name="add" /> {addToLabel}
-      </div>
+      {canAddChild && (
+        <div
+          style={itemStyle}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f0f0")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          onClick={() => onAction("add-to")}
+        >
+          <Icon name="add" /> {addToLabel}
+        </div>
+      )}
       {canAddSibling && (
         <div
           style={itemStyle}

@@ -25,6 +25,7 @@ import PublishPanel from "./PublishPanel";
 import RecoveryModal from "./RecoveryModal";
 import PublishSuccessDialog from "./PublishSuccessDialog";
 import StartOverModal from "./StartOverModal";
+import CorePageDeleteModal from "./CorePageDeleteModal";
 import {
   Library,
   PathLevelFormat,
@@ -171,6 +172,10 @@ const RemixerDashboard: React.FC = () => {
   const [publishPolling, setPublishPolling] = useState<boolean>(false);
   const [publishPanelOpen, setPublishPanelOpen] = useState<boolean>(false);
   const [publishSuccessOpen, setPublishSuccessOpen] = useState<boolean>(false);
+  /** Default matter page awaiting "delete anyway" confirmation. */
+  const [pendingCorePageDeleteId, setPendingCorePageDeleteId] = useState<
+    string | undefined
+  >();
 
   const [loadingRecovery, setLoadingRecovery] = useState(false);
 
@@ -267,6 +272,22 @@ const RemixerDashboard: React.FC = () => {
     return isDefaultMatterPage(node);
   };
 
+  /**
+   * Which kind of core matter node `nodeId` is, for the delete confirmation:
+   * a Front/Back Matter container ("section"), one of its default pages
+   * ("page"), or neither (null). User-added nodes are never core.
+   */
+  const getCoreMatterKind = (nodeId?: string): "page" | "section" | null => {
+    if (!nodeId) return null;
+    const node = (remixerData.currentBook ?? []).find(
+      (n) => n["@id"] === nodeId,
+    );
+    if (!node || node.addedItem) return null;
+    if (isMatterRootNode(node)) return "section";
+    if (isDefaultMatterPage(node)) return "page";
+    return null;
+  };
+
   /** Deepest path level present in the current book (drives the path-format modal). */
   const highestPathLevel = useCallback(
     (): number => computeHighestPathLevel(remixerData.currentBook ?? []),
@@ -311,6 +332,10 @@ const RemixerDashboard: React.FC = () => {
     (contextMenuUnderMatterRoot || !isDefaultMatterItem(contextMenu.nodeId));
 
   const contextMenuIsDeleted = contextMenuTargetNode?.deletedItem === true;
+
+  // Core matter pages are leaves (TitlePage, Index, …); don't nest under them.
+  const contextMenuCanAddChild =
+    contextMenu != null && !isDefaultMatterItem(contextMenu.nodeId);
 
   const contextMenuCanDuplicate =
     contextMenu != null &&
@@ -943,22 +968,32 @@ const RemixerDashboard: React.FC = () => {
     }
   };
 
-  /** Soft-delete the currently selected book node and its descendants (skipped for default matter items). */
-  const handleDeleteSelectedBookNode = () => {
-    const selectedNodeId = uiState.selectedBookNodeId;
-    if (!selectedNodeId) return;
-    if (isDefaultMatterItem(selectedNodeId)) return;
+  /**
+   * Soft-delete a book node and its descendants. Default matter pages
+   * (TitlePage, Index, …) and the Front/Back Matter containers first go
+   * through a confirmation modal; `confirmed` is set when it is accepted.
+   */
+  const deleteBookNode = (nodeId: string, confirmed = false) => {
+    if (!confirmed && getCoreMatterKind(nodeId) !== null) {
+      setPendingCorePageDeleteId(nodeId);
+      return;
+    }
     updateCurrentBook(
-      (existingBookNodes) =>
-        applyBookNodeDeletion(existingBookNodes, selectedNodeId),
+      (existingBookNodes) => applyBookNodeDeletion(existingBookNodes, nodeId),
       { trackHistory: true },
     );
     setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
   };
 
+  /** Soft-delete the currently selected book node and its descendants. */
+  const handleDeleteSelectedBookNode = () => {
+    const selectedNodeId = uiState.selectedBookNodeId;
+    if (!selectedNodeId) return;
+    deleteBookNode(selectedNodeId);
+  };
+
   /** Restore a book node and its descendants; shared by the toolbar, context menu, and row trash icon. */
   const restoreBookNode = (nodeId: string) => {
-    if (isDefaultMatterItem(nodeId)) return;
     if (isNodeUnderDeletedAncestor(remixerData.currentBook ?? [], nodeId)) {
       addNotification({
         message:
@@ -1360,12 +1395,7 @@ const RemixerDashboard: React.FC = () => {
       setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId }));
       openEditPanelForSelectedBookNode(nodeId);
     } else if (action === "delete") {
-      if (isDefaultMatterItem(nodeId)) return;
-      updateCurrentBook(
-        (existingBookNodes) => applyBookNodeDeletion(existingBookNodes, nodeId),
-        { trackHistory: true },
-      );
-      setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
+      deleteBookNode(nodeId);
     } else if (action === "restore") {
       restoreBookNode(nodeId);
     } else if (action === "add-above") {
@@ -2869,6 +2899,23 @@ const RemixerDashboard: React.FC = () => {
         publishStatus={publishStatus}
         publishMessages={publishMessages}
       />
+      <CorePageDeleteModal
+        open={pendingCorePageDeleteId !== undefined}
+        kind={getCoreMatterKind(pendingCorePageDeleteId) ?? "page"}
+        pageTitle={(() => {
+          const node = (remixerData.currentBook ?? []).find(
+            (n) => n["@id"] === pendingCorePageDeleteId,
+          );
+          return node?.["@title"] || node?.title || "This page";
+        })()}
+        onCancel={() => setPendingCorePageDeleteId(undefined)}
+        onConfirm={() => {
+          if (pendingCorePageDeleteId) {
+            deleteBookNode(pendingCorePageDeleteId, true);
+          }
+          setPendingCorePageDeleteId(undefined);
+        }}
+      />
       {/* Rendered after PublishPanel and opened later, so it stacks on top. */}
       <PublishSuccessDialog
         open={publishSuccessOpen}
@@ -2895,6 +2942,7 @@ const RemixerDashboard: React.FC = () => {
       <ContextMenu
         contextMenu={contextMenu}
         canAddSibling={contextMenuCanAddSibling}
+        canAddChild={contextMenuCanAddChild}
         canDuplicate={contextMenuCanDuplicate}
         isDeleted={contextMenuIsDeleted}
         addAboveLabel={`Add ${contextMenuSiblingTypeLabel} Above`}
