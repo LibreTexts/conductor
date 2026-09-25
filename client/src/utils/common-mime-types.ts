@@ -140,6 +140,14 @@ const COMMON_MIME_TYPES: {
         value: "text/csv",
       },
       {
+        name: "Jupyter Notebook",
+        value: "application/x-ipynb+json",
+      },
+      {
+        name: "Access (ACCDB)",
+        value: "application/vnd.ms-access",
+      },
+      {
         name: "Other/Unknown",
         value: "application/octet-stream",
       },

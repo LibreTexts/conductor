@@ -104,6 +104,7 @@ const ALLOWED_MIME_TYPES = [
   "application/vnd.oasis.opendocument.text", // .odt
   "image/*",
   "video/*",
+  "audio/*",
   "application/pdf", // .pdf
   "model/gltf-binary", // .glb
   "model/obj", // .obj
@@ -115,6 +116,8 @@ const ALLOWED_MIME_TYPES = [
   "application/vnd.ims.imsccv1p3+zip", // .imscc (Common Cartridge v1.3)
   "text/x-tex", // .tex
   "text/vtt", // .vtt
+  "application/x-ipynb+json", // .ipynb (Jupyter notebook)
+  "application/vnd.ms-access", // .accdb (Microsoft Access database)
 ]
 
 /**
@@ -166,6 +169,15 @@ function fileUploadHandler(req: Request, res: Response, next: NextFunction) {
       // that isn't in ALLOWED_MIME_TYPES.
       if (file.originalname.endsWith(".imscc")) {
         file.mimetype = "application/zip";
+      }
+      // Neither .ipynb nor .accdb has a registered MIME type, so browsers report
+      // an empty string or application/octet-stream. Normalize from the extension
+      // the same way .tex and .obj are handled above.
+      if (file.originalname.endsWith(".ipynb")) {
+        file.mimetype = "application/x-ipynb+json";
+      }
+      if (file.originalname.endsWith(".accdb")) {
+        file.mimetype = "application/vnd.ms-access";
       }
       const isAllowed = ALLOWED_MIME_TYPES.some((allowed) =>
         allowed.endsWith("/*")
