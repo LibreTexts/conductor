@@ -1,5 +1,6 @@
 import logger from "../logger.js";
 import Excel from "exceljs";
+import mime from "mime";
 
 export function createStandardWorkBook(): Excel.Workbook | null {
   try {
@@ -34,17 +35,19 @@ export function generateWorkSheetColumnDefinitions(
  * @returns - the file extension (e.g. "pdf" for "application/pdf") or an empty string if not found
  */
 export function getFileExtensionFromMimeType(mimeType: string): string {
-  const found = COMMON_MIME_TYPES.find((cmt) => {
-    const foundMT = cmt.mimeTypes.find((mt) => mt.value.toLowerCase() === mimeType.toLowerCase());
-    return foundMT !== undefined;
-  });
-  if (found) {
-    const foundMT = found.mimeTypes.find((mt) => mt.value === mimeType);
-    if (foundMT && foundMT.extensions) {
+  const normalized = mimeType.split(";")[0].trim().toLowerCase();
+  // octet-stream carries no format information; mime would map it to "bin"
+  if (!normalized || normalized === "application/octet-stream") {
+    return "";
+  }
+  for (const cmt of COMMON_MIME_TYPES) {
+    const foundMT = cmt.mimeTypes.find((mt) => mt.value.toLowerCase() === normalized);
+    if (foundMT?.extensions) {
       return foundMT.extensions[0];
     }
   }
-  return "";
+  // Fall back to the full mime database for types not listed above (e.g. model/*, text/vtt)
+  return mime.getExtension(normalized) ?? "";
 }
 
 const COMMON_MIME_TYPES: {
@@ -210,6 +213,16 @@ const COMMON_MIME_TYPES: {
         name: "CSV",
         value: "text/csv",
         extensions: ["csv"],
+      },
+      {
+        name: "Jupyter Notebook",
+        value: "application/x-ipynb+json",
+        extensions: ["ipynb"],
+      },
+      {
+        name: "Access Database (ACCDB)",
+        value: "application/vnd.ms-access",
+        extensions: ["accdb"],
       },
       {
         name: "Other/Unknown",
