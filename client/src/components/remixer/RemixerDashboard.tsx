@@ -24,6 +24,7 @@ import PathNameFormat from "./PathNameFormat";
 import PublishPanel from "./PublishPanel";
 import RecoveryModal from "./RecoveryModal";
 import PublishSuccessDialog from "./PublishSuccessDialog";
+import StartOverModal from "./StartOverModal";
 import {
   Library,
   PathLevelFormat,
@@ -1976,16 +1977,15 @@ const RemixerDashboard: React.FC = () => {
 
   const handleStartOverWithConfirmation = () => {
     openModal(
-      <ConfirmModal
-        text="This will delete the saved Remixer draft for this project. This action cannot be undone"
-        confirmColor="red"
-        confirmText="Start Over"
-        cancelText="Keep Changes"
-        onCancel={closeAllModals}
-        onConfirm={() => {
-          startOverMutation();
+      <StartOverModal
+        open={true}
+        loading={loadingRecovery || isStartOverPending}
+        onReloadPreservingSettings={() => {
+          handleLoadSourceRef.current("fresh", { preserveConfigs: true });
           closeAllModals();
         }}
+        onStartOver={() => startOverFromRecoveryRef.current()}
+        onClose={closeAllModals}
       />,
     );
   };
