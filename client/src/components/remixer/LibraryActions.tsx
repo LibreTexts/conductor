@@ -8,13 +8,16 @@ interface LibraryActionsProps {
     remixerData: RemixerData;
     setRemixerData: React.Dispatch<React.SetStateAction<RemixerData>>;
     onOpenCatalogModal: () => void;
+    /** True until the catalog book list has loaded; the catalog can't be searched before then. */
+    catalogLoading?: boolean;
 }
 
 const LibraryActions: React.FC<LibraryActionsProps> = ({
     isNarrowScreen,
     remixerData,
     setRemixerData,
-    onOpenCatalogModal
+    onOpenCatalogModal,
+    catalogLoading = false,
 }) => {
     if (isNarrowScreen) {
         return (
@@ -49,8 +52,9 @@ const LibraryActions: React.FC<LibraryActionsProps> = ({
                     <Menu.Item
                         icon={<IconSearch size={16} />}
                         onClick={onOpenCatalogModal}
+                        disabled={catalogLoading}
                     >
-                        Search Catalog
+                        {catalogLoading ? "Loading Catalog…" : "Search Catalog"}
                     </Menu.Item>
                 </Menu.Items>
             </Menu>
@@ -88,11 +92,13 @@ const LibraryActions: React.FC<LibraryActionsProps> = ({
                 />
             )}
 
-            <Tooltip content="Search Catalog" placement="bottom">
+            <Tooltip content={catalogLoading ? "Loading catalog…" : "Search Catalog"} placement="bottom">
                 <IconButton
-                    aria-label="Search Catalog Book"
+                    aria-label={catalogLoading ? "Loading catalog" : "Search Catalog Book"}
                     icon={<IconSearch size={16} />}
                     onClick={onOpenCatalogModal}
+                    loading={catalogLoading}
+                    disabled={catalogLoading}
                     variant="outline"
                     size="md"
                     className="shrink-0"
