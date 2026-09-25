@@ -138,6 +138,7 @@ export const supportTicketAttachmentAllowedTypes = [
   "application/vnd.oasis.opendocument.text", // .odt
   "image/*",
   "video/*",
+  "audio/*",
   "application/pdf", // .pdf
   "model/gltf-binary", // .glb
   ".glb", // .glb (extension fallback; no MIME registered on Windows)
@@ -153,4 +154,8 @@ export const supportTicketAttachmentAllowedTypes = [
   ".imscc", // .imscc (extension fallback; browsers report no MIME for it)
   "text/x-tex", // .tex
   "text/vtt", // .vtt
+  "application/x-ipynb+json", // .ipynb
+  ".ipynb", // .ipynb (extension fallback; no MIME registered)
+  "application/vnd.ms-access", // .accdb
+  ".accdb", // .accdb (extension fallback; no MIME registered)
 ]
