@@ -61,6 +61,8 @@ interface TreeDndProps {
   onSelectNode?: (nodeId?: string) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
   onNodeContextMenu?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Restore a deleted node (book tree only); wired to the row's trash icon. */
+  onRestoreNode?: (nodeId: string) => void;
   expandedNodeIds: Set<string>;
   setExpandedNodeIds: Dispatch<SetStateAction<Set<string>>>;
 }
@@ -119,6 +121,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
   onSelectNode,
   onNodeDoubleClick,
   onNodeContextMenu,
+  onRestoreNode,
   expandedNodeIds,
   setExpandedNodeIds,
 }) => {
@@ -477,6 +480,15 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     [isBookTree, onNodeContextMenu],
   );
 
+  const handleRowRestore = useCallback(
+    (page: RemixerSubPage) => {
+      if (isBookTree && !isDefaultMatterPage(page)) {
+        onRestoreNode?.(page["@id"]);
+      }
+    },
+    [isBookTree, onRestoreNode],
+  );
+
   const renderNodes = (
     parentId: string,
     depth: number,
@@ -556,6 +568,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           onSelect={handleRowSelect}
           onDoubleClick={handleRowDoubleClick}
           onContextMenu={handleRowContextMenu}
+          onRestore={isBookTree && onRestoreNode ? handleRowRestore : undefined}
         >
           {isExpanded
             ? renderNodes(

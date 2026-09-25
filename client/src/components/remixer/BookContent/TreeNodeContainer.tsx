@@ -50,6 +50,8 @@ interface TreeNodeContainerProps {
   onSelect: (page: RemixerSubPage) => void;
   onDoubleClick?: (page: RemixerSubPage) => void;
   onContextMenu?: (page: RemixerSubPage, event: React.MouseEvent) => void;
+  /** When set, the trash icon on a deleted row becomes a Restore button. */
+  onRestore?: (page: RemixerSubPage) => void;
   hideExpandIcon?: boolean;
   children?: React.ReactNode;
 }
@@ -83,6 +85,7 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
   onSelect,
   onDoubleClick,
   onContextMenu,
+  onRestore,
   hideExpandIcon = false,
   children,
 }) => {
@@ -218,14 +221,36 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
             </>
           );
         })()}
-        {isDeleted && (
-          <Icon
-            name="trash"
-            color="grey"
-            style={{ marginLeft: 6,  size: "small" }}
-            title="Deleted"
-          />
-        )}
+        {isDeleted &&
+          (onRestore && !isInteractionLocked ? (
+            <button
+              type="button"
+              title="Restore"
+              aria-label={`Restore ${displayTitle}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onRestore(page);
+              }}
+              onDoubleClick={(event) => event.stopPropagation()}
+              style={{
+                marginLeft: 6,
+                padding: 0,
+                border: "none",
+                background: "none",
+                cursor: "pointer",
+                display: "inline-flex",
+              }}
+            >
+              <Icon name="trash" color="grey" style={{ margin: 0 }} />
+            </button>
+          ) : (
+            <Icon
+              name="trash"
+              color="grey"
+              style={{ marginLeft: 6, size: "small" }}
+              title="Deleted"
+            />
+          ))}
         {(isRenamed ||
           isPlacementChanged ||
           page.movedItem) && (
