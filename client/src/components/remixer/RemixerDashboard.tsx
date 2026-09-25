@@ -83,6 +83,7 @@ import {
   Stack,
   Text,
   Grid,
+  Spinner,
 } from "@libretexts/davis-react";
 import useProject from "../../hooks/useProject";
 import { useModals } from "../../context/ModalContext";
@@ -204,6 +205,9 @@ const RemixerDashboard: React.FC = () => {
 
   /** When true, the selected-library useEffect skips one fetch (catalog-driven load already populated `library`). */
   const skipLibraryAutoLoadRef = useRef(false);
+  /** True while a catalog pick is building the library tree (visible even when the library is unchanged). */
+  const [catalogBookLoading, setCatalogBookLoading] = useState(false);
+  const catalogLoadSeqRef = useRef(0);
   /** Last known server-persisted book state; used by the recovery modal so we don't refetch. */
   const serverStateRef = useRef<{
     book: RemixerSubPage[];
@@ -607,6 +611,9 @@ const RemixerDashboard: React.FC = () => {
    */
   const loadSelectedBook = async (bookID: string, lib: string) => {
     if (!id) return;
+    // Only the most recent catalog pick may apply its tree or clear the spinner.
+    const loadSeq = ++catalogLoadSeqRef.current;
+    setCatalogBookLoading(true);
     // Prevent the selected-library useQuery from fetching home again while we
     // build the ancestry tree — that race produced a duplicate library root.
     skipLibraryAutoLoadRef.current = true;
@@ -716,6 +723,8 @@ const RemixerDashboard: React.FC = () => {
         }
       }
 
+      if (loadSeq !== catalogLoadSeqRef.current) return;
+
       setRemixerData((prev) => ({
         ...prev,
         library: {
@@ -737,7 +746,21 @@ const RemixerDashboard: React.FC = () => {
         );
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 200);
+    } catch (error) {
+      if (loadSeq === catalogLoadSeqRef.current) {
+        addNotification({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to load the selected book.",
+          type: "error",
+          duration: 4000,
+        });
+      }
     } finally {
+      if (loadSeq === catalogLoadSeqRef.current) {
+        setCatalogBookLoading(false);
+      }
       // Defer until after React commits library pages so auto-load sees
       // hasSelectedLibraryPages and stays disabled.
       setTimeout(() => {
@@ -2733,7 +2756,12 @@ const RemixerDashboard: React.FC = () => {
                 />
               </Stack>
 
-              {selectedLibraryPages && remixerData.selectedLibrary ? (
+              {catalogBookLoading ? (
+                <div role="status" aria-live="polite" className="w-full">
+                  <Spinner size="sm" text="Loading selected book…" />
+                  <TreeSkeleton />
+                </div>
+              ) : selectedLibraryPages && remixerData.selectedLibrary ? (
                 <TreeDnd
                   expandedNodeIds={expandedNodeIdsLibrary}
                   setExpandedNodeIds={setExpandedNodeIdsLibrary}
