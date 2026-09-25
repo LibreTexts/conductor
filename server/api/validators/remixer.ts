@@ -62,6 +62,7 @@ export const SaveRemixerProjectStateSchema = z.object({
     ),
     autoNumbering: z.boolean().optional(),
     copyModeState: z.string().optional(),
+    importGlossaryTerms: z.boolean().optional(),
   }),
   query: z.object({}).optional(),
 });

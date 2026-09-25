@@ -1,6 +1,16 @@
 import { z } from "zod";
 import { checkBookIDFormat, isValidLicense } from "../../util/bookutils.js";
 import conductorErrors from "../../conductor-errors.js";
+import { isHttpUrl } from "../../util/sanitize-text.js";
+
+/**
+ * A glossary link. It is rendered as an `href`, so only absolute http(s) URLs
+ * are allowed — `z.string().url()` alone accepts `javascript:` URLs.
+ */
+const glossaryLinkSchema = z
+  .string()
+  .max(2000)
+  .refine(isHttpUrl, { message: "Link must be an http:// or https:// URL." });
 
 // Book ID format: library-pageid (e.g. "chem-123")
 export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
@@ -281,7 +291,7 @@ export const addWithCoverIDParamSchema = z.object({
     term: z.string().min(1).max(50),
     definition: z.string().min(1).max(1000),
     aliases: z.string().min(0).max(500).optional(),
-    link: z.string().url().optional(),
+    link: glossaryLinkSchema.optional(),
     source: z.string().refine(isValidLicense, {
       message: conductorErrors.err1,
     }).optional(),
@@ -294,6 +304,28 @@ export const addWithCoverIDParamSchema = z.object({
     imageLicense: z.string().refine(isValidLicense, {
       message: conductorErrors.err1,
     }).optional(),
+    italic: z.enum(["true", "false"]).transform((val) => val === "true").optional(),
+  }),
+});
+
+
+
+
+
+export const importGlossaryFromCsvSchema = z.object({
+  params: z.object({
+    coverID: z.coerce.number().int().positive().max(999999999999),
+    library: z.string().min(2).max(12),
+  }),
+  body: z.object({
+    glossaryID: z.coerce.number().int().positive().optional(),
+    duplicateAction: z.enum(["overwrite", "skip"]).optional(),
+  }),
+});
+
+export const getGlossaryCsvImportJobStatusSchema = z.object({
+  params: z.object({
+    jobID: z.string().min(10).max(10),
   }),
 });
 
@@ -305,6 +337,31 @@ export const addPageWithCoverIDParamSchema = z.object({
   body: z.object({
     pageIds: z.array(z.coerce.number().int().positive().max(999999999999)),
     usageIds: z.array(z.string().min(10).max(10)),
+  }),
+});
+
+export const bulkDeleteGlossaryUsageSchema = z.object({
+  params: z.object({
+    coverID: z.coerce.number().int().positive().max(999999999999),
+    library: z.string().min(2).max(12),
+  }),
+  body: z.object({
+    usageIds: z.array(z.string().min(10).max(10)).min(1)
+      // Keep in sync with MAX_BULK_DELETE_TERMS in client Glossary/services.ts.
+      .max(200, { message: "You can delete up to 200 terms at once." }),
+  }),
+});
+
+export const bulkUpdateGlossaryAttributionSchema = z.object({
+  params: z.object({
+    coverID: z.coerce.number().int().positive().max(999999999999),
+    library: z.string().min(2).max(12),
+  }),
+  body: z.object({
+    usageIds: z.array(z.string().min(10).max(10)).min(1).max(500),
+    author: z.string().max(300).optional(),
+    link: glossaryLinkSchema.optional(),
+    source: z.string().max(300).optional(),
   }),
 });
 

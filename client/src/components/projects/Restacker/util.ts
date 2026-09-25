@@ -1,4 +1,5 @@
 import type { RestackerTocLicense } from "../../../types/Book";
+import { getLicenseVersionOptions } from "../../util/LicenseOptions";
 
 /** CC license keys supported by the compatibility chart (row/column order). */
 const CC_LICENSE_KEYS = [
@@ -102,17 +103,42 @@ export type LicensePairCompliance = {
   compatible: boolean | null;
 };
 
+/** A license that is issued in versions (e.g. CC BY) but has no version tagged. */
+export type MissingLicenseVersion = { role: LicenseRole; key: string };
+
 export type LicenseComplianceResult = {
   compliant: boolean;
   pairs: LicensePairCompliance[];
   incompatiblePairs: LicensePairCompliance[];
   unknownPairs: LicensePairCompliance[];
+  missingVersions: MissingLicenseVersion[];
 };
 
 /** Strips the "license:" prefix the API adds → "license:ccby" → "ccby" */
 export function parseLicenseKey(license?: RestackerTocLicense): string | undefined {
   if (!license?.label) return undefined;
   return license.label.replace(/^license:/, "");
+}
+
+/**
+ * True when the license is one that is issued in versions but none is tagged.
+ * Licenses without versions (Public Domain, All Rights Reserved, ...) never are.
+ */
+export function isLicenseVersionMissing(license?: RestackerTocLicense): boolean {
+  const key = parseLicenseKey(license);
+  if (!key) return false;
+  return (
+    getLicenseVersionOptions(key).length > 0 &&
+    !parseLicenseVersion(license?.version)
+  );
+}
+
+function findMissingVersions(
+  licenses: [LicenseRole, RestackerTocLicense | undefined][],
+): MissingLicenseVersion[] {
+  return licenses
+    .filter(([, license]) => isLicenseVersionMissing(license))
+    .map(([role, license]) => ({ role, key: parseLicenseKey(license) ?? "" }));
 }
 
 function toCcLicenseKey(key: string): CcLicenseKey | undefined {
@@ -215,12 +241,24 @@ export const getLicenseCompliance = (
 
   const incompatiblePairs = pairs.filter((pair) => pair.compatible === false);
   const unknownPairs = pairs.filter((pair) => pair.compatible === null);
+  const missingVersions = findMissingVersions([
+    ["book", bookLicense],
+    ["page", pageLicense],
+    ["source", sourceLicense],
+    ...contentLicenses.map(
+      (license, index): [LicenseRole, RestackerTocLicense] => [
+        `content:${index}`,
+        license,
+      ],
+    ),
+  ]);
 
   return {
-    compliant: incompatiblePairs.length === 0,
+    compliant: incompatiblePairs.length === 0 && missingVersions.length === 0,
     pairs,
     incompatiblePairs,
     unknownPairs,
+    missingVersions,
   };
 };
 
@@ -238,7 +276,9 @@ export function isLicenseNonCompliant(
     sourceLicense ?? EMPTY_LICENSE,
     contentLicenses ?? [],
   );
-  return result.incompatiblePairs.length > 0;
+  return (
+    result.incompatiblePairs.length > 0 || result.missingVersions.length > 0
+  );
 }
 
 export function formatLicenseRole(role: LicenseRole): string {
@@ -332,6 +372,7 @@ export function getProposedLicenseCompliance(
       pairs,
       incompatiblePairs,
       unknownPairs,
+      missingVersions: [],
     };
   }
 
@@ -359,3 +400,80 @@ export const  parseLicenseVersion =(version?: string): string | undefined=> {
     const v = version.replace(/^licenseversion:/, "");
     return v.replace(/^(\d)(\d)$/, "$1.$2");
   }
+/** URL substrings that identify structural pages which must always be Public Domain. */
+export const PUBLIC_DOMAIN_PAGE_SUFFIXES = [
+  "00%3A_Front_Matter/02%3A_InfoPage",
+  "00%3A_Front_Matter/03%3A_Table_of_Contents",
+  "00%3A_Front_Matter/04%3A_Licensing",
+  "zz%3A_Back_Matter/10%3A_Index",
+  "zz%3A_Back_Matter/30%3A_Detailed_Licensing",
+];
+
+export function isStructuralPage(url?: string): boolean {
+  return PUBLIC_DOMAIN_PAGE_SUFFIXES.some((s) => url?.includes(s));
+}
+
+export type BulkLicenseSkipReason = "structural" | "unchanged" | "conflict";
+
+/**
+ * Decides whether a bulk license change should skip a page. Only Source and
+ * Content conflicts block the change (the book license is reviewed separately).
+ * Mirrors bulkUpdateRestackerLicense in server/api/restacker.ts.
+ */
+export function getBulkLicenseSkip(
+  row: {
+    url?: string;
+    pageLicense?: RestackerTocLicense;
+    sourceLicense?: RestackerTocLicense;
+    contentLicenses?: RestackerTocLicense[];
+  },
+  proposedLicense: string,
+  proposedVersion?: string,
+): { reason: BulkLicenseSkipReason; conflicts: LicensePairCompliance[] } | null {
+  if (isStructuralPage(row.url) && proposedLicense !== "publicdomain") {
+    return { reason: "structural", conflicts: [] };
+  }
+  const proposed = buildLicenseFromDraft(proposedLicense, proposedVersion);
+  if (
+    (parseLicenseKey(row.pageLicense) ?? "") === proposedLicense &&
+    (parseLicenseVersion(row.pageLicense?.version) ?? "") ===
+      (parseLicenseVersion(proposed.version) ?? "")
+  ) {
+    return { reason: "unchanged", conflicts: [] };
+  }
+  if (!proposedLicense) return null;
+  const conflicts = getLicenseCompliance(
+    EMPTY_LICENSE,
+    proposed,
+    row.sourceLicense ?? EMPTY_LICENSE,
+    row.contentLicenses ?? [],
+  ).incompatiblePairs.filter(
+    (pair) =>
+      pair.licenseAdption.role !== "book" && pair.licenseOrigin.role !== "book",
+  );
+  return conflicts.length > 0 ? { reason: "conflict", conflicts } : null;
+}
+
+/**
+ * Expands a selection of page IDs to include every descendant page.
+ * `rows` must be a depth-first flattening of the TOC (as produced by flattenToc).
+ */
+export function expandWithDescendants<T extends { id: string; depth: number }>(
+  rows: T[],
+  selectedIds: Set<string>,
+): Set<string> {
+  const result = new Set<string>();
+  let ancestorDepth: number | null = null;
+  for (const row of rows) {
+    if (ancestorDepth !== null && row.depth <= ancestorDepth) {
+      ancestorDepth = null;
+    }
+    if (selectedIds.has(row.id)) {
+      result.add(row.id);
+      if (ancestorDepth === null) ancestorDepth = row.depth;
+    } else if (ancestorDepth !== null) {
+      result.add(row.id);
+    }
+  }
+  return result;
+}

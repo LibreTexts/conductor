@@ -20,4 +20,36 @@ export type GlossaryEntry = {
   imageLicense?: string;
   altText?: string;
   caption?: string;
+  /** Render the term itself in italics (e.g. species names, foreign words). */
+  italic?: boolean;
+};
+
+export type GlossaryConfigMode = "PAGE" | "CHAPTER" | "BACKMATTER";
+
+export type GlossaryConfigGroup = {
+  groupID: string;
+  pageIds: string[];
+  /** The page this group's combined glossary is displayed on. */
+  targetPageId: string;
+};
+
+export type GlossaryConfig = {
+  mode: GlossaryConfigMode;
+  glossaryPageId?: string;
+  groups: GlossaryConfigGroup[];
+};
+
+export type GlossaryConfigMode = "PAGE" | "CHAPTER" | "BACKMATTER";
+
+export type GlossaryConfigGroup = {
+  groupID: string;
+  pageIds: string[];
+  /** The page this group's combined glossary is displayed on. */
+  targetPageId: string;
+};
+
+export type GlossaryConfig = {
+  mode: GlossaryConfigMode;
+  glossaryPageId?: string;
+  groups: GlossaryConfigGroup[];
 };

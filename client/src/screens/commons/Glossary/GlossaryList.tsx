@@ -1,24 +1,46 @@
-import { Badge, IconButton, Stack } from "@libretexts/davis-react";
+import { Badge, Button, IconButton, Input, Stack } from "@libretexts/davis-react";
 import LoadingSpinner from "../../../components/LoadingSpinner";
+import ConfirmModal from "../../../components/ConfirmModal";
 import { GlossaryEntry } from "./model";
 
 import type { ColumnDef, Table } from "@libretexts/davis-react-table";
 import { DataTable } from "@libretexts/davis-react-table";
 import type { RowSelectionState } from "@tanstack/react-table";
 
-import { IconAlertTriangle, IconPencil, IconTrash } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconPencil,
+  IconTableExport,
+  IconTag,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useMemo, useRef, useState } from "react";
 import { TableOfContents } from "../../../types";
-import { findTocNodeById } from "./services";
+import {
+  alphabetizationKey,
+  downloadCsv,
+  findTocNodeById,
+  getErrorMessage,
+  glossaryEntriesToCsv,
+  MAX_BULK_DELETE_TERMS,
+  slugifyForFilename,
+} from "./services";
 import type { Notification } from "../../../context/NotificationContext";
 import api from "../../../api";
+import { useModals } from "../../../context/ModalContext";
 import GlossaryDefinitionPreview from "./GlossaryDefinitionPreview";
+import BulkAttributionDialog from "./BulkAttributionDialog";
+
+const BULK_DELETE_MODAL_ID = "glossary-bulk-delete-modal";
+const BULK_ATTRIBUTION_MODAL_ID = "glossary-bulk-attribution-modal";
 
 type GlossaryListProps = {
   entries: GlossaryEntry[];
   isLoading: boolean;
   error: string | null;
   toc?: TableOfContents;
+  library: string;
+  coverID: string;
   selectedTerms: GlossaryEntry[];
   setSelectedTerms: (terms: GlossaryEntry[]) => void;
   addNotification: (notification: Notification) => void;
@@ -45,6 +67,8 @@ const GlossaryList = ({
   isLoading,
   error,
   toc,
+  library,
+  coverID,
   selectedTerms,
   setSelectedTerms,
   addNotification,
@@ -53,6 +77,96 @@ const GlossaryList = ({
 }: GlossaryListProps) => {
   const tableRef = useRef<Table<GlossaryEntry> | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [searchValue, setSearchValue] = useState("");
+  const { openModal, closeModal } = useModals();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const clearSelection = () => {
+    setSelectedTerms([]);
+    setRowSelection({});
+  };
+
+  const handleExportSelectedCsv = () => {
+    if (selectedTerms.length === 0) return;
+    downloadCsv(
+      `${slugifyForFilename(toc?.title ?? "glossary")}-selected-terms.csv`,
+      glossaryEntriesToCsv(selectedTerms),
+    );
+  };
+
+  const overDeleteLimit = selectedTerms.length > MAX_BULK_DELETE_TERMS;
+
+  const handleBulkDelete = async (usageIds: string[]) => {
+    closeModal(BULK_DELETE_MODAL_ID);
+    setBulkDeleting(true);
+    try {
+      const res = await api.bulkDeleteGlossaryTerms({
+        library,
+        coverID,
+        usageIds,
+      });
+      if (res.err) {
+        addNotification({
+          message: res.errMsg ?? "Failed to delete glossary terms.",
+          type: "error",
+        });
+        return;
+      }
+      addNotification({
+        message: `Deleted ${res.deletedCount} glossary term${
+          res.deletedCount === 1 ? "" : "s"
+        } successfully`,
+        type: "success",
+      });
+      clearSelection();
+      refetchGlossary();
+    } catch (err) {
+      // Selection is kept so the user can retry.
+      addNotification({
+        message: getErrorMessage(err, "Failed to delete glossary terms."),
+        type: "error",
+      });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  // Modal content is captured when opened, so pass the selection in rather
+  // than reading it when the user confirms.
+  const openBulkDeleteConfirm = () => {
+    if (overDeleteLimit) return;
+    const usageIds = selectedTerms.map((t) => t.usageID);
+    openModal(
+      <ConfirmModal
+        text={`Delete ${usageIds.length} selected glossary term${
+          usageIds.length === 1 ? "" : "s"
+        }? This cannot be undone.`}
+        confirmText="Delete"
+        confirmColor="red"
+        onConfirm={() => handleBulkDelete(usageIds)}
+        onCancel={() => closeModal(BULK_DELETE_MODAL_ID)}
+      />,
+      BULK_DELETE_MODAL_ID,
+    );
+  };
+
+  const openBulkAttributionModal = () => {
+    openModal(
+      <BulkAttributionDialog
+        open={true}
+        onClose={() => closeModal(BULK_ATTRIBUTION_MODAL_ID)}
+        library={library}
+        coverID={coverID}
+        terms={selectedTerms}
+        addNotification={addNotification}
+        onUpdated={() => {
+          clearSelection();
+          refetchGlossary();
+        }}
+      />,
+      BULK_ATTRIBUTION_MODAL_ID,
+    );
+  };
 
   /** Flat set of every page ID present in the book TOC — O(1) membership test. */
   const tocIdSet = useMemo(() => {
@@ -80,7 +194,7 @@ const GlossaryList = ({
 
 
 
-  const pageColumns: ColumnDef<PageColumnDef>[] = [
+  const pageColumns: ColumnDef<PageColumnDef>[] = useMemo(() => [
     {
       accessorKey: "pageID",
       size: 580,
@@ -122,6 +236,7 @@ const GlossaryList = ({
     //   ),
     // },
     {
+      id: "pageID-actions",
       accessorKey: "pageID",
       header: () => (
         <span className="block w-full text-right text-sm">Actions</span>
@@ -155,19 +270,27 @@ const GlossaryList = ({
             }}
             size="sm"
           />
-          
+
         </Stack>
       ),
     },
-  ];
+  ], [toc, tocIdSet, addNotification, refetchGlossary]);
 
-  const columns: ColumnDef<GlossaryEntry>[] = [
+  const columns: ColumnDef<GlossaryEntry>[] = useMemo(() => [
     {
       accessorKey: "term",
       header: "Term",
       // enableSorting: true,
       // enableColumnFilter: true,
       size: 160,
+      // Default string sort would compare raw term text, so a leading quote
+      // or punctuation mark (which sorts before letters) or an untrimmed
+      // "The"/"A" would jump a term to the front — sort the same way the
+      // server's default order does instead.
+      sortingFn: (rowA, rowB) =>
+        alphabetizationKey(rowA.original.term).localeCompare(
+          alphabetizationKey(rowB.original.term),
+        ),
       cell: ({ getValue, row }) => {
         const orphaned = toc
           ? row.original.pages.filter((p) => !tocIdSet.has(p.pageID)).length
@@ -184,7 +307,14 @@ const GlossaryList = ({
             {orphaned > 0 && <IconAlertTriangle size={14} className="shrink-0" />}
             <GlossaryDefinitionPreview
               definition={String(getValue() ?? "")}
-              className={orphaned > 0 ? "text-amber-600" : undefined}
+              className={
+                [
+                  orphaned > 0 ? "text-amber-600" : "",
+                  row.original.italic ? "italic" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
             />
           </span>
         );
@@ -268,7 +398,7 @@ const GlossaryList = ({
       enableSorting: false,
       enableColumnFilter: false,
     },
-  ];
+  ], [toc, tocIdSet, addNotification, refetchGlossary, setEditingUsageID]);
 
   if (isLoading) {
     return (
@@ -293,71 +423,144 @@ const GlossaryList = ({
           <em>No glossary entries for this book yet.</em>
         </p>
       ) : (
-        <DataTable<GlossaryEntry>
-          striped={true}
-          stickyHeader={true}
-          toolbar={{
-            globalSearch: true,
-            globalSearchPlaceholder: "Search terms…",
-            columnVisibility: false,
-            end: (
-              <Stack direction="horizontal" gap="xs" align="center">
-                {selectedTerms.map((term) => (
-                  <Badge
-                    key={term.usageID}
-                    variant="primary"
-                    label={term.term}
-                    size="sm"
-                    onRemove={() => {
-                      setSelectedTerms(
-                        selectedTerms.filter((t) => t.usageID !== term.usageID),
-                      );
-                      setRowSelection((prev) => {
-                        const next = { ...prev };
-                        delete next[term.usageID];
-                        return next;
-                      });
-                    }}
-                  />
-                ))}
-              </Stack>
-            ),
-          }}
-          data={entries}
-          columns={columns}
-          className="min-w-0 w-full max-w-full"
-          classNames={glossaryTableClassNames}
-          enableRowSelection
-          enableExpansion
-          getRowCanExpand={(row) => row.original.pages.length > 0}
-          renderSubRow={(row) => (
-            <DataTable<PageColumnDef>
-              data={row.original.pages.map((p) => ({ ...p, usageID: row.original.usageID }))}
-              columns={pageColumns}
-              className="min-w-0 w-full max-w-full"
-              classNames={{
-                ...glossaryTableClassNames,
-                table: `${glossaryTableClassNames.table} glossary-list__pages-table`,
+        <>
+          <Stack direction="vertical" gap="sm" className="mb-3">
+            <Input
+              name="glossary-term-search"
+              label="Search"
+              labelClassName="sr-only"
+              type="search"
+              placeholder="Search terms…"
+              className="w-64 max-w-full"
+              value={searchValue}
+              onChange={(e) => {
+                setSearchValue(e.target.value);
+                tableRef.current?.setGlobalFilter(e.target.value);
               }}
-              density="compact"
-              bordered
-              caption="Page definitions"
             />
-          )}
-          pageSize={100}
-          enablePagination
-          pageSizeOptions={[5, 10, 25, 50, 100]}
-          enableSorting
-          enableColumnFilters
-          onTableReady={(table) => {
-            tableRef.current = table;
-          }}
-          tableOptions={{
-            getRowId: (row) => row.usageID,
-            state: { rowSelection },
-            onRowSelectionChange: handleRowSelectionChange,
-          }}
-        />
+            {selectedTerms.length > 0 && (
+              <Stack
+                direction="horizontal"
+                align="center"
+                justify="between"
+                className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2"
+              >
+                <Stack direction="vertical" gap="xs">
+                  <span className="text-sm font-medium text-blue-800">
+                    {selectedTerms.length} term
+                    {selectedTerms.length === 1 ? "" : "s"} selected
+                  </span>
+                  <span
+                    id="glossary-bulk-delete-limit"
+                    role="status"
+                    className="text-sm text-red-800"
+                  >
+                    {overDeleteLimit &&
+                      `You can delete up to ${MAX_BULK_DELETE_TERMS} terms at once. Deselect ${
+                        selectedTerms.length - MAX_BULK_DELETE_TERMS
+                      } to delete.`}
+                  </span>
+                </Stack>
+                <Stack direction="horizontal" gap="xs">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<IconTableExport size={14} />}
+                    iconPosition="left"
+                    onClick={handleExportSelectedCsv}
+                  >
+                    Export CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<IconTag size={14} />}
+                    iconPosition="left"
+                    onClick={openBulkAttributionModal}
+                  >
+                    Update Attribution
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    icon={<IconTrash size={14} />}
+                    iconPosition="left"
+                    onClick={openBulkDeleteConfirm}
+                    loading={bulkDeleting}
+                    disabled={overDeleteLimit || bulkDeleting}
+                    aria-describedby={
+                      overDeleteLimit ? "glossary-bulk-delete-limit" : undefined
+                    }
+                  >
+                    Delete Selected
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={clearSelection}>
+                    Clear
+                  </Button>
+                </Stack>
+              </Stack>
+            )}
+            <Stack direction="horizontal" gap="xs" align="center">
+              {selectedTerms.map((term) => (
+                <Badge
+                  key={term.usageID}
+                  variant="primary"
+                  label={term.term}
+                  size="sm"
+                  onRemove={() => {
+                    setSelectedTerms(
+                      selectedTerms.filter((t) => t.usageID !== term.usageID),
+                    );
+                    setRowSelection((prev) => {
+                      const next = { ...prev };
+                      delete next[term.usageID];
+                      return next;
+                    });
+                  }}
+                />
+              ))}
+            </Stack>
+          </Stack>
+          <DataTable<GlossaryEntry>
+            striped={true}
+            stickyHeader={true}
+            toolbar={false}
+            data={entries}
+            columns={columns}
+            className="min-w-0 w-full max-w-full"
+            classNames={glossaryTableClassNames}
+            enableRowSelection
+            enableExpansion
+            getRowCanExpand={(row) => row.original.pages.length > 0}
+            renderSubRow={(row) => (
+              <DataTable<PageColumnDef>
+                data={row.original.pages.map((p) => ({ ...p, usageID: row.original.usageID }))}
+                columns={pageColumns}
+                className="min-w-0 w-full max-w-full"
+                classNames={{
+                  ...glossaryTableClassNames,
+                  table: `${glossaryTableClassNames.table} glossary-list__pages-table`,
+                }}
+                density="compact"
+                bordered
+                caption="Page definitions"
+              />
+            )}
+            pageSize={100}
+            enablePagination
+            pageSizeOptions={[5, 10, 25, 50, 100]}
+            enableSorting
+            enableColumnFilters
+            onTableReady={(table) => {
+              tableRef.current = table;
+            }}
+            tableOptions={{
+              getRowId: (row) => row.usageID,
+              state: { rowSelection },
+              onRowSelectionChange: handleRowSelectionChange,
+            }}
+          />
+        </>
       )}
     </div>
   );

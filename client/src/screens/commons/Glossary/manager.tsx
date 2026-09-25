@@ -2,6 +2,7 @@ import {
   Alert,
   Badge,
   Button,
+  Checkbox,
   Input,
   Modal,
   Select,
@@ -10,11 +11,15 @@ import {
 } from "@libretexts/davis-react";
 import { IconPhoto, IconX } from "@tabler/icons-react";
 import React, { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import GlossaryTermAutocomplete from "./GlossaryTermAutocomplete";
-import { licenseOptions } from "../../../components/util/LicenseOptions";
+import {
+  licenseOptions,
+  normalizeLicenseKey,
+} from "../../../components/util/LicenseOptions";
 import api from "../../../api";
 import { GlossaryEntry } from "./model";
+import { getErrorMessage, validateOptionalHttpUrl } from "./services";
 import type { Notification } from "../../../context/NotificationContext";
 
 interface GlossaryFormProps {
@@ -28,7 +33,6 @@ interface GlossaryFormProps {
   setGlossaryEntries?: (entries: GlossaryEntry[]) => void;
   addNotification: (notification: Notification) => void;
   editingTerm: GlossaryEntry | null;
-  setEditingUsageID: (usageID: string | null) => void;
   existingTerms?: GlossaryEntry[];
 }
 
@@ -46,6 +50,7 @@ type GlossaryFormFields = {
   altText?: string;
   imageAuthor?: string;
   imageLicense?: string;
+  italic?: boolean;
 };
 
 const DEFAULT_VALUES: GlossaryFormFields = {
@@ -62,6 +67,7 @@ const DEFAULT_VALUES: GlossaryFormFields = {
   imageAuthor: "",
   imageLicense: "",
   usageID: undefined,
+  italic: false,
 };
 
 const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
@@ -83,7 +89,6 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     onTermCreated,
     addNotification,
     editingTerm,
-    setEditingUsageID,
     existingTerms,
   } = props;
 
@@ -102,51 +107,74 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     defaultValues: DEFAULT_VALUES,
   });
 
-  useEffect(() => {
-    if (!open || !editingTerm) return;
-
+  /**
+   * Populates every field from an existing term — used both when the modal
+   * opens already targeting a term (via `editingTerm`) and when the user
+   * types a name that matches an existing term while adding a new one (see
+   * `handleExistingTermMatch`). Applying it directly, synchronously, is what
+   * lets this component stay self-contained: it never needs a parent to
+   * hand back an updated `editingTerm` prop mid-session.
+   */
+  const applyEditingTerm = (term: GlossaryEntry) => {
     const baseUrl =
       import.meta.env.MODE === "development"
         ? import.meta.env.VITE_DEV_BASE_URL
         : "";
-    setValue("term", editingTerm.term ?? "");
-    setValue("definition", editingTerm.definition ?? "");
-    setValue("aliases", editingTerm.aliases ?? []);
-    setValue("link", editingTerm.link ?? "");
-    setValue("source", editingTerm.source ?? "");
-    setValue("author", editingTerm.author ?? "");
-    setValue("imageSource", editingTerm.imageSource ?? "");
-    setValue("imageAuthor", editingTerm.imageAuthor ?? "");
-    setValue("imageLicense", editingTerm.imageLicense ?? "");
-    setValue("altText", editingTerm.altText ?? "");
-    setValue("caption", editingTerm.caption ?? "");
-    setValue("usageID", editingTerm.usageID ?? undefined);
+    setValue("term", term.term ?? "");
+    setValue("definition", term.definition ?? "");
+    setValue("aliases", term.aliases ?? []);
+    setValue("link", term.link ?? "");
+    // Map renamed license values (e.g. "multiple") so the select shows the saved choice.
+    setValue("source", normalizeLicenseKey(term.source ?? ""));
+    setValue("author", term.author ?? "");
+    setValue("imageSource", term.imageSource ?? "");
+    setValue("imageAuthor", term.imageAuthor ?? "");
+    setValue("imageLicense", term.imageLicense ?? "");
+    setValue("altText", term.altText ?? "");
+    setValue("caption", term.caption ?? "");
+    setValue("italic", term.italic ?? false);
+    setValue("usageID", term.usageID ?? undefined);
 
     setImageFile(null);
     setRemoveExistingImage(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    if (editingTerm.imageUrl) {
-      setImagePreview(`${baseUrl}${editingTerm.imageUrl}?t=${Date.now()}`);
-    } else {
-      setImagePreview(null);
-    }
-  }, [editingTerm, open, setValue]);
+    setImagePreview(
+      term.imageUrl ? `${baseUrl}${term.imageUrl}?t=${Date.now()}` : null,
+    );
+  };
+
+  useEffect(() => {
+    if (!open || !editingTerm) return;
+    applyEditingTerm(editingTerm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTerm, open]);
 
   const hasImage = !!imageFile || !!imagePreview;
 
   const handleExistingTermMatch = (term: string) => {
+    if (editingTerm) {
+      // Renaming an existing term updates its own usage record in place;
+      // the usageID stays pinned to editingTerm regardless of what's typed.
+      return;
+    }
+
     const trimmed = term.trim();
     if (!trimmed) {
-      setEditingUsageID(null);
       setValue("usageID", undefined);
       return;
     }
 
-    const existingTerm = existingTerms?.find((t) => t.term === trimmed);
+    // Case-insensitive: the server resolves terms to the same global termID
+    // regardless of case (see _addGlossaryToDatabase's collation), so a case
+    // mismatch here would let this fall through to a "new term" submission
+    // that silently drops fields the server's merge-into-existing path
+    // doesn't apply (see _applyToExistingGlossaryUsage).
+    const existingTerm = existingTerms?.find(
+      (t) => t.term.toLowerCase() === trimmed.toLowerCase(),
+    );
     if (existingTerm) {
-      setEditingUsageID(existingTerm.usageID);
+      applyEditingTerm(existingTerm);
     } else {
-      setEditingUsageID(null);
       setValue("usageID", undefined);
     }
   };
@@ -213,21 +241,38 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         imageLicense: data.imageLicense?.trim() || undefined,
         aliases: data?.aliases ? data.aliases : [],
         imageSource: data.imageSource?.trim() || undefined,
+        italic: data.italic ?? false,
       }
-    const res = await api.createGlossaryTerm(payload);
+    let res;
+    try {
+      res = await api.createGlossaryTerm(payload);
+    } catch (err) {
+      // e.g. 409 when a rename collides with another term in this glossary.
+      setContextError(getErrorMessage(err, "Failed to save glossary term."));
+      return;
+    }
 
     if (res.err) {
       setContextError(res.errMsg ?? "Failed to save glossary term.");
       return;
     }
 
-    handleClearAll();
     addNotification({
-      message: "Glossary term created successfully",
+      message: editingTerm
+        ? "Glossary term updated successfully"
+        : "Glossary term created successfully",
       type: "success",
     });
     onTermCreated?.();
-    // onClose();
+
+    // Editing an existing term is a one-off action — close once it's saved.
+    // Adding a new term is usually done in a batch, so keep the form open
+    // (cleared, ready for the next term) instead of forcing a reopen each time.
+    if (editingTerm) {
+      handleClose(false);
+    } else {
+      handleClearAll();
+    }
   };
 
   const handleClearAll = () => {
@@ -240,7 +285,6 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     setRemoveExistingImage(false);
 
     setValue("aliases", []);
-    setEditingUsageID(null);
   };
   const handleClose = (v: boolean) => {
     if (!v) {
@@ -275,13 +319,44 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 placeholder="Search glossary terms..."
                 rules={{
                   required: "This field is required",
-                  validate: (value) =>
-                    value.trim().length > 0 || "This field is required",
+                  validate: (value) => {
+                    const trimmed = value.trim();
+                    if (!trimmed) return "This field is required";
+                    // Read the form's own live usageID rather than the
+                    // static `editingTerm` prop — it also covers the case
+                    // where typing matched an existing term mid-session
+                    // (see `handleExistingTermMatch`), not just the term
+                    // the modal was originally opened to edit.
+                    const currentUsageID = getValues("usageID");
+                    if (currentUsageID) {
+                      const conflict = existingTerms?.find(
+                        (t) =>
+                          t.term.toLowerCase() === trimmed.toLowerCase() &&
+                          t.usageID !== currentUsageID,
+                      );
+                      if (conflict) {
+                        return "Another glossary term already uses this name. Choose a different name or edit that term instead.";
+                      }
+                    }
+                    return true;
+                  },
                 }}
-                
-                disabled={!!editingTerm}
                 onSelect={handleExistingTermMatch}
                 onBlur={handleExistingTermMatch}
+              />
+              <Controller
+                control={control}
+                name="italic"
+                render={({ field }) => (
+                  <Checkbox
+                    name={field.name}
+                    label="Italicize term"
+                    description="Renders the term itself in italics wherever it's displayed in the glossary (e.g. species names, foreign words)."
+                    className="mt-4"
+                    checked={field.value ?? false}
+                    onChange={field.onChange}
+                  />
+                )}
               />
               <div className="mt-4 flex items-end gap-2">
                 <div className="flex-1">
@@ -350,15 +425,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 errorMessage={errors.link?.message}
                 className="mt-4"
                 {...register("link", {
-                  validate: (value) => {
-                    if (!value?.trim()) return true;
-                    try {
-                      new URL(value.trim());
-                      return true;
-                    } catch {
-                      return "Please enter a valid URL";
-                    }
-                  },
+                  validate: validateOptionalHttpUrl,
                 })}
               />
               <Select

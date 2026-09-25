@@ -3,7 +3,9 @@ import { IconButton, Select, Stack } from "@libretexts/davis-react";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import {
   getLicenseVersionOptions,
+  getValidLicenseVersion,
   licenseOptions,
+  normalizeLicenseKey,
 } from "../../util/LicenseOptions";
 import type { RestackerTocLicense } from "../../../types";
 import LicenseBadge from "./LicenseBadge";
@@ -34,9 +36,13 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
   onCancel,
   onSubmit,
 }) => {
-  const licenseKey = parseLicenseKey(license) ?? "";
-  const versionDigits = formatVersionDigits(
-    parseLicenseVersion(license?.version) ?? license?.version,
+  const licenseKey = normalizeLicenseKey(parseLicenseKey(license) ?? "");
+  // Drop a stored version the license doesn't have (e.g. GNU DSL tagged 4.0).
+  const versionDigits = getValidLicenseVersion(
+    licenseKey,
+    formatVersionDigits(
+      parseLicenseVersion(license?.version) ?? license?.version,
+    ),
   );
 
   const [draftLicense, setDraftLicense] = useState(licenseKey);
@@ -94,6 +100,9 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
   }
 
   const showVersion =  getLicenseVersionOptions(draftLicense).length > 0;
+  // A versioned license saved without a version is flagged non-compliant.
+  const missingVersion =
+    showVersion && !getValidLicenseVersion(draftLicense, draftVersion);
 
   const handleSubmit = () => {
     onSubmit(draftLicense, showVersion ? draftVersion || undefined : undefined);
@@ -116,15 +125,7 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
           onChange={(e) => {
             const nextLicense = e.target.value;
             setDraftLicense(nextLicense);
-            if (getLicenseVersionOptions(nextLicense).length === 0) {
-              setDraftVersion("");
-            } else {
-              const allowedVersions = getLicenseVersionOptions(nextLicense);
-              const allowed = allowedVersions.map((o: { key: string }) => o.key);
-              if (draftVersion && !allowed.includes(draftVersion)) {
-                setDraftVersion("");
-              }
-            }
+            setDraftVersion(getValidLicenseVersion(nextLicense, draftVersion));
           }}
         />
         {showVersion && (
@@ -133,6 +134,7 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
             label="Version"
             aria-label="License version"
             placeholder="Version..."
+            required
             options={getLicenseVersionOptions(draftLicense).map(
               (option: { key: string; label: string }) => ({
                 value: option.key,
@@ -151,7 +153,7 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
           icon={<IconCheck size="lg" />}
           onClick={handleSubmit}
           loading={loading}
-          disabled={loading}
+          disabled={loading || missingVersion}
         />
         <IconButton
           aria-label="Cancel editing"
