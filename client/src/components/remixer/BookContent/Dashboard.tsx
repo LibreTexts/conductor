@@ -470,9 +470,11 @@ const TreeDnd: React.FC<TreeDndProps> = ({
     [isBookTree, onNodeDoubleClick],
   );
 
+  // Core matter pages get the menu too, so they can be deleted/restored
+  // (deletion is confirmed by RemixerDashboard's core-page modal).
   const handleRowContextMenu = useCallback(
     (page: RemixerSubPage, event: React.MouseEvent) => {
-      if (isBookTree && !isDefaultMatterPage(page)) {
+      if (isBookTree) {
         event.preventDefault();
         onNodeContextMenu?.(page["@id"], event);
       }
@@ -482,7 +484,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
 
   const handleRowRestore = useCallback(
     (page: RemixerSubPage) => {
-      if (isBookTree && !isDefaultMatterPage(page)) {
+      if (isBookTree) {
         onRestoreNode?.(page["@id"]);
       }
     },
