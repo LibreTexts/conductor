@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 
-/** Load client/.env into process.env for local visual-test credentials (does not override existing env). */
+/** Load client/.env for local configuration and real-backend login credentials. */
 function loadClientEnvFile(): void {
   // Scripts are run from /client, so cwd is the project root for Playwright.
   const envPath = path.join(process.cwd(), '.env');
