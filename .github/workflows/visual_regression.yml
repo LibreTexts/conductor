@@ -16,8 +16,8 @@ jobs:
         working-directory: ./client
     env:
       PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
-      VISUAL_AUTH_EMAIL: ${{ secrets.VISUAL_AUTH_EMAIL }}
-      VISUAL_AUTH_PASSWORD: ${{ secrets.VISUAL_AUTH_PASSWORD }}
+      # No backend runs in CI; visual-tests/mocks/api.ts answers these API calls.
+      VITE_DEV_BASE_URL: http://localhost:5000
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

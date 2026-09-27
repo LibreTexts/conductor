@@ -12,6 +12,10 @@
     "test:visual": "SKIP_LOCAL_VISUAL_SCREENSHOTS=1 percy exec -- playwright test --project=journey",
     "test:visual:local": "SKIP_PERCY_SNAPSHOTS=1 playwright test --project=journey",
     "test:visual:headed": "SKIP_PERCY_SNAPSHOTS=1 playwright test --project=journey --headed",
+    "test:visual:mock": "VISUAL_USE_REAL_BACKEND=0 VITE_DEV_BASE_URL=http://localhost:5000 npm run test:visual:local --",
+    "test:visual:mock:headed": "VISUAL_USE_REAL_BACKEND=0 VITE_DEV_BASE_URL=http://localhost:5000 npm run test:visual:headed --",
+    "test:visual:real": "VISUAL_USE_REAL_BACKEND=1 npm run test:visual:local --",
+    "test:visual:real:headed": "VISUAL_USE_REAL_BACKEND=1 npm run test:visual:headed --",
     "test:visual:isolated": "SKIP_PERCY_SNAPSHOTS=1 playwright test --project=isolated",
     "test:visual:isolated:headed": "SKIP_PERCY_SNAPSHOTS=1 playwright test --project=isolated --headed"
   },

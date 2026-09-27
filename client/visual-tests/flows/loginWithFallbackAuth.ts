@@ -1,18 +1,18 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { captureVisualSnapshot } from '../base';
+import { captureVisualSnapshot, usesRealBackend } from '../base';
 import { clickOn, goToPage, typeIn, wait0s, wait5s } from '../utils';
-
-const FALLBACK_AUTH_EMAIL = process.env.VISUAL_AUTH_EMAIL ?? '';
-const FALLBACK_AUTH_PASSWORD = process.env.VISUAL_AUTH_PASSWORD ?? '';
 
 /**
  * Isolated fallback-auth login: always starts at `/fallback-auth`.
  */
 export async function loginWithFallbackAuth(page: Page): Promise<void> {
-  if (!FALLBACK_AUTH_PASSWORD) {
+  const realBackend = usesRealBackend();
+  const email = realBackend ? process.env.VISUAL_AUTH_EMAIL : 'visual-tests@example.com';
+  const password = realBackend ? process.env.VISUAL_AUTH_PASSWORD : 'visual-tests-password';
+  if (!email || !password) {
     throw new Error(
-      'Set VISUAL_AUTH_PASSWORD in your environment (or client/.env) to run login steps.',
+      'Real-backend login requires VISUAL_AUTH_EMAIL and VISUAL_AUTH_PASSWORD in your environment or client/.env.',
     );
   }
 
@@ -23,7 +23,8 @@ export async function loginWithFallbackAuth(page: Page): Promise<void> {
 
   await captureVisualSnapshot(page, 'Conductor fallback auth');
 
-  await typeIn(page, '#email', FALLBACK_AUTH_EMAIL);
-  await typeIn(page, '#password', FALLBACK_AUTH_PASSWORD);
+  await typeIn(page, '#email', email);
+  await typeIn(page, '#password', password);
   await clickOn(page, 'button[type="submit"]', wait0s, wait5s);
+  await expect(page).toHaveURL(/\/home/);
 }
