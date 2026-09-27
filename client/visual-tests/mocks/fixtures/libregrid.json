@@ -1,0 +1,60 @@
+{
+  "orgs": [
+    {
+      "orgID": "oeri",
+      "name": "ASCCC Open Educational Resources Initiative",
+      "domain": "https://oeri.commons.libretexts.org"
+    },
+    {
+      "name": "California State University, Sacramento",
+      "orgID": "csusacramento",
+      "domain": "https://csus.commons.libretexts.org"
+    },
+    {
+      "orgID": "chabot",
+      "name": "Chabot College",
+      "domain": "https://chabot.commons.libretexts.org"
+    },
+    {
+      "orgID": "canyons",
+      "name": "College of the Canyons",
+      "domain": "https://canyons.commons.libretexts.org"
+    },
+    {
+      "domain": "https://deanza.commons.libretexts.org",
+      "name": "De Anza College",
+      "orgID": "deanza"
+    },
+    {
+      "orgID": "hacc",
+      "name": "HACC",
+      "domain": "https://hacc.commons.libretexts.org"
+    },
+    {
+      "orgID": "highline",
+      "name": "Highline College",
+      "domain": "https://highline.commons.libretexts.org"
+    },
+    {
+      "orgID": "kstate",
+      "name": "Kansas State University",
+      "domain": "https://k-state.commons.libretexts.org"
+    },
+    {
+      "orgID": "pgcc",
+      "name": "Prince George's Community College",
+      "domain": "https://pgcc.commons.libretexts.org"
+    },
+    {
+      "orgID": "reedley",
+      "name": "Reedley College",
+      "domain": "https://reedley.commons.libretexts.org"
+    },
+    {
+      "orgID": "ucdavis",
+      "name": "University of California, Davis",
+      "domain": "https://ucdavis.commons.libretexts.org"
+    }
+  ],
+  "err": false
+}

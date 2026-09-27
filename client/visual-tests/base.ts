@@ -2,40 +2,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
 import percySnapshot from '@percy/playwright';
+import { mockConductorApi } from './mocks/api';
 
 /** Desktop + mobile widths used for Percy / local snapshots. */
 export const PERCY_WIDTHS = [375, 1280] as const;
 
 const LOCAL_SCREENSHOT_DIR = path.join('test-results', 'visual');
 
+export function usesRealBackend(): boolean {
+  return process.env.VISUAL_USE_REAL_BACKEND === '1';
+}
+
 /**
- * Stabilize the app shell for visual snapshots: mock org branding and block
- * the external support widget so shots do not depend on API/CDN state.
+ * Mock API calls by default (CI has no backend). Real mode leaves API requests
+ * untouched. Both modes block the external support widget for stable snapshots.
  */
 export async function stabilizeAppShell(page: Page): Promise<void> {
-  await page.route('**/api/v1/org', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        err: false,
-        org: {
-          orgID: 'libretexts',
-          name: 'LibreTexts',
-          shortName: 'LibreTexts',
-          abbreviation: 'LT',
-          largeLogo: '',
-          mediumLogo: '',
-          smallLogo: '',
-          aboutLink: '',
-          commonsHeader: '',
-          commonsMessage: '',
-          videoLengthLimit: 0,
-          defaultProjectLead: '',
-          addToLibreGridList: false,
-        },
-      }),
-    });
-  });
+  if (!usesRealBackend()) {
+    await mockConductorApi(page);
+  }
   await page.route('https://cdn.libretexts.net/**', (route) => route.abort());
 }
 
