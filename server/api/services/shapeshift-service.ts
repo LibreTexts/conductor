@@ -322,7 +322,7 @@ export default class ShapeshiftService {
       // No match: either the book does not exist, or a newer compilation is already recorded.
       const exists = await Book.exists({ bookID: { $eq: bookID } });
       if (!exists) {
-        commonsSyncLog.info(`Book ${bookID} is unknown to Commons — queued a live library sync.`);
+        commonsSyncLog.info(`Book ${bookID} is unknown to Commons - queued a live library sync.`);
         return 'accepted';
       }
 
