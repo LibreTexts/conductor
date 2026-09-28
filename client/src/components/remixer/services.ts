@@ -1020,6 +1020,323 @@ export const buildBookPaths = (
   });
 };
 
+export interface DraftTocReconcileReport {
+  /** Draft-only pages that already exist in the live book (published since the draft was saved). */
+  adopted: RemixerSubPage[];
+  /** Live pages missing from the draft, inserted at their live position. */
+  insertedFromToc: RemixerSubPage[];
+  /** Pages the draft never moved that were moved in the live book; they follow the live placement. */
+  relocated: RemixerSubPage[];
+  /**
+   * Published pages the draft still had that are gone from the live book
+   * (deleted or moved out directly in the library); removed from the draft.
+   * Pages the draft had already marked deleted are removed without being listed.
+   */
+  untracked: RemixerSubPage[];
+}
+
+/**
+ * Re-bases a saved draft on the book's live TOC, so change flags describe the
+ * difference from what is actually published rather than from whatever
+ * baseline the draft carried when it was saved. A draft can be ahead of the
+ * TOC (unpublished edits), behind it (published since, or edited directly in
+ * the library), or both. The rule is: what the draft changed wins, everything
+ * else follows the live book.
+ *
+ * - Added/imported draft pages that now exist live under the same parent with
+ *   the same title adopt the live page's id, so publishing doesn't create them
+ *   a second time.
+ * - Pages the draft never moved (no moved flag, path still equal to its saved
+ *   baseline) take their live parent and sibling position; pages the draft did
+ *   move keep the draft placement.
+ * - Live pages absent from the draft are inserted at their live position as
+ *   unchanged pages.
+ * - Every draft page that exists live gets its live URL, `originalPathNumber`
+ *   from the live numbering (which `withDerivedStatusFlags` turns into
+ *   moved/placement flags), and `renamedItem` from comparing its title with the
+ *   live title.
+ *
+ * - Published pages that are gone from the live book are removed; children the
+ *   draft added under them move up to the nearest surviving ancestor.
+ */
+export const reconcileDraftWithToc = (
+  savedDraft: RemixerSubPage[],
+  toc: RemixerSubPage[],
+  pathLevelFormats: PathLevelFormat[] = [],
+): { book: RemixerSubPage[]; report: DraftTocReconcileReport } => {
+  const report: DraftTocReconcileReport = {
+    adopted: [],
+    insertedFromToc: [],
+    relocated: [],
+    untracked: [],
+  };
+  if (savedDraft.length === 0 || toc.length === 0) {
+    return { book: savedDraft, report };
+  }
+
+  const parentKey = (node: RemixerSubPage): string => node.parentID ?? "-1";
+  const rawTitle = (node: RemixerSubPage): string =>
+    node["@title"] || node.title || "";
+  const cleanTitle = (node: RemixerSubPage): string =>
+    toEditableRemixerTitle(rawTitle(node), false);
+  const isDeleted = (node: RemixerSubPage): boolean =>
+    node.deletedItem === true || node.isDeleted === true;
+
+  const tocById = new Map(toc.map((node) => [node["@id"], node]));
+
+  // 0. Drop published pages that are gone live. Added/imported pages were
+  // never created, so they can't be "gone"; published ids are numeric.
+  const isPublishedPage = (node: RemixerSubPage): boolean =>
+    !node.addedItem && /^\d+$/.test(node["@id"]);
+  const goneIds = new Set(
+    savedDraft
+      .filter((node) => isPublishedPage(node) && !tocById.has(node["@id"]))
+      .map((node) => node["@id"]),
+  );
+  const savedById = new Map(savedDraft.map((node) => [node["@id"], node]));
+  const survivingAncestor = (id: string): string => {
+    let current = id;
+    while (goneIds.has(current)) {
+      current = savedById.get(current)?.parentID ?? "-1";
+    }
+    return current;
+  };
+  report.untracked = savedDraft.filter(
+    (node) => goneIds.has(node["@id"]) && !isDeleted(node),
+  );
+  const draft =
+    goneIds.size === 0
+      ? savedDraft
+      : savedDraft
+          .filter((node) => !goneIds.has(node["@id"]))
+          .map((node) =>
+            node.parentID && goneIds.has(node.parentID)
+              ? { ...node, parentID: survivingAncestor(node.parentID) }
+              : node,
+          );
+
+  const tocChildren = new Map<string, RemixerSubPage[]>();
+  toc.forEach((node) => {
+    const siblings = tocChildren.get(parentKey(node)) ?? [];
+    siblings.push(node);
+    tocChildren.set(parentKey(node), siblings);
+  });
+
+  // Placement the draft itself changed, judged against the draft's own saved
+  // baseline before anything here touches it. Pages in a deleted branch are
+  // judged by their flags only: the ordinal numbering collapses them onto
+  // their parent's path, so their path never matches the baseline.
+  const draftById = new Map(draft.map((node) => [node["@id"], node]));
+  const inDeletedBranch = (node: RemixerSubPage): boolean => {
+    const seen = new Set<string>();
+    for (
+      let current: RemixerSubPage | undefined = node;
+      current && !seen.has(current["@id"]);
+      current = draftById.get(parentKey(current))
+    ) {
+      if (isDeleted(current)) return true;
+      seen.add(current["@id"]);
+    }
+    return false;
+  };
+  const draftOrdinals = computeRemixerOrdinalPathsMap(draft, pathLevelFormats);
+  const movedInDraft = new Set(
+    draft
+      .filter((node) => {
+        if (node.movedItem === true || node.isPlacementChanged === true) {
+          return true;
+        }
+        if (inDeletedBranch(node)) return false;
+        const baseline = node.originalPathNumber;
+        const current = draftOrdinals.get(node["@id"]);
+        return (
+          !!baseline && !!current && !arePathNumbersEqual(baseline, current)
+        );
+      })
+      .map((node) => node["@id"]),
+  );
+
+  // 1. Adopt draft-only pages that were published since the draft was saved.
+  // Repeated until stable so a child can match once its parent has adopted.
+  const draftIds = new Set(draft.map((node) => node["@id"]));
+  const unclaimedByParent = new Map<string, RemixerSubPage[]>();
+  toc.forEach((node) => {
+    if (draftIds.has(node["@id"])) return;
+    const list = unclaimedByParent.get(parentKey(node)) ?? [];
+    list.push(node);
+    unclaimedByParent.set(parentKey(node), list);
+  });
+  const idMap = new Map<string, string>();
+  const resolveId = (id: string): string => idMap.get(id) ?? id;
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const node of draft) {
+      if (!node.addedItem || isDeleted(node) || idMap.has(node["@id"])) continue;
+      const candidates = unclaimedByParent.get(resolveId(parentKey(node)));
+      if (!candidates?.length) continue;
+      const title = cleanTitle(node).toLowerCase();
+      const index = candidates.findIndex(
+        (candidate) => cleanTitle(candidate).toLowerCase() === title,
+      );
+      if (index < 0) continue;
+      const [match] = candidates.splice(index, 1);
+      idMap.set(node["@id"], match["@id"]);
+      changed = true;
+    }
+  }
+
+  let book: RemixerSubPage[] = draft.map((node) => {
+    const parentID =
+      node.parentID !== undefined ? resolveId(node.parentID) : undefined;
+    const liveId = idMap.get(node["@id"]);
+    if (!liveId) {
+      return parentID === node.parentID ? node : { ...node, parentID };
+    }
+    const live = tocById.get(liveId)!;
+    const adopted: RemixerSubPage = {
+      ...node,
+      "@id": liveId,
+      parentID,
+      "@href": live["@href"],
+      "uri.ui": live["uri.ui"],
+      addedItem: false,
+      isImported: false,
+    };
+    report.adopted.push(adopted);
+    return adopted;
+  });
+
+  /**
+   * Puts `node` under its live parent, right after its nearest live
+   * predecessor already there in the book (else before its nearest live
+   * successor, else last). Array position only matters among siblings.
+   */
+  const placeAtLivePosition = (
+    node: RemixerSubPage,
+    live: RemixerSubPage,
+  ): RemixerSubPage => {
+    const parentId = parentKey(live);
+    book = book.filter((n) => n["@id"] !== node["@id"]);
+    const bookSiblingIds = new Set(
+      book.filter((n) => parentKey(n) === parentId).map((n) => n["@id"]),
+    );
+    const liveSiblings = tocChildren.get(parentId) ?? [];
+    const position = liveSiblings.findIndex((n) => n["@id"] === live["@id"]);
+    const prev = liveSiblings
+      .slice(0, position)
+      .reverse()
+      .find((n) => bookSiblingIds.has(n["@id"]));
+    const next = prev
+      ? undefined
+      : liveSiblings
+          .slice(position + 1)
+          .find((n) => bookSiblingIds.has(n["@id"]));
+    const anchorIndex = book.findIndex(
+      (n) => n["@id"] === (prev ?? next)?.["@id"],
+    );
+    const placed: RemixerSubPage = { ...node, parentID: parentId };
+    if (anchorIndex < 0) {
+      book.push(placed);
+    } else {
+      book.splice(prev ? anchorIndex + 1 : anchorIndex, 0, placed);
+    }
+    book = book.map((n) =>
+      n["@id"] === parentId && !n["@subpages"]
+        ? { ...n, "@subpages": true }
+        : n,
+    );
+    return placed;
+  };
+
+  // 2. Pages the draft never moved follow the live book: first a changed
+  // parent, then sibling order within groups the draft left untouched.
+  const isLiveUnmoved = (node: RemixerSubPage): boolean =>
+    tocById.has(node["@id"]) &&
+    !node.addedItem &&
+    !movedInDraft.has(node["@id"]);
+  const relocatedIds = new Set<string>();
+  for (const live of toc) {
+    const node = book.find((n) => n["@id"] === live["@id"]);
+    if (!node || !isLiveUnmoved(node)) continue;
+    const liveParent = parentKey(live);
+    if (parentKey(node) === liveParent) continue;
+    if (liveParent !== "-1" && !book.some((n) => n["@id"] === liveParent)) {
+      continue;
+    }
+    placeAtLivePosition(node, live);
+    relocatedIds.add(live["@id"]);
+  }
+  for (const [parentId, liveSiblings] of tocChildren) {
+    const group = book.filter((n) => parentKey(n) === parentId);
+    if (group.length < 2 || !group.every(isLiveUnmoved)) continue;
+    const groupIds = new Set(group.map((n) => n["@id"]));
+    const liveOrder = liveSiblings
+      .map((n) => n["@id"])
+      .filter((id) => groupIds.has(id));
+    if (liveOrder.length !== group.length) continue;
+    if (liveOrder.every((id, i) => group[i]["@id"] === id)) continue;
+    // Rewrite the group's slots in place, in live order.
+    const byId = new Map(group.map((n) => [n["@id"], n]));
+    let cursor = 0;
+    book = book.map((n) =>
+      parentKey(n) === parentId ? byId.get(liveOrder[cursor++])! : n,
+    );
+    group.forEach((n, i) => {
+      if (n["@id"] !== liveOrder[i]) relocatedIds.add(n["@id"]);
+    });
+  }
+
+  // 3. Insert live pages the draft has never seen. TOC order is parent-first,
+  // so a missing parent is inserted before its children.
+  const present = new Set(book.map((node) => node["@id"]));
+  for (const live of toc) {
+    if (present.has(live["@id"])) continue;
+    const parentId = parentKey(live);
+    if (parentId !== "-1" && !present.has(parentId)) continue;
+    report.insertedFromToc.push(
+      placeAtLivePosition({ ...live, addedItem: false }, live),
+    );
+    present.add(live["@id"]);
+  }
+
+  // 4. Re-base every live page's flags on the live TOC.
+  const liveOrdinals = computeRemixerOrdinalPathsMap(toc, pathLevelFormats);
+  book = book.map((node) => {
+    const live = tocById.get(node["@id"]);
+    if (!live || node.addedItem) return node;
+    const isRoot = parentKey(node) === "-1";
+    const liveTitle = rawTitle(live);
+    const titleChanged = isRoot
+      ? rawTitle(node).trim() !== liveTitle.trim()
+      : cleanTitle(node) !== cleanTitle(live);
+    // Unchanged titles take the live form (with its numbering prefix) so the
+    // autonumber sync compares like for like; changed ones are stored clean
+    // so the sync keeps seeing them as renamed.
+    const title = !titleChanged
+      ? liveTitle
+      : isRoot
+        ? rawTitle(node)
+        : cleanTitle(node);
+    return {
+      ...node,
+      "@href": live["@href"] || node["@href"],
+      "uri.ui": live["uri.ui"] || node["uri.ui"],
+      title,
+      "@title": title,
+      renamedItem: titleChanged,
+      // Stale positional flags; withDerivedStatusFlags re-derives them from
+      // originalPathNumber against the live numbering.
+      movedItem: false,
+      isPlacementChanged: false,
+      originalPathNumber:
+        liveOrdinals.get(node["@id"]) ?? node.originalPathNumber,
+    };
+  });
+  report.relocated = book.filter((node) => relocatedIds.has(node["@id"]));
+
+  return { book, report };
+};
+
 export const withDerivedStatusFlags = (
   book: RemixerSubPage[],
 ): RemixerSubPage[] =>

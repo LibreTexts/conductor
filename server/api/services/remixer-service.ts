@@ -2843,6 +2843,9 @@ const findDifference = (
 
     const tocItem = tocByID.get(pageID);
     if (!tocItem) {
+      // Deleted in the draft and already gone live: the deletion was published
+      // after this draft was saved. Drop it quietly — nothing was lost.
+      if (plain.isDeleted === true || plain.deletedItem === true) continue;
       untracked.push(plain);
       continue;
     }
