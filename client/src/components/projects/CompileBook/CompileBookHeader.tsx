@@ -1,10 +1,12 @@
 import { Button, Drawer } from "@libretexts/davis-react";
-import { IconDownload, IconPackage, IconPackages, IconSend } from "@tabler/icons-react";
+import { IconDownload, IconSend } from "@tabler/icons-react";
 import type { CompileStatus } from "../../../hooks/useShapeshift";
 
 interface CompileBookHeaderProps {
   status: CompileStatus;
   isCompiling: boolean;
+  /** True while a finished compile's files are still being waited on. */
+  isSettling: boolean;
   hasDownloads: boolean;
   downloadAllURL: string;
   onCompile: () => void;
@@ -13,11 +15,15 @@ interface CompileBookHeaderProps {
 const CompileBookHeader: React.FC<CompileBookHeaderProps> = ({
   status,
   isCompiling,
+  isSettling,
   hasDownloads,
   downloadAllURL,
   onCompile,
 }) => {
-  const compileDisabled = status === "in-progress";
+  // Settling counts as busy. `status` is already `finished` during that window
+  // while the previous compile's poll and timer are still live, so without this
+  // a second job can be started underneath one that has not finished reporting.
+  const compileDisabled = status === "in-progress" || isSettling;
 
   return (
     <Drawer.Header>
@@ -43,7 +49,7 @@ const CompileBookHeader: React.FC<CompileBookHeaderProps> = ({
         </Button>
         <Button
           variant="primary"
-          icon={<IconPackage size={20} />}
+          icon={<IconSend size={16} />}
           onClick={onCompile}
           loading={isCompiling}
           softDisabled={compileDisabled}
