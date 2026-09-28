@@ -38,7 +38,8 @@ const StartOverModal: React.FC<StartOverModalProps> = ({
     <Modal open={open} size="md" onClose={loading ? () => {} : onClose}>
       <Modal.Header>
         <Modal.Title>
-          <IconRefresh size="1.25em" className="inline-block" /> Start Over
+          <IconRefresh size="1.25em" className="inline-block" aria-hidden="true" />{" "}
+          Start Over
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
@@ -56,11 +57,14 @@ const StartOverModal: React.FC<StartOverModalProps> = ({
             variant="outline"
             padding="md"
             className={cardClassName}
-            onClick={() => !loading && onReloadPreservingSettings()}
+            // Davis renders a clickable Card as a keyboard-operable button; drop
+            // the handler while loading so it isn't announced as an active one.
+            onClick={loading ? undefined : onReloadPreservingSettings}
           >
             <Card.Body>
               <Heading level={4} className="flex items-center gap-2">
-                <IconBook size="1.25em" /> Reload and Keep Settings
+                <IconBook size="1.25em" aria-hidden="true" /> Reload and Keep
+                Settings
               </Heading>
               <Text className="mt-2 text-gray-600">
                 Reload the book from the library but preserve autonumbering,
@@ -73,11 +77,11 @@ const StartOverModal: React.FC<StartOverModalProps> = ({
             variant="outline"
             padding="md"
             className={cardClassName}
-            onClick={() => !loading && onStartOver()}
+            onClick={loading ? undefined : onStartOver}
           >
             <Card.Body>
               <Heading level={4} className="flex items-center gap-2">
-                <IconRefresh size="1.25em" /> Start Over
+                <IconRefresh size="1.25em" aria-hidden="true" /> Start Over
               </Heading>
               <Stack direction="vertical" gap="xs" className="mt-1">
                 <Text className="mt-2 text-gray-600">
