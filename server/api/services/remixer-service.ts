@@ -520,8 +520,44 @@ const orderBackMatterLast = async (
 };
 
 /**
+ * Sibling sort key. Normally the page's pathNumber, but the LibreTexts default
+ * matter pages (`01:_TitlePage`, `10:_Index`, …) inherit their container's
+ * pathNumber, so for them the numeric slot at the start of the URL leaf is used
+ * instead. Custom matter pages carry single-segment slots like `01.01` or `11`
+ * that interleave with those.
+ */
+const siblingOrderKey = (
+  page: RemixerSubPageState,
+  parent: RemixerSubPageState | undefined,
+): string => {
+  const pathNumber = (page.pathNumber ?? []).join(".");
+  const parentTitle = stripLeadingNumbering(
+    parent?.["@title"] || parent?.title || "",
+  ).toLowerCase();
+  const isDefaultMatterChild =
+    !page.addedItem &&
+    (parentTitle === "front matter" || parentTitle === "back matter") &&
+    CORE_MATTER_PAGE_TITLES.has(
+      stripLeadingNumbering(page["@title"] || page.title || "").toLowerCase(),
+    );
+  if (!isDefaultMatterChild) return pathNumber;
+
+  const leaf = getRemixerPageUriUi(page).split("/").pop() ?? "";
+  let decoded = leaf;
+  try {
+    decoded = decodeURIComponent(leaf);
+  } catch {
+    // Malformed encoding — fall through with the raw leaf.
+  }
+  return decoded.match(/^(\d+(?:\.\d+)*):/)?.[1] ?? pathNumber;
+};
+
+const compareSiblingOrderKeys = (a: string, b: string): number =>
+  a.localeCompare(b, undefined, { numeric: true });
+
+/**
  * Places a newly created/imported page right after its nearest preceding
- * sibling (by pathNumber) using the MindTouch page-order API.
+ * sibling (by {@link siblingOrderKey}) using the MindTouch page-order API.
  * Non-fatal: logs a warning if the call fails so the rest of the job continues.
  */
 const orderPageAfterPreviousSibling = async (
@@ -534,7 +570,8 @@ const orderPageAfterPreviousSibling = async (
   if (Number.isNaN(newPid)) return;
 
   const parentId = page.parentID ?? "-1";
-  const currentPath = (page.pathNumber ?? []).join(".");
+  const parent = pages.find((p) => p["@id"] === parentId);
+  const currentPath = siblingOrderKey(page, parent);
 
   // Siblings with a real, resolved numeric ID (excludes still-pending new- pages)
   const siblings = pages.filter((p) => {
@@ -545,23 +582,19 @@ const orderPageAfterPreviousSibling = async (
 
   if (siblings.length === 0) return; // First child — MindTouch orders it first automatically
 
-  // Sort ascending by pathNumber so we can find the nearest predecessor
+  // Sort ascending by order key so we can find the nearest predecessor
   const sorted = [...siblings].sort((a, b) =>
-    (a.pathNumber ?? [])
-      .join(".")
-      .localeCompare((b.pathNumber ?? []).join("."), undefined, {
-        numeric: true,
-      }),
+    compareSiblingOrderKeys(
+      siblingOrderKey(a, parent),
+      siblingOrderKey(b, parent),
+    ),
   );
 
-  // Nearest sibling whose pathNumber is strictly less than ours
+  // Nearest sibling whose order key is strictly less than ours
   const prevSibling = [...sorted]
     .reverse()
     .find(
-      (s) =>
-        (s.pathNumber ?? [])
-          .join(".")
-          .localeCompare(currentPath, undefined, { numeric: true }) < 0,
+      (s) => compareSiblingOrderKeys(siblingOrderKey(s, parent), currentPath) < 0,
     );
 
   if (!prevSibling) return; // Page is first in position; no ordering call needed
@@ -2552,18 +2585,18 @@ const runRemixerJob = async ({
 
         const children = finalChildrenOf.get(parentId) ?? [];
         if (children.length > 0) {
-          // Sort by pathNumber ascending so each page is ordered after an
+          // Sort by order key ascending so each page is ordered after an
           // already-placed predecessor within its sibling group.
           const sortedChildren = [...children]
             .map((id) => finalById.get(id)!)
             .filter(Boolean)
-            .sort((a, b) =>
-              (a.pathNumber ?? [])
-                .join(".")
-                .localeCompare((b.pathNumber ?? []).join("."), undefined, {
-                  numeric: true,
-                }),
-            );
+            .sort((a, b) => {
+              const parent = finalById.get(parentId);
+              return compareSiblingOrderKeys(
+                siblingOrderKey(a, parent),
+                siblingOrderKey(b, parent),
+              );
+            });
 
           for (const child of sortedChildren) {
             await orderPageAfterPreviousSibling(

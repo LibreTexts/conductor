@@ -344,21 +344,72 @@ export const isDefaultMatterPage = (node: RemixerSubPage): boolean => {
   return isURLMatch && isTitleMatch;
 };
 
-/** Sort siblings under a matter root: front = defaults then customs; back = customs then defaults. */
-export const sortMatterSiblings = (
-  siblings: RemixerSubPage[],
-  parent: RemixerSubPage | undefined,
-): RemixerSubPage[] => {
-  if (!parent || !isMatterRootNode(parent)) return siblings;
-  const defaults = siblings.filter((n) => isDefaultMatterPage(n));
-  const customs = siblings.filter((n) => !isDefaultMatterPage(n));
-  if (
-    isFrontMatterNode(parent) ||
-    normalizedMatterTitle(parent) === "front matter"
-  ) {
-    return [...defaults, ...customs];
-  }
-  return [...customs, ...defaults];
+/**
+ * Fixed URL slots of the LibreTexts default matter pages (`01%3A_TitlePage`,
+ * `10%3A_Index`, …). Mirrors `createDefaultFrontMatter`/`createDefaultBackMatter`
+ * in the server's BookService.
+ */
+const DEFAULT_MATTER_PAGE_SLOTS: Record<string, number> = {
+  titlepage: 1,
+  infopage: 2,
+  "table of contents": 3,
+  licensing: 4,
+  index: 10,
+  glossary: 20,
+  "detailed licensing": 30,
+};
+
+const padMatterSlot = (n: number): string => String(n).padStart(2, "0");
+
+/**
+ * Slots for custom pages under a matter root, anchored on the default page
+ * directly above them so they keep their place between the defaults:
+ * - Front (defaults 01–04): `01.01`, `01.02`, `02.01`… (`00.01` before TitlePage).
+ * - Back (defaults 10/20/30): `11`, `12`, `21`… (`01`… before Index). A run
+ *   that would reach the next default's slot continues as `19.01`, `19.02`….
+ * Children are taken in their current sibling order; excluded (deleted)
+ * customs get no slot and don't consume one.
+ */
+const computeMatterCustomSlots = (
+  children: RemixerSubPage[],
+  isBack: boolean,
+  isExcluded: (node: RemixerSubPage) => boolean,
+): Map<string, string> => {
+  const defaultSlot = (node: RemixerSubPage): number | null => {
+    if (!isDefaultMatterPage(node)) return null;
+    const title = (node["@title"] || node.title || "").trim().toLowerCase();
+    return DEFAULT_MATTER_PAGE_SLOTS[title] ?? null;
+  };
+
+  const slots = new Map<string, string>();
+  let anchor = 0;
+  let count = 0;
+  children.forEach((child, index) => {
+    const ownSlot = defaultSlot(child);
+    if (ownSlot !== null) {
+      anchor = ownSlot;
+      count = 0;
+      return;
+    }
+    if (isExcluded(child)) return;
+    count += 1;
+    if (!isBack) {
+      slots.set(child["@id"], `${padMatterSlot(anchor)}.${padMatterSlot(count)}`);
+      return;
+    }
+    const nextDefault = children
+      .slice(index + 1)
+      .map(defaultSlot)
+      .find((slot): slot is number => slot !== null);
+    const candidate = anchor + count;
+    slots.set(
+      child["@id"],
+      nextDefault === undefined || candidate < nextDefault
+        ? padMatterSlot(candidate)
+        : `${padMatterSlot(nextDefault - 1)}.${padMatterSlot(candidate - nextDefault + 1)}`,
+    );
+  });
+  return slots;
 };
 
 /** Path segment as integer for formatting ("0" → 0, "3" → 3). */
@@ -791,18 +842,16 @@ export const computeRemixerOrdinalPathsMap = (
       : false;
 
     // Under front/back matter roots: defaults stay unnumbered in pathNumber;
-    // custom pages get leaf-only ordinals used for publish slugs (`05%3A_…`).
+    // custom pages get a single-segment slot relative to the default above them
+    // (`01.01`, `11`, …) that is used verbatim for publish slugs.
     if (parentIsMatterRoot) {
-      /** LibreTexts reserves 01–04 under Front Matter (TitlePage…Licensing). */
-      const FRONT_MATTER_RESERVED_SLOTS = 4;
-      const ordered = sortMatterSiblings(children, parentNode);
-      const numberable = ordered.filter(
-        (c) => !isDeletedForPath(c) && !isDefaultMatterPage(c),
+      const isBack = parentNode ? isBackMatterNode(parentNode) : false;
+      const customSlots = computeMatterCustomSlots(
+        children,
+        isBack,
+        (c) => isDeletedForPath(c) || parentInDeletedBranch,
       );
-      const visibleNumberable = numberable.filter(
-        (c) => !isSkippableForSiblings(c),
-      );
-      for (const child of ordered) {
+      for (const child of children) {
         if (isDeletedForPath(child) || parentInDeletedBranch) {
           const path = [...parentPath];
           ordinalPathById.set(child["@id"], path);
@@ -814,15 +863,8 @@ export const computeRemixerOrdinalPathsMap = (
         if (isDefaultMatterPage(child)) {
           nextPath = [...parentPath];
         } else {
-          const idx = isSkippableForSiblings(child)
-            ? numberable.indexOf(child)
-            : visibleNumberable.indexOf(child);
-          // Back matter: 1..n (display/slug offset by autoNumbering start → 00, 01…).
-          // Front matter: continue after reserved 01–04 → 5, 6, 7… → `05%3A_…`.
-          const isBack = parentNode ? isBackMatterNode(parentNode) : false;
-          nextPath = isBack
-            ? [String(idx + 1)]
-            : [String(FRONT_MATTER_RESERVED_SLOTS + idx + 1)];
+          const slot = customSlots.get(child["@id"]);
+          nextPath = slot ? [slot] : [...parentPath];
         }
         ordinalPathById.set(child["@id"], nextPath);
         visited.add(child["@id"]);
@@ -949,21 +991,20 @@ export const buildBookPaths = (
       : null;
 
     const parent = nodesById.get(node.parentID ?? "");
-    // Front-matter customs: path slots are literal 5,6,7… (after reserved 01–04).
-    // Do not apply autoNumbering start offset or they can collide with 01–04.
-    const isFrontMatterCustom =
+    // Matter customs: path slots are literal (`01.01`, `11`, …) and anchored on
+    // the default pages' fixed slots. Do not apply autoNumbering start offset or
+    // level delimiters, or they can collide with the defaults.
+    const isMatterCustom =
       parent != null &&
       isMatterRootNode(parent) &&
-      (isFrontMatterNode(parent) ||
-        normalizedMatterTitle(parent) === "front matter") &&
       !isDefaultMatterPage(node) &&
       ordinalPath.length === 1;
 
-    const leafSlot = isFrontMatterCustom ? (ordinalPath[0] ?? "") : "";
-    const numberedPath = isFrontMatterCustom ? leafSlot : computedNumberedPath;
+    const leafSlot = isMatterCustom ? (ordinalPath[0] ?? "") : "";
+    const numberedPath = isMatterCustom ? leafSlot : computedNumberedPath;
     const formattedPath = hasOverride
       ? stripObjectObjectMarker(node.formattedPath)
-      : isFrontMatterCustom
+      : isMatterCustom
         ? leafSlot
         : (inheritedPrefix ?? computedFormattedPath);
 
@@ -1179,6 +1220,11 @@ export const syncRenamedItemFromAutonumberTitle = (
       page,
       nodesById,
     );
+
+    // Matter titles carry no autonumber prefix, so any title "matches" the
+    // canonical display — deriving renamedItem from that would clear a real
+    // rename set by handleSaveEdit. Keep whatever the edit recorded.
+    if (inMatterNoNumberSubtree) return page;
 
     const expectedDisplay = getRemixerDisplayTitle(
       page,
