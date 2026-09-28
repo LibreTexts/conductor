@@ -1283,6 +1283,90 @@ export default class BookService {
   }
 
   /**
+   * Resolves a page's numeric ID from its path. Used when {@link BookService._createPage}
+   * returns `null` because the page already existed and was left in place.
+   *
+   * @returns The page ID, or `null` if it could not be resolved (never throws).
+   */
+  private static async _resolvePageID(expert: Expert, path: string): Promise<number | null> {
+    try {
+      const info = await expert.pages.getPageInfo(path);
+      const pageID = Number(info?.['@id']);
+      return Number.isFinite(pageID) ? pageID : null;
+    } catch (error) {
+      logger.warn({ err: error, path }, 'Error resolving page ID');
+      return null;
+    }
+  }
+
+  /**
+   * Orders matter pages so they appear where readers and PDF generation expect them.
+   *
+   * CXOne appends newly created pages to the end of a custom-ordered sibling list, so without
+   * this Front Matter can land after the chapters and Back Matter before them. The root page
+   * goes first (Front) or last (Back) among the cover's children, and its children are placed
+   * in the order given.
+   *
+   * Non-fatal: the matter pages are usable even if ordering fails, so errors are logged, not thrown.
+   *
+   * @param rootPageID - ID of the matter root page, or `null` to resolve it from `rootPath`.
+   * @param children - Child pages in the intended order, with their IDs if already known.
+   */
+  private static async _orderMatterPages({
+    expert,
+    coverPagePath,
+    matterType,
+    rootPath,
+    rootPageID,
+    children,
+  }: {
+    expert: Expert;
+    coverPagePath: string;
+    matterType: BookMatterType;
+    rootPath: string;
+    rootPageID: number | null;
+    children: { path: string; pageID: number | null }[];
+  }): Promise<void> {
+    try {
+      const rootID = rootPageID ?? await BookService._resolvePageID(expert, rootPath);
+      if (rootID === null) {
+        logger.warn(`Could not resolve ${matterType} Matter root page ID; skipping ordering.`);
+        return;
+      }
+
+      if (matterType === 'Front') {
+        await expert.pages.putPageOrder(rootID, { afterid: 0 }); // 0 places it first
+      } else {
+        // Read the tree directly rather than through the cached TOC helpers, which may not
+        // include the page we just created.
+        const treeRes = await expert.pages.getPageTree(coverPagePath);
+        const subpages = treeRes?.page?.subpages;
+        const rootPages = subpages ? subpages.page : undefined;
+        const pagesArr = rootPages ? (Array.isArray(rootPages) ? rootPages : [rootPages]) : [];
+        const lastPageID = Number(pagesArr.at(-1)?.['@id']);
+
+        if (!Number.isFinite(lastPageID)) {
+          logger.warn('Could not determine last page in book; skipping Back Matter ordering.');
+        } else if (lastPageID !== rootID) {
+          await expert.pages.putPageOrder(rootID, { afterid: lastPageID });
+        }
+      }
+
+      let previousID = 0;
+      for (const child of children) {
+        const childID = child.pageID ?? await BookService._resolvePageID(expert, child.path);
+        if (childID === null) {
+          continue;
+        }
+        await expert.pages.putPageOrder(childID, { afterid: previousID });
+        previousID = childID;
+      }
+    } catch (error) {
+      logger.warn({ err: error }, `Error ordering ${matterType} Matter pages`);
+    }
+  }
+
+  /**
    * Fetches a thumbnail image so it can be attached to a page.
    *
    * @returns The image bytes, or `null` if the fetch failed (never throws; a missing
@@ -1576,19 +1660,20 @@ export default class BookService {
       ];
 
       // Sequential: Deki serialises writes under the same parent anyway, and ordering keeps log output readable.
+      const createdChildren: { path: string; pageID: number | null }[] = [];
       for (const page of frontMatterPages) {
-        await BookService._createPage({ expert, overwriteExisting, ...page });
+        const pageID = await BookService._createPage({ expert, overwriteExisting, ...page });
+        createdChildren.push({ path: page.path, pageID });
       }
 
-      // If we have the front matter root page ID, try to order it to the front of the book
-      // if (frontMatterRootPageId) {
-      //   try {
-      //     await expert.pages.putPageOrder(frontMatterRootPageId, { afterid: 0 }); // afterId 0 means it will be the first page in the book
-      //   }
-      //   catch (error) {
-      //     console.error({ err: error }, 'Error ordering Front Matter root page to the front of the book');
-      //   }
-      // }
+      await BookService._orderMatterPages({
+        expert,
+        coverPagePath,
+        matterType: 'Front',
+        rootPath: basePath,
+        rootPageID: frontMatterRootPageId,
+        children: createdChildren,
+      });
 
       // Set thumbnail and misc properties
       await this._setMatterRootPageProperties(basePath, 'Front');
@@ -1651,40 +1736,20 @@ export default class BookService {
       ];
 
       // Sequential: Deki serialises writes under the same parent anyway, and ordering keeps log output readable.
+      const createdChildren: { path: string; pageID: number | null }[] = [];
       for (const page of backMatterPages) {
-        await BookService._createPage({ expert, overwriteExisting, ...page });
+        const pageID = await BookService._createPage({ expert, overwriteExisting, ...page });
+        createdChildren.push({ path: page.path, pageID });
       }
 
-      // If we have the back matter root page ID, try to order it to the back of the book
-      // if (backMatterRootPageId) {
-      //   try {
-      //     // We first have to get the last page ID in the book to use as afterid. Call the expert tree method directly to avoid caching issues with getBookTOCNew() and getBookTOCFlat().
-      //     const treeRes = await expert.pages.getPageTree(coverPagePath);
-      //     if (!treeRes || !treeRes.page || !treeRes.page.subpages) {
-      //       throw new Error('Failed to fetch book tree for ordering Back Matter root page');
-      //     }
-
-      //     const rootPages = treeRes.page.subpages;
-      //     const pagesArr = rootPages.page ? Array.isArray(rootPages.page) ? rootPages.page : [rootPages.page] : [];
-
-      //     const lastPage = pagesArr?.[pagesArr.length - 1];
-      //     if (!lastPage || !lastPage["@id"]) {
-      //       throw new Error('Could not determine last page in book for ordering Back Matter root page');
-      //     }
-
-      //     const afterid = lastPage?.["@id"] ? parseInt(lastPage["@id"]) : undefined;
-
-      //     if (afterid === undefined || isNaN(afterid)) {
-      //       console.warn('Could not determine last page ID for ordering Back Matter root page; skipping ordering.');
-      //     } else if (afterid === backMatterRootPageId) {
-      //       console.warn('Back Matter root page is already the last page; skipping ordering.');
-      //     } else {
-      //       await expert.pages.putPageOrder(backMatterRootPageId, { afterid });
-      //     }
-      //   } catch (error) {
-      //     console.error({ err: error }, 'Error ordering Back Matter root page to the back of the book');
-      //   }
-      // }
+      await BookService._orderMatterPages({
+        expert,
+        coverPagePath,
+        matterType: 'Back',
+        rootPath: basePath,
+        rootPageID: backMatterRootPageId,
+        children: createdChildren,
+      });
 
       // Set thumbnail and misc properties
       await this._setMatterRootPageProperties(basePath, 'Back');
