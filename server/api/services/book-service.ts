@@ -1300,17 +1300,34 @@ export default class BookService {
   }
 
   /**
+   * Numeric slot at the start of a matter page's URL leaf: `01:_TitlePage` → `01`,
+   * `01.02:_Preface` → `01.02`, `11:_Answers` → `11`. Custom pages are slotted between the
+   * defaults this way (see the Remixer's matter numbering), so sorting by it restores
+   * the intended order.
+   */
+  private static _matterSlotFromPath(path: string): string | null {
+    const leaf = path.split('/').pop() ?? '';
+    let decoded = leaf;
+    try {
+      decoded = decodeURIComponent(leaf);
+    } catch {
+      // Malformed encoding — fall through with the raw leaf.
+    }
+    return decoded.match(/^(\d+(?:\.\d+)*):/)?.[1] ?? null;
+  }
+
+  /**
    * Orders matter pages so they appear where readers and PDF generation expect them.
    *
    * CXOne appends newly created pages to the end of a custom-ordered sibling list, so without
    * this Front Matter can land after the chapters and Back Matter before them. The root page
-   * goes first (Front) or last (Back) among the cover's children, and its children are placed
-   * in the order given.
+   * goes first (Front) or last (Back) among the cover's children, and all of its children —
+   * defaults and any custom pages slotted between them — are ordered by their URL slot.
+   * Children without a slot keep their relative order after the slotted ones.
    *
    * Non-fatal: the matter pages are usable even if ordering fails, so errors are logged, not thrown.
    *
    * @param rootPageID - ID of the matter root page, or `null` to resolve it from `rootPath`.
-   * @param children - Child pages in the intended order, with their IDs if already known.
    */
   private static async _orderMatterPages({
     expert,
@@ -1318,14 +1335,12 @@ export default class BookService {
     matterType,
     rootPath,
     rootPageID,
-    children,
   }: {
     expert: Expert;
     coverPagePath: string;
     matterType: BookMatterType;
     rootPath: string;
     rootPageID: number | null;
-    children: { path: string; pageID: number | null }[];
   }): Promise<void> {
     try {
       const rootID = rootPageID ?? await BookService._resolvePageID(expert, rootPath);
@@ -1352,14 +1367,30 @@ export default class BookService {
         }
       }
 
+      const subpagesRes = await expert.pages.getPageSubpages(rootID, { limit: 'all' });
+      const rawChildren = subpagesRes?.['page.subpage'];
+      const children = (rawChildren ? (Array.isArray(rawChildren) ? rawChildren : [rawChildren]) : [])
+        .map((child, index) => ({
+          pageID: Number(child['@id']),
+          slot: BookService._matterSlotFromPath(
+            (child.path && typeof child.path === 'object' ? child.path['#text'] : '') ?? '',
+          ),
+          index,
+        }))
+        .filter((child) => Number.isFinite(child.pageID));
+
+      // Stable: slotted pages by slot, then unslotted pages in their current order.
+      children.sort((a, b) => {
+        if (a.slot === null || b.slot === null) {
+          return a.slot === b.slot ? a.index - b.index : a.slot === null ? 1 : -1;
+        }
+        return a.slot.localeCompare(b.slot, undefined, { numeric: true }) || a.index - b.index;
+      });
+
       let previousID = 0;
       for (const child of children) {
-        const childID = child.pageID ?? await BookService._resolvePageID(expert, child.path);
-        if (childID === null) {
-          continue;
-        }
-        await expert.pages.putPageOrder(childID, { afterid: previousID });
-        previousID = childID;
+        await expert.pages.putPageOrder(child.pageID, { afterid: previousID });
+        previousID = child.pageID;
       }
     } catch (error) {
       logger.warn({ err: error }, `Error ordering ${matterType} Matter pages`);
@@ -1660,10 +1691,8 @@ export default class BookService {
       ];
 
       // Sequential: Deki serialises writes under the same parent anyway, and ordering keeps log output readable.
-      const createdChildren: { path: string; pageID: number | null }[] = [];
       for (const page of frontMatterPages) {
-        const pageID = await BookService._createPage({ expert, overwriteExisting, ...page });
-        createdChildren.push({ path: page.path, pageID });
+        await BookService._createPage({ expert, overwriteExisting, ...page });
       }
 
       await BookService._orderMatterPages({
@@ -1672,7 +1701,6 @@ export default class BookService {
         matterType: 'Front',
         rootPath: basePath,
         rootPageID: frontMatterRootPageId,
-        children: createdChildren,
       });
 
       // Set thumbnail and misc properties
@@ -1736,10 +1764,8 @@ export default class BookService {
       ];
 
       // Sequential: Deki serialises writes under the same parent anyway, and ordering keeps log output readable.
-      const createdChildren: { path: string; pageID: number | null }[] = [];
       for (const page of backMatterPages) {
-        const pageID = await BookService._createPage({ expert, overwriteExisting, ...page });
-        createdChildren.push({ path: page.path, pageID });
+        await BookService._createPage({ expert, overwriteExisting, ...page });
       }
 
       await BookService._orderMatterPages({
@@ -1748,7 +1774,6 @@ export default class BookService {
         matterType: 'Back',
         rootPath: basePath,
         rootPageID: backMatterRootPageId,
-        children: createdChildren,
       });
 
       // Set thumbnail and misc properties
