@@ -22,6 +22,7 @@ import {
   shouldSkipPage,
 } from "../../util/remixerutils";
 import * as cheerio from "cheerio";
+import { createHash } from "crypto";
 import { detectTranscludeStub } from "../../util/transclusion.js";
 import { RemixerSubPage } from "../../types/Remixer";
 import BookService from "./book-service";
@@ -2896,7 +2897,27 @@ const findDifference = (
   return { mutated, untracked, reparented };
 };
 
+/**
+ * Structural fingerprint of a live book: which pages exist, under which
+ * parent, in which sibling order. Titles and content are left out on purpose —
+ * the publish check guards against a publish reverting library moves, reorders
+ * and deletions, and a title edit can't be reverted by a page the draft didn't
+ * rename.
+ *
+ * `toc` must be the flattened tree from `BookService.getBookTreeFull`, whose
+ * order is deterministic for a given book structure.
+ */
+const computeLiveBookFingerprint = (toc: RemixerSubPage[]): string =>
+  createHash("sha256")
+    .update(
+      toc
+        .map((page) => `${page["@id"] ?? ""}>${page.parentID ?? "-1"}`)
+        .join("\n"),
+    )
+    .digest("hex");
+
 export default {
+  computeLiveBookFingerprint: computeLiveBookFingerprint,
   findDifference: findDifference,
   mergeTocWithSavedConfigs: mergeTocWithSavedConfigs,
   mapToRemixerSubPageResponse: mapToRemixerSubPagesResponse,
