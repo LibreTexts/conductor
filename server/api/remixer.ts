@@ -262,6 +262,7 @@ const publishRemixerProject = async (
       copyModeState,
       pathLevelFormats,
       importGlossaryTerms,
+      liveBookFingerprint,
     } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
@@ -289,6 +290,34 @@ const publishRemixerProject = async (
         err: true,
         errMsg: "Project libreLibrary is missing",
       });
+    }
+
+    // Optimistic concurrency: the draft's structure is ordered and placed
+    // against the live book the client loaded. If the book was changed in the
+    // library since (moves, reorders, deletions), publishing would revert those
+    // edits, so refuse and let the client reload first. Skipped when the client
+    // sent no fingerprint (older clients, or the load couldn't read the book)
+    // and when the book can't be read now — the job reads it again anyway.
+    if (liveBookFingerprint && project.libreCoverID) {
+      const liveTree = await new BookService({
+        bookID: `${subdomain}-${project.libreCoverID}`,
+      })
+        .getBookTreeFull({ flatten: true })
+        .catch((err) => {
+          remixerLog.warn({ err }, "Live book lookup for publish concurrency check failed; skipping check");
+          return null;
+        });
+      if (
+        Array.isArray(liveTree) &&
+        remixerService.computeLiveBookFingerprint(liveTree) !== liveBookFingerprint
+      ) {
+        remixerLog.info({ projectID: id }, "Publish refused: live book changed since the draft was loaded");
+        return res.status(409).send({
+          err: true,
+          errMsg:
+            "The book was changed in the library after this draft was loaded. Reload the draft to pick up those changes, then publish again.",
+        });
+      }
     }
 
     // Refuse before creating any state/job if the payload touches pages outside
@@ -661,6 +690,11 @@ const getRemixerPageTree = async (
         : Promise.resolve(null),
     ]);
 
+    // Fingerprint the raw live tree, before any saved configs are overlaid.
+    const fingerprint = Array.isArray(tree)
+      ? remixerService.computeLiveBookFingerprint(tree)
+      : undefined;
+
     let response = tree;
     if (
       preserveConfigs &&
@@ -676,6 +710,7 @@ const getRemixerPageTree = async (
     return res.send({
       err: false,
       response,
+      fingerprint,
     });
   } catch (error) {
     if (error instanceof ProjectError) {
