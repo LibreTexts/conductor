@@ -61,10 +61,8 @@ import {
   isRestrictedLibraryShelfNode,
   isBackMatterNode,
   isDefaultMatterPage,
-  isFrontMatterNode,
   isMatterRootNode,
   isRootBookNode,
-  sortMatterSiblings,
   reorderBookNodes,
   sanitizePathLevelFormats,
   setLocalDraft,
@@ -324,8 +322,8 @@ const RemixerDashboard: React.FC = () => {
   const contextMenuUnderMatterRoot =
     contextMenuParentNode != null && isMatterRootNode(contextMenuParentNode);
 
-  // Sibling add is allowed under matter roots (insert is clamped: front after
-  // defaults, back before defaults). Other default matter pages stay blocked.
+  // Sibling add is allowed under matter roots, including above/below default
+  // pages. Other default matter pages stay blocked.
   const contextMenuCanAddSibling =
     contextMenu != null &&
     !isRootBookNode(remixerData.currentBook ?? [], contextMenu.nodeId) &&
@@ -1183,8 +1181,10 @@ const RemixerDashboard: React.FC = () => {
   };
 
   /**
-   * Insert `newNode` under `parentId`, clamping position for matter roots:
-   * front matter → after default children; back matter → before default children.
+   * Insert `newNode` under `parentId`. Above/below lands next to the target,
+   * including between default matter pages (the slot numbering follows the
+   * default above it). "Inside" a matter root appends to front matter and
+   * goes before the defaults in back matter.
    */
   const insertNodeUnderParent = (
     existingBookNodes: RemixerSubPage[],
@@ -1197,71 +1197,16 @@ const RemixerDashboard: React.FC = () => {
     const siblings = existingBookNodes.filter(
       (n) => (n.parentID ?? "-1") === parentId,
     );
-    const ordered = sortMatterSiblings(siblings, parent);
 
     let insertAfterId: string | undefined;
     let insertBeforeId: string | undefined;
 
-    if (parent && isMatterRootNode(parent)) {
-      const defaults = ordered.filter((n) => isDefaultMatterPage(n));
-      const customs = ordered.filter((n) => !isDefaultMatterPage(n));
-      if (
-        isFrontMatterNode(parent) ||
-        parent["@title"]?.toLowerCase() === "front matter"
-      ) {
-        // Customs must sit after all defaults.
-        if (customs.length === 0) {
-          insertAfterId = defaults[defaults.length - 1]?.["@id"];
-        } else if (mode === "inside") {
-          insertAfterId =
-            customs[customs.length - 1]?.["@id"] ??
-            defaults[defaults.length - 1]?.["@id"];
-        } else {
-          const targetIsCustom = customs.some((n) => n["@id"] === targetNodeId);
-          if (targetIsCustom) {
-            const targetIndex = customs.findIndex(
-              (n) => n["@id"] === targetNodeId,
-            );
-            const afterIndex = mode === "above" ? targetIndex - 1 : targetIndex;
-            insertAfterId =
-              afterIndex >= 0
-                ? customs[afterIndex]?.["@id"]
-                : defaults[defaults.length - 1]?.["@id"];
-            if (afterIndex < 0 && !insertAfterId) {
-              insertBeforeId = customs[0]?.["@id"];
-            }
-          } else {
-            insertAfterId = defaults[defaults.length - 1]?.["@id"];
-          }
-        }
-      } else if (
-        isBackMatterNode(parent) ||
-        parent["@title"]?.toLowerCase() === "back matter"
-      ) {
-        // Customs must sit before all defaults.
-        if (customs.length === 0) {
-          insertBeforeId = defaults[0]?.["@id"];
-        } else if (mode === "inside") {
-          insertBeforeId = defaults[0]?.["@id"];
-          if (!insertBeforeId) {
-            insertAfterId = customs[customs.length - 1]?.["@id"];
-          }
-        } else {
-          const targetIsCustom = customs.some((n) => n["@id"] === targetNodeId);
-          if (targetIsCustom) {
-            const targetIndex = customs.findIndex(
-              (n) => n["@id"] === targetNodeId,
-            );
-            const afterIndex = mode === "above" ? targetIndex - 1 : targetIndex;
-            if (afterIndex >= 0) {
-              insertAfterId = customs[afterIndex]?.["@id"];
-            } else {
-              insertBeforeId = customs[0]?.["@id"];
-            }
-          } else {
-            insertBeforeId = defaults[0]?.["@id"];
-          }
-        }
+    if (mode === "inside" && parent && isMatterRootNode(parent)) {
+      if (isBackMatterNode(parent)) {
+        insertBeforeId = siblings.find((n) => isDefaultMatterPage(n))?.["@id"];
+      }
+      if (!insertBeforeId) {
+        insertAfterId = siblings[siblings.length - 1]?.["@id"];
       }
     } else {
       const targetIndex = siblings.findIndex((n) => n["@id"] === targetNodeId);

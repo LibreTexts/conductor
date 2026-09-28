@@ -17,7 +17,6 @@ import {
   isBackMatterNode,
   isDefaultMatterPage,
   isMatterRootNode,
-  sortMatterSiblings,
 } from "../services";
 import TreeNodeContainer from "./TreeNodeContainer";
 import { CATALOG_NODE_HIGHLIGHT_STYLE, STATUS_PALETTE } from "../style";
@@ -78,6 +77,16 @@ const getDropPosition = (event: DragEvent<HTMLDivElement>): DropPosition => {
   if (relativeY < 0.25) return "before";
   if (relativeY > 0.75) return "after";
   return "inside";
+};
+
+/** Default matter pages are leaves: drops land above or below them, never inside. */
+const getRowDropPosition = (
+  page: RemixerSubPage,
+  event: DragEvent<HTMLDivElement>,
+): DropPosition => {
+  if (!isDefaultMatterPage(page)) return getDropPosition(event);
+  const rect = event.currentTarget.getBoundingClientRect();
+  return (event.clientY - rect.top) / rect.height < 0.5 ? "before" : "after";
 };
 
 const getEffectiveDropPosition = (
@@ -166,20 +175,16 @@ const TreeDnd: React.FC<TreeDndProps> = ({
       if (siblings) siblings.push(page);
       else map.set(parentKey, [page]);
     }
-    // Apply the same per-parent sort semantics as before, once each.
-    // Front matter: defaults then customs. Back matter: customs then defaults.
-    // At book root level, back matter is always last among siblings.
+    // Children keep their book order, so custom matter pages can sit between
+    // the default ones. At book root level, back matter is always last among siblings.
     map.forEach((children, parentId) => {
       const parent = pagesById.get(parentId);
-      if (parent && isMatterRootNode(parent)) {
-        map.set(parentId, sortMatterSiblings(children, parent));
-      } else {
-        children.sort((a, b) => {
-          const aBack = isBackMatterNode(a) ? 1 : 0;
-          const bBack = isBackMatterNode(b) ? 1 : 0;
-          return aBack - bBack;
-        });
-      }
+      if (parent && isMatterRootNode(parent)) return;
+      children.sort((a, b) => {
+        const aBack = isBackMatterNode(a) ? 1 : 0;
+        const bBack = isBackMatterNode(b) ? 1 : 0;
+        return aBack - bBack;
+      });
     });
     return map;
   }, [currentBook, pagesById]);
@@ -381,7 +386,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
 
   const handleRowDragOver = useCallback(
     (page: RemixerSubPage, event: DragEvent<HTMLDivElement>) => {
-      if (!isBookTree || isDefaultMatterPage(page)) return;
+      if (!isBookTree) return;
       const draggedNodeId =
         draggingIdRef.current || event.dataTransfer.getData("text/plain");
       // Some browsers only expose transfer payload at drop time.
@@ -390,7 +395,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
       event.preventDefault();
       setDropIndicator({
         targetId: page["@id"],
-        position: getDropPosition(event),
+        position: getRowDropPosition(page, event),
       });
     },
     [isBookTree],
@@ -404,14 +409,14 @@ const TreeDnd: React.FC<TreeDndProps> = ({
 
   const handleRowDrop = useCallback(
     (page: RemixerSubPage, event: DragEvent<HTMLDivElement>) => {
-      if (!isBookTree || isDefaultMatterPage(page)) return;
+      if (!isBookTree) return;
       event.preventDefault();
       const draggedNodeId =
         draggingIdRef.current || event.dataTransfer.getData("text/plain");
       const targetNodeId = page["@id"];
       const targetLevel = getNodeLevel(page);
       const position =
-        dropIndicatorRef.current?.position ?? getDropPosition(event);
+        dropIndicatorRef.current?.position ?? getRowDropPosition(page, event);
       const effectivePosition = getEffectiveDropPosition(position, targetLevel);
       const externalPayload = parseExternalDropPayload(event);
 
