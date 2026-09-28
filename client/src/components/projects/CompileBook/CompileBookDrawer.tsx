@@ -25,6 +25,7 @@ const CompileBookDrawer: React.FC<CompileBookDrawerProps> = ({
     exports,
     exportInfo,
     status,
+    isSettling,
     availableKeys,
     totalSizeBytes,
     isCompiling,
@@ -58,7 +59,15 @@ const CompileBookDrawer: React.FC<CompileBookDrawerProps> = ({
     (!hasExports &&
       (status === "submitting" ||
         status === "in-progress" ||
-        status === "failed"));
+        status === "failed" ||
+        isSettling));
+
+  // Shapeshift reports a job finished before the downloads host serves its
+  // files. Without this the pane would spend those seconds telling the user the
+  // file is missing from a compile that just succeeded.
+  const emptyStateStatus = isSettling && status === "finished"
+    ? "finalizing"
+    : (status as "never-compiled" | "submitting" | "in-progress" | "failed");
 
   const body = () => {
     if (isLoading || (isExportsLoading && !hasExports && !showEmptyState)) {
@@ -72,17 +81,13 @@ const CompileBookDrawer: React.FC<CompileBookDrawerProps> = ({
     if (showEmptyState) {
       return (
         <CompileBookEmptyState
-          status={
-            status as
-              | "never-compiled"
-              | "submitting"
-              | "in-progress"
-              | "failed"
-          }
+          status={emptyStateStatus}
           isCompiling={isCompiling}
           onCompile={compile}
           progress={job?.progress}
           stage={job?.stage}
+          startedAt={job?.createdAt}
+          jobID={job?.id}
         />
       );
     }
@@ -116,6 +121,7 @@ const CompileBookDrawer: React.FC<CompileBookDrawerProps> = ({
       <CompileBookHeader
         status={status}
         isCompiling={isCompiling}
+        isSettling={isSettling}
         hasDownloads={hasExports}
         downloadAllURL={downloadAllURL}
         onCompile={compile}
@@ -126,6 +132,7 @@ const CompileBookDrawer: React.FC<CompileBookDrawerProps> = ({
         exportInfo={exportInfo}
         fileCount={availableKeys.length}
         totalSizeBytes={totalSizeBytes}
+        isSettling={isSettling}
       />
       <div className="flex min-h-0 flex-1">
         <ExportRail

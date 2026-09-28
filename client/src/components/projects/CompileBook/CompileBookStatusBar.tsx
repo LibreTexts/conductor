@@ -1,6 +1,8 @@
-import { Badge, Progress, Text } from "@libretexts/davis-react";
+import { Badge, Text } from "@libretexts/davis-react";
 import { format as formatDate } from "date-fns";
 import { fileSizePresentable } from "../../../utils/assetHelpers";
+import CompileProgress from "./CompileProgress";
+import { useElapsedLabel } from "./elapsed";
 import type { CompileStatus } from "../../../hooks/useShapeshift";
 import type { BookExportInfo, ShapeshiftJob } from "../../../types/Shapeshift";
 
@@ -10,6 +12,8 @@ interface CompileBookStatusBarProps {
   exportInfo: BookExportInfo | null;
   fileCount: number;
   totalSizeBytes: number;
+  /** True while a finished compile's files are still being waited on. */
+  isSettling: boolean;
 }
 
 const STATUS_BADGE: Record<
@@ -35,12 +39,24 @@ const CompileBookStatusBar: React.FC<CompileBookStatusBarProps> = ({
   exportInfo,
   fileCount,
   totalSizeBytes,
+  isSettling,
 }) => {
-  const badge = STATUS_BADGE[status];
+  // `finished` is true before the downloads host is serving anything, so during
+  // the settle window the badge says what is actually happening rather than
+  // contradicting the pane, which is showing "Finishing up".
+  const badge = isSettling
+    ? { label: "Finishing up", variant: "primary" as const }
+    : STATUS_BADGE[status];
+  const running = status === "in-progress" || status === "submitting";
+  const elapsedLabel = useElapsedLabel({
+    startedAt: job?.createdAt,
+    running,
+    jobID: job?.id,
+  });
 
   const facts: string[] = [];
 
-  if (status === "in-progress" || status === "submitting") {
+  if (running) {
     if (job?.createdAt) {
       facts.push(`Started ${formatDate(new Date(job.createdAt), DATE_FORMAT)}`);
     }
@@ -52,8 +68,15 @@ const CompileBookStatusBar: React.FC<CompileBookStatusBarProps> = ({
 
   if (job?.id) facts.push(`job ${job.id}`);
 
-  const running = status === "in-progress" || status === "submitting";
-  if (running && job?.stage) facts.push(job.stage);
+  // The stage and the elapsed counter live in this line, not under the bar.
+  // This row is the only part of the drawer on screen for every status, so on a
+  // book that already has downloads — where the pane shows an export instead of
+  // the compiling empty state — it is the one place the user can see that a
+  // long phase is still moving.
+  if (running) {
+    if (job?.stage) facts.push(job.stage);
+    if (elapsedLabel) facts.push(elapsedLabel);
+  }
 
   if (fileCount > 0) {
     facts.push(
@@ -69,24 +92,24 @@ const CompileBookStatusBar: React.FC<CompileBookStatusBarProps> = ({
       )}
       {running && (
         // Sits in the status bar rather than the pane so progress stays visible
-        // when a previous compile's exports are still on screen. `progress` is
-        // passed through as-is: undefined renders indeterminate, which is the
-        // truth before Shapeshift starts reporting a percentage.
-        <div className="w-full">
-          <Progress
-            value={job?.progress}
-            size="sm"
-            showValue
-            label={job?.stage ?? "Compiling"}
-          />
-        </div>
+        // when a previous compile's exports are still on screen.
+        <CompileProgress progress={job?.progress} size="sm" />
       )}
       {/*
         Only terminal transitions reach this region. Announcing every poll tick
         while a compile runs would talk over the user for minutes.
       */}
       <div className="sr-only" aria-live="polite">
-        {status === "finished" && "Compile finished. Exports are ready."}
+        {/*
+          `fileCount` as well as the settle window: when the window gives up
+          with nothing downloadable, `isSettling` goes false while `status`
+          stays `finished`, which would announce exports as ready seconds after
+          the notification said none were available.
+        */}
+        {status === "finished" &&
+          !isSettling &&
+          fileCount > 0 &&
+          "Compile finished. Exports are ready."}
         {status === "failed" && "Compile failed."}
       </div>
     </div>

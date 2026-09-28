@@ -29,8 +29,46 @@ const RUNNING_STATUSES: ShapeshiftJobStatus[] = ["created", "inprogress"];
  */
 const OPTIMISTIC_JOB_MAX_AGE_MS = 45 * 60 * 1000;
 
+/**
+ * How long the exports are re-read for after a compile reports finished.
+ *
+ * Shapeshift calls a job done before the downloads host is serving the files,
+ * so for a few seconds the manifest still says every export is missing. Without
+ * a window like this the drawer reads that gap as a failed artifact and tells
+ * the user their file is missing from a compile that actually just succeeded.
+ *
+ * Bounded so a compile that genuinely produced nothing still reaches the real
+ * missing-file state instead of claiming to be finishing up forever.
+ */
+const EXPORT_SETTLE_MAX_MS = 90 * 1000;
+
+const EXPORT_SETTLE_POLL_MS = 3000;
+
 const isRunning = (status?: ShapeshiftJobStatus) =>
   !!status && RUNNING_STATUSES.includes(status);
+
+/**
+ * Whether the webhook has recorded a completed compile for `jobID`.
+ *
+ * Both sides of the comparison are server-owned: `lastCompiled` is the
+ * timestamp Shapeshift sent, `lastJobSubmittedAt` is written by the same handler
+ * that submitted the job. Comparing `lastCompiled` against a browser clock
+ * instead would let an *earlier* compile satisfy this — a client running behind,
+ * or a previous webhook timestamp running ahead, is enough — and mark a job
+ * finished before it had started. The `lastJobID` check is what ties the record
+ * to this job rather than any predecessor.
+ */
+const compileLandedFor = (
+  jobID: string | undefined,
+  exportInfo: BookExportInfo | null,
+): boolean => {
+  if (!jobID || !exportInfo) return false;
+  if (exportInfo.lastJobID !== jobID) return false;
+  if (!exportInfo.lastCompiled || !exportInfo.lastJobSubmittedAt) return false;
+  const submittedAt = new Date(exportInfo.lastJobSubmittedAt).valueOf();
+  if (Number.isNaN(submittedAt)) return false;
+  return exportInfo.lastCompiled >= submittedAt;
+};
 
 /**
  * What the drawer renders, derived from the job and the book's stored
@@ -54,6 +92,11 @@ export interface UseShapeshiftOptions {
 
 export interface UseShapeshiftResult {
   job: ShapeshiftJob | null;
+  /**
+   * True while a just-finished compile's exports are still being waited on.
+   * Callers should render a finishing state rather than a missing-file one.
+   */
+  isSettling: boolean;
   exports: BookExport[];
   exportInfo: BookExportInfo | null;
   status: CompileStatus;
@@ -98,6 +141,40 @@ export default function useShapeshift({
     submittedAt: number;
   } | null>(null);
 
+  /**
+   * When the most recent compile reported finished, while its exports are still
+   * being waited on. Null once they arrive or the window closes.
+   */
+  const [settlingSince, setSettlingSince] = useState<number | null>(null);
+
+  /**
+   * When this session first saw the webhook record the finished compile.
+   *
+   * A manifest is only known to describe the new files if it was fetched after
+   * this. `dataUpdatedAt` alone proves nothing: the server reuses a book's
+   * probe results for 60 seconds, so a read issued before the webhook lands can
+   * return the *previous* compile's manifest, exports available and all, and
+   * announce files that are not there yet. The webhook drops that cache
+   * (`invalidateBookExportManifest`), which is what makes any read after this
+   * point a live probe.
+   */
+  const [landedAt, setLandedAt] = useState<number | null>(null);
+
+  /**
+   * The compile this session submitted and has not yet heard the end of.
+   *
+   * Completion cannot be read off a derived status transition. Between the POST
+   * settling and the invalidated job query answering, `job` is still the
+   * *previous* compile's finished record, so `submitting -> finished` fires for
+   * a compile that has not begun — and a POST that fails outright produces the
+   * same transition. This is matched against the submitted job's own id, or a
+   * `lastCompiled` newer than the submission, instead.
+   *
+   * A ref rather than state: it must survive the `pendingJob` retirement effect
+   * above clearing its own record in the same commit.
+   */
+  const awaitingJob = useRef<{ id: string; submittedAt: number } | null>(null);
+
   const jobQuery = useQuery({
     queryKey: ["shapeshift-job", bookID],
     queryFn: async () => {
@@ -124,12 +201,10 @@ export default function useShapeshift({
     if (!pendingJob) return;
     const resolvedTerminal =
       fetchedJob?.id === pendingJob.id && !isRunning(fetchedJob?.status);
-    const compiledSince =
-      !!exportInfo?.lastCompiled &&
-      exportInfo.lastCompiled >= pendingJob.submittedAt;
+    const compiledSince = compileLandedFor(pendingJob.id, exportInfo);
     const expired = Date.now() - pendingJob.submittedAt > OPTIMISTIC_JOB_MAX_AGE_MS;
     if (resolvedTerminal || compiledSince || expired) setPendingJob(null);
-  }, [pendingJob, fetchedJob, exportInfo?.lastCompiled]);
+  }, [pendingJob, fetchedJob, exportInfo]);
 
   /**
    * What the UI treats as the current job. Falls back to a locally-constructed
@@ -159,16 +234,24 @@ export default function useShapeshift({
       return res.exports ?? [];
     },
     enabled: exportsEnabled,
+    // The manifest is otherwise read once. During the settle window it is
+    // re-read until the downloads host starts answering for the new files.
+    refetchInterval: settlingSince ? EXPORT_SETTLE_POLL_MS : false,
     refetchOnWindowFocus: false,
   });
 
   const exports = useMemo(() => exportsQuery.data ?? [], [exportsQuery.data]);
 
+  /** When the manifest currently in hand was fetched. Zero before the first. */
+  const exportsUpdatedAt = exportsQuery.dataUpdatedAt;
+
   const compileMutation = useMutation({
     mutationFn: async () => api.compileBook(bookID as string),
     onSuccess: (data) => {
       if (data?.jobId) {
-        setPendingJob({ id: data.jobId, submittedAt: Date.now() });
+        const submitted = { id: data.jobId, submittedAt: Date.now() };
+        setPendingJob(submitted);
+        awaitingJob.current = submitted;
       }
       queryClient.invalidateQueries({ queryKey: ["shapeshift-job", bookID] });
     },
@@ -188,31 +271,59 @@ export default function useShapeshift({
     return "never-compiled";
   }, [compileMutation.isPending, job?.status, exportInfo?.lastCompiled]);
 
-  // Announce the outcome once, on the transition out of a running state.
-  //
-  // Keyed on the derived status rather than the raw job, because a compile can
-  // finish without the job ever coming back: the webhook writes `lastCompiled`
-  // and the optimistic record retires, which leaves no job status to compare.
   const previousStatus = useRef<CompileStatus | undefined>(undefined);
+
+  // Reacts to a compile ending, exactly once, in a single place so there is one
+  // owner of the settle window and the outcome notification.
   useEffect(() => {
     const previous = previousStatus.current;
     previousStatus.current = status;
-    const wasRunning = previous === "in-progress" || previous === "submitting";
-    if (!wasRunning) return;
 
-    if (status === "finished") {
-      queryClient.invalidateQueries({ queryKey: ["shapeshift-exports", bookID] });
-      addNotification({
-        type: "success",
-        message: "Compile finished. Your exports are ready.",
+    const onFinished = () => {
+      // The success notification is deliberately not sent here: the files are
+      // not servable yet. It goes out when the settle window closes.
+      setSettlingSince(Date.now());
+      queryClient.invalidateQueries({
+        queryKey: ["shapeshift-exports", bookID],
       });
-    } else if (status === "failed") {
+    };
+
+    const onFailed = () =>
       addNotification({
         type: "error",
         message: "The compile failed. You can try again from the drawer.",
       });
+
+    const awaiting = awaitingJob.current;
+    if (awaiting) {
+      if (Date.now() - awaiting.submittedAt > OPTIMISTIC_JOB_MAX_AGE_MS) {
+        awaitingJob.current = null;
+        return;
+      }
+
+      // Only this job's own record counts. A compile can also finish without
+      // the job ever coming back — the webhook writes `lastCompiled` and the
+      // optimistic record retires — so a newer `lastCompiled` counts too.
+      const ours = fetchedJob?.id === awaiting.id ? fetchedJob : null;
+      const compiledSince = compileLandedFor(awaiting.id, exportInfo);
+
+      if (ours?.status === "failed") {
+        awaitingJob.current = null;
+        onFailed();
+      } else if (ours?.status === "finished" || compiledSince) {
+        awaitingJob.current = null;
+        onFinished();
+      }
+      return;
     }
-  }, [status, bookID, queryClient, addNotification]);
+
+    // Nothing outstanding from this session, so the drawer is watching a
+    // compile started elsewhere and a status transition is all there is to go
+    // on. `submitting` is excluded as a predecessor for the reason above.
+    if (previous !== "in-progress") return;
+    if (status === "finished") onFinished();
+    else if (status === "failed") onFailed();
+  }, [status, fetchedJob, exportInfo, bookID, queryClient, addNotification]);
 
   const availableKeys = useMemo(
     () => exports.filter((e) => e.available).map((e) => e.key),
@@ -224,8 +335,85 @@ export default function useShapeshift({
     [exports],
   );
 
+  // Notes the webhook landing for the compile being waited on, and asks for a
+  // manifest straight away rather than waiting out the poll interval.
+  useEffect(() => {
+    if (settlingSince === null || landedAt !== null) return;
+    if (!compileLandedFor(exportInfo?.lastJobID, exportInfo)) return;
+    setLandedAt(Date.now());
+    queryClient.invalidateQueries({ queryKey: ["shapeshift-exports", bookID] });
+  }, [settlingSince, landedAt, exportInfo, queryClient, bookID]);
+
+  // The settle window closes once the new files are provably there, and gives
+  // up on its own so a compile that produced nothing still reaches the real
+  // missing-file state. This is also where the outcome is announced, because
+  // until now the files were not actually servable.
+  useEffect(() => {
+    if (settlingSince === null) return;
+
+    const close = () => {
+      setSettlingSince(null);
+      setLandedAt(null);
+    };
+
+    const announceReady = () => {
+      close();
+      addNotification({
+        type: "success",
+        message: "Compile finished. Your exports are ready.",
+      });
+    };
+
+    if (
+      landedAt !== null &&
+      exportsUpdatedAt >= landedAt &&
+      availableKeys.length > 0
+    ) {
+      announceReady();
+      return;
+    }
+
+    const giveUp = () => {
+      // The window can expire with files sitting right there: Shapeshift's
+      // webhook may never arrive, leaving provenance unprovable. Having waited
+      // the full window, what is downloadable now is the best answer there is,
+      // and calling it a failure would be wrong.
+      if (availableKeys.length > 0) {
+        announceReady();
+        return;
+      }
+      close();
+      addNotification({
+        type: "error",
+        message:
+          "The compile finished, but none of its files are available yet. Try compiling again if they do not appear.",
+      });
+    };
+
+    const remaining = EXPORT_SETTLE_MAX_MS - (Date.now() - settlingSince);
+    if (remaining <= 0) {
+      giveUp();
+      return;
+    }
+    const timer = setTimeout(giveUp, remaining);
+    return () => clearTimeout(timer);
+  }, [
+    settlingSince,
+    landedAt,
+    availableKeys.length,
+    exportsUpdatedAt,
+    addNotification,
+  ]);
+
   const compile = useCallback(() => {
     if (!bookID) return;
+    // Retire the previous compile's settle cycle outright. Left running, its
+    // timer and poll would report an outcome for a compile that has been
+    // superseded, and hold the status badge on "Finishing up" while the new job
+    // is the one actually running.
+    setSettlingSince(null);
+    setLandedAt(null);
+    awaitingJob.current = null;
     compileMutation.mutate();
   }, [bookID, compileMutation]);
 
@@ -235,6 +423,7 @@ export default function useShapeshift({
 
   return {
     job,
+    isSettling: settlingSince !== null,
     exports,
     exportInfo,
     status,

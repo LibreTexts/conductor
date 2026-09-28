@@ -65,6 +65,19 @@
   --text-tremor-title--line-height: 1.75rem;
   --text-tremor-metric: 1.875rem;
   --text-tremor-metric--line-height: 2.25rem;
+
+  /* Sweep used over a determinate progress bar so a long-running phase that
+     holds one percentage still reads as live. See CompileProgress.tsx. */
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
 }
 
 /*

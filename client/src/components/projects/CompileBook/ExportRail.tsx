@@ -124,14 +124,19 @@ const ExportRail: React.FC<ExportRailProps> = ({
               >
                 <Icon size={18} className="shrink-0" aria-hidden="true" />
                 <span className="flex-1 truncate">{item.label}</span>
+                {/*
+                  An export that has not been produced yet renders no label at
+                  all. "Unavailable" read as an error on a book that simply has
+                  not been compiled; the row's `aria-disabled` and dimmed
+                  styling already carry that state. EPUB keeps its label because
+                  it is a future format, not an empty one.
+                */}
                 <span className="shrink-0 text-xs text-gray-500">
                   {!item.enabled
                     ? "Coming soon"
                     : entry?.available && entry.sizeBytes
                       ? fileSizePresentable(entry.sizeBytes)
-                      : entry?.available
-                        ? ""
-                        : "Unavailable"}
+                      : ""}
                 </span>
               </button>
             );
