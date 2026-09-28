@@ -8,7 +8,9 @@ import {
   text,
   type default as ExpertClient,
   type GetPageResponse as FoundPage,
+  type Maybe,
   type PageTag,
+  type Scalar,
 } from "@libretexts/cxone-expert-node";
 import AuthorService from "./author-service.js";
 import CXOnePageProperties from "../../util/CXOne/CXOnePageProperties.js";
@@ -143,13 +145,45 @@ function isUnderSyncRoot(path: string, roots: string[]): boolean {
 }
 
 /**
+ * A page's restriction name, read from whichever shape the response used.
+ *
+ * The two endpoints this service reads disagree:
+ *
+ * - `GET /pages/{id}` nests it as
+ *   `security["permissions.page"].restriction`, a scalar that carries an `@id`
+ *   attribute and so arrives wrapped in `#text`.
+ * - `GET /pages/{id}/find` puts a bare `restriction` string on each page and
+ *   omits `security` entirely. The SDK types find pages as `PageBase & Tags`,
+ *   which declares neither, hence the cast.
+ *
+ * Reading only the nested form rejects every page the bulk walk found — the
+ * whole nightly sync, not just the webhook — because `security` isn't actually there.
+ */
+function pageRestriction(page: FoundPage): string | undefined {
+  const nested = one(one(page.security)?.["permissions.page"])?.restriction;
+  if (nested) return text(nested);
+  return text((page as { restriction?: Maybe<Scalar> }).restriction);
+}
+
+/**
  * CXOne restrictions whose pages are readable by an anonymous visitor, and so
- * belong on Commons. Verified live: `Semi-Public` coverpages return 200 to an
- * unauthenticated request on both the API and the public site.
+ * belong on Commons.
+ *
+ * A restriction is the baseline operation set CXOne applies to a user holding no
+ * explicit grant on the page, and `permissions.page.operations` provides detail
+ * on what actions are permitted:
+ *
+ * - `Public` (id 1) — the full operation mask.
+ * - `Semi-Public` (id 2) — `LOGIN,BROWSE,READ,SUBSCRIBE`.
+ * - `Semi-Private` (id 4) — `LOGIN,READ,SUBSCRIBE`. It withholds `BROWSE`, not
+ *   `READ`: the page is excluded from listings but serves to anyone with the
+ *   URL. However, for our needs we treat it as ineligible for Commons sync.
+ * - `Private` (id 3) — `LOGIN` only. Anonymous requests 302 to the login page.
+ *
+ * The names are kept as the rule because `find` returns the name and no mask, and
+ * one gate has to handle both response shapes; see {@link pageRestriction}.
  */
 const PUBLIC_RESTRICTIONS = new Set(["Public", "Semi-Public"]);
-
-/** Restrictions known to be private — skipped quietly rather than logged. */
 const UNLISTED_RESTRICTIONS = new Set(["Private", "Semi-Private"]);
 
 /**
@@ -650,35 +684,34 @@ export default class LibrarySyncService {
    * anonymous visitor, so restriction is checked against an allow-list rather
    * than a deny-list: an unrecognized restriction is treated as non-public and
    * logged, because wrongly publishing a restricted book to Commons is worse
-   * than wrongly omitting one. `Semi-Public` is included — those pages are
-   * readable anonymously and have always been listed on Commons.
+   * than wrongly omitting one. See {@link PUBLIC_RESTRICTIONS}.
    */
   private isSyncable(page: FoundPage, subdomain: string): boolean {
-    if (page["@deleted"] === "true") return false;
-
-    const security = one(page.security);
-    if (!security) {
-      logger.debug(`Skipping ${subdomain} page ${page["@id"]}: no security property.`);
+    if (page["@deleted"] === "true") {
+      logger.debug(`Skipping ${subdomain} page ${page["@id"]}: page is marked deleted.`);
       return false;
     }
 
-    const restriction = one(security["permissions.page"])?.restriction;
+    const restriction = pageRestriction(page);
     if (!restriction) {
-      logger.debug(`Skipping ${subdomain} page ${page["@id"]}: no restriction property.`);
+      commonsSyncLog.warn(`Skipping ${subdomain} page ${page["@id"]}: no page restriction in the ` +
+        `response. Neither \`security["permissions.page"]\` nor a bare ` +
+        `\`restriction\` was present, so its visibility cannot be established.`);
       return false;
     }
 
-    const restrictionText = text(restriction['#text']);
-    if (!restrictionText) {
-      logger.debug(`Skipping ${subdomain} page ${page["@id"]}: restriction property has no text.`);
+    if (PUBLIC_RESTRICTIONS.has(restriction)) {
+      commonsSyncLog.debug(`Including ${subdomain} page ${page["@id"]}: restriction ${restriction} is public.`);
+      return true;
+    };
+
+    if (UNLISTED_RESTRICTIONS.has(restriction)) {
+      commonsSyncLog.debug(`Excluding ${subdomain} page ${page["@id"]}: restriction ${restriction} is unlisted.`);
       return false;
-    }
+    };
 
-    if (PUBLIC_RESTRICTIONS.has(restrictionText)) return true;
-    if (UNLISTED_RESTRICTIONS.has(restrictionText)) return false;
-
-    logger.debug(`Skipping ${subdomain} page ${page["@id"]}: unrecognized restriction ` +
-      `"${restrictionText}". Add it to PUBLIC_RESTRICTIONS if it is publicly readable.`);
+    commonsSyncLog.warn(`Skipping ${subdomain} page ${page["@id"]}: unrecognized restriction ` +
+      `"${restriction}". Add it to PUBLIC_RESTRICTIONS if it is publicly readable.`);
     return false;
   }
 
