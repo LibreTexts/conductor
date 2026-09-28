@@ -1691,7 +1691,6 @@ export default class BookService {
       ];
 
       // Sequential: Deki serialises writes under the same parent anyway, and ordering keeps log output readable.
-      const createdChildren: { path: string; pageID: number | null }[] = [];
       for (const page of frontMatterPages) {
         await BookService._createPage({ expert, overwriteExisting, ...page });
       }
@@ -1765,7 +1764,6 @@ export default class BookService {
       ];
 
       // Sequential: Deki serialises writes under the same parent anyway, and ordering keeps log output readable.
-      const createdChildren: { path: string; pageID: number | null }[] = [];
       for (const page of backMatterPages) {
         await BookService._createPage({ expert, overwriteExisting, ...page });
       }
