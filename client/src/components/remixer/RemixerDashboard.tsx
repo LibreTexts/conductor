@@ -213,6 +213,12 @@ const RemixerDashboard: React.FC = () => {
   /** True while a catalog pick is building the library tree (visible even when the library is unchanged). */
   const [catalogBookLoading, setCatalogBookLoading] = useState(false);
   const catalogLoadSeqRef = useRef(0);
+  /**
+   * Structural fingerprint of the live book as of the last time it was loaded
+   * (see `computeLiveBookFingerprint` on the server). Sent with a publish so the
+   * server can refuse it if the book was changed in the library since.
+   */
+  const liveBookFingerprintRef = useRef<string | null>(null);
   /** Last known server-persisted book state; used by the recovery modal so we don't refetch. */
   const serverStateRef = useRef<{
     book: RemixerSubPage[];
@@ -593,6 +599,10 @@ const RemixerDashboard: React.FC = () => {
       { preserveConfigs: preserveConfigs ?? true, flatten: true },
     );
     const nodes: RemixerSubPage[] = res.response ?? [];
+    // Only this project's book is loaded here, so this is the baseline the
+    // user's edits are made against.
+    liveBookFingerprintRef.current =
+      typeof res.fingerprint === "string" ? res.fingerprint : null;
     return nodes.map((node) => ({
       ...node,
       addedItem: false,
@@ -624,7 +634,16 @@ const RemixerDashboard: React.FC = () => {
         sanitizePathLevelFormats(pathLevelFormats as PathLevelFormat[] | undefined),
       );
     } catch (error) {
-      console.error("Failed to compare the server draft with the live book", error);
+      // Loading the draft unchecked is better than not loading it, but the
+      // user must know: an out-of-date draft can undo library edits on publish.
+      console.error("Failed to compare the draft with the live book", error);
+      liveBookFingerprintRef.current = null;
+      addNotification({
+        message:
+          "Couldn't compare your draft with the live book. Changes made in the library since the draft was saved may be missing — reload before publishing.",
+        type: "error",
+        duration: 10000,
+      });
       return { book, report: null };
     }
   };
@@ -2105,6 +2124,7 @@ const RemixerDashboard: React.FC = () => {
         copyModeState?: string;
         pathLevelFormats?: PathLevelFormat[];
         importGlossaryTerms?: boolean;
+        liveBookFingerprint?: string;
       };
     }) => {
       const response = await api.publishRemixerProject(
@@ -2120,6 +2140,17 @@ const RemixerDashboard: React.FC = () => {
     },
     onError: (error) => {
       setPublishStatus("error");
+      const status = (error as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 409) {
+        addNotification({
+          message:
+            "The book was changed in the library after you loaded it, so publishing now could undo those changes. Reload your draft from Load Remixer State to pick them up, then publish again.",
+          type: "error",
+          duration: 12000,
+        });
+        return;
+      }
       addNotification({
         message: error instanceof Error ? error.message : "Failed to publish",
         type: "error",
@@ -2153,6 +2184,7 @@ const RemixerDashboard: React.FC = () => {
         copyModeState: uiState.copyModeState,
         pathLevelFormats: uiState.pathLevelFormats,
         importGlossaryTerms,
+        liveBookFingerprint: liveBookFingerprintRef.current ?? undefined,
       },
     });
   };

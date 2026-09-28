@@ -63,6 +63,8 @@ export const SaveRemixerProjectStateSchema = z.object({
     autoNumbering: z.boolean().optional(),
     copyModeState: z.string().optional(),
     importGlossaryTerms: z.boolean().optional(),
+    // Publish only: fingerprint of the live book the edits were made against.
+    liveBookFingerprint: z.string().max(128).optional(),
   }),
   query: z.object({}).optional(),
 });

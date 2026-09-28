@@ -1020,6 +1020,9 @@ export const buildBookPaths = (
   });
 };
 
+/** Titles `getNewNodeTitleForDepth` gives new pages, with an optional duplicate suffix. */
+const DEFAULT_NEW_PAGE_TITLE = /^new (chapter|page|subpage)( \(\d+\))?$/i;
+
 export interface DraftTocReconcileReport {
   /** Draft-only pages that already exist in the live book (published since the draft was saved). */
   adopted: RemixerSubPage[];
@@ -1043,9 +1046,11 @@ export interface DraftTocReconcileReport {
  * the library), or both. The rule is: what the draft changed wins, everything
  * else follows the live book.
  *
- * - Added/imported draft pages that now exist live under the same parent with
+ * - Blank pages the draft added that now exist live under the same parent with
  *   the same title adopt the live page's id, so publishing doesn't create them
- *   a second time.
+ *   a second time. Imported pages and pages still carrying a default title
+ *   ("New Page", …) are never matched: a title match there is too likely to be
+ *   a coincidence, and adopting would silently drop the page's content.
  * - Pages the draft never moved (no moved flag, path still equal to its saved
  *   baseline) take their live parent and sibling position; pages the draft did
  *   move keep the draft placement.
@@ -1168,10 +1173,17 @@ export const reconcileDraftWithToc = (
   });
   const idMap = new Map<string, string>();
   const resolveId = (id: string): string => idMap.get(id) ?? id;
+  const canAdopt = (node: RemixerSubPage): boolean =>
+    node.addedItem === true &&
+    !isDeleted(node) &&
+    // Imported pages carry `${sourceID}-…` ids; blank ones are `new-…`.
+    node["@id"].startsWith("new-") &&
+    node.isImported !== true &&
+    !DEFAULT_NEW_PAGE_TITLE.test(cleanTitle(node));
   for (let changed = true; changed; ) {
     changed = false;
     for (const node of draft) {
-      if (!node.addedItem || isDeleted(node) || idMap.has(node["@id"])) continue;
+      if (!canAdopt(node) || idMap.has(node["@id"])) continue;
       const candidates = unclaimedByParent.get(resolveId(parentKey(node)));
       if (!candidates?.length) continue;
       const title = cleanTitle(node).toLowerCase();
