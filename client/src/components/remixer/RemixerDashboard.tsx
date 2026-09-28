@@ -39,6 +39,7 @@ import {
   remixerUiStateInit,
 } from "./model";
 import {
+  DraftTocReconcileReport,
   DropPosition,
   applyBookNodeDeletion,
   applyBookNodeRestore,
@@ -63,6 +64,7 @@ import {
   isDefaultMatterPage,
   isMatterRootNode,
   isRootBookNode,
+  reconcileDraftWithToc,
   reorderBookNodes,
   sanitizePathLevelFormats,
   setLocalDraft,
@@ -595,6 +597,77 @@ const RemixerDashboard: React.FC = () => {
       ...node,
       addedItem: false,
     }));
+  };
+
+  /**
+   * Re-bases a saved (server or browser) draft on the book's live TOC so its change flags describe
+   * the difference from what is published (see `reconcileDraftWithToc`). Falls
+   * back to the draft as saved when the TOC can't be loaded.
+   */
+  const rebaseDraftOnLiveToc = async (
+    book: RemixerSubPage[],
+    coverPageId: string | undefined,
+    libreLibrary: string | undefined,
+    pathLevelFormats: unknown,
+  ): Promise<{
+    book: RemixerSubPage[];
+    report: DraftTocReconcileReport | null;
+  }> => {
+    if (!coverPageId || !libreLibrary) return { book, report: null };
+    try {
+      // Raw live tree: overlaying saved configs would copy the draft's own
+      // baselines back onto the TOC we are comparing it against.
+      const toc = await loadEntireBook(id, coverPageId, libreLibrary, false);
+      return reconcileDraftWithToc(
+        book,
+        toc,
+        sanitizePathLevelFormats(pathLevelFormats as PathLevelFormat[] | undefined),
+      );
+    } catch (error) {
+      console.error("Failed to compare the server draft with the live book", error);
+      return { book, report: null };
+    }
+  };
+
+  /** One summary of what re-basing the draft on the live book changed. */
+  const announceTocRebase = (report: DraftTocReconcileReport | null) => {
+    if (!report) return;
+    const plural = (n: number) => (n === 1 ? "page" : "pages");
+    const parts: string[] = [];
+    if (report.adopted.length > 0) {
+      parts.push(
+        `${report.adopted.length} new ${plural(report.adopted.length)} in your draft ${
+          report.adopted.length === 1 ? "was" : "were"
+        } already published and now point to the live ${plural(report.adopted.length)}`,
+      );
+    }
+    if (report.insertedFromToc.length > 0) {
+      parts.push(
+        `${report.insertedFromToc.length} ${plural(report.insertedFromToc.length)} published since the draft was saved ${
+          report.insertedFromToc.length === 1 ? "was" : "were"
+        } added to it`,
+      );
+    }
+    if (report.relocated.length > 0) {
+      parts.push(
+        `${report.relocated.length} ${plural(report.relocated.length)} moved in the library since the draft was saved now ${
+          report.relocated.length === 1 ? "follows" : "follow"
+        } the live placement`,
+      );
+    }
+    if (report.untracked.length > 0) {
+      parts.push(
+        report.untracked.length === 1
+          ? `"${report.untracked[0]["@title"] || report.untracked[0].title}" is no longer in the live book and was removed from your draft`
+          : `${report.untracked.length} pages are no longer in the live book and were removed from your draft`,
+      );
+    }
+    if (parts.length === 0) return;
+    addNotification({
+      message: `${parts.join(". ")}.`,
+      type: report.untracked.length > 0 ? "error" : "info",
+      duration: 8000,
+    });
   };
 
   /** Load a library subtree rooted at `rootNode` (used for catalog-book extract imports). */
@@ -1655,72 +1728,63 @@ const RemixerDashboard: React.FC = () => {
       if (source === "local") {
         const draft = getLocalDraft(id);
         if (!draft) return;
+        const rebased = await rebaseDraftOnLiveToc(
+          draft.currentBook,
+          remixerData.liberCoverID,
+          remixerData.libreLibrary,
+          draft.pathLevelFormats,
+        );
         applyDraftSettings(draft);
         setRemixerData((prev) => ({
           ...prev,
-          currentBook: normalizeBookState(draft.currentBook),
+          currentBook: normalizeBookState(rebased.book),
         }));
-      } else if (source === "serverDraft") {
-        if (serverStateRef.current) {
-          applyDraftSettings(serverStateRef.current.settings);
-          setRemixerData((prev) => ({
-            ...prev,
-            currentBook: normalizeBookState(serverStateRef.current!.book),
-          }));
-        } else {
-          try {
-            const savedState = await api.getRemixerProjectState(id);
-            const savedBook = (savedState.currentBook ??
-              []) as RemixerSubPage[];
-            if (Array.isArray(savedBook) && savedBook.length > 0) {
-              applyDraftSettings(savedState);
-              serverStateRef.current = {
-                book: savedBook,
-                settings: savedState,
-              };
-              setRemixerData((prev) => ({
-                ...prev,
-                currentBook: normalizeBookState(savedBook),
-              }));
-            }
-          } catch {
-            addNotification({
-              message: "Failed to load server draft.",
-              type: "error",
-              duration: 3000,
+        announceTocRebase(rebased.report);
+      } else if (source === "serverDraft" || source === "server") {
+        // Always fetch fresh: the saved state and the live book can both have
+        // changed since the page opened (e.g. pages moved in the library while
+        // this tab was open), so a snapshot from page load would be stale.
+        try {
+          const savedState = await api.getRemixerProjectState(id);
+          const savedBook = (savedState.currentBook ?? []) as RemixerSubPage[];
+          if (Array.isArray(savedBook) && savedBook.length > 0) {
+            const rebased = await rebaseDraftOnLiveToc(
+              savedBook,
+              remixerData.liberCoverID,
+              remixerData.libreLibrary,
+              savedState.pathLevelFormats,
+            );
+            applyDraftSettings(savedState);
+            serverStateRef.current = {
+              book: rebased.book,
+              settings: savedState,
+            };
+            setRemixerData((prev) => ({
+              ...prev,
+              currentBook: normalizeBookState(rebased.book),
+            }));
+            // Pages the server already dropped as gone live belong in the
+            // same summary as the ones the client reconcile removed.
+            const serverUntracked = Array.isArray(savedState.untracked)
+              ? (savedState.untracked as RemixerSubPage[])
+              : [];
+            const report = rebased.report ?? {
+              adopted: [],
+              insertedFromToc: [],
+              relocated: [],
+              untracked: [],
+            };
+            announceTocRebase({
+              ...report,
+              untracked: [...serverUntracked, ...report.untracked],
             });
           }
-        }
-      } else if (source === "server") {
-        if (serverStateRef.current) {
-          applyDraftSettings(serverStateRef.current.settings);
-          setRemixerData((prev) => ({
-            ...prev,
-            currentBook: normalizeBookState(serverStateRef.current!.book),
-          }));
-        } else {
-          try {
-            const savedState = await api.getRemixerProjectState(id);
-            const savedBook = (savedState.currentBook ??
-              []) as RemixerSubPage[];
-            if (Array.isArray(savedBook) && savedBook.length > 0) {
-              applyDraftSettings(savedState);
-              serverStateRef.current = {
-                book: savedBook,
-                settings: savedState,
-              };
-              setRemixerData((prev) => ({
-                ...prev,
-                currentBook: normalizeBookState(savedBook),
-              }));
-            }
-          } catch {
-            addNotification({
-              message: "Failed to load server draft.",
-              type: "error",
-              duration: 3000,
-            });
-          }
+        } catch {
+          addNotification({
+            message: "Failed to load server draft.",
+            type: "error",
+            duration: 3000,
+          });
         }
       } else {
         // Capture draft settings before clear — page-load recovery has not applied
@@ -2317,12 +2381,20 @@ const RemixerDashboard: React.FC = () => {
       // Describes the server state, so it is only worth reporting once we know
       // the user is actually keeping the server state (see `announceUntracked`).
       let untrackedNotice: UntrackedNotice | null = null;
+      let tocRebaseReport: DraftTocReconcileReport | null = null;
 
       try {
         const savedState = await api.getRemixerProjectState(id);
         const savedBook = (savedState.currentBook ?? []) as RemixerSubPage[];
         if (Array.isArray(savedBook) && savedBook.length > 0) {
-          serverBook = savedBook;
+          const rebased = await rebaseDraftOnLiveToc(
+            savedBook,
+            res.project.libreCoverID,
+            res.project.libreLibrary,
+            savedState.pathLevelFormats,
+          );
+          serverBook = rebased.book;
+          tocRebaseReport = rebased.report;
           serverSettings = {
             autoNumbering: savedState.autoNumbering,
             copyModeState: savedState.copyModeState,
@@ -2332,7 +2404,7 @@ const RemixerDashboard: React.FC = () => {
             publishedAt: savedState?.publishedAt,
           };
           serverStateRef.current = {
-            book: savedBook,
+            book: serverBook,
             settings: serverSettings,
           };
         }
@@ -2376,6 +2448,12 @@ const RemixerDashboard: React.FC = () => {
         });
       };
 
+      /** Everything worth telling the user once they keep the server state. */
+      const announceServerDraftNotes = () => {
+        announceTocRebase(tocRebaseReport);
+        announceUntracked();
+      };
+
       if (localDraft && serverBook) {
         openModal(
           <RecoveryModal
@@ -2392,11 +2470,9 @@ const RemixerDashboard: React.FC = () => {
               publishedAt: serverSettings?.publishedAt,
             }}
             onLoadSource={(source, options) => {
+              // Server-draft loads refetch and announce their own reconcile
+              // summary (including pages the server dropped as gone live).
               handleLoadSourceRef.current(source, options);
-              // Only relevant when the server state is the one being kept.
-              if (source === "server" || source === "serverDraft") {
-                announceUntracked();
-              }
               closeAllModals();
             }}
             onStartOver={() => startOverFromRecoveryRef.current()}
@@ -2407,11 +2483,18 @@ const RemixerDashboard: React.FC = () => {
       }
 
       if (localDraft) {
+        const rebased = await rebaseDraftOnLiveToc(
+          localDraft.currentBook,
+          res.project.libreCoverID,
+          res.project.libreLibrary,
+          localDraft.pathLevelFormats,
+        );
         applyDraftSettings(localDraft);
         setRemixerData((prev) => ({
           ...prev,
-          currentBook: normalizeBookState(localDraft.currentBook),
+          currentBook: normalizeBookState(rebased.book),
         }));
+        announceTocRebase(rebased.report);
         return;
       }
 
@@ -2421,14 +2504,14 @@ const RemixerDashboard: React.FC = () => {
           ...prev,
           currentBook: normalizeBookState(serverBook!),
         }));
-        announceUntracked();
+        announceServerDraftNotes();
         return;
       }
 
       // Nothing usable was saved. If that is because reconciliation emptied the
       // book, say so before silently reloading it from the library — otherwise
       // the whole draft disappearing looks like it was never saved.
-      announceUntracked();
+      announceServerDraftNotes();
 
       const fullBook = await loadEntireBook(
         id,
