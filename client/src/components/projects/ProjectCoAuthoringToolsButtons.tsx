@@ -1,10 +1,8 @@
-import { Button, Header, Icon, Popup } from "semantic-ui-react";
-import {
-  buildLibraryPageGoURL,
-  buildRemixerURL,
-} from "../../utils/projectHelpers";
-import { ProjectClassification } from "../../types";
+import { Button, Tooltip } from "@libretexts/davis-react";
+import { IconExternalLink } from "@tabler/icons-react";
+import { buildLibraryPageGoURL, buildRemixerURL } from "../../utils/projectHelpers";
 import useClientConfig from "../../hooks/useClientConfig";
+import { ProjectClassification } from "../../types";
 
 interface ProjectCoAuthoringToolsButtonsProps {
   className?: string;
@@ -17,9 +15,10 @@ interface ProjectCoAuthoringToolsButtonsProps {
   projectID?: string;
 }
 
-const ProjectCoAuthoringToolsButtons: React.FC<
-  ProjectCoAuthoringToolsButtonsProps
-> = ({
+const actionTooltipClass =
+  "[&>[role=tooltip]]:!left-0 [&>[role=tooltip]]:!translate-x-0 [&>[role=tooltip]]:!right-auto";
+
+const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsProps> = ({
   className,
   handleOpenReaderResourcesModal,
   hasCommonsBook = false,
@@ -29,131 +28,138 @@ const ProjectCoAuthoringToolsButtons: React.FC<
   projectClassification,
   projectID,
 }) => {
-    const { clientConfig } = useClientConfig();
+  const { clientConfig } = useClientConfig();
+  const validBook = libreCoverID && libreLibrary;
+  if (projectClassification === ProjectClassification.MINI_REPO) return null;
+  if (!validBook && !hasCommonsBook) return null;
+  if (!isProjectMemberOrAdmin) return null;
 
-    const validBook = libreCoverID && libreLibrary;
-    if (projectClassification === ProjectClassification.MINI_REPO) return null;
-    if (!validBook && !hasCommonsBook) return null;
-    if (!isProjectMemberOrAdmin) return null;
-
-    return (
-      <div className={className}>
-        <Header as="span" sub>
-          Co-Authoring Tools:{" "}
-        </Header>
-        <div className="flex flex-row flex-wrap gap-2 mt-2">
-          {(validBook || hasCommonsBook) &&
-            libreCoverID &&
-            libreLibrary && (<>
-              <Popup
+  return (
+    <div className={className}>
+      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        Co-Authoring Tools:
+      </span>
+      <div className="flex flex-row flex-wrap gap-2 mt-2">
+        {(validBook || hasCommonsBook) &&
+          libreCoverID &&
+          libreLibrary && (<>
+              <Tooltip
+                placement="bottom"
+                className={actionTooltipClass}
                 content="This link will open the book in the LibreTexts OER Remixer."
-                trigger={
-                  <Button
-                    onClick={() =>
-                      window.open(
-                        buildRemixerURL(
-                          libreLibrary ?? "chem",
-                          libreLibrary && libreCoverID
-                            ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
-                            : "",
-                        ),
-                        "_blank",
-                      )
-                    }
-                    color="blue"
-                    size="small"
-                  >
-                    Open OER Remixer (Legacy)
-                    <Icon name="external alternate" className="!ml-2" />
-                  </Button>
-                }
-              />
-              <Popup
+              >
+                <Button
+                  as="a"
+                  href={buildRemixerURL(
+                    libreLibrary ?? "chem",
+                    libreLibrary && libreCoverID
+                      ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
+                      : "",
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="primary"
+                  size="sm"
+                  icon={<IconExternalLink size={16} />}
+                  iconPosition="right"
+                >
+                  Open OER Remixer (Legacy)
+                </Button>
+              </Tooltip>
+              <Tooltip
+                placement="bottom"
+                className={actionTooltipClass}
                 content="This link will open the book in the LibreTexts OER Remixer v3."
-                trigger={
-                  <Button
-                    onClick={() => window.open(`/projects/${projectID}/remixer`, "_blank")}
-                    color="blue"
-                    size="small"
-                  >
-                    Open OER Remixer v3 (New)
-                    <Icon name="external alternate" className="!ml-2" />
-                  </Button>
-                }
-              />
+              >
+                <Button
+                  as="a"
+                  href={`/projects/${projectID}/remixer`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="primary"
+                  size="sm"
+                  icon={<IconExternalLink size={16} />}
+                  iconPosition="right"
+                >
+                  Open OER Remixer v3 (New)
+                </Button>
+              </Tooltip>
               <Button
-                onClick={() =>
-                  window.open(
-                    `/projects/${projectID}/accessibility-remediation`,
-                    "_blank"
-                  )
-                }
-                color="blue"
-                size="small"
+                as="a"
+                href={`/projects/${projectID}/accessibility-remediation`}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="primary"
+                size="sm"
+                icon={<IconExternalLink size={16} />}
+                iconPosition="right"
               >
                 Accessibility Remediation
-                <Icon name="external alternate" className="!ml-2" />
               </Button>
               <Button
-                onClick={() =>
-                  window.open(`/glossary/project/${projectID}`, "_blank")
-                }
-                color="blue"
-                size="small"
+                as="a"
+                href={`/glossary/project/${projectID}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="primary"
+                size="sm"
+                icon={<IconExternalLink size={16} />}
+                iconPosition="right"
               >
                 Glossary Manager
-                <Icon name="external alternate" className="!ml-2" />
               </Button>
               <Button
-                onClick={() =>
-                  window.open(`/projects/${projectID}/restacker`, "_blank")
-                }
-                color="blue"
-                size="small"
+                as="a"
+                href={`/projects/${projectID}/restacker`}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="primary"
+                size="sm"
+                icon={<IconExternalLink size={16} />}
+                iconPosition="right"
               >
                 License Restacker
-                <Icon name="external alternate" className="!ml-2" />
               </Button>
               {hasCommonsBook && (
                 <Button
+                  variant="primary"
+                  size="sm"
                   onClick={handleOpenReaderResourcesModal}
-                  color="blue"
-                  size="small"
                 >
                   Manage Reader Resources
                 </Button>
               )}
               <Button
-                onClick={() =>
-                  window.open(
-                    `/projects/${projectID}/metadata-editor`,
-                    "_blank"
-                  )
-                }
-                color="blue"
-                size="small"
+                as="a"
+                href={`/projects/${projectID}/metadata-editor`}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="primary"
+                size="sm"
+                icon={<IconExternalLink size={16} />}
+                iconPosition="right"
               >
                 Metadata Editor
-                <Icon name="external alternate" className="!ml-2" />
               </Button>
-              {
-                clientConfig?.reference_manager_enabled && (
-                  <Button
-                    onClick={() =>
-                      window.open(`/projects/${projectID}/references`, "_blank")
-                    }
-                    color="blue"
-                    size="small"
-                  >
-                    Reference Manager
-                    <Icon name="external alternate" className="!ml-2" />
-                  </Button>
-                )}
+              {clientConfig?.reference_manager_enabled && (
+                <Button
+                  as="a"
+                  href={`/projects/${projectID}/references`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="primary"
+                  size="sm"
+                  icon={<IconExternalLink size={16} />}
+                  iconPosition="right"
+                >
+                  Reference Manager
+                </Button>
+              )}
             </>
-            )}
-        </div>
+          )}
       </div>
-    );
-  };
+    </div>
+  );
+};
 
 export default ProjectCoAuthoringToolsButtons;
