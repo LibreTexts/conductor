@@ -741,6 +741,59 @@ type CreatePageOptions = {
   titleOverride?: string;
 };
 
+/**
+ * Deletes a page created a moment ago whose remaining setup then failed, so
+ * it isn't left behind as an empty shell. A shell is worse than nothing: it
+ * occupies the path, so retrying (within this run or in a new one) hits a
+ * 409, and it was never recorded as created, so the draft doesn't know it
+ * exists. Non-recursive on purpose: the page was just created and has no
+ * children, and this must never take anything else with it.
+ *
+ * @param target - The page's id when known, else its raw (unencoded) path.
+ * @returns true when the page is gone (or was never there).
+ */
+const discardHalfCreatedPage = async (
+  target: { pageID?: string; location: string },
+  subdomain: string,
+): Promise<boolean> => {
+  try {
+    const dekiHeaders = await generateAPIRequestHeaders(subdomain);
+    if (!dekiHeaders) return false;
+    const ref =
+      target.pageID ??
+      `=${encodeURIComponent(encodeURIComponent(target.location))}`;
+    const response = await fetch(
+      `https://${subdomain}.libretexts.org/@api/deki/pages/${ref}?dream.out.format=json&origin=mt-web&recursive=false`,
+      { method: "DELETE", headers: { ...dekiHeaders } },
+    );
+    return response.ok || response.status === 404 || response.status === 410;
+  } catch (err) {
+    remixerLog.warn({ err, ...target, subdomain }, "Could not discard half-created page");
+    return false;
+  }
+};
+
+/**
+ * Rethrows `error` from a page's post-create setup after discarding the page.
+ * When the page can't be discarded, the original error is replaced by one
+ * that names the leftover page, since a retry will now collide with it.
+ */
+const failAfterCreate = async (
+  error: unknown,
+  target: { pageID?: string; location: string },
+  subdomain: string,
+): Promise<never> => {
+  if (await discardHalfCreatedPage(target, subdomain)) throw error;
+  const detail = error instanceof Error ? error.message : String(error);
+  remixerLog.error(
+    { err: error, ...target, subdomain },
+    "Half-created page left in the library",
+  );
+  throw new Error(
+    `${detail} (a partly created page was left at "${target.location}" and could not be removed; delete it in the library before publishing again)`,
+  );
+};
+
 const handleNewPage = async (
   page: RemixerSubPageState,
   parent: RemixerSubPageState,
@@ -793,19 +846,25 @@ const handleNewPage = async (
   if (!response.ok) {
     throwForMindTouchResponse(response, `Error creating page "${createTitle}"`);
   }
-  const createdPage = await getPage(rawPath, subdomain);
-  const pageID = createdPage?.["@id"]?.toString();
-  // Only accept uri.ui — @href from the info endpoint is the API URL form
-  // and must not be stored as the page's human-readable URI.
-  const rawUri = createdPage?.["uri.ui"];
-  const pageURI = typeof rawUri === "string" && rawUri.length > 0 ? rawUri : "";
-  if (!pageID) {
-    throw new Error(`Error locating CXOne page ID for "${rawPath}"`);
+  // The page exists live from here on; if the rest fails, remove it again.
+  try {
+    const createdPage = await getPage(rawPath, subdomain);
+    const pageID = createdPage?.["@id"]?.toString();
+    // Only accept uri.ui — @href from the info endpoint is the API URL form
+    // and must not be stored as the page's human-readable URI.
+    const rawUri = createdPage?.["uri.ui"];
+    const pageURI =
+      typeof rawUri === "string" && rawUri.length > 0 ? rawUri : "";
+    if (!pageID) {
+      throw new Error(`Error locating CXOne page ID for "${rawPath}"`);
+    }
+
+    await applyDefaultRemixerPageProperties(subdomain, pageID);
+
+    return { pageID, pageURI };
+  } catch (error) {
+    return failAfterCreate(error, { location: rawPath }, subdomain);
   }
-
-  await applyDefaultRemixerPageProperties(subdomain, pageID);
-
-  return { pageID, pageURI };
 };
 
 /** Path segment for move `to` / rename `name` (LibreTexts-style padded slug). */
@@ -1425,218 +1484,228 @@ const handleImportedPage = async (
     options,
   );
 
-  let contentsBody: string;
-  let postComment: string;
-  const dekiHeaders = await generateAPIRequestHeaders(subdomain);
+  // The page exists live from here on; if copying its content fails, remove
+  // it again so a retry doesn't collide with an empty shell.
+  try {
+    let contentsBody: string;
+    let postComment: string;
+    const dekiHeaders = await generateAPIRequestHeaders(subdomain);
 
-  const sourceService = new BookService({
-    bookID: `${sourceSubdomain}-${sourceId}`,
-  });
-  const sourceTags = await sourceService.getPageTags(sourceId.toString());
-  // Drop the source page's own article:* tag — its kind reflected the
-  // source's position, not this import's target placement. The correct
-  // kind is computed below from the target parent/coverId and applied
-  // explicitly via applyArticleKindToPage.
-  const preservedTags = sourceTags
-    .map((tag) => tag["@value"])
-    .filter((tag) => !tag.startsWith("article:"));
-
-  const shouldTransclude = copyModeState === "Transclude" && !hasChildren;
-  if (shouldTransclude) {
-    const resolvedSource = await resolveTranscludeSource({
-      subdomain: sourceSubdomain,
-      pageId: sourceId,
-      fallbackUri: sourceUri,
+    const sourceService = new BookService({
+      bookID: `${sourceSubdomain}-${sourceId}`,
     });
+    const sourceTags = await sourceService.getPageTags(sourceId.toString());
+    // Drop the source page's own article:* tag — its kind reflected the
+    // source's position, not this import's target placement. The correct
+    // kind is computed below from the target parent/coverId and applied
+    // explicitly via applyArticleKindToPage.
+    const preservedTags = sourceTags
+      .map((tag) => tag["@value"])
+      .filter((tag) => !tag.startsWith("article:"));
 
-    if (resolvedSource.sourceSubdomain === subdomain) {
-      const trimmedSourceUri = extractPagePath(resolvedSource.sourceUri);
-      contentsBody = RemixerTemplates.POST_TranscludeSameLibrary(
-        trimmedSourceUri,
-        [],
-      );
-    } else {
-      contentsBody = RemixerTemplates.POST_TranscludeCrossLibrary(
-        resolvedSource.sourceSubdomain,
-        resolvedSource.sourceId,
-        resolvedSource.sourceUri,
-        [],
-      );
-    }
-    postComment = "Remixer transclude";
-  } else {
-    const htmlRes = await CXOneFetch({
-      scope: "page",
-      path: sourceId,
-      api: MindTouch.API.Page.GET_Page_Contents("json", "edit"),
-      subdomain: sourceSubdomain,
-    });
-    if (!htmlRes.ok) {
-      throwForMindTouchResponse(htmlRes, "Error reading source page contents");
-    }
-    const htmlJson = await htmlRes.json();
-    const rawBody = htmlJson?.body;
-    const rawHtml =
-      typeof rawBody === "string"
-        ? rawBody
-        : Array.isArray(rawBody)
-          ? String(rawBody[0] ?? "")
-          : "";
-    // Fragment parse so we don't wrap the body in <html><head><body>.
-    const $ = cheerio.load(rawHtml, null, false);
-    $(".mt-guide-content").remove();
-    const cleanedRawHtml = $.root().html() ?? $.html() ?? "";
+    const shouldTransclude = copyModeState === "Transclude" && !hasChildren;
+    if (shouldTransclude) {
+      const resolvedSource = await resolveTranscludeSource({
+        subdomain: sourceSubdomain,
+        pageId: sourceId,
+        fallbackUri: sourceUri,
+      });
 
-    // A same-library fork can keep the source's relative `/@api/deki/files/...`
-    // paths: file ids resolve library-wide, so the target page renders the same
-    // attachment without copying it. Across libraries that id would resolve
-    // against the target library instead, so the files have to come with it.
-    const crossLibrary = sourceSubdomain !== subdomain;
-    const shouldCopyFiles = copyModeState === "Full" || crossLibrary;
-
-    if (shouldCopyFiles) {
-      try {
-        const targetService = new BookService({
-          bookID: `${subdomain}-${pageID}`,
-        });
-        const migrations = await copySourcePageFiles({
-          sourceService,
-          sourceId: sourceId.toString(),
-          sourceSubdomain,
-          targetService,
-          targetId: pageID,
-          targetSubdomain: subdomain,
-          warnings,
-        });
-        contentsBody = RemixerTemplates.POST_CopyPage(
-          cleanedRawHtml,
-          migrations,
+      if (resolvedSource.sourceSubdomain === subdomain) {
+        const trimmedSourceUri = extractPagePath(resolvedSource.sourceUri);
+        contentsBody = RemixerTemplates.POST_TranscludeSameLibrary(
+          trimmedSourceUri,
           [],
         );
-        postComment =
-          copyModeState === "Full"
-            ? "Remixer full copy"
-            : "Remixer fork (cross-library)";
-      } catch (err) {
-        const detail = err instanceof Error ? err.message : String(err);
-        warnings.push(
-          `copy of attached files failed (${detail}); the page's images may need to be re-attached by hand`,
+      } else {
+        contentsBody = RemixerTemplates.POST_TranscludeCrossLibrary(
+          resolvedSource.sourceSubdomain,
+          resolvedSource.sourceId,
+          resolvedSource.sourceUri,
+          [],
         );
-        remixerLog.warn(
-          { err },
-          `File migration failed for page ${sourceId}; posting content without file rewrites`,
-        );
-        // No migrations to apply, and nothing to absolutise: the stale fileid
-        // attributes are dropped so CXOne re-resolves each src on its own.
+      }
+      postComment = "Remixer transclude";
+    } else {
+      const htmlRes = await CXOneFetch({
+        scope: "page",
+        path: sourceId,
+        api: MindTouch.API.Page.GET_Page_Contents("json", "edit"),
+        subdomain: sourceSubdomain,
+      });
+      if (!htmlRes.ok) {
+        throwForMindTouchResponse(htmlRes, "Error reading source page contents");
+      }
+      const htmlJson = await htmlRes.json();
+      const rawBody = htmlJson?.body;
+      const rawHtml =
+        typeof rawBody === "string"
+          ? rawBody
+          : Array.isArray(rawBody)
+            ? String(rawBody[0] ?? "")
+            : "";
+      // Fragment parse so we don't wrap the body in <html><head><body>.
+      const $ = cheerio.load(rawHtml, null, false);
+      $(".mt-guide-content").remove();
+      const cleanedRawHtml = $.root().html() ?? $.html() ?? "";
+
+      // A same-library fork can keep the source's relative `/@api/deki/files/...`
+      // paths: file ids resolve library-wide, so the target page renders the same
+      // attachment without copying it. Across libraries that id would resolve
+      // against the target library instead, so the files have to come with it.
+      const crossLibrary = sourceSubdomain !== subdomain;
+      const shouldCopyFiles = copyModeState === "Full" || crossLibrary;
+
+      if (shouldCopyFiles) {
+        try {
+          const targetService = new BookService({
+            bookID: `${subdomain}-${pageID}`,
+          });
+          const migrations = await copySourcePageFiles({
+            sourceService,
+            sourceId: sourceId.toString(),
+            sourceSubdomain,
+            targetService,
+            targetId: pageID,
+            targetSubdomain: subdomain,
+            warnings,
+          });
+          contentsBody = RemixerTemplates.POST_CopyPage(
+            cleanedRawHtml,
+            migrations,
+            [],
+          );
+          postComment =
+            copyModeState === "Full"
+              ? "Remixer full copy"
+              : "Remixer fork (cross-library)";
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          warnings.push(
+            `copy of attached files failed (${detail}); the page's images may need to be re-attached by hand`,
+          );
+          remixerLog.warn(
+            { err },
+            `File migration failed for page ${sourceId}; posting content without file rewrites`,
+          );
+          // No migrations to apply, and nothing to absolutise: the stale fileid
+          // attributes are dropped so CXOne re-resolves each src on its own.
+          contentsBody = RemixerTemplates.POST_CopyPage(cleanedRawHtml, [], [], {
+            stripFileIds: true,
+          });
+          postComment =
+            copyModeState === "Full"
+              ? "Remixer full copy (file copy failed)"
+              : "Remixer fork (file copy failed)";
+        }
+      } else {
         contentsBody = RemixerTemplates.POST_CopyPage(cleanedRawHtml, [], [], {
           stripFileIds: true,
         });
-        postComment =
-          copyModeState === "Full"
-            ? "Remixer full copy (file copy failed)"
-            : "Remixer fork (file copy failed)";
-      }
-    } else {
-      contentsBody = RemixerTemplates.POST_CopyPage(cleanedRawHtml, [], [], {
-        stripFileIds: true,
-      });
-      postComment = "Remixer fork";
-    }
-  }
-  const kind = articleKindForPlacement(page["@id"], parent["@id"], coverId);
-  contentsBody = contentTemplateForArticleKind(kind) + contentsBody;
-  const postRes = await CXOneFetch({
-    scope: "page",
-    path: parseInt(pageID, 10),
-    api: MindTouch.API.Page.POST_Contents,
-    subdomain,
-    query: { edittime: "now", comment: postComment },
-    options: {
-      method: "POST",
-      body: contentsBody,
-      headers: { "Content-Type": "text/plain; charset=utf-8", ...dekiHeaders },
-    },
-  });
-
-  if (!postRes.ok) {
-    throwForMindTouchResponse(postRes, "Error posting imported content");
-  }
-  const targetService = new BookService({
-    bookID: `${subdomain}-${pageID}`,
-  });
-  try {
-    if (shouldTransclude) {
-      // make sure transcluded:yes is in the tags
-      if (!preservedTags.includes("transcluded:yes")) {
-        preservedTags.push("transcluded:yes");
-      }
-    } else {
-      // make sure transcluded:no is in the tags
-      if (!preservedTags.includes("transcluded:no")) {
-        preservedTags.push("transcluded:no");
+        postComment = "Remixer fork";
       }
     }
-    await targetService.updatePageDetails(pageID, undefined, preservedTags);
-  } catch (error) {
-    logger.error({ err: error }, "handleImportedPage failed");
-  }
+    const kind = articleKindForPlacement(page["@id"], parent["@id"], coverId);
+    contentsBody = contentTemplateForArticleKind(kind) + contentsBody;
+    const postRes = await CXOneFetch({
+      scope: "page",
+      path: parseInt(pageID, 10),
+      api: MindTouch.API.Page.POST_Contents,
+      subdomain,
+      query: { edittime: "now", comment: postComment },
+      options: {
+        method: "POST",
+        body: contentsBody,
+        headers: { "Content-Type": "text/plain; charset=utf-8", ...dekiHeaders },
+      },
+    });
 
-  // Explicitly (re)apply the placement-derived article kind, mirroring the
-  // move-handler's use of applyArticleKindToPage — this is the source of
-  // truth for the tag/ShowOrg state, independent of whether the create-time
-  // content template was parsed into a tag by MindTouch.
-  // `pageID` is passed explicitly: the caller does not adopt it onto `page`
-  // until this function returns, so `page["@id"]` is still the local import id.
-  if (coverId) {
+    if (!postRes.ok) {
+      throwForMindTouchResponse(postRes, "Error posting imported content");
+    }
+    const targetService = new BookService({
+      bookID: `${subdomain}-${pageID}`,
+    });
     try {
-      await applyArticleKindToPage(page, kind, subdomain, coverId, pageID);
+      if (shouldTransclude) {
+        // make sure transcluded:yes is in the tags
+        if (!preservedTags.includes("transcluded:yes")) {
+          preservedTags.push("transcluded:yes");
+        }
+      } else {
+        // make sure transcluded:no is in the tags
+        if (!preservedTags.includes("transcluded:no")) {
+          preservedTags.push("transcluded:no");
+        }
+      }
+      await targetService.updatePageDetails(pageID, undefined, preservedTags);
     } catch (error) {
-      logger.error(
-        { err: error },
-        "handleImportedPage: failed to apply article kind",
-      );
+      logger.error({ err: error }, "handleImportedPage failed");
     }
-  }
 
-  await applyDefaultRemixerPageProperties(subdomain, pageID);
-
-  // Copy thumbnail and overview (summary) from the source page — non-fatal.
-  await copyPageThumbnailAndOverview({
-    sourceSubdomain,
-    sourceId,
-    targetSubdomain: subdomain,
-    targetId: pageID,
-  });
-
-  // Glossary terms used on the source page — opt-in, and non-fatal so a
-  // lookup/write failure here can't sink an otherwise-successful import.
-  if (importGlossaryTerms && coverId) {
-    try {
-      const copiedCount = await glossaryService.copyPageGlossaryUsages({
-        sourcePageID: sourceId.toString(),
-        sourceLibrary: sourceSubdomain,
-        targetPageID: pageID,
-        targetCoverID: coverId,
-        targetLibrary: subdomain,
-        addedBy: addedBy || "system",
-      });
-      if (copiedCount > 0) {
-        warnings.push(
-          `imported ${copiedCount} glossary term(s) used on the source page`,
+    // Explicitly (re)apply the placement-derived article kind, mirroring the
+    // move-handler's use of applyArticleKindToPage — this is the source of
+    // truth for the tag/ShowOrg state, independent of whether the create-time
+    // content template was parsed into a tag by MindTouch.
+    // `pageID` is passed explicitly: the caller does not adopt it onto `page`
+    // until this function returns, so `page["@id"]` is still the local import id.
+    if (coverId) {
+      try {
+        await applyArticleKindToPage(page, kind, subdomain, coverId, pageID);
+      } catch (error) {
+        logger.error(
+          { err: error },
+          "handleImportedPage: failed to apply article kind",
         );
       }
-    } catch (error) {
-      warnings.push(
-        "failed to import glossary terms from the source page",
-      );
-      remixerLog.warn(
-        { err: error },
-        `Glossary term import failed for imported page (source ${sourceId})`,
-      );
     }
-  }
 
-  return { pageID, pageURI, warnings };
+    await applyDefaultRemixerPageProperties(subdomain, pageID);
+
+    // Copy thumbnail and overview (summary) from the source page — non-fatal.
+    await copyPageThumbnailAndOverview({
+      sourceSubdomain,
+      sourceId,
+      targetSubdomain: subdomain,
+      targetId: pageID,
+    });
+
+    // Glossary terms used on the source page — opt-in, and non-fatal so a
+    // lookup/write failure here can't sink an otherwise-successful import.
+    if (importGlossaryTerms && coverId) {
+      try {
+        const copiedCount = await glossaryService.copyPageGlossaryUsages({
+          sourcePageID: sourceId.toString(),
+          sourceLibrary: sourceSubdomain,
+          targetPageID: pageID,
+          targetCoverID: coverId,
+          targetLibrary: subdomain,
+          addedBy: addedBy || "system",
+        });
+        if (copiedCount > 0) {
+          warnings.push(
+            `imported ${copiedCount} glossary term(s) used on the source page`,
+          );
+        }
+      } catch (error) {
+        warnings.push(
+          "failed to import glossary terms from the source page",
+        );
+        remixerLog.warn(
+          { err: error },
+          `Glossary term import failed for imported page (source ${sourceId})`,
+        );
+      }
+    }
+
+    return { pageID, pageURI, warnings };
+  } catch (error) {
+    return failAfterCreate(
+      error,
+      { pageID, location: pageURI || pageID },
+      subdomain,
+    );
+  }
 };
 
 /**
