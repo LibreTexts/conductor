@@ -29,9 +29,7 @@ build
 
 # Sensitive Files
 config/
-# Source folder, not secrets. On case-insensitive checkouts (Windows, macOS)
-# `config/` also matches `Config/`, which silently kept it out of commits.
-!client/src/components/projects/References/Config/
+
 
 # Runtime-generated Files
 server/public
