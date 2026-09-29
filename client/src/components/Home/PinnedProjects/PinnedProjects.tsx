@@ -61,7 +61,7 @@ const PinnedProjects: React.FC = () => {
   const tabLabels = useMemo(() => {
     if (!data) return [];
     const labels = data.map((folder) => (
-      <Tabs.Tab key={folder.folder}>
+      <Tabs.Tab key={folder.folder} className="lg:!w-full lg:!justify-start">
         <span className="flex items-center gap-1.5">
           {folder.folder}
           <Badge label={String(folder.projects?.length ?? 0)} size="sm" />
@@ -69,7 +69,7 @@ const PinnedProjects: React.FC = () => {
       </Tabs.Tab>
     ));
     labels.push(
-      <Tabs.Tab key="all">
+      <Tabs.Tab key="all" className="lg:!w-full lg:!justify-start">
         <span className="flex items-center gap-1.5">
           All
           <Badge label={String(allProjects.length)} size="sm" />
@@ -135,7 +135,7 @@ const PinnedProjects: React.FC = () => {
         ) : (
           <Tabs variant="pills">
             <div className="lg:flex lg:flex-row lg:items-start lg:gap-4">
-              <Tabs.List className="lg:!flex-col lg:!bg-transparent lg:!px-1 lg:!py-1 lg:!rounded-none lg:!gap-1 lg:border-r lg:border-gray-200 lg:pr-3 lg:min-w-[160px] overflow-x-auto">
+              <Tabs.List className="!flex !w-full min-w-0 !flex-row !flex-wrap lg:!w-auto lg:!flex-col lg:!flex-nowrap lg:!items-stretch lg:!bg-transparent lg:!px-1 lg:!py-1 lg:!rounded-none lg:!gap-1 lg:border-r lg:border-gray-200 lg:pr-3 lg:min-w-[160px]">
                 {tabLabels}
               </Tabs.List>
               <Tabs.Panels className="flex-1 min-w-0 mt-3 lg:mt-0 max-h-fit overflow-y-auto">
