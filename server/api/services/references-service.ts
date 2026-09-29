@@ -8,7 +8,10 @@ import {
 } from "../../models/reference.js";
 import {
   PageReferences,
+  REFERENCE_BACKMATTER_TARGET,
   ReferenceDisplayLocation,
+  ReferenceScopeGroup,
+  ReferenceScopeMode,
   ReferenceUsage,
   ReferenceUsageInterface,
 } from "../../models/referenceusage.js";
@@ -56,6 +59,8 @@ export const getReferencesUsage = async ({
   backmatterReferenceList: string[];
   pageRefrences: PageReferences[] | undefined;
   selectedList?: string[];
+  scopeMode?: ReferenceScopeMode;
+  scopeGroups?: ReferenceScopeGroup[];
 } | null> => {
   const referenceUsage = await ReferenceUsage.findOne({
     projectID: { $eq: projectID },
@@ -79,8 +84,110 @@ export const getReferencesUsage = async ({
       ? (referenceUsage.pageRefrences ?? [])
       : undefined,
     selectedList: referenceUsage.selectedList ?? [],
+    scopeMode: referenceUsage.scopeMode ?? undefined,
+    scopeGroups: referenceUsage.scopeGroups
+      ? referenceUsage.scopeGroups.map(({ groupID, pageIds, targetPageId }) => ({
+          groupID,
+          pageIds: [...pageIds],
+          targetPageId,
+        }))
+      : undefined,
   };
 };
+
+/** The legacy `displayLocation` each scope mode stands for. */
+const DISPLAY_LOCATION_BY_SCOPE_MODE: Record<
+  ReferenceScopeMode,
+  ReferenceDisplayLocation
+> = {
+  PAGE: "endOfPage",
+  CHAPTER: "endOfChapter",
+  BACKMATTER: "backmatter",
+};
+
+/**
+ * Saves the reference format and scope for a project in one write. The
+ * legacy fields the populate job and the library's `ReferenceBib` template
+ * read (`displayLocation`, `selectedList`) are derived from the scope here,
+ * so they can never disagree with it.
+ */
+export const saveReferenceScope = async (
+  projectID: string,
+  actorUUID: string,
+  {
+    format,
+    pageTitle,
+    mode,
+    groups,
+  }: {
+    format: string;
+    pageTitle?: string;
+    mode: ReferenceScopeMode;
+    groups: ReferenceScopeGroup[];
+  },
+): Promise<ReferenceUsageInterface> => {
+  const selectedList =
+    mode === "CHAPTER"
+      ? [...new Set(groups.map((group) => group.targetPageId))]
+      : [];
+  const referenceUsage = await ReferenceUsage.findOneAndUpdate(
+    { projectID: { $eq: projectID } },
+    {
+      $set: {
+        format,
+        updatedBy: actorUUID,
+        displayLocation: DISPLAY_LOCATION_BY_SCOPE_MODE[mode],
+        ...(pageTitle !== undefined ? { pageTitle } : {}),
+        selectedList,
+        scopeMode: mode,
+        scopeGroups: groups,
+      },
+      $setOnInsert: {
+        projectID,
+        createdBy: actorUUID,
+        entries: [],
+      },
+    },
+    { new: true, upsert: true },
+  );
+  return referenceUsage;
+};
+
+/**
+ * Forgets the saved scope so the editor falls back to its defaults. The
+ * legacy display fields are left as they are: they still describe what the
+ * book currently shows until a new scope is saved.
+ */
+export const resetReferenceScope = async (
+  projectID: string,
+  actorUUID: string,
+): Promise<void> => {
+  await ReferenceUsage.updateOne(
+    { projectID: { $eq: projectID } },
+    {
+      $unset: { scopeMode: 1, scopeGroups: 1 },
+      $set: { updatedBy: actorUUID },
+    },
+  );
+};
+
+/**
+ * The saved scope groups whose reference list is displayed on `pageID`.
+ * The BACKMATTER group's placeholder target resolves to the shared
+ * back-matter References page once it exists.
+ */
+export const getScopeGroupsDisplayedOnPage = (
+  scopeGroups: ReferenceScopeGroup[] | undefined,
+  pageID: string,
+  backmatterPageID?: string,
+): ReferenceScopeGroup[] =>
+  (scopeGroups ?? []).filter(
+    (group) =>
+      group.targetPageId === pageID ||
+      (group.targetPageId === REFERENCE_BACKMATTER_TARGET &&
+        !!backmatterPageID &&
+        backmatterPageID === pageID),
+  );
 
 /** Upsert the citation format for a project (one ReferenceUsage doc per project). */
 export const upsertReferenceFormat = async (

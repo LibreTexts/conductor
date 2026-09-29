@@ -5,6 +5,27 @@ export type ReferenceDisplayLocation =
   | "endOfChapter"
   | "backmatter";
 
+/**
+ * How a book's reference lists are scoped — the same model as the glossary
+ * scope (see GlossaryConfig): pages are grouped, and each group's combined
+ * reference list is shown on its target page.
+ */
+export type ReferenceScopeMode = "PAGE" | "CHAPTER" | "BACKMATTER";
+
+/**
+ * `targetPageId` for the BACKMATTER group before the shared back-matter
+ * References page exists; the populate job creates that page, and its id is
+ * then `backmatterPageID`.
+ */
+export const REFERENCE_BACKMATTER_TARGET = "backmatter";
+
+export type ReferenceScopeGroup = {
+  groupID: string;
+  pageIds: string[];
+  /** The page this group's combined reference list is displayed on. */
+  targetPageId: string;
+};
+
 export type PageReferences = {
   pageID: string;
   refrences: {
@@ -25,7 +46,15 @@ export interface ReferenceUsageInterface extends Document {
   pageRefrences: PageReferences[];
   backmatterReferenceList: string[];
   backmatterPageID?: string;
+  /**
+   * Legacy: the pages that show a reference list in `endOfChapter` mode.
+   * Derived from `scopeGroups` targets when a scope is saved, so the populate
+   * job and the library template keep working unchanged.
+   */
   selectedList?: string[];
+  /** Saved reference scope; absent until one is saved (or after a reset). */
+  scopeMode?: ReferenceScopeMode;
+  scopeGroups?: ReferenceScopeGroup[];
 }
 
 const pageRefrencesSchema = new Schema<PageReferences>(
@@ -41,6 +70,15 @@ const pageRefrencesSchema = new Schema<PageReferences>(
       ],
       default: () => [],
     },
+  },
+  { _id: false },
+);
+
+const referenceScopeGroupSchema = new Schema<ReferenceScopeGroup>(
+  {
+    groupID: { type: String, required: true },
+    pageIds: { type: [String], required: true, default: () => [] },
+    targetPageId: { type: String, required: true },
   },
   { _id: false },
 );
@@ -61,6 +99,14 @@ const ReferenceUsageSchema = new Schema<ReferenceUsageInterface>({
   backmatterReferenceList: { type: [String], default: () => [] },
   backmatterPageID: { type: String, required: false },
   selectedList: { type: [String], default: () => [] },
+  scopeMode: {
+    type: String,
+    enum: ["PAGE", "CHAPTER", "BACKMATTER"],
+    required: false,
+  },
+  // No default: an absent array is how "no saved scope" is told apart from
+  // a saved scope with zero groups.
+  scopeGroups: { type: [referenceScopeGroupSchema], default: undefined },
 });
 
 ReferenceUsageSchema.index({ projectID: 1 }, { unique: true });

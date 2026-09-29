@@ -3666,6 +3666,20 @@ router.route('/projects/:projectID/reference')
 
 
 
+router.route('/projects/:projectID/reference/scope')
+.put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.SaveReferenceScopeSchema),
+  referenceAPI.saveReferenceScope
+)
+.delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.DeleteReferenceScopeSchema),
+  referenceAPI.deleteReferenceScope
+);
+
 router.route('/projects/:projectID/reference/search').get(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

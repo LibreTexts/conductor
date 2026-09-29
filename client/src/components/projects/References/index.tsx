@@ -106,7 +106,6 @@ const ReferenceManager: React.FC = () => {
   const referenceFormat = bookReferencesDetails?.data?.format;
   const displayLocation = bookReferencesDetails?.data?.displayLocation;
   const pageTitle = bookReferencesDetails?.data?.pageTitle;
-  const selectedList = bookReferencesDetails?.data?.selectedList ?? [];
   const entries = bookReferencesDetails?.data?.entries ?? [];
 
   const { data: populateDetails } = useQuery({
@@ -148,9 +147,11 @@ const ReferenceManager: React.FC = () => {
     );
   };
 
+  /** Format-only change from the toolbar dropdown. */
   const { mutate: updateFormat, isPending: isUpdatingFormat } = useMutation({
-    mutationFn: (settings: ConfigureSettings) =>
-      api.updateBookReferenceFormat(id ?? "", settings),
+    mutationFn: (
+      settings: Parameters<typeof api.updateBookReferenceFormat>[1],
+    ) => api.updateBookReferenceFormat(id ?? "", settings),
     onMutate: async (settings) => {
       await queryClient.cancelQueries({ queryKey: bookReferencesQueryKey });
       const previous = queryClient.getQueryData<BookReferencesQueryData>(
@@ -195,6 +196,51 @@ const ReferenceManager: React.FC = () => {
         type: "error",
         message: "Error updating book references settings",
       });
+    },
+  });
+
+  /** Format + scope from the Configure modal (the glossary scope model). */
+  const { mutateAsync: saveScope, isPending: isSavingScope } = useMutation({
+    mutationFn: async (settings: ConfigureSettings) => {
+      const res = await api.saveReferenceScope(id ?? "", settings);
+      if (res.err) throw new Error(res.errMsg ?? "Failed to save settings");
+      return res;
+    },
+    onSuccess: (res) => {
+      updateBookReferencesCache((current) => ({
+        ...current,
+        data: { ...current.data, ...res.data },
+      }));
+      addNotification({
+        type: "success",
+        message: "Reference settings saved",
+      });
+    },
+    onError: (error) => {
+      addNotification({
+        type: "error",
+        message:
+          error instanceof Error && error.message
+            ? error.message
+            : "Error saving reference settings",
+      });
+    },
+  });
+
+  const { mutateAsync: resetScope } = useMutation({
+    mutationFn: async () => {
+      const res = await api.resetReferenceScope(id ?? "");
+      if (res.err) throw new Error(res.errMsg ?? "Failed to reset scope");
+    },
+    onSuccess: () => {
+      updateBookReferencesCache((current) => ({
+        ...current,
+        data: { ...current.data, scopeMode: undefined, scopeGroups: undefined },
+      }));
+      addNotification({ type: "success", message: "Saved reference scope reset" });
+    },
+    onError: () => {
+      addNotification({ type: "error", message: "Error resetting reference scope" });
     },
   });
 
@@ -535,11 +581,12 @@ const ReferenceManager: React.FC = () => {
                     onChange={(e) => {
                       const format = e.target.value as ReferenceFormatType;
                       if (!format || !id || format === referenceFormat) return;
+                      // Format only: the scope (and the display fields
+                      // derived from it) stays as saved.
                       updateFormat({
                         format,
                         displayLocation: displayLocation ?? "endOfPage",
                         pageTitle: pageTitle ?? "",
-                        selectedList: [],
                       });
                     }}
                   />
@@ -601,9 +648,16 @@ const ReferenceManager: React.FC = () => {
         format={referenceFormat}
         displayLocation={displayLocation}
         pageTitle={pageTitle}
-        defaultSelectedList={selectedList}
-        onSubmit={(settings) => updateFormat(settings)}
-        submitDisabled={isUpdatingFormat || !id}
+        scopeMode={bookReferencesDetails?.data?.scopeMode}
+        scopeGroups={bookReferencesDetails?.data?.scopeGroups}
+        backmatterPageID={bookReferencesDetails?.data?.backmatterPageID}
+        onSubmit={async (settings) => {
+          await saveScope(settings);
+        }}
+        onResetScope={async () => {
+          await resetScope();
+        }}
+        submitDisabled={isUpdatingFormat || isSavingScope || !id}
         addNotification={addNotification}
         bookToc={bookToc?.toc ?? undefined}
       />

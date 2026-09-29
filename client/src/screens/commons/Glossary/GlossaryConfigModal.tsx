@@ -77,7 +77,7 @@ interface PageChipProps {
   disabled?: boolean;
 }
 
-const PageChip: React.FC<PageChipProps> = ({
+export const PageChip: React.FC<PageChipProps> = ({
   pageId,
   dragId,
   title,
@@ -135,7 +135,7 @@ interface GroupCardProps {
   onToggleArm: () => void;
 }
 
-const GroupCard: React.FC<GroupCardProps> = ({
+export const GroupCard: React.FC<GroupCardProps> = ({
   group,
   index,
   label,
@@ -259,7 +259,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
   );
 };
 
-const UnassignedZone: React.FC<{
+export const UnassignedZone: React.FC<{
   pageIds: string[];
   bookTOC: TableOfContents;
   busy: boolean;

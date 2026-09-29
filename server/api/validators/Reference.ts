@@ -83,6 +83,27 @@ export const UpdateReferenceFormatSchema = ProjectIDParamsSchema.extend({
   }),
 });
 
+export const ReferenceScopeModeEnum = z.enum(["PAGE", "CHAPTER", "BACKMATTER"]);
+
+/** Same limits as the glossary scope's groups. */
+const ReferenceScopeGroupSchema = z.object({
+  groupID: z.string().min(1).max(64),
+  pageIds: z.array(z.string().min(1).max(100)).max(2000),
+  targetPageId: z.string().min(1).max(100),
+});
+
+export const SaveReferenceScopeSchema = ProjectIDParamsSchema.extend({
+  body: z.object({
+    format: ReferenceFormatTypeEnum,
+    /** Title of the shared back-matter References page (BACKMATTER only). */
+    pageTitle: z.string().max(200).optional(),
+    mode: ReferenceScopeModeEnum,
+    groups: z.array(ReferenceScopeGroupSchema).max(500),
+  }),
+});
+
+export const DeleteReferenceScopeSchema = ProjectIDParamsSchema;
+
 export const UpdateReferenceEntrySchema = ProjectIDParamsSchema.extend({
   body: z.object({
     entry: ReferenceEntrySchema,

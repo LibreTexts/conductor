@@ -127,7 +127,7 @@ import {
   GlossaryConfigMode,
   GlossaryConfigGroup,
 } from "./screens/commons/Glossary/model";
-import { BookSearchProps, ReferenceDisplayLocation, ReferenceEntry, ReferenceFormatType, ReferenceFormData } from "./components/projects/References/model";
+import { BookSearchProps, ReferenceDisplayLocation, ReferenceEntry, ReferenceFormatType, ReferenceFormData, ReferenceScopeGroup, ReferenceScopeMode } from "./components/projects/References/model";
 
 /**
  * @fileoverview
@@ -3347,10 +3347,49 @@ class API {
           displayLocation?: ReferenceDisplayLocation;
           pageTitle?: string;
           selectedList?: string[];
+          backmatterPageID?: string;
+          scopeMode?: ReferenceScopeMode;
+          scopeGroups?: ReferenceScopeGroup[];
           entries: ReferenceEntry[];
         };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference`);
+    return res.data;
+  }
+
+  /**
+   * Saves the reference format and scope (mode + groups) — the glossary
+   * scope model. The server derives the legacy display fields from it.
+   */
+  async saveReferenceScope(
+    projectID: string,
+    data: {
+      format: ReferenceFormatType;
+      pageTitle?: string;
+      mode: ReferenceScopeMode;
+      groups: ReferenceScopeGroup[];
+    },
+  ) {
+    const res = await axios.put<
+      {
+        data: {
+          format: ReferenceFormatType;
+          displayLocation?: ReferenceDisplayLocation;
+          pageTitle?: string;
+          selectedList: string[];
+          scopeMode: ReferenceScopeMode;
+          scopeGroups: ReferenceScopeGroup[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/scope`, data);
+    return res.data;
+  }
+
+  /** Forgets the saved reference scope; the editor falls back to defaults. */
+  async resetReferenceScope(projectID: string) {
+    const res = await axios.delete<ConductorBaseResponse>(
+      `/projects/${projectID}/reference/scope`,
+    );
     return res.data;
   }
 
