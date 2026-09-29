@@ -2,6 +2,7 @@
     display: flex;
     flex: 1;
     flex-direction: column;
+    min-height: 0;
 }
 
 #conductor-chat-msgs-header-container {
@@ -22,10 +23,11 @@
 #conductor-chat-window {
     background-color: rgba(251, 251, 251, 0.5);
     padding: 2%;
-    height: 100%;
+    flex: 1 1 280px;
+    height: auto;
     overflow-y: scroll;
     overflow-x: hidden;
-    min-height: 250px;
+    min-height: 0;
 }
 
 #conductor-chat-msgs {
@@ -50,32 +52,29 @@
     box-shadow: 0 -5px 5px -5px rgb(224, 224, 224);
     padding: 0.5em;
     display: flex;
-    flex-direction: row;
-    max-height: 145px;
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 0.4em;
 }
 
 #conductor-chat-reply-container textarea {
     min-height: calc(50px + 0.25em) !important;
-    max-height: calc(100px - 0.5em) !important;
+    max-height: calc(80px - 0.5em) !important;
 }
 
-#replycontainer-left {
-    flex: 1;
-}
-
-#replycontainer-right {
+#replycontainer-actions {
     display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
+    flex-direction: row;
     align-items: center;
-    padding-left: 0.5em;
+    gap: 0.5em;
+}
+
+#replycontainer-notifydropdown {
+    flex: 1;
 }
 
 #replycontainer-sendbutton {
     margin: 0;
-    height: 40px !important;
-}
-
-#replycontainer-notifydropdown {
-    margin-top: 0.25em;
+    height: 36px !important;
+    flex-shrink: 0;
 }

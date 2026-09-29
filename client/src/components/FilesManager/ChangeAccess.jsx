@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Modal, Icon, Button, Form } from 'semantic-ui-react';
+import { Button, Modal, Select } from '@libretexts/davis-react';
+import { IconFile, IconFolder, IconLock } from '@tabler/icons-react';
 import axios from 'axios';
-import FileIcon from '../FileIcon';
 import { PROJECT_FILES_ACCESS_SETTINGS } from '../util/ProjectHelpers';
 import useGlobalError from '../error/ErrorHooks';
+
+const accessOptions = PROJECT_FILES_ACCESS_SETTINGS.map((option) => ({
+  value: option.value,
+  label: option.text,
+}));
 
 /**
  * Modal tool to set the access/visibility setting of Project Files entries.
@@ -34,17 +39,6 @@ const ChangeAccess = ({ show, onClose, projectID, files, onFinishedChange }) => 
    */
   function handleSubmit(e) {
     e.preventDefault();
-  }
-
-  /**
-   * Updates the new access setting in state.
-   *
-   * @param {React.ChangeEvent} _e - Event that activated the handler.
-   * @param {object} data - Data passed from the UI element.
-   * @param {string} data.value - The newly selected access setting identifier.
-   */
-  function handleSettingChange(_e, { value }) {
-    setNewAccess(value);
   }
 
   /**
@@ -96,45 +90,55 @@ const ChangeAccess = ({ show, onClose, projectID, files, onFinishedChange }) => 
   }
 
   return (
-    <Modal open={show} onClose={onClose}>
-      <Modal.Header>Change File Access</Modal.Header>
-      <Modal.Content>
-        <p>
+    <Modal open={show} onClose={() => onClose()} size="lg">
+      <Modal.Header>
+        <Modal.Title>Change File Access</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <p className="text-gray-800">
           <strong>WARNING: </strong>
           {`You're about to change the access setting on the following file(s). `}
           <strong>Changing access to a folder will also change access to all of its files and subdirectories.</strong>
         </p>
-        <ul className='my-8'>
+        <ul className="my-8 space-y-2">
           {files.map((obj) => (
-            <li key={obj.fileID}>
+            <li key={obj.fileID} className="flex items-center gap-2">
               {obj.storageType === 'folder' ? (
-                <Icon name="folder outline" />
+                <IconFolder size={20} aria-hidden="true" />
               ) : (
-                <FileIcon filename={obj.name} />
+                <IconFile size={20} aria-hidden="true" />
               )}
-              {obj.name}
+              <span>{obj.name}</span>
             </li>
           ))}
         </ul>
-        <Form onSubmit={handleSubmit}>
-          <Form.Select
+        <form onSubmit={handleSubmit}>
+          <Select
+            name="access-setting"
             label="Access Setting"
-            fluid
             placeholder="Access..."
             error={settingError}
-            options={PROJECT_FILES_ACCESS_SETTINGS}
+            errorMessage={settingError ? "Select an access setting." : undefined}
+            options={accessOptions}
             value={newAccess}
-            onChange={handleSettingChange}
+            onChange={(e) => setNewAccess(e.target.value)}
           />
-        </Form>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleChangeAccess} color="yellow" loading={loading}>
-          <Icon name="lock" />
+        </form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          className="!bg-yellow-500 hover:!bg-yellow-600 active:!bg-yellow-700 focus-visible:!ring-yellow-500"
+          onClick={handleChangeAccess}
+          loading={loading}
+          icon={<IconLock size={16} />}
+        >
           Change Access
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   )
 };

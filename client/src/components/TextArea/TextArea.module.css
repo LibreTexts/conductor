@@ -45,9 +45,10 @@
   padding: 0.5em;
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   background: rgba(240,240,240,0.4);
-  height: 30px;
+  min-height: 30px;
+  height: auto;
   display: flex;
   align-items: center;
 }
@@ -56,4 +57,6 @@
   color: #606060;
   font-size: 0.75em;
   padding-left: 0.5em;
+  line-height: 1.4;
+  white-space: normal;
 }

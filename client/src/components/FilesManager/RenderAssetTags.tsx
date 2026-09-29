@@ -1,4 +1,4 @@
-import { Label, Popup } from "semantic-ui-react";
+import { Badge, Tooltip } from "@libretexts/davis-react";
 import { AssetTag, ProjectFile } from "../../types";
 import { truncateString } from "../util/HelperFunctions";
 import { isAssetTagKeyObject } from "../../utils/typeHelpers";
@@ -106,29 +106,19 @@ const RenderAssetTags: React.FC<{
   );
 
   const RenderTag = ({
-    color,
     size,
     value,
-    blackText,
   }: {
-    color: string;
     size: "small" | "large";
     value: string;
-    blackText: boolean;
   }) => {
     return (
-      <Label
-        style={{
-          backgroundColor: color,
-          borderColor: color,
-          color: blackText ? "black" : "white",
-          marginBottom: "0.5rem",
-        }}
-        size={size === "small" ? "mini" : "tiny"}
-        key={crypto.randomUUID()}
-      >
-        {value}
-      </Label>
+      <Badge
+        label={value}
+        variant={basic ? "default" : "primary"}
+        size={size === "small" ? "sm" : "md"}
+        className="mb-2"
+      />
     );
   };
 
@@ -139,92 +129,87 @@ const RenderAssetTags: React.FC<{
     const remaining = getRemainingCount(tags, maxLen);
     if (remaining === 0) return;
     return (
-      <Label color="grey" size={size === "small" ? "mini" : "tiny"}>
-        +{remaining} more
-      </Label>
+      <Badge
+        label={`+${remaining} more`}
+        variant="default"
+        size={size === "small" ? "sm" : "md"}
+        className="mb-2"
+      />
     );
   };
 
-  return (
-    <Popup
-      disabled={popupDisabled}
-      trigger={
-        <div className="asset-tags-container">
-          {!sortedTags ||
-            (sortedTags.length === 0 && showNoTagsMessage && (
-              <span className="muted-text italic">No associated tags</span>
-            ))}
-          {sortedTags &&
-            spreadArray &&
-            flattenedTags.slice(0, max === 'none' ? flattenedTags.length : max).map((t, index) => {
-              const color = getLabelColor(
-                flattenedTags[index],
-                basic
-              ).toString();
-              return (
-                <RenderTag
-                  color={color}
-                  key={index}
-                  size={size}
-                  value={t.text}
-                  blackText={basic}
-                />
-              );
-            })}
-          {sortedTags &&
-            !spreadArray &&
-            sortedTags?.slice(0, max === 'none' ? flattenedTags.length : max).map((tag) => {
-              const val = getLabelValue(tag, !basic);
-              if (!val || val === "Unknown") return <></>;
-              const color = getLabelColor(tag, basic).toString();
-              return (
-                <RenderTag
-                  key={tag.uuid}
-                  color={color}
-                  size={size}
-                  value={val}
-                  blackText={false}
-                />
-              );
-            })}
-          {sortedTags &&
-            RenderRemainingLabel(spreadArray ? flattenedTags : sortedTags, max === 'none' ? spreadArray ? flattenedTags.length : sortedTags.length : max)}
-        </div>
-      }
-      content={sortedTags?.map((tag) => {
-        const title = getLabelTitle(tag);
-        const text = getLabelText(tag);
-        const color = getLabelColor(tag).toString();
-        return (
-          <div key={crypto.randomUUID()} className="">
-            <span className="font-semibold">{title}</span>:{" "}
-            {text &&
-              spreadArray &&
-              _flattenTags([tag]).map((t) => {
-                return (
-                  <RenderTag
-                    color={color}
-                    size="small"
-                    value={t.text}
-                    blackText={false}
-                    key={crypto.randomUUID()}
-                  />
-                );
-              })}
-            {text && !spreadArray && (
+  const trigger = (
+    <div className="asset-tags-container flex flex-wrap gap-2">
+      {!sortedTags ||
+        (sortedTags.length === 0 && showNoTagsMessage && (
+          <span className="muted-text italic">No associated tags</span>
+        ))}
+      {sortedTags &&
+        spreadArray &&
+        flattenedTags.slice(0, max === 'none' ? flattenedTags.length : max).map((t, index) => {
+          return (
+            <RenderTag
+              key={`${t.text}-${index}`}
+              size={size}
+              value={t.text}
+            />
+          );
+        })}
+      {sortedTags &&
+        !spreadArray &&
+        sortedTags?.slice(0, max === 'none' ? flattenedTags.length : max).map((tag) => {
+          const val = getLabelValue(tag, !basic);
+          if (!val || val === "Unknown") return <></>;
+          return (
+            <RenderTag
+              key={tag.uuid}
+              size={size}
+              value={val}
+            />
+          );
+        })}
+      {sortedTags &&
+        RenderRemainingLabel(spreadArray ? flattenedTags : sortedTags, max === 'none' ? spreadArray ? flattenedTags.length : sortedTags.length : max)}
+    </div>
+  );
+
+  const tooltipContent = sortedTags?.map((tag) => {
+    const title = getLabelTitle(tag);
+    const text = getLabelText(tag);
+    return (
+      <div key={tag.uuid} className="mb-2 last:mb-0">
+        <span className="font-semibold">{title}</span>:{" "}
+        {text &&
+          spreadArray &&
+          _flattenTags([tag]).map((t, index) => {
+            return (
               <RenderTag
-                color={color}
                 size="small"
-                value={text}
-                blackText={false}
-                key={crypto.randomUUID()}
+                value={t.text}
+                key={`${tag.uuid}-${t.text}-${index}`}
               />
-            )}
-            {!text && "No value provided"}
-          </div>
-        );
-      })}
-    />
+            );
+          })}
+        {text && !spreadArray && (
+          <RenderTag
+            size="small"
+            value={text}
+            key={tag.uuid}
+          />
+        )}
+        {!text && "No value provided"}
+      </div>
+    );
+  });
+
+  if (popupDisabled) {
+    return trigger;
+  }
+
+  return (
+    <Tooltip content={tooltipContent} disabled={popupDisabled}>
+      {trigger}
+    </Tooltip>
   );
 };
 

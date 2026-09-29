@@ -1,5 +1,8 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom-v5-compat";
-import { Header, Table, TableProps } from "semantic-ui-react";
+import { useHistory } from "react-router-dom";
+import { Text } from "@libretexts/davis-react";
+import { DataTable, ColumnDef } from "@libretexts/davis-react-table";
 import { truncateString } from "../util/HelperFunctions";
 import { Project } from "../../types";
 import {
@@ -8,122 +11,127 @@ import {
 } from "../util/ProjectHelpers";
 import { format, parseISO } from "date-fns";
 
-interface MyProjectsTableProps extends TableProps {
+interface MyProjectsTableProps {
   data: Project[];
+  loading?: boolean;
 }
 
-const MyProjectsTable: React.FC<MyProjectsTableProps> = ({ data, ...rest }) => {
+const MyProjectsTable: React.FC<MyProjectsTableProps> = ({
+  data,
+  loading = false,
+}) => {
+  const history = useHistory();
+
+  const columns = useMemo<ColumnDef<Project>[]>(
+    () => [
+      {
+        id: "title",
+        header: "Title",
+        accessorKey: "title",
+        cell: ({ row }) => (
+          <strong>
+            <Link
+              to={`/projects/${row.original.projectID}?reviewer=true`}
+              className="text-primary hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {truncateString(row.original.title, 100)}
+            </Link>
+          </strong>
+        ),
+      },
+      {
+        id: "progress",
+        header: "Progress (C/PR/A11Y)",
+        cell: ({ row }) => {
+          const peerProgress = row.original.peerProgress ?? 0;
+          const a11yProgress = row.original.a11yProgress ?? 0;
+          return (
+            <span className="whitespace-nowrap">
+              {row.original.currentProgress}%
+              <span className="mx-1 text-gray-400">/</span>
+              {peerProgress}%
+              <span className="mx-1 text-gray-400">/</span>
+              {a11yProgress}%
+            </span>
+          );
+        },
+      },
+      {
+        id: "classification",
+        header: "Classification",
+        accessorKey: "classification",
+        cell: ({ row }) =>
+          row.original.classification ? (
+            <span>{getClassificationText(row.original.classification)}</span>
+          ) : (
+            <em className="text-gray-500">Unclassified</em>
+          ),
+      },
+      {
+        id: "visibility",
+        header: "Visibility",
+        accessorKey: "visibility",
+        cell: ({ row }) =>
+          row.original.visibility ? (
+            <span>{getVisibilityText(row.original.visibility)}</span>
+          ) : (
+            <em className="text-gray-500">Unknown</em>
+          ),
+      },
+      {
+        id: "lead",
+        header: "Lead",
+        cell: ({ row }) => {
+          let projectLead = "Unknown";
+          if (row.original.leads && Array.isArray(row.original.leads)) {
+            row.original.leads.forEach((lead, idx) => {
+              if (lead.firstName && lead.lastName) {
+                if (idx === 0) projectLead = `${lead.firstName} ${lead.lastName}`;
+                else projectLead += `, ${lead.firstName} ${lead.lastName}`;
+              }
+            });
+          }
+          return <span>{truncateString(projectLead, 50)}</span>;
+        },
+      },
+      {
+        id: "updatedAt",
+        header: "Last Updated",
+        accessorKey: "updatedAt",
+        cell: ({ row }) =>
+          row.original.updatedAt ? (
+            <span className="whitespace-nowrap">
+              {format(parseISO(row.original.updatedAt), "MM/dd/yyyy")} at{" "}
+              {format(parseISO(row.original.updatedAt), "hh:mm a")}
+            </span>
+          ) : null,
+      },
+    ],
+    []
+  );
+
   return (
-    <Table celled {...rest}>
-      <Table.Header>
-        <Table.Row>
-          <Table.HeaderCell width={6}>
-            <Header sub>Title</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell width={2}>
-            <Header sub>Progress (C/PR/A11Y)</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell width={2}>
-            <Header sub>Classification</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell width={2}>
-            <Header sub>Visibility</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell width={2}>
-            <Header sub>Lead</Header>
-          </Table.HeaderCell>
-          <Table.HeaderCell width={2}>
-            <Header sub>Last Updated</Header>
-          </Table.HeaderCell>
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
-        {data.length > 0 &&
-          data.map((item, index) => {
-            let projectLead = "Unknown";
-            if (item.leads && Array.isArray(item.leads)) {
-              item.leads.forEach((lead, leadIdx) => {
-                if (lead.firstName && lead.lastName) {
-                  if (leadIdx > 0)
-                    projectLead += `, ${lead.firstName} ${lead.lastName}`;
-                  else if (leadIdx === 0)
-                    projectLead = `${lead.firstName} ${lead.lastName}`;
-                }
-              });
-            }
-            if (!item.hasOwnProperty("peerProgress")) item.peerProgress = 0;
-            if (!item.hasOwnProperty("a11yProgress")) item.a11yProgress = 0;
-            return (
-              <Table.Row key={index}>
-                <Table.Cell>
-                  <p>
-                    <strong>
-                      <Link to={`/projects/${item.projectID}?reviewer=true`}>
-                        {truncateString(item.title, 100)}
-                      </Link>
-                    </strong>
-                  </p>
-                </Table.Cell>
-                <Table.Cell>
-                  <div className="flex-row-div projectprotal-progress-row">
-                    <div className="projectportal-progress-col">
-                      <span>{item.currentProgress}%</span>
-                    </div>
-                    <div className="projectportal-progresssep-col">
-                      <span className="projectportal-progresssep">/</span>
-                    </div>
-                    <div className="projectportal-progress-col">
-                      <span>{item.peerProgress}%</span>
-                    </div>
-                    <div className="projectportal-progresssep-col">
-                      <span className="projectportal-progresssep">/</span>
-                    </div>
-                    <div className="projectportal-progress-col">
-                      <span>{item.a11yProgress}%</span>
-                    </div>
-                  </div>
-                </Table.Cell>
-                <Table.Cell>
-                  {item.classification ? (
-                    <p>{getClassificationText(item.classification)}</p>
-                  ) : (
-                    <p>
-                      <em>Unclassified</em>
-                    </p>
-                  )}
-                </Table.Cell>
-                <Table.Cell>
-                  {item.visibility ? (
-                    <p>{getVisibilityText(item.visibility)}</p>
-                  ) : (
-                    <p>
-                      <em>Unknown</em>
-                    </p>
-                  )}
-                </Table.Cell>
-                <Table.Cell>
-                  <p>{truncateString(projectLead, 50)}</p>
-                </Table.Cell>
-                <Table.Cell>
-                  <p>
-                    {format(parseISO(item.updatedAt || ""), "MM/dd/yyyy")} at{" "}
-                    {format(parseISO(item.updatedAt || ""), "hh:mm a")}
-                  </p>
-                </Table.Cell>
-              </Table.Row>
-            );
-          })}
-        {data.length === 0 && (
-          <Table.Row>
-            <Table.Cell colSpan={6}>
-              <p className="text-center">
-                <em>No results found.</em>
-              </p>
-            </Table.Cell>
-          </Table.Row>
-        )}
-      </Table.Body>
-    </Table>
+    <DataTable
+      data={data}
+      columns={columns}
+      loading={loading}
+      density="compact"
+      bordered
+      striped
+      stickyHeader
+      caption="My projects list"
+      emptyState={
+        <div className="py-8 text-center">
+          <Text>
+            <em>No results found.</em>
+          </Text>
+        </div>
+      }
+      onRowClick={(row) =>
+        history.push(`/projects/${row.projectID}?reviewer=true`)
+      }
+    />
   );
 };
 

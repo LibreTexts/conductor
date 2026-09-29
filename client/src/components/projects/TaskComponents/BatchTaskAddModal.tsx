@@ -1,4 +1,5 @@
-import { Modal, Form, Checkbox, Input, Button, Icon } from "semantic-ui-react";
+import { Button, Checkbox, Input, Modal } from "@libretexts/davis-react";
+import { IconPlus } from "@tabler/icons-react";
 
 interface BatchTaskAddModalProps {
   show: boolean;
@@ -42,68 +43,64 @@ const BatchTaskAddModal: React.FC<BatchTaskAddModalProps> = ({
   onRequestSave,
 }) => {
   return (
-    <Modal open={show} onClose={onClose}>
-      <Modal.Header>Batch Add Tasks</Modal.Header>
-      <Modal.Content>
-        <Form noValidate>
-          <Form.Field error={batchTasksErr}>
-            <label>Number of Tasks to Add</label>
-            <Input
-              type="number"
-              placeholder="Number..."
-              min={1}
-              max={100}
-              onChange={(_e, { value }) => setBatchTasks(parseInt(value))}
-              value={batchTasks}
-            />
-          </Form.Field>
-          <Form.Field error={batchTitleErr}>
-            <label>Task Title Prefix</label>
-            <Input
-              type="text"
-              placeholder="Title prefix..."
-              onChange={(_e, { value }) => setBatchTitle(value)}
-              value={batchTitle}
-            />
-          </Form.Field>
+    <Modal open={show} onClose={(v) => { if (!v) onClose(); }}>
+      <Modal.Header>
+        <Modal.Title>Batch Add Tasks</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <div className="flex flex-col gap-4">
+          <Input
+            name="batch-tasks"
+            label="Number of Tasks to Add"
+            type="number"
+            placeholder="Number..."
+            min={1}
+            max={100}
+            onChange={(e) => setBatchTasks(parseInt(e.target.value))}
+            value={batchTasks}
+            error={batchTasksErr}
+          />
+          <Input
+            name="batch-title"
+            label="Task Title Prefix"
+            type="text"
+            placeholder="Title prefix..."
+            onChange={(e) => setBatchTitle(e.target.value)}
+            value={batchTitle}
+            error={batchTitleErr}
+          />
           <p>
             <strong>Example: </strong>
             <em>{batchTitle !== "" ? batchTitle : "<Title prefix>"} 1</em>
           </p>
-          <Form.Field>
-            <Checkbox
-              toggle
-              label="Add Subtasks to Each"
-              onChange={(_e, data) =>
-                setBatchAddSubtasks(data.checked ?? false)
-              }
-              checked={batchAddSubtasks}
-            />
-          </Form.Field>
+          <Checkbox
+            name="batch-add-subtasks"
+            label="Add Subtasks to Each"
+            checked={batchAddSubtasks}
+            onChange={(checked) => setBatchAddSubtasks(checked)}
+          />
           {batchAddSubtasks && (
-            <div>
-              <Form.Field error={batchSubtasksErr}>
-                <label>Number of Subtasks to Add to Each</label>
-                <Input
-                  type="number"
-                  placeholder="Number..."
-                  min={1}
-                  max={100}
-                  onChange={(_e, { value }) =>
-                    setBatchSubtasks(parseInt(value))
-                  }
-                  value={batchSubtasks}
-                />
-              </Form.Field>
-              <Form.Field error={batchSubtitleErr}>
-                <label>Subtask Title Prefix</label>
-                <Input
-                  type="text"
-                  placeholder="Title prefix..."
-                  onChange={(_e, { value }) => setBatchSubtitle(value)}
-                  value={batchSubtitle}
-                />
-              </Form.Field>
+            <div className="flex flex-col gap-4 pl-2 border-l-2 border-gray-200">
+              <Input
+                name="batch-subtasks"
+                label="Number of Subtasks to Add to Each"
+                type="number"
+                placeholder="Number..."
+                min={1}
+                max={100}
+                onChange={(e) => setBatchSubtasks(parseInt(e.target.value))}
+                value={batchSubtasks}
+                error={batchSubtasksErr}
+              />
+              <Input
+                name="batch-subtitle"
+                label="Subtask Title Prefix"
+                type="text"
+                placeholder="Title prefix..."
+                onChange={(e) => setBatchSubtitle(e.target.value)}
+                value={batchSubtitle}
+                error={batchSubtitleErr}
+              />
               <p>
                 <strong>Example: </strong>
                 <em>
@@ -113,16 +110,23 @@ const BatchTaskAddModal: React.FC<BatchTaskAddModalProps> = ({
               </p>
             </div>
           )}
-        </Form>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button color="green" loading={batchAddLoading} onClick={onRequestSave}>
-          <Icon name="add" />
-          Add Tasks
-        </Button>
-      </Modal.Actions>
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            icon={<IconPlus size={15} />}
+            loading={batchAddLoading}
+            onClick={onRequestSave}
+          >
+            Add Tasks
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };
+
 export default BatchTaskAddModal;
