@@ -8,12 +8,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    # Same-repo (non-fork) PRs only
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      # author_association does not reflect access granted through an org team,
+      # and reports CONTRIBUTOR for members whose org membership is private.
+      # This endpoint resolves effective permission, team-derived access included.
+      # Read `.permission`, not `.role_name`: it normalizes custom roles and
+      # maintain/triage down to the legacy admin/write/read/none levels.
+      - name: Resolve PR author's effective repo permission
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if ! level="$(gh api "repos/$REPO/collaborators/$PR_AUTHOR/permission" \
+            --jq '.permission' 2>gh-error.txt)"; then
+            # A user with no access at all still resolves, so only 404 (unknown
+            # account) is a legitimate denial. Anything else is a broken gate and
+            # must fail loudly rather than silently denying every author.
+            if grep -q 'HTTP 404' gh-error.txt; then
+              level=none
+            else
+              echo "::error::Could not resolve repository permission for $PR_AUTHOR"
+              cat gh-error.txt
+              exit 1
+            fi
+          fi
+
+          case "$level" in
+            admin|write) allowed=true ;;
+            *) allowed=false ;;
+          esac
+          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
+          echo "$PR_AUTHOR has '$level' permission on $REPO (allowed=$allowed)" >> "$GITHUB_STEP_SUMMARY"
+
   codex:
     runs-on: ubuntu-latest
-    # Only run for same-repo (non-fork) PRs by users with write access
-    if: >-
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+    needs: gate
+    if: needs.gate.outputs.allowed == 'true'
     permissions:
       contents: read
     outputs:
