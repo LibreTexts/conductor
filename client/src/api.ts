@@ -3047,6 +3047,8 @@ class API {
           status: "pending" | "running" | "success" | "error";
           messages: string[];
           errorMessage?: string;
+          /** Draft id → live id for every page the run created (see the job model). */
+          createdPages?: { draftID: string; pageID: string }[];
           createdAt?: string;
           updatedAt?: string;
         } | null;
