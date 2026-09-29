@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RemixerSubPage } from "./model";
 import {
+  applyCreatedPageIds,
   buildBookPaths,
   reconcileDraftWithToc,
   withDerivedStatusFlags,
@@ -771,5 +772,97 @@ describe("matter slot numbering", () => {
     const s = slots(backMatter());
     // Defaults keep their container's path; their URL carries the fixed slot.
     expect(s.get("b1")).toBe(s.get("b"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pages created by a publish run that failed partway
+// ---------------------------------------------------------------------------
+
+describe("applyCreatedPageIds", () => {
+  const draftWithNewPages = () => [
+    ...draftOf(liveBook()),
+    page("new-ch", "New Chapter", "1", { addedItem: true, "uri.ui": "#" }),
+    page("new-pg", "New Page", "new-ch", { addedItem: true, "uri.ui": "#" }),
+    page("555-1700000000-abc", "Kinematics", "20", {
+      addedItem: true,
+      isImported: true,
+    }),
+  ];
+
+  it("gives created pages their live ids and moves their children along", () => {
+    const { book, mapped } = applyCreatedPageIds(draftWithNewPages(), [
+      { draftID: "new-ch", pageID: "40" },
+      { draftID: "new-pg", pageID: "41" },
+      { draftID: "555-1700000000-abc", pageID: "24" },
+    ]);
+
+    expect(mapped).toBe(3);
+    expect(find(book, "40")).toMatchObject({ addedItem: false, isImported: false });
+    expect(find(book, "41")).toMatchObject({ parentID: "40", addedItem: false });
+    expect(find(book, "24")).toMatchObject({ isImported: false, addedItem: false });
+    expect(book.some((n) => n["@id"].includes("new-") || n["@id"].includes("-17"))).toBe(false);
+  });
+
+  it("leaves pages the run didn't reach as new", () => {
+    const { book, mapped } = applyCreatedPageIds(draftWithNewPages(), [
+      { draftID: "new-ch", pageID: "40" },
+    ]);
+
+    expect(mapped).toBe(1);
+    expect(find(book, "new-pg")).toMatchObject({ parentID: "40", addedItem: true });
+    expect(find(book, "555-1700000000-abc")!.isImported).toBe(true);
+  });
+
+  it("is a no-op for an empty list, unknown drafts, and a second application", () => {
+    const draft = draftWithNewPages();
+    expect(applyCreatedPageIds(draft, []).book).toBe(draft);
+    expect(applyCreatedPageIds(draft, undefined).book).toBe(draft);
+    expect(
+      applyCreatedPageIds(draft, [{ draftID: "new-gone", pageID: "99" }]).mapped,
+    ).toBe(0);
+
+    const once = applyCreatedPageIds(draft, [{ draftID: "new-ch", pageID: "40" }]);
+    const twice = applyCreatedPageIds(once.book, [
+      { draftID: "new-ch", pageID: "40" },
+    ]);
+    expect(twice.mapped).toBe(0);
+    expect(twice.book).toBe(once.book);
+  });
+
+  it("never maps onto a live id the draft already has", () => {
+    // e.g. the live page already came back into the draft some other way.
+    const draft = [...draftWithNewPages(), page("40", "New Chapter", "1")];
+    const { book, mapped } = applyCreatedPageIds(draft, [
+      { draftID: "new-ch", pageID: "40" },
+    ]);
+    expect(mapped).toBe(0);
+    expect(book.filter((n) => n["@id"] === "40")).toHaveLength(1);
+  });
+
+  it("stops a retry recreating a default-titled page the failed run created", () => {
+    // The run created "New Chapter" (40) and "New Page" (41), then failed.
+    // Title matching deliberately skips default titles, so without the run's
+    // record both would be inserted from the live book *and* created again.
+    const toc = [
+      ...liveBook(),
+      page("40", "4: New Chapter", "1", { "@subpages": true }),
+      page("41", "4.1: New Page", "40"),
+    ];
+    const withoutRecord = reconcileDraftWithToc(draftWithNewPages(), toc);
+    expect(find(withoutRecord.book, "new-ch")!.addedItem).toBe(true);
+    expect(ids(withoutRecord.report.insertedFromToc)).toEqual(["40", "41"]);
+
+    const { book: mappedDraft } = applyCreatedPageIds(draftWithNewPages(), [
+      { draftID: "new-ch", pageID: "40" },
+      { draftID: "new-pg", pageID: "41" },
+    ]);
+    const { book, report } = reconcileDraftWithToc(mappedDraft, toc);
+
+    expect(report.insertedFromToc).toEqual([]);
+    expect(book.filter((n) => n.addedItem && !n.isImported)).toEqual([]);
+    expect(find(book, "41")!.parentID).toBe("40");
+    // The imported page the run never reached is still pending.
+    expect(find(book, "555-1700000000-abc")!.isImported).toBe(true);
   });
 });

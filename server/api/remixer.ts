@@ -402,7 +402,7 @@ const getRemixerJobStatus = async (
     const { id } = req.params;
     const job = await PrejectRemixerJob.findOne(
       { projectID: id },
-      { status: 1, messages: 1, errorMessage: 1, _id: 0 },
+      { status: 1, messages: 1, errorMessage: 1, createdPages: 1, _id: 0 },
     ).sort({ _id: -1 });
     return res.send({
       err: false,

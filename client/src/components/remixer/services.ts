@@ -1020,6 +1020,50 @@ export const buildBookPaths = (
   });
 };
 
+/**
+ * Points draft pages a publish run already created at their live pages.
+ * `createdPages` comes from the run's job record; a run that failed partway
+ * still lists every page it got to. Each mapped page takes its live id, its
+ * children follow it, and it stops counting as added/imported so a retry
+ * doesn't create it again. Entries whose draft page isn't in `book` are
+ * ignored, so applying the same list twice (or to an older draft) is safe.
+ *
+ * @returns The book, and how many of its pages were mapped.
+ */
+export const applyCreatedPageIds = (
+  book: RemixerSubPage[],
+  createdPages: { draftID: string; pageID: string }[] | undefined,
+): { book: RemixerSubPage[]; mapped: number } => {
+  if (!createdPages?.length) return { book, mapped: 0 };
+  const inBook = new Set(book.map((node) => node["@id"]));
+  const liveIdByDraftId = new Map(
+    createdPages
+      // Skip a live id the draft already has, so a page can't appear twice.
+      .filter(({ draftID, pageID }) => inBook.has(draftID) && !inBook.has(pageID))
+      .map(({ draftID, pageID }) => [draftID, pageID]),
+  );
+  if (liveIdByDraftId.size === 0) return { book, mapped: 0 };
+
+  const mappedBook = book.map((node) => {
+    const liveId = liveIdByDraftId.get(node["@id"]);
+    const parentID =
+      node.parentID !== undefined
+        ? (liveIdByDraftId.get(node.parentID) ?? node.parentID)
+        : undefined;
+    if (!liveId) {
+      return parentID === node.parentID ? node : { ...node, parentID };
+    }
+    return {
+      ...node,
+      "@id": liveId,
+      parentID,
+      addedItem: false,
+      isImported: false,
+    };
+  });
+  return { book: mappedBook, mapped: liveIdByDraftId.size };
+};
+
 /** Titles `getNewNodeTitleForDepth` gives new pages, with an optional duplicate suffix. */
 const DEFAULT_NEW_PAGE_TITLE = /^new (chapter|page|subpage)( \(\d+\))?$/i;
 
