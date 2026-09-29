@@ -75,12 +75,12 @@ const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsPro
               />
               <Button
                 onClick={() =>
-                  window.open(`/projects/${projectID}/restacker`, "_blank")
+                  window.open(`/projects/${projectID}/accessibility`, "_blank")
                 }
                 color="blue"
                 size="small"
               >
-                License Restacker
+                Accessibility Remediation
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
               <Button
@@ -93,6 +93,16 @@ const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsPro
                 Glossary Manager
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
+              <Button
+                onClick={() =>
+                  window.open(`/projects/${projectID}/restacker`, "_blank")
+                }
+                color="blue"
+                size="small"
+              >
+                License Restacker
+                <Icon name="external alternate" className="!ml-2" />
+              </Button>
               {hasCommonsBook && (
                 <Button
                   onClick={handleOpenReaderResourcesModal}
@@ -102,6 +112,16 @@ const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsPro
                   Manage Reader Resources
                 </Button>
               )}
+              <Button
+                onClick={() =>
+                  window.open(`/projects/${projectID}/ai-co-author`, "_blank")
+                }
+                color="blue"
+                size="small"
+              >
+                Metadata Editor
+                <Icon name="external alternate" className="!ml-2" />
+              </Button>
             </>
           )}
       </div>
