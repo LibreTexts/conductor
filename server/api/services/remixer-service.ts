@@ -2037,13 +2037,17 @@ const runRemixerJob = async ({
      */
     const createdPageIDs = new Set<string>();
 
-    const adoptCreatedPageId = (
+    const adoptCreatedPageId = async (
       oldPageId: string,
       page: RemixerSubPageState,
       pageID: string,
       pageURI: string,
     ) => {
       createdPageIDs.add(pageID);
+      // Persist right away: if the run dies later, this is the only record
+      // that the draft's `oldPageId` page now exists live as `pageID`.
+      job.createdPages.push({ draftID: oldPageId, pageID });
+      await job.save();
       page["@id"] = pageID;
       setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
       page["@href"] = pageURI || page["@href"];
@@ -2121,7 +2125,7 @@ const runRemixerJob = async ({
                   ),
                 { onRetry: logRetry },
               );
-              adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+              await adoptCreatedPageId(oldPageId, page, pageID, pageURI);
               if (placeholder && occupant) {
                 pendingFinalRenames.push({ page, intendedTitle: title });
                 message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
@@ -2159,7 +2163,7 @@ const runRemixerJob = async ({
                   ),
                 { onRetry: logRetry },
               );
-              adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+              await adoptCreatedPageId(oldPageId, page, pageID, pageURI);
               // The page itself imported fine; these are per-file degradations
               // that would otherwise only exist in the server log.
               for (const warning of warnings) {
@@ -2661,8 +2665,59 @@ const runRemixerJob = async ({
     job.errorMessage = errorMessage;
     job.messages.push(`Remixer job failed: ${errorMessage}`);
     await job.save();
+    await saveFailedRunDraft(remixerState, job.createdPages).catch((err) => {
+      remixerLog.warn(
+        { err, projectID },
+        "Could not save the partly published book as the active draft",
+      );
+    });
     throw error;
   }
+};
+
+/**
+ * After a failed run, restores an active draft from the book the run was
+ * working on. The publish request archived the previous draft, so without
+ * this the project has no server draft at all until the next save.
+ *
+ * The run rewrites page ids in place as it creates pages, so the book already
+ * carries the live ids of every page it got to; those are marked as existing
+ * (`addedItem`/`isImported` cleared) so a retry doesn't create them again.
+ * Every other flag is left for the client, which re-bases the draft on the
+ * live book when it loads it.
+ *
+ * Skipped when someone saved a new active draft while the run was going:
+ * that draft is newer, and the client maps `createdPages` onto it instead.
+ */
+const saveFailedRunDraft = async (
+  remixerState: InstanceType<typeof PrejectRemixer>,
+  createdPages: { draftID: string; pageID: string }[],
+): Promise<void> => {
+  const hasActiveDraft = await PrejectRemixer.exists({
+    projectID: remixerState.projectID,
+    archived: false,
+  });
+  if (hasActiveDraft) return;
+
+  const created = new Set(createdPages.map((entry) => entry.pageID));
+  const book = (remixerState.remixerCurrentBook ?? []).map((page) => {
+    const plain = remixerSubPageToResponse(page);
+    return created.has(String(plain["@id"]))
+      ? { ...plain, addedItem: false, isImported: false }
+      : plain;
+  });
+
+  await PrejectRemixer.create({
+    projectID: remixerState.projectID,
+    archived: false,
+    createdBy: remixerState.createdBy,
+    updatedBy: remixerState.updatedBy,
+    remixerID: base62(10),
+    remixerCurrentBook: book,
+    autoNumbering: remixerState.autoNumbering,
+    copyModeState: remixerState.copyModeState,
+    pathLevelFormats: remixerState.pathLevelFormats,
+  });
 };
 
 /**
