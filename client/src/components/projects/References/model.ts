@@ -45,12 +45,46 @@ export const ReferenceDisplayLocations: {
   { value: "backmatter", label: "Reference page in backmatter" },
 ];
 
+/**
+ * Reference scope: the same model as the glossary scope. Pages are grouped,
+ * and each group's combined reference list is shown on its target page.
+ */
+export type ReferenceScopeMode = "PAGE" | "CHAPTER" | "BACKMATTER";
+
+export type ReferenceScopeGroup = {
+  groupID: string;
+  pageIds: string[];
+  /** The page this group's combined reference list is displayed on. */
+  targetPageId: string;
+};
+
+/**
+ * Target of the BACKMATTER group before the shared back-matter References
+ * page exists (the populate job creates it). Mirrors the server constant.
+ */
+export const REFERENCE_BACKMATTER_TARGET = "backmatter";
+
+/** The scope mode an older, scope-less saved `displayLocation` stands for. */
+export const scopeModeForDisplayLocation = (
+  location: ReferenceDisplayLocation | undefined,
+): ReferenceScopeMode =>
+  location === "endOfChapter"
+    ? "CHAPTER"
+    : location === "backmatter"
+      ? "BACKMATTER"
+      : "PAGE";
+
 export type BookReferencesData = {
   format: ReferenceFormatType | undefined;
   displayLocation?: ReferenceDisplayLocation;
   /** Page title when displayLocation is endOfChapter or backmatter. */
   pageTitle?: string;
   selectedList?: string[];
+  /** Id of the shared back-matter References page, once populate made it. */
+  backmatterPageID?: string;
+  /** Saved scope; absent until one is saved (or after a reset). */
+  scopeMode?: ReferenceScopeMode;
+  scopeGroups?: ReferenceScopeGroup[];
   entries?: ReferenceEntry[];
 };
 

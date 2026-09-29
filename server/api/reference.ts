@@ -1,4 +1,5 @@
 import { z } from "zod";
+import logger from "../logger.js";
 import {
   UpdateReferenceFormatSchema,
   GetReferencePageSchema,
@@ -12,6 +13,8 @@ import {
   GetReferencePageByPageIDAndLibrarySchema,
   GetReferenceProjectsSchema,
   PopulateReferenceSchema,
+  SaveReferenceScopeSchema,
+  DeleteReferenceScopeSchema,
 } from "./validators/Reference.js";
 import { Response } from "express";
 import Project from "../models/project.js";
@@ -32,6 +35,9 @@ import {
   createReferenceFromBookPage,
   getReferenceItemsService,
   createReferencePopulateJob,
+  saveReferenceScope as saveReferenceScopeService,
+  resetReferenceScope as resetReferenceScopeService,
+  getScopeGroupsDisplayedOnPage,
 } from "./services/references-service.js";
 import BookService from "./services/book-service.js";
 import GlossaryService from "./services/glossary-service.js";
@@ -104,6 +110,83 @@ async function updateReferenceFormat(
       err: true,
       errMsg: "Internal server error",
     });
+  }
+}
+
+/**
+ * Loads a project for a reference-settings write, answering 404/403 itself.
+ * @returns The project, or null when a response has already been sent.
+ */
+async function loadProjectForMember(
+  projectID: string,
+  user: Parameters<typeof projectsAPI.checkProjectMemberPermission>[1],
+  res: Response,
+) {
+  const project = await Project.findOne({ projectID: { $eq: projectID } });
+  if (!project) {
+    res.status(404).send({ err: true, errMsg: "Project not found" });
+    return null;
+  }
+  if (!projectsAPI.checkProjectMemberPermission(project, user)) {
+    res.status(403).send({
+      err: true,
+      errMsg: "You do not have permission to access this project",
+    });
+    return null;
+  }
+  return project;
+}
+
+/**
+ * Saves the reference format and scope (mode + groups), mirroring the
+ * glossary scope. The legacy display fields are derived from the scope.
+ */
+async function saveReferenceScope(
+  req: ZodReqWithUser<z.infer<typeof SaveReferenceScopeSchema>>,
+  res: Response,
+) {
+  try {
+    const { projectID } = req.params;
+    const project = await loadProjectForMember(projectID, req.user, res);
+    if (!project) return;
+
+    const referenceUsage = await saveReferenceScopeService(
+      projectID,
+      req.user?.decoded?.uuid ?? "",
+      req.body,
+    );
+    return res.send({
+      err: false,
+      data: {
+        format: referenceUsage.format,
+        displayLocation: referenceUsage.displayLocation,
+        pageTitle: referenceUsage.pageTitle,
+        selectedList: referenceUsage.selectedList ?? [],
+        scopeMode: referenceUsage.scopeMode,
+        scopeGroups: referenceUsage.scopeGroups ?? [],
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "Failed to save reference scope");
+    return res.status(500).send({ err: true, errMsg: "Internal server error" });
+  }
+}
+
+/** Forgets the saved reference scope; the editor falls back to its defaults. */
+async function deleteReferenceScope(
+  req: ZodReqWithUser<z.infer<typeof DeleteReferenceScopeSchema>>,
+  res: Response,
+) {
+  try {
+    const { projectID } = req.params;
+    const project = await loadProjectForMember(projectID, req.user, res);
+    if (!project) return;
+
+    await resetReferenceScopeService(projectID, req.user?.decoded?.uuid ?? "");
+    return res.send({ err: false });
+  } catch (err) {
+    logger.error({ err }, "Failed to reset reference scope");
+    return res.status(500).send({ err: true, errMsg: "Internal server error" });
   }
 }
 
@@ -510,6 +593,21 @@ async function getReferancePageDetails(
         backmatterPageID: referenceUsage?.backmatterPageID ?? null,
         backmatterReferenceList: referenceUsage?.backmatterReferenceList ?? [],
         selectedList: referenceUsage?.selectedList ?? [],
+        // Scope model (same as the glossary scope). `displayGroups` are the
+        // groups whose combined reference list belongs on this page; the
+        // legacy fields above are kept, derived from the scope, for the
+        // current ReferenceBib template.
+        scope: referenceUsage?.scopeMode
+          ? {
+              mode: referenceUsage.scopeMode,
+              groups: referenceUsage.scopeGroups ?? [],
+            }
+          : null,
+        displayGroups: getScopeGroupsDisplayedOnPage(
+          referenceUsage?.scopeGroups,
+          pageID,
+          referenceUsage?.backmatterPageID,
+        ),
       },
     });
   } catch (error) {
@@ -709,6 +807,8 @@ async function startReferencePopulateJob(
 }
 
 export default {
+  saveReferenceScope,
+  deleteReferenceScope,
   getReferenceDetails,
   updateReferenceFormat,
   updateReferenceEntry,
