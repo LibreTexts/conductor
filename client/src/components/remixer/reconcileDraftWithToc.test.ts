@@ -583,6 +583,38 @@ describe("reconcileDraftWithToc", () => {
       expect(report.relocated).toEqual([]);
     });
 
+    it("never makes a parent cycle when each side moved one page under the other", () => {
+      // Library moved 21 under 23; the draft moved 23 under 21. 21 keeps its
+      // number in the draft, so it isn't flagged as moved there.
+      const toc = update(liveBook(), "21", { parentID: "23" });
+      const draft = update(draftOf(liveBook()), "23", {
+        parentID: "21",
+        movedItem: true,
+      });
+      const { book, report } = reconcileDraftWithToc(draft, toc);
+      const byId = new Map(book.map((n) => [n["@id"], n]));
+
+      // The draft's move wins; 21 stays where the draft has it.
+      expect(byId.get("21")!.parentID).toBe("20");
+      expect(byId.get("23")!.parentID).toBe("21");
+      expect(report.relocated).toEqual([]);
+      // Every page still reaches the book root.
+      for (const node of book) {
+        const seen = new Set<string>();
+        let current: RemixerSubPage | undefined = node;
+        while (current && (current.parentID ?? "-1") !== "-1") {
+          expect(seen.has(current["@id"]), `cycle at ${node["@id"]}`).toBe(
+            false,
+          );
+          seen.add(current["@id"]);
+          current = byId.get(current.parentID!);
+        }
+        expect(current, `orphaned ${node["@id"]}`).toBeDefined();
+      }
+      // The job will put 21 back under 20, so it must show as moved.
+      expect(finalize(book).get("21")!.movedItem).toBe(true);
+    });
+
     it("keeps a draft rename on a page the library moved", () => {
       const toc = update(liveBook(), "23", { parentID: "30" });
       const draft = update(draftOf(liveBook()), "23", {

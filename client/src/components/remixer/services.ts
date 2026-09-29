@@ -1266,6 +1266,20 @@ export const reconcileDraftWithToc = (
     tocById.has(node["@id"]) &&
     !node.addedItem &&
     !movedInDraft.has(node["@id"]);
+  /** True when `id` is `ancestorId` or sits anywhere below it in the current book. */
+  const isUnder = (id: string, ancestorId: string): boolean => {
+    const byId = new Map(book.map((n) => [n["@id"], n]));
+    const seen = new Set<string>();
+    for (
+      let current = byId.get(id);
+      current && !seen.has(current["@id"]);
+      current = byId.get(parentKey(current))
+    ) {
+      if (current["@id"] === ancestorId) return true;
+      seen.add(current["@id"]);
+    }
+    return false;
+  };
   const relocatedIds = new Set<string>();
   for (const live of toc) {
     const node = book.find((n) => n["@id"] === live["@id"]);
@@ -1275,6 +1289,11 @@ export const reconcileDraftWithToc = (
     if (liveParent !== "-1" && !book.some((n) => n["@id"] === liveParent)) {
       continue;
     }
+    // The draft moved the live parent into this page's own subtree (e.g. the
+    // library put 21 under 23 while the draft put 23 under 21). Following the
+    // live parent would make a cycle and drop both subtrees from the tree;
+    // the draft's move wins, so this page keeps its draft placement.
+    if (liveParent !== "-1" && isUnder(liveParent, node["@id"])) continue;
     placeAtLivePosition(node, live);
     relocatedIds.add(live["@id"]);
   }
