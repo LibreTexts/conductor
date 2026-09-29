@@ -315,7 +315,7 @@ const publishRemixerProject = async (
         return res.status(409).send({
           err: true,
           errMsg:
-            "The book was changed in the library after this draft was loaded. Reload the draft to pick up those changes, then publish again.",
+            "The book was changed in the library after this draft was loaded, so publishing it now could undo those changes. Nothing was saved or published.",
         });
       }
     }
