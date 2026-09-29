@@ -1645,21 +1645,6 @@ const ProjectView = (props) => {
                         </Button>
                       }
                       {
-                        project.libreLibrary && project.libreCoverID && !isMiniRepo && (
-                          <Button
-                          as={Link}
-                          color='pink'
-                          to={`/projects/${project.projectID}/ai-co-author`}
-                          aria-label='Textbook Curation'
-                        >
-                          <Icon name='magic' />
-                          <Breakpoint name='desktop'>
-                          AI Co-Author
-                          </Breakpoint>
-                        </Button>
-                        )
-                      }
-                      {
                         project.hasTrafficAnalyticsConfigured && (
                           <Button
                           as={Link}
@@ -1687,7 +1672,6 @@ const ProjectView = (props) => {
                       </Button>
                       {
                         !isMiniRepo && (
-                        <>
                           <Button
                             color='orange'
                             as={Link}
@@ -1699,18 +1683,6 @@ const ProjectView = (props) => {
                               Peer Review
                             </Breakpoint>
                           </Button>
-                          <Button
-                            color='teal'
-                            as={Link}
-                            to={`${props.match.url}/accessibility`}
-                            aria-label='Accessibility'
-                          >
-                            <Icon name='universal access' />
-                            <Breakpoint name='desktop'>
-                            Accessibility
-                            </Breakpoint>
-                          </Button>
-                        </>
                       )}
                       <Dropdown text='More Tools' color='purple' as={Button} className='text-center-force'>
                         <Dropdown.Menu>
