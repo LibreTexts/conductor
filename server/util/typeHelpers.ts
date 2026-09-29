@@ -1,4 +1,4 @@
-import { BookSortOption, CentralIdentityVerificationRequestStatus } from "../types";
+import { BookSortOption, CENTRAL_IDENTITY_USER_LIFECYCLE_EVENTS, CentralIdentityUserLifecycleEvent, CentralIdentityVerificationRequestStatus } from "../types";
 import { AssetTagKeyInterface } from "../models/assettagkey.js";
 import { AssetTagFrameworkInterface } from "../models/assettagframework";
 import { Types } from "mongoose";
@@ -77,4 +77,8 @@ export function isCentralIdentityVerificationRequestStatus(
     text === "needs_change" ||
     text === "open"
   );
+}
+
+export function isCentralIdentityUserLifecycleEvent(text: string): text is CentralIdentityUserLifecycleEvent {
+  return CENTRAL_IDENTITY_USER_LIFECYCLE_EVENTS.includes(text as CentralIdentityUserLifecycleEvent);
 }
