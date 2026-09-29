@@ -185,6 +185,26 @@ a:focus.focus\:text-white {
 }
 
 /*
+  Override Semantic UI's unlayered `a { background-color: transparent }` and
+  `a { color: var(--link-color) }` for Davis buttons rendered as anchors.
+  Those resets beat Tailwind v4's layered `bg-primary` and `text-white`,
+  so link-buttons render as plain text. This can be removed when Semantic UI
+  is removed entirely.
+*/
+a.bg-primary {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+a.bg-primary:hover {
+  background-color: var(--color-primary-600);
+  color: #fff;
+}
+a.bg-primary:active {
+  background-color: var(--color-primary-700);
+  color: #fff;
+}
+
+/*
   Override Semantic UI's unlayered `p { margin: 0 0 1em; line-height: 1.4285em }`.
   Davis Design System's Timeline component renders <p> elements for title and
   description slots with Tailwind utilities that assume zero default margin.
