@@ -64,6 +64,7 @@ import {
   isDefaultMatterPage,
   isMatterRootNode,
   isRootBookNode,
+  applyCreatedPageIds,
   reconcileDraftWithToc,
   reorderBookNodes,
   sanitizePathLevelFormats,
@@ -219,6 +220,15 @@ const RemixerDashboard: React.FC = () => {
    * server can refuse it if the book was changed in the library since.
    */
   const liveBookFingerprintRef = useRef<string | null>(null);
+  /**
+   * Pages the last publish run created (draft id → live id) when that run
+   * failed partway. Applied to any draft before it's re-based on the live
+   * book, so pages already created aren't created again on retry — even ones
+   * whose default title keeps `reconcileDraftWithToc` from matching them.
+   */
+  const failedRunCreatedPagesRef = useRef<
+    { draftID: string; pageID: string }[]
+  >([]);
   /** Last known server-persisted book state; used by the recovery modal so we don't refetch. */
   const serverStateRef = useRef<{
     book: RemixerSubPage[];
@@ -623,6 +633,9 @@ const RemixerDashboard: React.FC = () => {
     book: RemixerSubPage[];
     report: DraftTocReconcileReport | null;
   }> => {
+    // Known facts first: pages a failed run already created are live, even
+    // if the draft still has them as `new-…` or imported pages.
+    ({ book } = applyCreatedPageIds(book, failedRunCreatedPagesRef.current));
     if (!coverPageId || !libreLibrary) return { book, report: null };
     try {
       // Raw live tree: overlaying saved configs would copy the draft's own
@@ -2426,6 +2439,8 @@ const RemixerDashboard: React.FC = () => {
       try {
         const jobStatusRes = await api.getRemixerPublishJobStatus(id);
         const existingJob = jobStatusRes.job;
+        failedRunCreatedPagesRef.current =
+          existingJob?.status === "error" ? (existingJob.createdPages ?? []) : [];
         if (
           existingJob &&
           (existingJob.status === "pending" || existingJob.status === "running")
@@ -2741,6 +2756,7 @@ const RemixerDashboard: React.FC = () => {
         status: PublishJobStatus;
         messages?: string[];
         errorMessage?: string;
+        createdPages?: { draftID: string; pageID: string }[];
       } | null;
     },
     onSuccess: (job) => {
@@ -2753,6 +2769,8 @@ const RemixerDashboard: React.FC = () => {
       if (job.status === "success") {
         setPublishPolling(false);
         setPublishSuccessOpen(true);
+        // The new server draft carries every live id; nothing left to map.
+        failedRunCreatedPagesRef.current = [];
         // A stale pre-publish local draft must not survive a successful
         // publish — otherwise the recovery modal on a later visit could
         // offer it as a real option and silently revert the just-published
@@ -2775,6 +2793,7 @@ const RemixerDashboard: React.FC = () => {
         handleLoadSourceRef.current("serverDraft");
       } else if (job.status === "error") {
         setPublishPolling(false);
+        failedRunCreatedPagesRef.current = job.createdPages ?? [];
         // A job that fails partway has already created, moved or deleted
         // pages, and no draft was saved for it. Re-base the editor's book so
         // the fingerprint and change flags reflect what did get applied;

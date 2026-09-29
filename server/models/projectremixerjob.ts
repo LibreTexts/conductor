@@ -14,6 +14,13 @@ export interface PrejectRemixerJobInterface extends Document {
   status: PrejectRemixerJobStatus;
   messages: string[];
   errorMessage?: string;
+  /**
+   * Pages this run created, as draft id (`new-…` / imported `${source}-…`) →
+   * live MindTouch id. Written as each page is created, so a run that fails
+   * partway still says which draft pages already exist live; the client maps
+   * them onto its draft instead of creating them again.
+   */
+  createdPages: { draftID: string; pageID: string }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +55,16 @@ const PrejectRemixerJobSchema = new Schema<PrejectRemixerJobInterface>(
     },
     errorMessage: {
         type: String,
+    },
+    createdPages: {
+        type: [
+            {
+                _id: false,
+                draftID: { type: String, required: true },
+                pageID: { type: String, required: true },
+            },
+        ],
+        default: [],
     },
     remixerID: {
         type: String,
