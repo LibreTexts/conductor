@@ -117,6 +117,33 @@ export default class BookService {
     headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
   };
 
+  /** ShowOrg, curly-brace form, optionally wrapped in <p>. */
+  private static readonly SHOW_ORG_TEMPLATE_RE =
+    /(?:<p>\s*)?\{\{template\.ShowOrg\(\)\}\}(?:\s*<\/p>)?/gi;
+
+  /** ShowOrg, raw/script span form, optionally wrapped in <p>. */
+  private static readonly SHOW_ORG_SCRIPT_RE =
+    /(?:<p>\s*)?<span\s+class=["']script["']\s*>\s*template\.ShowOrg\(\)\s*<\/span>(?:\s*<\/p>)?/gi;
+
+  /** True when `body` already calls ShowOrg in either supported form. */
+  static bodyHasShowOrg(body: string): boolean {
+    return (
+      /\{\{template\.ShowOrg\(\)\}\}/i.test(body) ||
+      /<span\s+class=["']script["']\s*>\s*template\.ShowOrg\(\)\s*<\/span>/i.test(
+        body,
+      )
+    );
+  }
+
+  /** Removes every ShowOrg call from `body`, collapsing the gap it leaves. */
+  static stripShowOrg(body: string): string {
+    return body
+      .replace(BookService.SHOW_ORG_TEMPLATE_RE, "")
+      .replace(BookService.SHOW_ORG_SCRIPT_RE, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trimEnd();
+  }
+
   constructor(params: BookServiceParams) {
     if (!params.bookID) {
       throw new Error("Missing bookID");
@@ -1135,25 +1162,6 @@ export default class BookService {
     }
 
     const SHOW_ORG_TOKEN = "{{template.ShowOrg()}}";
-    /** Curly-brace form, optionally wrapped in <p>. */
-    const SHOW_ORG_TEMPLATE_RE =
-      /(?:<p>\s*)?\{\{template\.ShowOrg\(\)\}\}(?:\s*<\/p>)?/gi;
-    /** Raw/script span form, optionally wrapped in <p>. */
-    const SHOW_ORG_SCRIPT_RE =
-      /(?:<p>\s*)?<span\s+class=["']script["']\s*>\s*template\.ShowOrg\(\)\s*<\/span>(?:\s*<\/p>)?/gi;
-
-    const stripShowOrg = (body: string): string =>
-      body
-        .replace(SHOW_ORG_TEMPLATE_RE, "")
-        .replace(SHOW_ORG_SCRIPT_RE, "")
-        .replace(/\n{3,}/g, "\n\n")
-        .trimEnd();
-
-    const hasShowOrg = (body: string): boolean =>
-      /\{\{template\.ShowOrg\(\)\}\}/i.test(body) ||
-      /<span\s+class=["']script["']\s*>\s*template\.ShowOrg\(\)\s*<\/span>/i.test(
-        body,
-      );
 
     const rawContents = await this.getPageRawContent(pageID);
     let content = rawContents ?? "";
@@ -1167,7 +1175,7 @@ export default class BookService {
     } catch {
       // rawContents is already HTML/text
     }
-    const currentShowOrg = hasShowOrg(content);
+    const currentShowOrg = BookService.bodyHasShowOrg(content);
     let nextContent = content;
     if (active) {
       if (currentShowOrg) {
@@ -1179,7 +1187,7 @@ export default class BookService {
       if (!currentShowOrg) {
         return true;
       }
-      nextContent = stripShowOrg(content);
+      nextContent = BookService.stripShowOrg(content);
     }
 
     // Stripping ShowOrg from a page whose body was only the template legitimately empties it.
