@@ -20,16 +20,13 @@ import {
   Tooltip,
 } from '@libretexts/davis-react';
 import {
-  IconAccessible,
   IconChartBar,
-  IconCheck,
   IconClipboardList,
   IconClock,
   IconEdit,
   IconExternalLink,
   IconPin,
   IconUsers,
-  IconWand,
 } from '@tabler/icons-react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { useEffect, useState, useCallback, Suspense, useMemo } from 'react';
@@ -1569,10 +1566,6 @@ const ProjectView = (props) => {
           { label: 'Timeline', icon: <IconClock size={14} />, path: `${props.match.url}/timeline` },
           ...(!isMiniRepo ? [
             { label: 'Peer Review', icon: <IconClipboardList size={14} />, path: `${props.match.url}/peerreview` },
-            { label: 'Accessibility', icon: <IconAccessible size={14} />, path: `${props.match.url}/accessibility` },
-          ] : []),
-          ...(project.libreLibrary && project.libreCoverID && !isMiniRepo ? [
-            { label: 'AI Co-Author', icon: <IconWand size={14} />, path: `/projects/${project.projectID}/ai-co-author` },
           ] : []),
           ...(project.hasTrafficAnalyticsConfigured ? [
             { label: 'Analytics', icon: <IconChartBar size={14} />, path: `/projects/${project.projectID}/analytics` },
@@ -1751,37 +1744,53 @@ const ProjectView = (props) => {
               )}
 
               {/* Links + tools row */}
-              <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-end gap-3">
-                <ProjectLinkButtons
-                  projectID={project.projectID}
+              <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col gap-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <ProjectLinkButtons
+                    projectID={project.projectID}
+                    libreCoverID={project.libreCoverID}
+                    libreLibrary={project.libreLibrary}
+                    projectLink={project.projectURL}
+                    projectTitle={project.title}
+                    didCreateWorkbench={project.didCreateWorkbench}
+                    hasCommonsBook={project.hasCommonsBook}
+                    projectClassification={project.classification}
+                    projectVisibility={project.visibility}
+                    project={project}
+                    isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
+                    canRequestPublish={canViewDetails && !project.hasCommonsBook && project.didCreateWorkbench}
+                    didRequestPublish={project.didRequestPublish}
+                  />
+                  {project.adaptCourseID && project.adaptCourseID !== '' && (
+                    <a
+                      href={`https://adapt.libretexts.org/instructors/courses/${project.adaptCourseID}/assignments`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      View Course on ADAPT <IconExternalLink size={13} />
+                    </a>
+                  )}
+                  {canViewDetails && project.hasCommonsBook && !(
+                    !isMiniRepo &&
+                    (userProjectAdmin || userProjectMember) &&
+                    project.libreCoverID &&
+                    project.libreLibrary
+                  ) && (
+                    <Button variant="primary" size="sm" onClick={handleOpenReaderResourcesModal}>
+                      Manage Reader Resources
+                    </Button>
+                  )}
+                </div>
+                <ProjectCoAuthoringToolsButtons
+                  handleOpenReaderResourcesModal={handleOpenReaderResourcesModal}
+                  hasCommonsBook={project.hasCommonsBook}
+                  isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
                   libreCoverID={project.libreCoverID}
                   libreLibrary={project.libreLibrary}
-                  projectLink={project.projectURL}
-                  projectTitle={project.title}
-                  didCreateWorkbench={project.didCreateWorkbench}
-                  hasCommonsBook={project.hasCommonsBook}
                   projectClassification={project.classification}
-                  projectVisibility={project.visibility}
-                  project={project}
-                  isProjectMemberOrAdmin={userProjectAdmin || userProjectMember}
-                  canRequestPublish={canViewDetails && !project.hasCommonsBook && project.didCreateWorkbench}
-                  didRequestPublish={project.didRequestPublish}
+                  projectID={project.projectID}
                 />
-                {project.adaptCourseID && project.adaptCourseID !== '' && (
-                  <a
-                    href={`https://adapt.libretexts.org/instructors/courses/${project.adaptCourseID}/assignments`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    View Course on ADAPT <IconExternalLink size={13} />
-                  </a>
-                )}
-                {canViewDetails && project.hasCommonsBook && (
-                  <Button variant="outline" onClick={handleOpenReaderResourcesModal}>
-                    Manage Reader Resources
-                  </Button>
-                )}
               </div>
             </Card.Body>
           </Card>

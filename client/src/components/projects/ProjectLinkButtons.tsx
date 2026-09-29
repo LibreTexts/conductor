@@ -1,5 +1,6 @@
-import { Button, Header, Icon, Popup } from "semantic-ui-react";
-import {isEmptyString, normalizeURL} from "../util/HelperFunctions";
+import { Button, Tooltip } from "@libretexts/davis-react";
+import { IconBook, IconExternalLink, IconPlus, IconSend } from "@tabler/icons-react";
+import { isEmptyString, normalizeURL } from "../util/HelperFunctions";
 import {
   buildCommonsUrl,
   buildLibraryPageGoURL,
@@ -12,8 +13,6 @@ import { useTypedSelector } from "../../state/hooks";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import ImportWorkbenchModal from "./ImportWorkbenchModal";
-import { Button as DavisButton } from "@libretexts/davis-react";
-import { IconBook, IconConfetti, IconSend } from "@tabler/icons-react";
 
 type ActiveImportJob = {
   jobID: string;
@@ -21,6 +20,10 @@ type ActiveImportJob = {
   messages: string[];
 };
 const CreateWorkbenchModal = lazyWithRetry(() => import("./CreateWorkbenchModal"));
+// Tooltips default to centered above the trigger, which runs past the left edge
+// of the card and gets clipped. Pin them under the button, growing to the right.
+const actionTooltipClass =
+  "[&>[role=tooltip]]:!left-0 [&>[role=tooltip]]:!translate-x-0 [&>[role=tooltip]]:!right-auto";
 // Pulls in the PDF pane and the export registry, none of which a project page
 // needs until someone opens the drawer.
 const CompileBookDrawer = lazyWithRetry(
@@ -110,142 +113,144 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
   if (projectClassification === ProjectClassification.MINI_REPO) return null;
   return (
     <div className={className}>
-      <Header as="span" sub>
-        Important Actions:{" "}
-      </Header>
+      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        Important Actions:
+      </span>
       <div className="flex flex-row flex-wrap gap-2 mt-2">
         {/* `validBook` is checked too: a project can pick up libreLibrary/libreCoverID
             from its projectURL without ever creating a Workbench book, and the server
             refuses to create a second book for an already-linked project. */}
         {!projectLink && !didCreateWorkbench && !validBook && isProjectMemberOrAdmin && (<>
             <Button
-              color="green"
+              variant="primary"
+              size="sm"
+              icon={<IconPlus size={16} />}
               onClick={() => setShowCreateWorkbenchModal(true)}
             >
-              <Icon name="plus" />
               Create Book
             </Button>
             {user.isSuperAdmin && (
               <Button
-                color="green"
+                variant="primary"
+                size="sm"
+                icon={<IconPlus size={16} />}
                 onClick={() => setShowImportWorkbenchModal(true)}
               >
-                <Icon name="plus" />
                 Import Book (Admin Only)
               </Button>
             )}
           </>
         )}
         {(projectLink || validBook) && (
-          <>
-            <Popup
-              content={
+          <Tooltip
+            placement="bottom"
+            className={actionTooltipClass}
+            content={
+              validBook
+                ? "This link will take you to the book's page in the LibreTexts libraries."
+                : projectLink
+                  ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
+                  : "This project does not have a linked URL."
+            }
+          >
+            <Button
+              as="a"
+              href={
                 validBook
-                  ? "This link will take you to the book's page in the LibreTexts libraries."
-                  : projectLink
-                    ? "This link will take you to the project's linked URL. This may be a book in the LibreTexts library or a third-party resource."
-                    : "This project does not have a linked URL."
+                  ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
+                  : normalizeURL(projectLink ?? "")
               }
-              trigger={
-                <Button
-                  onClick={() =>
-                    validBook
-                      ? window.open(
-                        buildLibraryPageGoURL(libreLibrary, libreCoverID),
-                        "_blank"
-                      )
-                      : projectLink
-                        ? window.open(normalizeURL(projectLink ?? ""), "_blank")
-                        : ""
-                  }
-                  color="blue"
-                  size="small"
-                >
-                  Open Project Link
-                  <Icon name="external alternate" className="!ml-2" />
-                </Button>
-              }
-            />
-          </>
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="primary"
+              size="sm"
+              icon={<IconExternalLink size={16} />}
+              iconPosition="right"
+            >
+              Open Project Link
+            </Button>
+          </Tooltip>
         )}
         {/* `hasCommonsBook` gates this on a Book record actually existing for
             `${libreLibrary}-${libreCoverID}`. Shapeshift would happily accept a
             job for an unpublished book, but there is no Book row to record the
             job ID against, so the drawer could never show its progress. */}
         {canCompile && (
-          <DavisButton
+          <Button
             variant="primary"
             size="sm"
             icon={<IconSend size={16} />}
             onClick={() => setShowCompileDrawer(true)}
           >
             Compile book
-          </DavisButton>
+          </Button>
         )}
         {/* Hidden on purpose. The publish flow is merged but not yet released to
             the publishing team; uncomment this to turn it on. Everything behind
             it — `canPublish`, the drawer, the API — is live and unchanged, so
             this is the only line that has to move. */}
         {/* {canPublish && (
-          <DavisButton
+          <Button
             variant="primary"
             size="sm"
             icon={<IconConfetti size={16} />}
             onClick={() => setShowPublishDrawer(true)}
           >
             Publish Book (Admin Visible Only)
-          </DavisButton>
+          </Button>
         )} */}
         {projectVisibility === "public" && (
-          <Popup
+          <Tooltip
+            placement="bottom"
+            className={actionTooltipClass}
             content="This link will take you to the project's page on the Commons."
-            trigger={
-              <Button
-                onClick={() =>
-                  window.open(`/commons-project/${projectID}`, "_blank")
-                }
-                color="blue"
-                size="small"
-              >
-                View Project on Commons
-                <Icon name="external alternate" className="!ml-2" />
-              </Button>
-            }
-          />
+          >
+            <Button
+              as="a"
+              href={`/commons-project/${projectID}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="primary"
+              size="sm"
+              icon={<IconExternalLink size={16} />}
+              iconPosition="right"
+            >
+              View Project on Commons
+            </Button>
+          </Tooltip>
         )}
         {hasCommonsBook && libreCoverID && libreLibrary && (
-          <Popup
+          <Tooltip
+            placement="bottom"
+            className={actionTooltipClass}
             content="This link will take you to the book's page on the Commons."
-            trigger={
-              <DavisButton
-                onClick={() =>
-                  window.open(
-                    buildCommonsUrl(libreLibrary, libreCoverID),
-                    "_blank",
-                  )
-                }
-                color="blue"
-                size="sm"
-                icon={<IconBook size={16} />}
-              >
-                View Book on Commons
-              </DavisButton>
-            }
-          />
+          >
+            <Button
+              as="a"
+              href={buildCommonsUrl(libreLibrary, libreCoverID)}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="primary"
+              size="sm"
+              icon={<IconBook size={16} />}
+              iconPosition="right"
+            >
+              View Book on Commons
+            </Button>
+          </Tooltip>
         )}
         {adaptCourseID && !isEmptyString(adaptCourseID) && (
           <Button
-            onClick={() =>
-              window.open(
-                `https://adapt.libretexts.org/instructors/courses/${adaptCourseID}/assignments`,
-                "_blank"
-              )
-            }
-            color="blue"
-            size="small"
+            as="a"
+            href={`https://adapt.libretexts.org/instructors/courses/${adaptCourseID}/assignments`}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="primary"
+            size="sm"
+            icon={<IconExternalLink size={16} />}
+            iconPosition="right"
           >
             View Homework on ADAPT
-            <Icon name="external alternate" className="!ml-2" />
           </Button>
         )}
         {/* A published book always has a Commons record, so the `!hasCommonsBook`
@@ -253,34 +258,32 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             "Published". `isPublished` keeps it on screen for that state. */}
         {isProjectMemberOrAdmin &&
           didCreateWorkbench &&
-          (!hasCommonsBook || isPublished) && (
+          (!hasCommonsBook || isPublished) &&
+          (isPublished || didRequestPublish ? (
             <Button
-              color='blue'
-              compact
-              className='!w-48'
-              disabled={isPublished || didRequestPublish}
+              variant="primary"
+              size="sm"
+              disabled
               title={
                 isPublished
-                  ? 'This book has completed every publishing step.'
-                  : didRequestPublish
-                    ? 'A publishing request has already been submitted for this project.'
-                    : undefined
+                  ? "This book has completed every publishing step."
+                  : "A publishing request has already been submitted for this project."
               }
-              {...(isPublished || didRequestPublish
-                ? {}
-                : {
-                    as: 'a',
-                    href: `https://commons.libretexts.org/support/contact?queue=publishing&projectID=${projectID}&capturedURL=${encodeURIComponent(window.location.href)}`,
-                    target: '_blank',
-                  })}
             >
-              {isPublished
-                ? 'Published'
-                : didRequestPublish
-                  ? 'Publishing Requested'
-                  : 'Request to Publish'}
+              {isPublished ? "Published" : "Publishing Requested"}
             </Button>
-          )}
+          ) : (
+            <Button
+              as="a"
+              href={`https://commons.libretexts.org/support/contact?queue=publishing&projectID=${projectID}&capturedURL=${encodeURIComponent(window.location.href)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="primary"
+              size="sm"
+            >
+              Request to Publish
+            </Button>
+          ))}
         {projectID && projectTitle && (
           <CreateWorkbenchModal
             show={showCreateWorkbenchModal}
