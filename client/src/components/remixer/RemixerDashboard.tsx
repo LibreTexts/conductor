@@ -1891,6 +1891,41 @@ const RemixerDashboard: React.FC = () => {
    * `handleLoadSource` (bound to `remixerDataInit`, before the project loads).
    * Route through this ref so the modal always invokes the latest closure.
    */
+  /**
+   * Re-bases the book currently in the editor on the live book, keeping every
+   * edit up to now. Used when a publish can't go ahead as-is: the live book
+   * changed since load (409), or a failed job already applied part of it.
+   * Reloading a saved draft instead would lose edits — the server draft is
+   * only written by a successful publish request, and the browser draft lags
+   * the editor by the autosave debounce.
+   *
+   * Undo/redo are cleared: their snapshots carry the old structure, and
+   * undoing into one would publish it past the refreshed fingerprint.
+   *
+   * @returns false when the live book couldn't be read (the user was told).
+   */
+  const rebaseCurrentBookOnLiveToc = async (): Promise<boolean> => {
+    const book = remixerData.currentBook ?? [];
+    if (book.length === 0) return false;
+    const rebased = await rebaseDraftOnLiveToc(
+      book,
+      remixerData.liberCoverID,
+      remixerData.libreLibrary,
+      uiState.pathLevelFormats,
+    );
+    if (!rebased.report) return false;
+    setRemixerData((prev) => ({
+      ...prev,
+      currentBook: normalizeBookState(rebased.book),
+    }));
+    setUndoStack([]);
+    setRedoStack([]);
+    announceTocRebase(rebased.report);
+    return true;
+  };
+  const rebaseCurrentBookOnLiveTocRef = useRef(rebaseCurrentBookOnLiveToc);
+  rebaseCurrentBookOnLiveTocRef.current = rebaseCurrentBookOnLiveToc;
+
   const handleLoadSourceRef = useRef(handleLoadSource);
   handleLoadSourceRef.current = handleLoadSource;
   const startOverFromRecoveryRef = useRef<() => void>(() => {});
@@ -2143,11 +2178,17 @@ const RemixerDashboard: React.FC = () => {
       const status = (error as { response?: { status?: number } })?.response
         ?.status;
       if (status === 409) {
-        addNotification({
-          message:
-            "The book was changed in the library after you loaded it, so publishing now could undo those changes. Reload your draft from Load Remixer State to pick them up, then publish again.",
-          type: "error",
-          duration: 12000,
+        // Nothing was saved or published. Bring the editor's book up to date
+        // in place rather than sending the user to a saved draft, which
+        // would be missing their latest edits.
+        void rebaseCurrentBookOnLiveTocRef.current().then((rebased) => {
+          addNotification({
+            message: rebased
+              ? "The book was changed in the library after you loaded it, so nothing was published. Your edits are kept and now include those library changes — review the book, then publish again."
+              : "The book was changed in the library after you loaded it, so nothing was published. Reload the page and choose Browser Draft to pick up those changes without losing your edits, then publish again.",
+            type: "error",
+            duration: 12000,
+          });
         });
         return;
       }
@@ -2734,10 +2775,21 @@ const RemixerDashboard: React.FC = () => {
         handleLoadSourceRef.current("serverDraft");
       } else if (job.status === "error") {
         setPublishPolling(false);
-        addNotification({
-          message: job.errorMessage || "Publish failed.",
-          type: "error",
-          duration: 5000,
+        // A job that fails partway has already created, moved or deleted
+        // pages, and no draft was saved for it. Re-base the editor's book so
+        // the fingerprint and change flags reflect what did get applied;
+        // otherwise a retry is refused as "changed in the library" (409)
+        // by the user's own partial publish.
+        void rebaseCurrentBookOnLiveTocRef.current().then((rebased) => {
+          addNotification({
+            message: `${job.errorMessage || "Publish failed."} Some changes may already be in the library.${
+              rebased
+                ? " Your edits were updated to match the live book — review them, then publish again."
+                : " Reload the page and choose Browser Draft before publishing again."
+            }`,
+            type: "error",
+            duration: 12000,
+          });
         });
       }
     },
