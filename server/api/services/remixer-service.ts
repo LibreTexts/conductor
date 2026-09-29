@@ -1606,7 +1606,16 @@ const handleImportedPage = async (
       }
     }
     const kind = articleKindForPlacement(page["@id"], parent["@id"], coverId);
-    contentsBody = contentTemplateForArticleKind(kind) + contentsBody;
+    // The create-time content template carries `{{template.ShowOrg()}}` for
+    // category/guide pages, but a copied source body often already calls it,
+    // which renders the org banner twice. ShowOrg state is owned by
+    // applyArticleKindToPage below, so the prefix only needs to contribute its
+    // tag-insert block when the body already has the call.
+    const createTemplate = contentTemplateForArticleKind(kind);
+    contentsBody =
+      (BookService.bodyHasShowOrg(contentsBody)
+        ? BookService.stripShowOrg(createTemplate)
+        : createTemplate) + contentsBody;
     const postRes = await CXOneFetch({
       scope: "page",
       path: parseInt(pageID, 10),
