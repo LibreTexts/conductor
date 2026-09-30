@@ -45,6 +45,7 @@ import ReaderResourcesManager from '../../components/ReaderResourcesManager/Read
 import RenderProjectModules from './RenderProjectModules';
 import Breakpoint from '../util/Breakpoints';
 import NextGenInput from '../NextGenInputs/Input.jsx';
+import CoauthorToolsRenamedBanner from './CoauthorToolsRenamedBanner';
 
 import {
   isEmptyString,
@@ -1596,6 +1597,11 @@ const ProjectView = (props) => {
             </Segment>
             <Segment loading={loadingData}>
               <Grid padded='horizontally' relaxed>
+                <Grid.Row>
+                  <Grid.Column width={16}>
+                    <CoauthorToolsRenamedBanner />
+                  </Grid.Column>
+                </Grid.Row>
                 {showProjectCreated &&
                   <Grid.Row>
                     <Grid.Column width={16}>

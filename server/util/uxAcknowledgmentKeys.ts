@@ -12,6 +12,7 @@
  */
 export const UX_ACKNOWLEDGMENT_KEYS = {
   COAUTHOR_WELCOME: "coauthor_welcome",
+  COAUTHOR_TOOLS_MOVED: "coauthor_tools_moved",
 } as const;
 
 export type UXAcknowledgmentKey =
