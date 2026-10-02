@@ -122,7 +122,7 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
             Choose which version to load. This will replace your current book
             tree.
           </Text>
-          <Tooltip placement="bottom" content="Consult the Insight Knowledge Base for more information about loading the Remixer state">
+          <Tooltip placement="left" content="Consult the Insight Knowledge Base for more information about loading the Remixer state">
             <ConsultInsightButton href="https://commons.libretexts.org/insight/remixer---load-remixer-state" />
           </Tooltip>
         </div>
