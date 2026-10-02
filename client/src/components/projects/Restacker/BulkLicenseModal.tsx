@@ -37,7 +37,7 @@ interface BulkLicenseModalProps {
 }
 
 const SKIP_REASON_TEXT: Record<BulkLicenseSkipReason, string> = {
-  structural: "Structural page must stay Public Domain",
+  structural: "Core page must stay Public Domain",
   unchanged: "Already has this license",
   conflict: "Incompatible with",
 };
