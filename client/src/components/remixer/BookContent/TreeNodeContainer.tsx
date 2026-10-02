@@ -1,4 +1,5 @@
 import React, { DragEvent } from "react";
+import { Tooltip } from "@libretexts/davis-react";
 import { Icon, List } from "semantic-ui-react";
 import { RemixerSubPage } from "../model";
 import { CATALOG_NODE_HIGHLIGHT_STYLE } from "../style";
@@ -136,7 +137,6 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
           borderRadius: 4,
           outline: isSelected ? `2px solid ${palette.info}` : "none",
           cursor: isVisualLocked ? "default" : "pointer",
-          textDecoration: isDeleted ? "line-through" : "none",
         }}
       >
         {isFolder && !hideExpandIcon ? (
@@ -223,26 +223,39 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
         })()}
         {isDeleted &&
           (onRestore ? (
-            <button
-              type="button"
-              title="Restore"
-              aria-label={`Restore ${displayTitle}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onRestore(page);
-              }}
-              onDoubleClick={(event) => event.stopPropagation()}
-              style={{
-                marginLeft: 6,
-                padding: 0,
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-                display: "inline-flex",
-              }}
+            <Tooltip
+              content="Marked for deletion. Click to restore this item and everything under it."
+              placement="left"
             >
-              <Icon name="trash" color="grey" style={{ margin: 0 }} />
-            </button>
+              <button
+                type="button"
+                aria-label={`Restore ${displayTitle}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRestore(page);
+                }}
+                onDoubleClick={(event) => event.stopPropagation()}
+                style={{
+                  marginLeft: 6,
+                  padding: "1px 8px",
+                  border: `1px solid ${palette.error}`,
+                  borderRadius: 4,
+                  background: "#ffffff",
+                  color: palette.error,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  lineHeight: "18px",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Icon name="undo" style={{ margin: 0 }} aria-hidden="true" />
+                Restore
+              </button>
+            </Tooltip>
           ) : (
             <Icon
               name="trash"
@@ -251,7 +264,8 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
               title="Deleted"
             />
           ))}
-        {(isRenamed ||
+        {!isDeleted &&
+          (isRenamed ||
           isPlacementChanged ||
           page.movedItem) && (
             <Icon
