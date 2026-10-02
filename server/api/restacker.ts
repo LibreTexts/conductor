@@ -134,6 +134,11 @@ function areLicensesCompatible(
   const keyOrigin = parseLicenseKey(licenseOrigin);
   if (!keyAdption || !keyOrigin) return null;
 
+  // The CK-12 license only combines with itself.
+  if (keyAdption === "ck12" || keyOrigin === "ck12") {
+    return keyAdption === keyOrigin;
+  }
+
   const ccKeyAdption = toCcLicenseKey(keyAdption);
   const ccKeyOrigin = toCcLicenseKey(keyOrigin);
   if (!ccKeyAdption || !ccKeyOrigin) return null;

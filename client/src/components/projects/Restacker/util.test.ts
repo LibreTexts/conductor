@@ -95,6 +95,19 @@ describe("getBulkLicenseSkip", () => {
   });
 });
 
+describe("CK-12 license", () => {
+  it("is incompatible with every other license", () => {
+    for (const other of ["ccby", "ccbync", "ccbysa", "publicdomain", "gnu"]) {
+      expect(isLicenseNonCompliant(lic("ck12"), lic(other, "40"))).toBe(true);
+      expect(isLicenseNonCompliant(lic(other, "40"), lic("ck12"))).toBe(true);
+    }
+  });
+
+  it("is compatible with itself", () => {
+    expect(isLicenseNonCompliant(lic("ck12"), lic("ck12"))).toBe(false);
+  });
+});
+
 describe("missing license versions", () => {
   it("flags a versioned license without a version", () => {
     const result = getLicenseCompliance(
