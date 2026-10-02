@@ -258,7 +258,7 @@ function createColumns(
         </Tooltip>
       ),
       enableSorting: false,
-      size: 130,
+      size: 160,
       cell: ({ row }) =>
         wrap(
           row.original,
@@ -378,7 +378,7 @@ function createColumns(
         </Tooltip>
       ),
       enableSorting: false,
-      size: 130,
+      size: 160,
       cell: ({ getValue, row }) =>
         wrap(row.original, <LicenseBadge license={getValue()} />),
     }),
@@ -392,7 +392,7 @@ function createColumns(
         </Tooltip>
       ),
       enableSorting: false,
-      size: 130,
+      size: 160,
       cell: ({ getValue, row }) => {
         const licenses = getValue();
         return wrap(
@@ -400,7 +400,7 @@ function createColumns(
           !licenses?.length ? (
             <span style={{ color: "#9ca3af" }}>—</span>
           ) : (
-            <Stack direction="vertical" gap="xs">
+            <Stack direction="vertical" gap="xs" align="start">
               {licenses.map((l, i) => (
                 <LicenseBadge
                   key={`${l.label}::${l.version ?? ""}::${i}`}
