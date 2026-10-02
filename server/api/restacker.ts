@@ -757,7 +757,7 @@ const updateRestackerLicense = async (
 };
 
 /**
- * URL substrings that identify structural pages which must always be Public Domain.
+ * URL substrings that identify core pages which must always be Public Domain.
  * Mirrors PUBLIC_DOMAIN_PAGE_SUFFIXES in client/src/components/projects/Restacker/index.tsx
  */
 const PUBLIC_DOMAIN_PAGE_SUFFIXES = [
@@ -782,7 +782,7 @@ type BulkLicenseSkipReason =
 /**
  * Applies one license to many pages at once. Pages whose Source or Content
  * licenses conflict with the proposed license are skipped (never forced), as are
- * the book cover page and structural pages that must stay Public Domain.
+ * the book cover page and core pages that must stay Public Domain.
  * The client expands "recursive" selections into explicit page IDs.
  */
 const bulkUpdateRestackerLicense = async (

@@ -70,7 +70,7 @@ describe("getBulkLicenseSkip", () => {
     expect(skip?.reason).toBe("conflict");
   });
 
-  it("skips structural pages unless the license is public domain", () => {
+  it("skips Core pages unless the license is public domain", () => {
     const url = "https://x/00%3A_Front_Matter/03%3A_Table_of_Contents";
     expect(getBulkLicenseSkip({ url }, "ccby", "40")?.reason).toBe("structural");
     expect(getBulkLicenseSkip({ url }, "publicdomain")).toBeNull();

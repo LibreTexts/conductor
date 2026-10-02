@@ -63,7 +63,7 @@ import { useModals } from "../../../context/ModalContext";
 function getAutoFix(
   row: RestackerTocEntry,
 ): { license: string; version?: string } | null {
-  // Structural pages must be publicdomain; if already correct, skip entirely
+  // Core pages must be publicdomain; if already correct, skip entirely
   if (PUBLIC_DOMAIN_PAGE_SUFFIXES.some((s) => row.url?.includes(s))) {
     if (parseLicenseKey(row.pageLicense) !== "publicdomain") {
       return { license: "publicdomain", version: undefined };
@@ -1010,7 +1010,7 @@ const Restacker: React.FC = () => {
                       license: fix.license,
                       version: fix.version,
                       reason: isStructural
-                        ? "Structural page must be Public Domain"
+                        ? "Core page must be Public Domain"
                         : "Page license must match source license",
                     };
                   });
