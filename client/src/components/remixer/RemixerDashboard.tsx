@@ -1085,7 +1085,6 @@ const RemixerDashboard: React.FC = () => {
       (existingBookNodes) => applyBookNodeDeletion(existingBookNodes, nodeId),
       { trackHistory: true },
     );
-    setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
   };
 
   /** Soft-delete the currently selected book node and its descendants. */
@@ -1110,7 +1109,6 @@ const RemixerDashboard: React.FC = () => {
       (existingBookNodes) => applyBookNodeRestore(existingBookNodes, nodeId),
       { trackHistory: true },
     );
-    setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
   };
 
   /** Restore the currently selected book node and its descendants (mirrors handleDeleteSelectedBookNode). */
