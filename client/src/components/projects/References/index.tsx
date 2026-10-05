@@ -31,10 +31,12 @@ import { useNotifications } from "../../../context/NotificationContext";
 import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
 import {
   IconCopy,
+  IconExternalLink,
   IconPencil,
   IconSettings,
   IconTrash,
 } from "@tabler/icons-react";
+import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
 import Configure, { type ConfigureSettings } from "./Scope/Configure";
 import Populate, { hasPopulateJobData } from "./Populate";
 
@@ -67,6 +69,11 @@ const ReferenceManager: React.FC = () => {
   } = useProject(id ?? "");
 
   const bookReferencesQueryKey = [BOOK_REFERENCES_QUERY_KEY, id] as const;
+
+  const projectBookURL =
+    project?.libreLibrary && project?.libreCoverID
+      ? buildLibraryPageGoURL(project.libreLibrary, project.libreCoverID)
+      : undefined;
 
 
   const {
@@ -621,31 +628,12 @@ const ReferenceManager: React.FC = () => {
         <Card variant="elevated">
           <Card.Body>
             <Stack direction="vertical" gap="md">
-              <Stack direction="horizontal" gap="md" align="end">
-                <div className="w-full min-w-0">
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <Text
-                      as="label"
-                      htmlFor="bookReferencesFormat"
-                      className="text-base/6 font-medium text-gray-700"
-                    >
-                      Book References Format
-                    </Text>
-                    <IconButton
-                      name="configure"
-                      title="Configure references"
-                      aria-label="Configure references"
-                      variant="ghost"
-                      size="sm"
-                      icon={<IconSettings />}
-                      onClick={() => setShowConfigureModal(true)}
-                    />
-                  </div>
+              <Stack direction="horizontal" gap="md" align="end" wrap>
+                <div className="min-w-[14rem] flex-1">
                   <Select
                     className="w-full"
                     name="bookReferencesFormat"
-                    label=""
-                    labelClassName="sr-only"
+                    label="Book References Format"
                     options={ReferenceFormatTypes.map((format) => ({
                       label: format,
                       value: format,
@@ -666,6 +654,30 @@ const ReferenceManager: React.FC = () => {
                     }}
                   />
                 </div>
+                <Button
+                  variant="outline"
+                  className="shrink-0"
+                  icon={<IconSettings size={16} aria-hidden="true" />}
+                  iconPosition="left"
+                  onClick={() => setShowConfigureModal(true)}
+                >
+                  Scope
+                </Button>
+                {projectBookURL && (
+                  <Button
+                    as="a"
+                    href={projectBookURL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="outline"
+                    className="shrink-0"
+                    icon={<IconExternalLink size={16} aria-hidden="true" />}
+                    iconPosition="right"
+                  >
+                    Project Link
+                    <span className="sr-only"> (opens in a new tab)</span>
+                  </Button>
+                )}
                 <Button
                   onClick={() => setShowAddContentModal(true)}
                   disabled={isUpdatingFormat || !id || !referenceFormat}
