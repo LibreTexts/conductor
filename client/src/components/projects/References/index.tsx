@@ -37,7 +37,6 @@ import {
 } from "@tabler/icons-react";
 import Configure, { type ConfigureSettings } from "./Scope/Configure";
 import Populate, { hasPopulateJobData } from "./Populate";
-import { TableOfContents } from "../../../types";
 
 const columnHelper = createColumnHelper<ReferenceEntry>();
 const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
