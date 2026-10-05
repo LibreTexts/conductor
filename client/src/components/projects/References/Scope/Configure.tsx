@@ -141,7 +141,6 @@ const Configure: React.FC<ConfigureProps> = ({
   const mode = watch("mode");
   const format = watch("format");
   const pageTitle = watch("pageTitle");
-  const [armedGroupIndex, setArmedGroupIndex] = useState<number | null>(null);
   const [activeDragPageIds, setActiveDragPageIds] = useState<string[] | null>(
     null,
   );
@@ -179,7 +178,6 @@ const Configure: React.FC<ConfigureProps> = ({
       mode: seededMode,
       groups: scopeGroups ?? defaultGroupsFor(bookToc, seededMode),
     });
-    setArmedGroupIndex(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bookToc]);
 
@@ -227,13 +225,27 @@ const Configure: React.FC<ConfigureProps> = ({
     return firstRealPageTitle ?? `Group ${index + 1}`;
   };
 
+  /**
+   * Where a group's list is displayed. In CHAPTER mode that isn't chosen: it
+   * is the group's first page, i.e. the chapter page for a chapter's group.
+   */
+  const effectiveTargetPageId = (
+    group: ReferenceScopeGroup,
+    forMode: ReferenceScopeMode = mode,
+  ): string =>
+    forMode === "CHAPTER"
+      ? (group.pageIds.find((id) => allPageIdSet.has(id)) ??
+        group.targetPageId)
+      : group.targetPageId;
+
   const getTargetTitle = (group: ReferenceScopeGroup): string => {
-    if (!group.targetPageId) return "Not set";
-    if (group.targetPageId === REFERENCE_BACKMATTER_TARGET) {
+    const targetPageId = effectiveTargetPageId(group);
+    if (!targetPageId) return "Not set";
+    if (targetPageId === REFERENCE_BACKMATTER_TARGET) {
       return `"${pageTitle.trim() || "References"}" page in Back Matter (created when references are populated)`;
     }
     return (
-      (bookToc && findTocNodeById(bookToc, group.targetPageId)?.title) ??
+      (bookToc && findTocNodeById(bookToc, targetPageId)?.title) ??
       "Unknown page"
     );
   };
@@ -250,13 +262,11 @@ const Configure: React.FC<ConfigureProps> = ({
     if (!bookToc) return;
     setValue("mode", newMode, { shouldDirty: true });
     replace(defaultGroupsFor(bookToc, newMode));
-    setArmedGroupIndex(null);
   };
 
   const handleResetToDefault = () => {
     if (!bookToc) return;
     replace(defaultGroupsFor(bookToc, mode));
-    setArmedGroupIndex(null);
   };
 
   const handleAddGroup = () => {
@@ -267,13 +277,6 @@ const Configure: React.FC<ConfigureProps> = ({
       targetPageId:
         mode === "BACKMATTER" ? backmatterTarget : fallbackTargetPageId(bookToc),
     });
-  };
-
-  const handleTocNodeClick = (pageId: string) => {
-    if (armedGroupIndex === null) return;
-    const group = getValues(`groups.${armedGroupIndex}`);
-    update(armedGroupIndex, { ...group, targetPageId: pageId });
-    setArmedGroupIndex(null);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -296,7 +299,6 @@ const Configure: React.FC<ConfigureProps> = ({
   const handleClose = () => {
     reset(DEFAULT_VALUES);
     formSeededRef.current = false;
-    setArmedGroupIndex(null);
     onClose();
   };
 
@@ -310,10 +312,10 @@ const Configure: React.FC<ConfigureProps> = ({
         pageTitle: needsPageTitle ? values.pageTitle.trim() : "",
         mode: values.mode,
         // Plain groups: useFieldArray adds its own `id` key to each item.
-        groups: values.groups.map(({ groupID, pageIds, targetPageId }) => ({
-          groupID,
-          pageIds,
-          targetPageId,
+        groups: values.groups.map((group) => ({
+          groupID: group.groupID,
+          pageIds: group.pageIds,
+          targetPageId: effectiveTargetPageId(group, values.mode),
         })),
       });
       handleClose();
@@ -332,8 +334,7 @@ const Configure: React.FC<ConfigureProps> = ({
       const seededMode = scopeModeForDisplayLocation(displayLocation);
       setValue("mode", seededMode);
       replace(defaultGroupsFor(bookToc, seededMode));
-      setArmedGroupIndex(null);
-    } catch {
+      } catch {
       // The caller reports the failure; keep the current edits.
     } finally {
       setResetting(false);
@@ -451,7 +452,9 @@ const Configure: React.FC<ConfigureProps> = ({
                         color={getGroupColor(index)}
                         mode={mode}
                         targetTitle={getTargetTitle(group)}
-                        armed={armedGroupIndex === index}
+                        armed={false}
+                        canSetTarget={false}
+                        showTarget={mode !== "CHAPTER"}
                         canMoveUp={index > 0}
                         canMoveDown={index < fields.length - 1}
                         busy={busy}
@@ -462,11 +465,6 @@ const Configure: React.FC<ConfigureProps> = ({
                         onRemoveGroup={() => remove(index)}
                         onRemovePage={(pageId) =>
                           removePageFromGroup(pageId, index)
-                        }
-                        onToggleArm={() =>
-                          setArmedGroupIndex((prev) =>
-                            prev === index ? null : index,
-                          )
                         }
                       />
                     ))}
@@ -550,18 +548,9 @@ const Configure: React.FC<ConfigureProps> = ({
                   <h3 className="text-sm font-semibold text-neutral-700">
                     Table of Contents
                   </h3>
-                  <div role="status" aria-live="polite">
-                    {armedGroupIndex !== null && fields[armedGroupIndex] && (
-                      <p className="mt-1 rounded bg-primary-50 px-2 py-1 text-xs text-primary-700">
-                        Choose a page to set it as the target for “
-                        {getGroupLabel(fields[armedGroupIndex], armedGroupIndex)}”.
-                      </p>
-                    )}
-                  </div>
                   <div className="mt-2 max-h-[22rem] overflow-y-auto rounded-md border border-neutral-200 p-2">
                     <GlossaryConfigTocTree
                       items={bookToc.children}
-                      onNodeClick={handleTocNodeClick}
                       pageGroupInfo={pageGroupInfo}
                     />
                   </div>

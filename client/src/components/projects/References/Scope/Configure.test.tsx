@@ -68,9 +68,13 @@ describe("Configure (reference scope)", () => {
     });
 
     expect(screen.getByRole("radio", { name: /references by chapter/i })).toBeChecked();
-    // One merged group, displayed on Chapter 2.
+    // One merged group. Chapter mode has no target to show or choose: the
+    // list always displays on the group's first page.
     expect(groupList().getAllByRole("listitem")).toHaveLength(1);
-    expect(groupList().getByText("Chapter 2", { selector: "strong" })).toBeInTheDocument();
+    expect(groupList().queryByText(/displays on/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /set target/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("starts an unsaved scope from the legacy display location", () => {
