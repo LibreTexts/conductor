@@ -227,6 +227,34 @@ const checkHarvesterRole = (roles) => {
 
 
 /**
+ * Checks if a user has the Developer role in Conductor.
+ * NOTE: Like the harvester check, and unlike checkSupportRole, Super Admins are NOT
+ * considered developers. This role gates release-engineering surfaces (currently the
+ * What's New authoring UI), so it must not be implied by general platform administration.
+ *
+ * The role is granted by hand only - there is no UI for it:
+ *   db.users.updateOne(
+ *     { uuid: "<user-uuid>" },
+ *     { $addToSet: { roles: { org: "libretexts", role: "developer" } } }
+ *   )
+ *
+ * @param {object[]} roles - Array of user roles in associated Organizations.
+ * @returns {boolean} True if Developer role is present, false otherwise.
+ */
+const checkDeveloperRole = (roles) => {
+  if (Array.isArray(roles)) {
+    const foundDeveloper = roles.find((item) => (
+      item.org === 'libretexts' && item.role === 'developer'
+    ));
+    if (foundDeveloper) {
+      return true;
+    }
+  }
+  return false;
+};
+
+
+/**
  * Checks if two Sets are equal.
  *
  * @param {Set} set1 - The first set to examine.
@@ -254,5 +282,6 @@ export {
     checkSuperAdmin,
     checkSupportRole,
     checkHarvesterRole,
+    checkDeveloperRole,
     setsEqual,
 };

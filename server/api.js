@@ -1783,8 +1783,13 @@ router
   .get(announcementAPI.getSystemAnnouncement);
 
 /* What's New in Conductor */
-// The active-entry read is open to any authenticated user; authoring is a
-// LibreTexts-wide (system-level) concern, so all writes are superadmin only.
+// The active-entry read is open to any authenticated user. Authoring is
+// restricted to the `developer` role in the LibreTexts org: this is a release
+// note, not a general-purpose "show a popup to everyone" tool, so holding
+// superadmin is deliberately NOT enough. The third argument below is the
+// `explicit` flag -- it suppresses the superadmin/campusadmin overrides baked
+// into checkHasRoleMiddleware. Removing it silently reopens authoring to every
+// superadmin, so do not "simplify" it away.
 router
   .route("/whats-new/active")
   .get(authAPI.verifyRequest, whatsNewAPI.getActiveWhatsNew);
@@ -1794,14 +1799,14 @@ router
   .get(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "developer", true),
     middleware.validateZod(WhatsNewValidators.GetWhatsNewEntriesValidator),
     whatsNewAPI.getWhatsNewEntries
   )
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "developer", true),
     middleware.validateZod(WhatsNewValidators.CreateWhatsNewEntryValidator),
     whatsNewAPI.createWhatsNewEntry
   );
@@ -1811,14 +1816,14 @@ router
   .patch(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "developer", true),
     middleware.validateZod(WhatsNewValidators.UpdateWhatsNewEntryValidator),
     whatsNewAPI.updateWhatsNewEntry
   )
   .delete(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
-    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    authAPI.checkHasRoleMiddleware("libretexts", "developer", true),
     middleware.validateZod(WhatsNewValidators.DeleteWhatsNewEntryValidator),
     whatsNewAPI.deleteWhatsNewEntry
   );

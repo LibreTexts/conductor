@@ -29,7 +29,7 @@ type ControlPanelListItem = {
   icon: React.ReactNode;
   title: string;
   description: string;
-  roles?: ("campusAdmin" | "superAdmin" | "support")[];
+  roles?: ("campusAdmin" | "superAdmin" | "support" | "developer")[];
 };
 
 const ControlPanel = () => {
@@ -39,7 +39,12 @@ const ControlPanel = () => {
 
   useEffect(() => {
     if (!user || !user.uuid) return;
-    if (!user.isCampusAdmin && !user.isSuperAdmin && !user.isSupport) {
+    if (
+      !user.isCampusAdmin &&
+      !user.isSuperAdmin &&
+      !user.isSupport &&
+      !user.isDeveloper
+    ) {
       window.location.href = "/home";
     }
   }, [user]);
@@ -108,7 +113,7 @@ const ControlPanel = () => {
       title: "What's New Manager",
       description:
         "Write and publish the What's New in Conductor notice shown to users after a release",
-      roles: ["superAdmin"],
+      roles: ["developer"],
     },
     {
       url: "/controlpanel/qr-code-generator",
@@ -185,6 +190,9 @@ const ControlPanel = () => {
 
   const masterToolsToRender = useMemo(() => {
     return libretextsMasterTools.filter((item) => {
+      // `developer` is strict: it is granted by hand and is NOT implied by
+      // superadmin, so it has to be checked before the superadmin pass below.
+      if (item.roles?.includes("developer")) return user.isDeveloper;
       if (user.isSuperAdmin) return true;
       if (user.isSupport && item.roles?.includes("support")) return true;
       return !item.roles || item.roles.length === 0;

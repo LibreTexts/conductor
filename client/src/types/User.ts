@@ -28,6 +28,12 @@ export type User = {
   isSuperAdmin: boolean;
   isSupport: boolean;
   isHarvester: boolean;
+  /**
+   * Holds the `developer` role in the LibreTexts org. Granted by hand only and
+   * deliberately NOT implied by `isSuperAdmin`; gates release-engineering
+   * surfaces such as the What's New authoring UI.
+   */
+  isDeveloper: boolean;
   createdAt?: string;
 };
 
