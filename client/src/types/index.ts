@@ -30,6 +30,7 @@ export * from "./supportqueues";
 export * from "./Search";
 export * from "./Task";
 export * from "./User";
+export * from "./WhatsNew";
 export * from "./Note";
 export * from "./Order";
 export * from "./Publish";

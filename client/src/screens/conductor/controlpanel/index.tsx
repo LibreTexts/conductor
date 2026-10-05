@@ -19,6 +19,7 @@ import {
   IconSchool,
   IconShoppingCart,
   IconSitemap,
+  IconSparkles,
   IconTags,
 } from "@tabler/icons-react";
 import useDocumentTitle from "../../../hooks/useDocumentTitle";
@@ -99,6 +100,14 @@ const ControlPanel = () => {
       icon: <IconSitemap size={20} />,
       title: "Organizations Manager",
       description: "View and manage Organizations on the Conductor platform",
+      roles: ["superAdmin"],
+    },
+    {
+      url: "/controlpanel/whatsnew",
+      icon: <IconSparkles size={20} />,
+      title: "What's New Manager",
+      description:
+        "Write and publish the What's New in Conductor notice shown to users after a release",
       roles: ["superAdmin"],
     },
     {
