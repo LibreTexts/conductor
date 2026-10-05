@@ -36,6 +36,7 @@ export type SyncedBook = Pick<BookInterface, "bookID" | "title" | "library"> &
       | "subject"
       | "location"
       | "course"
+      | "shelfPath"
       | "program"
       | "license"
       | "summary"
@@ -66,6 +67,25 @@ export const readPathSegment = (segment: string) => {
   } catch {
     // A stray '%' that isn't a valid escape — use the segment as-is.
     return spaced;
+  }
+};
+
+/**
+ * A coverpage path reduced to the form stored on a Book: no surrounding
+ * slashes, percent-escapes resolved.
+ *
+ * CXOne hands back segments like `Book%3A_Introductory_Chemistry`. Left encoded,
+ * a shelf selection made in the browser (where the path is decoded) would never
+ * match the stored value. A stray `%` that is not a valid escape throws, in
+ * which case the raw path is still a better stored value than nothing.
+ */
+export const normalizeShelfPath = (path: string | undefined): string => {
+  const trimmed = (path ?? "").replace(/^\/+|\/+$/g, "");
+  if (!trimmed) return "";
+  try {
+    return decodeURIComponent(trimmed);
+  } catch {
+    return trimmed;
   }
 };
 
@@ -123,6 +143,7 @@ export const toBookRecord = (
     subject,
     location,
     course,
+    shelfPath: normalizeShelfPath(coverpage.path),
     program,
     license,
     summary: sanitizeOptionalLibraryText(coverpage.summary),
@@ -252,6 +273,7 @@ export const buildBookUpsertOp = (book: SyncedBook, syncedAt: Date) => ({
         subject: book.subject,
         location: book.location,
         course: book.course,
+        shelfPath: book.shelfPath,
         program: book.program,
         license: book.license,
         thumbnail: book.thumbnail,

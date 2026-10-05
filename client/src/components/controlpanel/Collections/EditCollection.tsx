@@ -15,13 +15,18 @@ import {
   IconDeviceFloppy,
   IconExternalLink,
   IconPlus,
-  IconTag,
   IconUpload,
 } from "@tabler/icons-react";
 import axios from "axios";
 import { getShelvesNameText } from "../../util/BookHelpers.js";
 import useGlobalError from "../../error/ErrorHooks";
-import { Collection, CollectionLocations, CollectionPrivacyOptions } from "../../../types";
+import {
+  Collection,
+  CollectionPrivacyOptions,
+  CollectionSyncMode,
+  MAX_COLLECTION_SYNC_SHELVES,
+} from "../../../types";
+import ShelfTreePicker from "./ShelfTreePicker";
 import { Controller, useForm } from "react-hook-form";
 import { useTypedSelector } from "../../../state/hooks.js";
 import { collectionPrivacyOptions } from "../../util/CollectionHelpers.js";
@@ -30,6 +35,18 @@ const PRIVACY_OPTIONS = collectionPrivacyOptions.map((o) => ({
   label: o.text,
   value: o.value,
 }));
+
+/**
+ * Whether a collection is still on the retired program meta-tag rule.
+ *
+ * Collections predating sync modes carry no `syncMode` at all, so a stored
+ * program value is what identifies them.
+ */
+const isLegacyProgramCollection = (collection?: Collection): boolean => {
+  if (!collection) return false;
+  if (collection.syncMode) return collection.syncMode === CollectionSyncMode.PROGRAM;
+  return !!collection.program?.trim();
+};
 
 type EditCollectionProps = {
   show: boolean;
@@ -54,9 +71,9 @@ const EditCollection: FC<EditCollectionProps> = ({
     reset: resetForm,
     handleSubmit,
     setValue: setFormValue,
-    getValues: getFormValue,
     watch: watchFormValue,
     setError: setFormError,
+    clearErrors,
     formState: { errors },
   } = useForm<Collection>({
     defaultValues: {
@@ -69,6 +86,8 @@ const EditCollection: FC<EditCollectionProps> = ({
       program: "",
       locations: [],
       autoManage: false,
+      syncMode: CollectionSyncMode.SHELVES,
+      syncShelves: [],
     },
   });
 
@@ -76,12 +95,17 @@ const EditCollection: FC<EditCollectionProps> = ({
   const photoRef = useRef(null);
   const [photoLoading, setPhotoLoading] = useState<boolean>(false);
   const [photoUploaded, setPhotoUploaded] = useState<boolean>(false);
+  // Set when the admin converts a legacy program collection to shelves, which
+  // swaps the frozen summary for the shelf picker before anything is saved.
+  const [convertedToShelves, setConvertedToShelves] = useState<boolean>(false);
 
   const isCreateMode = ["nest", "create"].includes(mode);
   const autoManage = watchFormValue("autoManage");
-  const selectedLocations = watchFormValue("locations");
+  const onLegacyProgramRule =
+    !isCreateMode && isLegacyProgramCollection(collectionToEdit) && !convertedToShelves;
 
   useEffect(() => {
+    setConvertedToShelves(false);
     if (["edit"].includes(mode)) {
       resetForm(collectionToEdit); // Load existing values if editing
     } else {
@@ -99,6 +123,8 @@ const EditCollection: FC<EditCollectionProps> = ({
         privacy: undefined,
         locations: [],
         autoManage: false,
+        syncMode: CollectionSyncMode.SHELVES,
+        syncShelves: [],
         resourceCount: undefined,
       });
     }
@@ -112,14 +138,33 @@ const EditCollection: FC<EditCollectionProps> = ({
       return handleGlobalError("Could not get parent ID");
     }
 
-    if (!validateLocations(d)) return;
+    if (!validateSyncConfig(d)) {
+      setLoading(false);
+      return;
+    }
+
+    /* A collection still on the legacy program rule sends no sync fields at all.
+       The server rejects `syncMode: "program"` outright — that rejection is what
+       closes the rule to new collections — and omitting the fields is what tells
+       it to leave the stored program and locations alone.
+
+       Everything else asserts `shelves` rather than passing the loaded value
+       through. A manual collection created before sync modes existed carries no
+       `syncMode`, and an omitted mode means "don't touch the rule" to the server:
+       the shelves would be stored, the mode would stay empty, and the sync would
+       fall through to the program rule and match nothing. */
+    const { program, locations, ...rest } = d;
+    const payload = onLegacyProgramRule
+      ? (({ syncMode, syncShelves, ...withoutSync }) => withoutSync)(rest)
+      : { ...rest, syncMode: CollectionSyncMode.SHELVES };
+
     let axiosReq;
     if (["nest", "create"].includes(mode)) {
-      axiosReq = axios.post("/commons/collection", d);
+      axiosReq = axios.post("/commons/collection", payload);
     } else {
       axiosReq = axios.put(
         `/commons/collection/${collectionToEdit?.collID}`,
-        d
+        payload
       );
     }
 
@@ -138,25 +183,51 @@ const EditCollection: FC<EditCollectionProps> = ({
   };
 
   /**
-   * If Collection will be auto-managed, determines if at least one search location has been selected
+   * Checks the shelf configuration before it is sent.
+   *
+   * An auto-managed collection needs at least one shelf: an empty config saves
+   * fine and then quietly syncs nothing, which reads to the admin as a broken
+   * collection rather than an unfinished one.
+   *
+   * The ceiling is checked whether or not automatic management is on, because
+   * the shelves are submitted either way and the API caps the array regardless.
+   * Both sides read {@link MAX_COLLECTION_SYNC_SHELVES} from
+   * `shared/collection-limits.json`, so this check cannot drift from the one
+   * that would reject the request.
+   *
+   * A collection still on the frozen program rule submits no sync fields at all,
+   * so there is nothing to check.
+   *
    * @param {Collection} coll - Collection to validate
-   * @returns {Boolean} - true if valid or not auto-manage, valid otherwise
+   * @returns {Boolean} - true if the config is usable or there is nothing to check
    */
-  function validateLocations(coll: Collection): boolean {
-    let isValid = true;
-    if (!coll.autoManage) isValid = true;
-    if (coll.autoManage && coll.locations.length < 1) {
-      isValid = false;
-    }
+  function validateSyncConfig(coll: Collection): boolean {
+    if (onLegacyProgramRule) return true;
 
-    if (!isValid) {
-      setFormError("locations", {
+    const shelves = coll.syncShelves ?? [];
+
+    if (shelves.length > MAX_COLLECTION_SYNC_SHELVES) {
+      setFormError("syncShelves", {
         types: {
-          locationSelection: "At least one location is required.",
+          shelvesMax: `Select at most ${MAX_COLLECTION_SYNC_SHELVES} shelves.`,
         },
       });
+      handleGlobalError(
+        `A collection can sync from at most ${MAX_COLLECTION_SYNC_SHELVES} shelves. ` +
+        `${shelves.length} are selected — remove ${shelves.length - MAX_COLLECTION_SYNC_SHELVES} to save.`
+      );
+      return false;
     }
-    return isValid;
+
+    if (!coll.autoManage) return true;
+
+    if (shelves.length < 1) {
+      setFormError("syncShelves", {
+        types: { shelvesRequired: "At least one shelf is required." },
+      });
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -239,40 +310,14 @@ const EditCollection: FC<EditCollectionProps> = ({
     uploadingStateUpdater(false);
   }
 
-  function handleLocationsChange(newValue?: string) {
-    if (!newValue) return;
-    let existingData = getFormValue("locations");
-    if (!existingData) {
-      existingData = [];
-    }
-
-    if (existingData.includes(newValue)) {
-      existingData.splice(existingData.indexOf(newValue));
-      setFormValue("locations", existingData);
-      return;
-    }
-
-    setFormValue("locations", [...existingData, newValue]);
-  }
-
   return (
     <Modal open={show} onClose={onCloseFunc} size="lg">
       <Modal.Header>
-        <Modal.Title>{isCreateMode ? "Create" : "Edit"} Collection</Modal.Title>
+        <Modal.Title className="!mb-0">{isCreateMode ? "Create" : "Edit"} Collection</Modal.Title>
         <Modal.Close />
       </Modal.Header>
       <Modal.Body className="overflow-y-auto max-h-[70vh]">
         <Stack gap="xl">
-          {isCreateMode && (
-            <Text as="p" italic>
-              This collection will be created inside of{" "}
-              <strong>
-                {org.shortName}
-                {collectionToEdit?.collID ? `: ${collectionToEdit.title}` : "."}
-              </strong>
-            </Text>
-          )}
-
           <FormSection title="Collection Details">
             <Stack gap="md">
               <Controller
@@ -290,6 +335,20 @@ const EditCollection: FC<EditCollectionProps> = ({
                   />
                 )}
               />
+              {isCreateMode && (
+                <Stack direction="vertical" gap="xs">
+                  <Text as="p" className="text-gray-500 !mb-1">
+                    Location:
+                  </Text>
+                  <Text as="p" italic>
+                    This collection will be created inside of{" "}
+                    <strong>
+                      {org.shortName}
+                      {collectionToEdit?.collID ? `: ${collectionToEdit.title}` : "."}
+                    </strong>
+                  </Text>
+                </Stack>
+              )}
               <Controller
                 name="description"
                 control={control}
@@ -314,12 +373,8 @@ const EditCollection: FC<EditCollectionProps> = ({
               )}
               {["edit"].includes(mode) && collectionToEdit?.collID && (
                 <div>
-                  <Text as="p" weight="semibold">
+                  <Text as="p" className="text-gray-500 !mb-1">
                     Collection Cover Photo
-                  </Text>
-                  <Text as="p" color="muted">
-                    Resolution should be high enough to avoid blurring on digital
-                    screens.
                   </Text>
                   <input
                     type="file"
@@ -350,6 +405,9 @@ const EditCollection: FC<EditCollectionProps> = ({
                       Upload New
                     </Button>
                   </div>
+                  <Text as="p" size="sm" color="muted" className="mt-2!">
+                    Resolution should be high enough to avoid blurring.
+                  </Text>
                   {photoUploaded && (
                     <Alert
                       variant="success"
@@ -374,7 +432,7 @@ const EditCollection: FC<EditCollectionProps> = ({
                     onChange={(e) =>
                       field.onChange(
                         (e.target.value as CollectionPrivacyOptions) ||
-                          CollectionPrivacyOptions.PUBLIC
+                        CollectionPrivacyOptions.PUBLIC
                       )
                     }
                   />
@@ -391,7 +449,7 @@ const EditCollection: FC<EditCollectionProps> = ({
                 render={({ field }) => (
                   <Checkbox
                     name="autoManage"
-                    label="Allow Conductor to manage this collection automatically during Commons-Libraries syncs"
+                    label="Allow Conductor to manage this collection automatically during Commons-Libraries syncs. Syncs run daily at approx. 5 AM PST."
                     checked={field.value || false}
                     error={!!errors.autoManage}
                     onChange={async (checked) => {
@@ -401,48 +459,75 @@ const EditCollection: FC<EditCollectionProps> = ({
                   />
                 )}
               />
-              <Controller
-                name="program"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    label="Program Meta-Tag (used to match resources)"
-                    placeholder="Meta-Tag"
-                    type="text"
-                    leftIcon={<IconTag size={16} />}
-                    error={!!errors.program}
-                    {...field}
-                    disabled={!autoManage}
-                    value={field.value || ""}
+              {onLegacyProgramRule ? (
+                <Stack gap="md">
+                  {/* Read-only on purpose. Program syncing is being retired, so
+                      this collection keeps working exactly as it does today but
+                      cannot be reconfigured on the old rule. */}
+                  <Alert
+                    variant="warning"
+                    message="This collection still syncs by program meta-tag, which is being retired. It will keep working, but the rule can no longer be changed. Switching to Library Shelves is permanent. The program and locations below are cleared when you save."
                   />
-                )}
-              />
-              <div>
-                <Text
-                  as="p"
-                  color={autoManage ? "default" : "muted"}
-                  className="mb-2"
-                >
-                  Locations to Search{" "}
-                  <span className="text-gray-500">(at least one required)</span>
-                </Text>
-                <Stack gap="sm">
-                  {Object.values(CollectionLocations).map((option, index) => (
-                    <Checkbox
-                      key={index}
-                      name="locations"
-                      disabled={!autoManage}
-                      label={getShelvesNameText(option)}
-                      checked={selectedLocations?.includes(option) ?? false}
-                      error={!!errors.locations}
-                      onChange={async () => {
-                        handleLocationsChange(option);
-                        await trigger("locations");
+                  <div>
+                    <Text as="p" weight="semibold" className="mb-1!">
+                      Program Meta-Tag
+                    </Text>
+                    <Text as="p" className="mb-0!">
+                      {collectionToEdit?.program || "Not set"}
+                    </Text>
+                  </div>
+                  <div>
+                    <Text as="p" weight="semibold" className="mb-1!">
+                      Locations Searched
+                    </Text>
+                    <Text as="p" className="mb-0!">
+                      {collectionToEdit?.locations?.length
+                        ? collectionToEdit.locations
+                          .map((location) => getShelvesNameText(location))
+                          .join(", ")
+                        : "None"}
+                    </Text>
+                  </div>
+                  <div>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setFormValue("syncMode", CollectionSyncMode.SHELVES);
+                        setFormValue("syncShelves", []);
+                        setConvertedToShelves(true);
                       }}
-                    />
-                  ))}
+                    >
+                      Switch to Library Shelves
+                    </Button>
+                  </div>
                 </Stack>
-              </div>
+              ) : (
+                <Stack gap="md">
+                  <Text as="p" size="sm" color="muted" className="mb-0!">
+                    Syncs every book under the shelves you choose, across any
+                    library.
+                  </Text>
+                  <Controller
+                    name="syncShelves"
+                    control={control}
+                    render={({ field: shelvesField }) => (
+                      <ShelfTreePicker
+                        value={shelvesField.value ?? []}
+                        onChange={(shelves) => {
+                          shelvesField.onChange(shelves);
+                          clearErrors("syncShelves");
+                        }}
+                        disabled={!autoManage}
+                      />
+                    )}
+                  />
+                  {!!errors.syncShelves && (
+                    <Text as="p" size="sm" className="mt-1 mb-0! text-red-700">
+                      At least one shelf is required.
+                    </Text>
+                  )}
+                </Stack>
+              )}
             </Stack>
           </FormSection>
         </Stack>

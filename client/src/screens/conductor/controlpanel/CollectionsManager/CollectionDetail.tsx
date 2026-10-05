@@ -27,6 +27,7 @@ import {
     CollectionDirectoryPathObj,
     CollectionResource,
     CollectionResourceType,
+    CollectionSyncMode,
 } from "../../../../types";
 import api from "../../../../api";
 import { useModals } from "../../../../context/ModalContext";
@@ -40,6 +41,23 @@ import { getLicenseText } from "../../../../components/util/LicenseOptions.js";
 import { truncateString } from "../../../../components/util/HelperFunctions";
 
 const ROOT_PATH = "/controlpanel/collectionsmanager";
+
+/**
+ * Plain-language description of the rule filling an auto-managed collection, so
+ * the admin reading "manual changes are disabled" can see what replaced them.
+ */
+const describeSyncRule = (collection: Collection): string => {
+    const mode = collection.syncMode ?? CollectionSyncMode.PROGRAM;
+    if (mode === CollectionSyncMode.SHELVES) {
+        const shelves = collection.syncShelves ?? [];
+        return shelves.length
+            ? `from ${shelves.length} library shel${shelves.length === 1 ? "f" : "ves"}`
+            : "from library shelves, but no shelves are selected yet";
+    }
+    return collection.program
+        ? `from books in the ${collection.program} program`
+        : "from a program meta-tag, but no program is configured yet";
+};
 
 /**
  * Dedicated management page for a single collection. Books are managed with a
@@ -312,6 +330,13 @@ const CollectionDetail = () => {
         );
     }
 
+    // Collections predating sync modes carry no `syncMode` and were always
+    // program collections.
+    const syncMode = collection.syncMode ?? CollectionSyncMode.PROGRAM;
+    const syncShelves = collection.syncShelves ?? [];
+    const shelfLibraryCount = new Set(syncShelves.map((shelf) => shelf.library))
+        .size;
+
     return (
         <div className="px-8">
             <Stack direction="horizontal" gap="md" align="start" justify="between" className="my-8">
@@ -393,6 +418,71 @@ const CollectionDetail = () => {
                     )}
                     <Text className="capitalize"><span className="font-semibold">Privacy:</span> {collection.privacy}</Text>
                     <Text className="capitalize"><span className="font-semibold">Cover Photo:</span> {collection.coverPhoto ? "Yes" : "No"}</Text>
+                    <Text>
+                        <span className="font-semibold">Automatic Management:</span>{" "}
+                        {!collection.autoManage
+                            ? "Off"
+                            : syncMode === CollectionSyncMode.SHELVES
+                                ? "On — Library Shelves"
+                                : "On — Program Meta-Tag (legacy)"}
+                    </Text>
+                    {collection.autoManage &&
+                        syncMode === CollectionSyncMode.SHELVES && (
+                            <div>
+                                <Text className="mb-1!">
+                                    <span className="font-semibold">Shelves:</span>{" "}
+                                    {syncShelves.length === 0
+                                        ? "None selected yet — this collection will not sync any books."
+                                        : `${syncShelves.length} shelf path${syncShelves.length === 1 ? "" : "s"
+                                        } across ${shelfLibraryCount} librar${shelfLibraryCount === 1 ? "y" : "ies"
+                                        }`}
+                                </Text>
+                                {syncShelves.length > 0 && (
+                                    // Capped height: a campus collection legitimately
+                                    // carries the same path in a dozen-plus libraries,
+                                    // which would otherwise push everything below it
+                                    // off the screen.
+                                    <ul className="list-none m-0 p-0 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                                        {syncShelves.map((shelf) => (
+                                            <li
+                                                key={`${shelf.library}::${shelf.path}`}
+                                                className="py-0.5"
+                                            >
+                                                <Text as="span" size="sm">
+                                                    <span className="font-medium">{shelf.library}</span>
+                                                    {": "}
+                                                    {shelf.path}
+                                                </Text>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
+                    {collection.autoManage &&
+                        syncMode === CollectionSyncMode.PROGRAM && (
+                            <>
+                                <Text>
+                                    <span className="font-semibold">Program Meta-Tag:</span>{" "}
+                                    {collection.program || "Not set"}
+                                </Text>
+                                <Text className="capitalize">
+                                    <span className="font-semibold">Locations Searched:</span>{" "}
+                                    {collection.locations?.length
+                                        ? collection.locations.join(", ")
+                                        : "None"}
+                                </Text>
+                                <Text as="p" size="sm" color="muted" className="mb-0!">
+                                    Program meta-tag syncing is being retired. This rule keeps
+                                    working, but the collection must be switched to Library
+                                    Shelves before it can be reconfigured.
+                                </Text>
+                            </>
+                        )}
+                    <Text>
+                        <span className="font-semibold">Books:</span>{" "}
+                        {bookResources.length}
+                    </Text>
                 </Stack>
             </section>
 
@@ -462,7 +552,7 @@ const CollectionDetail = () => {
                 {collection.autoManage ? (
                     <Alert
                         variant="info"
-                        message="This collection is managed automatically based on its program and locations. Manual changes to its books are disabled."
+                        message={`This collection is managed automatically ${describeSyncRule(collection)}. Manual changes to its books are disabled.`}
                     />
                 ) : (
                     <CatalogTransferList

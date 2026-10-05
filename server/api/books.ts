@@ -5,7 +5,6 @@ import { parse as parseCsv } from "csv-parse/sync";
 import fs from "fs-extra";
 import AdoptionReport from "../models/adoptionreport.js";
 import Book, { BookInterface } from "../models/book.js";
-import Collection from "../models/collection.js";
 import Organization, { OrganizationInterface } from "../models/organization.js";
 import CustomCatalog from "../models/customcatalog.js";
 import Project from "../models/project.js";
@@ -141,6 +140,10 @@ import GlossaryService, {
 } from "./services/glossary-service.js";
 import GlossaryUsage from "../models/glossaryusage.js";
 import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
+import {
+  isCollectionSyncDryRun,
+  syncAutoManagedCollections,
+} from "./services/collection-sync-service.js";
 const commonsSyncLog = childLogger("commons-sync");
 
 
@@ -192,123 +195,6 @@ function sortBooks(books: BookInterface[], sortChoice: BookSortOption) {
   }
   return books;
 }
-
-/**
- * Updates system-managed Collections for specified OER programs.
- *
- * @returns {Promise<number|boolean>} The number of collections updated, or
- *  false if error encountered.
- */
-const autoGenerateCollections = () => {
-  const bookQueries = [];
-  const collOps = [];
-  let collections = [];
-  return Collection.find({ autoManage: true })
-    .lean()
-    .then((autoColls) => {
-      collections = autoColls;
-      /* Find books for auto-managed program collections */
-      for (let i = 0, n = autoColls.length; i < n; i += 1) {
-        const currColl = autoColls[i];
-        if (
-          typeof currColl.program === "string" &&
-          currColl.program.length > 0
-        ) {
-          bookQueries.push(
-            Book.aggregate([
-              {
-                $match: {
-                  program: currColl.program,
-                  location: {
-                    $in: currColl.locations,
-                  },
-                },
-              },
-              {
-                $project: {
-                  _id: 0,
-                  bookID: 1,
-                  location: 1,
-                  program: 1,
-                },
-              },
-            ]),
-          );
-        }
-      }
-      return Promise.all(bookQueries);
-    })
-    .then((bookQueryRes) => {
-      /* Sort books into their auto-managed collection */
-      let allBooksFound = [];
-      for (let i = 0, n = bookQueryRes.length; i < n; i += 1) {
-        allBooksFound = [...allBooksFound, ...bookQueryRes[i]];
-      }
-      for (let i = 0, n = allBooksFound.length; i < n; i += 1) {
-        const currBook = allBooksFound[i];
-        const collIdx = collections.findIndex(
-          (coll) => coll.program === currBook.program,
-        );
-        if (collIdx > -1) {
-          const resourcesById =
-            collections[collIdx].resources
-              ?.map((item) => {
-                if (item.resourceType === "resource") {
-                  return item.resourceID;
-                }
-                return null;
-              })
-              .filter((i) => !!i) || [];
-          if (!Array.isArray(collections[collIdx].newListings)) {
-            collections[collIdx].newListings = [];
-          }
-          if (!resourcesById.includes(currBook.bookID)) {
-            collections[collIdx].newListings.push({
-              resourceType: "resource",
-              resourceID: currBook.bookID,
-            });
-          }
-        }
-      }
-      /* Assembles updates for collections (if necessary) */
-      for (let i = 0, n = collections.length; i < n; i += 1) {
-        const currColl = collections[i];
-        if (
-          Array.isArray(currColl.newListings) &&
-          currColl.newListings.length > 0
-        ) {
-          collOps.push({
-            updateOne: {
-              filter: {
-                collID: currColl.collID,
-              },
-              update: {
-                $addToSet: {
-                  resources: {
-                    $each: currColl.newListings,
-                  },
-                },
-              },
-            },
-          });
-        }
-      }
-      if (collOps.length < 1) {
-        return {};
-      }
-      return Collection.bulkWrite(collOps, { ordered: false });
-    })
-    .then((updateRes) => {
-      if (typeof updateRes.nModified === "number") {
-        return updateRes.nModified;
-      }
-      return 0;
-    })
-    .catch((err) => {
-      logger.error({ err }, "autoGenerateCollections failed");
-      return false;
-    });
-};
 
 /**
  * Marks Books that have disappeared from their library.
@@ -592,7 +478,15 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
   }
 
   /* Downstream jobs — each reports its own failure without sinking the sync */
-  const updatedCollections = await autoGenerateCollections();
+  /* Read before the run so the summary can say the writes were withheld, even
+     though the sync re-reads the flag itself. */
+  let collectionSyncWasDryRun = false;
+  try {
+    collectionSyncWasDryRun = isCollectionSyncDryRun();
+  } catch {
+    // A malformed value is reported by the sync itself, which then fails loudly.
+  }
+  const updatedCollections = await syncAutoManagedCollections();
   const didGenExports = (await generateKBExport()) === true;
 
   let generatedProjects: number | boolean = 0;
@@ -620,7 +514,11 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
     msg += ` ${markedMissing} books no longer found in their library were marked missing.`;
   }
   if (typeof updatedCollections === "number") {
-    msg += ` ${updatedCollections} system-managed Collections updated.`;
+    /* A dry run reports what it would have done. Saying "updated" there would
+       tell an operator the collections are current when nothing was written. */
+    msg += collectionSyncWasDryRun
+      ? ` COLLECTION SYNC DRY RUN — ${updatedCollections} system-managed Collections would have been updated (no changes written).`
+      : ` ${updatedCollections} system-managed Collections updated.`;
   } else {
     msg += ` FAILED to update system-managed collections. Check server logs.`;
   }

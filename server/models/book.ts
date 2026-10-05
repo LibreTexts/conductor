@@ -10,6 +10,7 @@ export interface BookInterface extends Document {
   subject?: string;
   location?: string;
   course?: string;
+  shelfPath?: string;
   program?: string;
   license?: string;
   thumbnail?: string;
@@ -91,6 +92,15 @@ const BookSchema = new Schema<BookInterface>(
      * The course or campus the Book belongs to.
      */
     course: String,
+    /**
+     * The coverpage's library-relative path, decoded, with no surrounding
+     * slashes: `Bookshelves/Organic_Chemistry/Map:_Organic_Chemistry_(Bruice)`.
+     *
+     * `location`, `subject`, and `course` only carry the path's second segment,
+     * so they cannot express a shelf below the top level. Collections that sync
+     * from chosen shelves match on an anchored prefix of this field instead.
+     */
+    shelfPath: String,
     /**
      * The OER program the book belongs to.
      */
@@ -283,6 +293,10 @@ BookSchema.index({
 });
 BookSchema.index({
   libraryTags: 1,
+});
+BookSchema.index({
+  library: 1,
+  shelfPath: 1,
 });
 BookSchema.index({
   randomIndex: 1,

@@ -1,7 +1,10 @@
 import logger from "../logger.js";
 import b62 from "base62-random";
 import { BookInterface } from "../models/book.js";
-import Collection, { CollectionInterface } from "../models/collection.js";
+import Collection, {
+  CollectionInterface,
+  CollectionSyncMode,
+} from "../models/collection.js";
 import conductorErrors from "../conductor-errors.js";
 import {
   addCollectionResourceSchema,
@@ -156,6 +159,43 @@ async function updateCollectionImageAsset(
 }
 
 /**
+ * The sync fields to write for a Collection.
+ *
+ * Three cases, and the quiet one matters most:
+ *
+ * - Not auto-managed: write whatever was submitted. A Collection toggled off
+ *   should come back with its config intact.
+ * - Shelves: write the shelves and clear `program` and `locations`. Clearing
+ *   them is what makes the one-way move off the legacy rule stick — a Collection
+ *   must never store two rules, or nobody can tell which one filled it.
+ * - No `syncMode` submitted: write none of these fields. The only Collections
+ *   that reach here are the legacy program ones, whose rule is frozen; this is
+ *   what lets an admin rename one without converting it. `program` and
+ *   `locations` are not in the request schema at all, so there is nothing to
+ *   write even if a stale client still sends them.
+ */
+function _normalizeSyncConfig(body: {
+  autoManage?: boolean;
+  syncMode?: CollectionSyncMode;
+  syncShelves?: { library: string; path: string }[];
+}) {
+  const submitted = {
+    ...(body.syncMode !== undefined && { syncMode: body.syncMode }),
+    ...(body.syncShelves !== undefined && { syncShelves: body.syncShelves }),
+  };
+
+  if (!body.autoManage || body.syncMode !== "shelves") return submitted;
+
+  return {
+    ...submitted,
+    syncMode: "shelves" as const,
+    syncShelves: body.syncShelves ?? [],
+    program: "",
+    locations: [],
+  };
+}
+
+/**
  * Creates and saves a new Collection with the data in the request body.
  */
 async function createCollection(
@@ -163,8 +203,7 @@ async function createCollection(
   res: Response
 ) {
   try {
-    const { coverPhoto, locations, parentID, program, description, ...body } =
-      req.body;
+    const { coverPhoto, parentID, description, ...body } = req.body;
     const orgID = process.env.ORG_ID;
 
     const sanitizedDescription = description
@@ -191,9 +230,8 @@ async function createCollection(
       title: body.title,
       ...(sanitizedDescription && { description: sanitizedDescription }),
       ...(coverPhoto && { coverPhoto }),
-      ...(locations && { locations }),
       ...(parentID && { parentID }),
-      ...(program && { program }),
+      ..._normalizeSyncConfig(body),
     });
 
     const collectionToAdd = { resourceID: newID, resourceType: "collection" };
@@ -263,6 +301,16 @@ async function editCollection(
       { collID: req.params.collID, orgID: orgID }, // Ensure it updates only the relevant collection
       {
         ...updateData,
+        ..._normalizeSyncConfig({
+          ...updateData,
+          // The config is normalized against the collection's effective
+          // autoManage state, which an edit that doesn't touch the checkbox
+          // leaves to the stored value. `syncMode` is deliberately NOT merged
+          // from the stored document: an edit that omits it is an edit that
+          // isn't touching the sync rule, and merging it in would make a
+          // title-only save rewrite the shelf list with an empty one.
+          autoManage: updateData.autoManage ?? foundCollection.autoManage,
+        }),
         ...(sanitizedDescription && { description: sanitizedDescription }),
       }
     );
@@ -489,6 +537,8 @@ async function getAllCollections(
       program: 1,
       locations: 1,
       autoManage: 1,
+      syncMode: 1,
+      syncShelves: 1,
       resourceCount: { $size: "$resources" },
       ...(detailed && { resources: 1 }),
     };
@@ -798,6 +848,12 @@ async function getCollectionResources(
           },
           locations: {
             $first: "$locations",
+          },
+          syncMode: {
+            $first: "$syncMode",
+          },
+          syncShelves: {
+            $first: "$syncShelves",
           },
         },
       },

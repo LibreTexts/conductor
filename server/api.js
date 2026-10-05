@@ -1112,6 +1112,24 @@ router
 /* Libraries Directory */
 router.route("/commons/libraries").get(librariesAPI.getLibraries);
 
+/* Shelf picker for auto-managed Collections. Declared before
+   `/commons/libraries/:subdomain` so the more specific path wins. */
+router.route("/commons/libraries/shelves/search").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+  middleware.validateZod(LibraryValidators.FindShelfAcrossLibrariesSchema),
+  catchInternal((req, res) => librariesAPI.findShelfAcrossLibraries(req, res)),
+);
+
+router.route("/commons/libraries/:subdomain/shelves").get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
+  middleware.validateZod(LibraryValidators.GetLibraryShelvesSchema),
+  catchInternal((req, res) => librariesAPI.getLibraryShelves(req, res)),
+);
+
 router.route("/commons/libraries/:subdomain").get(
   middleware.validateZod(LibraryValidators.GetLibraryFromSubdomainSchema),
   librariesAPI.getLibraryFromSubdomain
