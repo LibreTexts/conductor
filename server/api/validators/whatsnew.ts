@@ -28,7 +28,7 @@ const _WhatsNewFields = z.object({
   expiresAt: z.coerce.date().optional().nullable(),
   staleAfterDays: z.coerce.number().int().min(1).max(3650).optional().nullable(),
   ctaLabel: z.string().trim().max(60).optional(),
-  ctaUrl: z.url().optional(),
+  ctaUrl: z.httpUrl().optional(),
 });
 
 export const GetActiveWhatsNewValidator = z.object({});

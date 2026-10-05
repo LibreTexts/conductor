@@ -29,6 +29,7 @@ import { useModals } from "../../../../context/ModalContext";
 import ConfirmModal from "../../../../components/ConfirmModal";
 import { useTypedSelector } from "../../../../state/hooks";
 import {
+  WHATS_NEW_DEFAULT_STALE_DAYS,
   WhatsNewEntryAdmin,
   WhatsNewEntryPayload,
   WhatsNewStatus,
@@ -125,20 +126,27 @@ const WhatsNewManager = () => {
    */
   const activeEntryID = useMemo(() => {
     const now = Date.now();
-    const candidates = entries
+    // Mirrors getActiveWhatsNew, including its ORDER: pick the newest published
+    // entry first, then test it. Expiry and staleness must not be used to filter
+    // before the sort, or an expired notice would fall through to an older one
+    // and this badge would point at an entry the server will never serve.
+    const newest = entries
       .filter((e) => e.status === "published" && e.publishedAt)
-      .filter((e) => !e.expiresAt || new Date(e.expiresAt).getTime() > now)
-      .filter((e) => {
-        const staleDays = e.staleAfterDays ?? 90;
-        const age = now - new Date(e.publishedAt as string).getTime();
-        return age < staleDays * 86400000;
-      })
       .sort(
         (a, b) =>
           new Date(b.publishedAt as string).getTime() -
           new Date(a.publishedAt as string).getTime()
-      );
-    return candidates[0]?._id ?? null;
+      )[0];
+    if (!newest) return null;
+
+    if (newest.expiresAt && new Date(newest.expiresAt).getTime() <= now) {
+      return null;
+    }
+    const staleDays = newest.staleAfterDays ?? WHATS_NEW_DEFAULT_STALE_DAYS;
+    const age = now - new Date(newest.publishedAt as string).getTime();
+    if (age >= staleDays * 86400000) return null;
+
+    return newest._id;
   }, [entries]);
 
   function buildPayload(status?: WhatsNewStatus): WhatsNewEntryPayload {

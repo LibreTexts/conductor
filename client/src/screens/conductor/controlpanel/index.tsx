@@ -253,9 +253,9 @@ const ControlPanel = () => {
             Campus Conductor instance.
           </Text>
           <div className="mt-4">
-            {(user.isSuperAdmin || user.isSupport) && org.orgID === "libretexts" &&
+            {(user.isSuperAdmin || user.isSupport || user.isDeveloper) && org.orgID === "libretexts" &&
               renderSection("LibreTexts Master Tools", masterToolsToRender)}
-            {(user.isCampusAdmin || user.isSuperAdmin) &&
+            {(user.isCampusAdmin || user.isSuperAdmin || user.isSupport || user.isDeveloper) &&
               renderSection("Campus Admin Tools", campusAdminTools)}
           </div>
         </Card.Body>
