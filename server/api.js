@@ -17,6 +17,7 @@ import centralIdentityAPI from "./api/central-identity.js";
 import clientConfigAPI from "./api/client-config.js";
 import usersAPI from "./api/users.js";
 import * as uxAcknowledgmentsAPI from "./api/uxAcknowledgments.js";
+import * as whatsNewAPI from "./api/whatsnew.js";
 import orgsAPI from "./api/organizations.js";
 import alertsAPI from "./api/alerts.js";
 import adoptionReportAPI from "./api/adoptionreports.js";
@@ -68,6 +69,7 @@ import * as GlossaryConfigValidators from "./api/validators/glossaryconfig.js";
 
 import remixerAPI from "./api/remixer.js";
 import * as RemixerValidators from "./api/validators/remixer.js";
+import * as WhatsNewValidators from "./api/validators/whatsnew.js";
 
 import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
@@ -1779,6 +1781,47 @@ router
 router
   .route("/announcements/system")
   .get(announcementAPI.getSystemAnnouncement);
+
+/* What's New in Conductor */
+// The active-entry read is open to any authenticated user; authoring is a
+// LibreTexts-wide (system-level) concern, so all writes are superadmin only.
+router
+  .route("/whats-new/active")
+  .get(authAPI.verifyRequest, whatsNewAPI.getActiveWhatsNew);
+
+router
+  .route("/whats-new")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(WhatsNewValidators.GetWhatsNewEntriesValidator),
+    whatsNewAPI.getWhatsNewEntries
+  )
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(WhatsNewValidators.CreateWhatsNewEntryValidator),
+    whatsNewAPI.createWhatsNewEntry
+  );
+
+router
+  .route("/whats-new/:id")
+  .patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(WhatsNewValidators.UpdateWhatsNewEntryValidator),
+    whatsNewAPI.updateWhatsNewEntry
+  )
+  .delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(WhatsNewValidators.DeleteWhatsNewEntryValidator),
+    whatsNewAPI.deleteWhatsNewEntry
+  );
 
 /* Alerts */
 router

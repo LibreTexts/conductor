@@ -36,6 +36,10 @@ import {
   User,
   UXAcknowledgmentEntry,
   UXAcknowledgmentMap,
+  WhatsNewEntry,
+  WhatsNewEntryAdmin,
+  WhatsNewEntryPayload,
+  WhatsNewStatus,
   UXAcknowledgmentStatus,
   UserSearchParams,
   BaseInvitation,
@@ -1674,6 +1678,50 @@ class API {
     const res = await axios.delete<{ key: string } & ConductorBaseResponse>(
       `/user/ux-acknowledgments/${key}`,
     );
+    return res;
+  }
+
+  // WHAT'S NEW IN CONDUCTOR
+  /**
+   * The single What's New entry the current user should be offered, or null.
+   * Only the newest published, non-stale, non-expired entry is ever returned.
+   */
+  async getActiveWhatsNew() {
+    const res = await axios.get<
+      { entry: WhatsNewEntry | null } & ConductorBaseResponse
+    >("/whats-new/active");
+    return res;
+  }
+
+  async getWhatsNewEntries(params?: {
+    page?: number;
+    limit?: number;
+    status?: WhatsNewStatus;
+  }) {
+    const res = await axios.get<
+      ConductorInfiniteScrollResponse<WhatsNewEntryAdmin>
+    >("/whats-new", { params });
+    return res;
+  }
+
+  async createWhatsNewEntry(entry: WhatsNewEntryPayload) {
+    const res = await axios.post<
+      { entry: WhatsNewEntryAdmin } & ConductorBaseResponse
+    >("/whats-new", entry);
+    return res;
+  }
+
+  async updateWhatsNewEntry(id: string, entry: WhatsNewEntryPayload) {
+    const res = await axios.patch<
+      { entry: WhatsNewEntryAdmin } & ConductorBaseResponse
+    >(`/whats-new/${id}`, entry);
+    return res;
+  }
+
+  async deleteWhatsNewEntry(id: string) {
+    const res = await axios.delete<
+      { deleted: boolean } & ConductorBaseResponse
+    >(`/whats-new/${id}`);
     return res;
   }
 

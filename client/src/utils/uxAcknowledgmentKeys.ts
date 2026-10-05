@@ -13,6 +13,13 @@
 export const UX_ACKNOWLEDGMENT_KEYS = {
   COAUTHOR_WELCOME: "coauthor_welcome",
   COAUTHOR_TOOLS_MOVED: "coauthor_tools_moved",
+  /**
+   * The recurring "What's New in Conductor" modal. Unlike every other key here,
+   * this one is a WATERMARK rather than a one-off flag: its `data` holds the id
+   * of the most recent entry the user dismissed, so a single permanent key
+   * serves an unbounded stream of admin-authored entries. See useWhatsNew.
+   */
+  WHATS_NEW: "whats_new",
 } as const;
 
 export type UXAcknowledgmentKey =

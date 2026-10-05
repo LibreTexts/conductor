@@ -7,6 +7,7 @@ import AnonRoute from './components/util/AnonRoute';
 import PrivateRoute from './components/util/PrivateRoute';
 import Footer from "./components/navigation/Footer";
 import ChatBot from "./utils/ChatBot";
+import WhatsNewModal from "./components/WhatsNewModal";
 
 const AdoptionReports = lazyWithRetry(() => import('./screens/conductor/controlpanel/AdoptionReports'));
 const AnalyticsCourseView = lazyWithRetry(() => import('./screens/conductor/analytics/AnalyticsCourseView'));
@@ -64,6 +65,7 @@ const StoreAuthCheck = lazyWithRetry(() => import('./screens/conductor/store/aut
 const StoreCart = lazyWithRetry(() => import('./screens/conductor/store/cart'));
 const StoreCatalog = lazyWithRetry(() => import('./screens/conductor/store/catalog'));
 const StoreManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/StoreManager'));
+const WhatsNewManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/WhatsNewManager'));
 const StoreManagerOrderView = lazyWithRetry(() => import('./screens/conductor/controlpanel/StoreManager/order-view'));
 const StoreOrder = lazyWithRetry(() => import('./screens/conductor/store/order'));
 const StoreProduct = lazyWithRetry(() => import('./screens/conductor/store/product'));
@@ -116,6 +118,9 @@ const Conductor = () => {
     <div className='flex flex-col min-h-screen'>
       <SkipLink targetId="main-content" />
       <Navbar />
+      {/* Mounted once for the whole app so it survives route changes; it
+          self-suppresses when there is nothing to show. */}
+      <WhatsNewModal />
       <main id="main-content" className='flex-1 bg-surface-muted pb-8'>
         {isSupportRoute && <SupportCenterDataLoader />}
         <Suspense fallback={<LoadingSpinner />}>
@@ -177,6 +182,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/book-bots/editor-preprocess' component={BookBotsEditorPreprocess} />
           <PrivateRoute exact path='/controlpanel/store' component={StoreManager} />
           <PrivateRoute exact path='/controlpanel/store/orders/:order_id' component={StoreManagerOrderView} />
+          <PrivateRoute exact path='/controlpanel/whatsnew' component={WhatsNewManager} />
           <PrivateRoute exact path='/events/:eventID/:status?' component={EventRegistration} unAuthSrc="eventregistration" />
           <PrivateRoute exact path='/glossary/project/:id' component={GlossaryManager} />
           <Route exact path="/download/:projectID/:fileID" component={PermanentLinkDownload} />
