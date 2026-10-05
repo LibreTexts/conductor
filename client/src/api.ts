@@ -90,7 +90,11 @@ import {
   ProjectFileAuthor,
   ProjectTag,
 } from "./types/Project";
-import { Collection } from "./types/Collection";
+import {
+  Collection,
+  CollectionShelf,
+  LibraryShelfNode,
+} from "./types/Collection";
 import {
   AuthorSearchParams,
   ConductorSearchResponseFile,
@@ -1543,6 +1547,34 @@ class API {
       },
     });
     return res;
+  }
+
+  /**
+   * Lists the shelves one level beneath `path` on a library. Omit `path` for the
+   * library's sync roots (`Bookshelves`, `Courses`).
+   */
+  async getLibraryShelves(subdomain: string, path?: string) {
+    const res = await axios.get<
+      { shelves: LibraryShelfNode[] } & ConductorBaseResponse
+    >(`/commons/libraries/${subdomain}/shelves`, {
+      params: path ? { path } : undefined,
+    });
+    return res.data;
+  }
+
+  /**
+   * Finds every library carrying the same shelf path, so one shelf can be added
+   * across all of them at once. Libraries without the path are simply absent.
+   */
+  async findShelfAcrossLibraries(path: string) {
+    const res = await axios.get<
+      {
+        path: string;
+        matches: CollectionShelf[];
+        checked: number;
+      } & ConductorBaseResponse
+    >("/commons/libraries/shelves/search", { params: { path } });
+    return res.data;
   }
 
   // Organization

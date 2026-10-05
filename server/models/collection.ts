@@ -1,6 +1,27 @@
 import { model, Schema, Document } from "mongoose";
 import Resource, { ResourceInterface } from "../models/resource.js";
 
+/**
+ * How an auto-managed Collection decides which Books belong to it.
+ *
+ * Exactly one mode is active per Collection. The modes are deliberately not
+ * combinable: an admin reading a collection's config should be able to answer
+ * "why is this book here?" from a single rule.
+ *
+ * `program` is retained for the Collections that already use it and is no longer
+ * offered to new ones — see the validators, which accept `shelves` only. The sync
+ * still honors it so those Collections keep filling while they are migrated off.
+ */
+export type CollectionSyncMode = "program" | "shelves";
+
+/** A library shelf an auto-managed Collection draws from. */
+export interface CollectionShelfInterface {
+  /** Library subdomain, e.g. `chem`. */
+  library: string;
+  /** Library-relative, decoded path, e.g. `Bookshelves/Organic_Chemistry`. */
+  path: string;
+}
+
 export interface CollectionInterface extends Document {
   orgID: string;
   collID: string;
@@ -12,8 +33,24 @@ export interface CollectionInterface extends Document {
   program: string;
   locations: ("central" | "campus")[];
   autoManage: boolean;
+  syncMode?: CollectionSyncMode;
+  syncShelves: CollectionShelfInterface[];
   parentID: string;
 }
+
+const CollectionShelfSchema = new Schema<CollectionShelfInterface>(
+  {
+    library: {
+      type: String,
+      required: true,
+    },
+    path: {
+      type: String,
+      required: true,
+    },
+  },
+  { _id: false }
+);
 
 const CollectionSchema = new Schema<CollectionInterface>(
   {
@@ -61,9 +98,21 @@ const CollectionSchema = new Schema<CollectionInterface>(
       default: ["central"],
     },
     autoManage: {
-      // allow the system to automatically manage the collection based on 'program' and 'locations'
+      // allow the system to automatically manage the collection's resources during Commons-Libraries syncs
       type: Boolean,
       default: false,
+    },
+    syncMode: {
+      // which rule the sync matches Books on, when automatically managed
+      type: String,
+      // 'program' is legacy: existing Collections keep it, new ones cannot be
+      // created with it.
+      enum: ["program", "shelves"],
+    },
+    syncShelves: {
+      // library shelves to draw from, if syncMode is 'shelves'
+      type: [CollectionShelfSchema],
+      default: [],
     },
     parentID: {
       // collID of the parent collection if collection is nested in another
