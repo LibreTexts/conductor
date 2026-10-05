@@ -29,7 +29,7 @@ import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
 import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
 import { IconCopy, IconSettings, IconTrash } from "@tabler/icons-react";
-import Configure, { type ConfigureSettings } from "./Config/Configure";
+import Configure, { type ConfigureSettings } from "./Scope/Configure";
 import Populate, { hasPopulateJobData } from "./Populate";
 import { TableOfContents } from "../../../types";
 
