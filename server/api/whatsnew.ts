@@ -1,6 +1,7 @@
 /**
  * @file Handlers for "What's New in Conductor" entries: one read route that
- *  serves the single notice a user should currently see, plus superadmin CRUD.
+ *  serves the single notice a user should currently see, plus authoring CRUD
+ *  restricted to the `developer` role (see the route block in api.js).
  * @author LibreTexts <info@libretexts.org>
  */
 

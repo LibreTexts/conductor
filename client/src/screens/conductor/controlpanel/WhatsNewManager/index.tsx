@@ -95,9 +95,11 @@ const WhatsNewManager = () => {
 
   // Mirrors the guard on the Control Panel index. The API enforces this too;
   // this only keeps the screen from rendering for someone who typed the URL.
+  // `developer` is the gate, not `superadmin`: authoring a notice shown to every
+  // user is a release-engineering act, so the role is granted by hand.
   useEffect(() => {
     if (!user || !user.uuid) return;
-    if (!user.isSuperAdmin) {
+    if (!user.isDeveloper) {
       window.location.href = "/home";
     }
   }, [user]);

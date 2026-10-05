@@ -1098,9 +1098,14 @@ const checkHasRoleByID = async (
  * Method should only be called AFTER the 'getUserAttributes' method in a routing chain.
  * @param {String} org - The Organization identifier.
  * @param {String} role - The role identifier.
+ * @param {Boolean} [explicit=false] - If true, does not apply superadmin/campusadmin overrides.
  * @returns {Function} An Express.js middleware function.
  */
-const checkHasRoleMiddleware = (org: string, role: string | string[]) => {
+const checkHasRoleMiddleware = (
+  org: string,
+  role: string | string[],
+  explicit = false
+) => {
   return (req: ZodReqWithUser<Request>, res: Response, next: NextFunction) => {
     if (!org || isEmptyString(org)) {
       logger.error(conductorErrors.err10);
@@ -1131,13 +1136,15 @@ const checkHasRoleMiddleware = (org: string, role: string | string[]) => {
             return element;
           } else if (
             element.org === "libretexts" &&
-            element.role === "superadmin"
+            element.role === "superadmin" &&
+            !explicit
           ) {
             // OVERRIDE: SuperAdmins always have permission
             return element;
           } else if (
             element.org === process.env.ORG_ID &&
-            element.role === "campusadmin"
+            element.role === "campusadmin" &&
+            !explicit
           ) {
             // OVERRIDE: CampusAdmins always have permission in their own instance
             return element;
