@@ -3311,7 +3311,8 @@ class API {
     const res = await axios.get<
       {
         data: {
-          format: ReferenceFormatType;
+          /** Absent until references are set up for the book. */
+          format?: ReferenceFormatType;
           displayLocation?: ReferenceDisplayLocation;
           pageTitle?: string;
           selectedList?: string[];
@@ -3362,6 +3363,23 @@ class API {
   }
 
   async addBookReference(projectID: string, data: ReferenceFormData) {
+    const res = await axios.put<
+      {
+        data: { referenceID: string; citationKey: string };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, { entry: data });
+    return res.data;
+  }
+
+  /**
+   * Saves changes to an existing reference. A reference owned by another
+   * project is copied into this one instead, so the returned referenceID can
+   * differ from the one sent.
+   */
+  async updateBookReference(
+    projectID: string,
+    data: ReferenceFormData & { referenceID: string },
+  ) {
     const res = await axios.put<
       {
         data: { referenceID: string; citationKey: string };

@@ -5,7 +5,6 @@ import {
   Checkbox,
   Input,
   Modal,
-  Select,
   Spinner,
   Stack,
   Tabs,
@@ -13,22 +12,18 @@ import {
   Tooltip,
 } from "@libretexts/davis-react";
 import {
-  BIBTEX_FIELDS_BY_TYPE,
-  EntryType,
   ReferenceEntry,
-  ReferenceFieldKey,
   ReferenceFormData,
   emptyReferenceForm,
   formatCitationPreview,
-  getBibtexFieldLabel,
   ReferenceFormatType,
-  EntryTypes,
 } from "../model";
 import ImportBibtexDialog from "../ImportBibtexDialog";
 import api from "../../../../api";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
 import BookDashboard from "./BookSearch";
+import ReferenceFormFields from "./ReferenceFormFields";
 
 interface AddContentProps {
   open: boolean;
@@ -87,15 +82,6 @@ const AddContent: React.FC<AddContentProps> = ({
       setSelectedReferences([]);
     }
   }, [open]);
-
-  const updateField = (key: ReferenceFieldKey, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleTypeChange = (entryType: EntryType) => {
-    if (fromBibtex) return;
-    setForm((prev) => ({ ...prev, entryType }));
-  };
 
   const handleClear = () => {
     setForm(emptyReferenceForm());
@@ -161,12 +147,6 @@ const AddContent: React.FC<AddContentProps> = ({
     setForm(emptyReferenceForm());
     setFromBibtex(false);
   };
-
-  const fields = BIBTEX_FIELDS_BY_TYPE[form.entryType];
-  const preview = useMemo(
-    () => formatCitationPreview(form, referenceFormat),
-    [form, referenceFormat],
-  );
 
   const searchColumns = useMemo(
     () => [
@@ -307,81 +287,21 @@ const AddContent: React.FC<AddContentProps> = ({
             </Tabs.Panel>
             <Tabs.Panel>
               <Stack direction="vertical" gap="md">
-                <div>
-                  <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div className="min-w-[12rem] flex-1">
-                      <Select
-                        name="entryType"
-                        label="Entry type"
-                        placeholder="Select entry type…"
-                        options={EntryTypes.map((t) => ({
-                          label: t.label,
-                          value: t.value,
-                        }))}
-                        value={form.entryType}
-                        disabled={fromBibtex}
-                        onChange={(e) =>
-                          handleTypeChange(e.target.value as EntryType)
-                        }
-                      />
-                    </div>
+                <ReferenceFormFields
+                  form={form}
+                  onChange={setForm}
+                  referenceFormat={referenceFormat}
+                  lockEntryType={fromBibtex}
+                  lockedTypeHint="Entry type is locked because this reference was imported from BibTeX."
+                  typeAction={
                     <Button
                       variant="outline"
                       onClick={() => setImportOpen(true)}
                     >
                       Import from BibTeX
                     </Button>
-                  </div>
-                  {fromBibtex && (
-                    <p className="mt-1 text-xs text-neutral-500">
-                      Entry type is locked because this reference was imported
-                      from BibTeX.
-                    </p>
-                  )}
-                </div>
-
-                <div className="max-h-[40vh] overflow-y-auto rounded border border-gray-200 p-3">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {fields.map((key) => (
-                      <div
-                        key={key}
-                        className={
-                          key === "citationKey" ? "sm:col-span-2" : undefined
-                        }
-                      >
-                        <Input
-                          name={key}
-                          label={getBibtexFieldLabel(key)}
-                          value={form[key] ?? ""}
-                          onChange={(e) => updateField(key, e.target.value)}
-                          placeholder={
-                            key === "citationKey"
-                              ? "Auto-generated from author, year, title if left blank"
-                              : undefined
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded border border-gray-200 bg-gray-50 p-3">
-                  <Text size="sm" weight="semibold" className="mb-1 block">
-                    Preview
-                    {referenceFormat ? ` (${referenceFormat})` : ""}
-                  </Text>
-                  {preview ? (
-                    <p className="text-sm leading-relaxed text-neutral-800">
-                      {preview}
-                    </p>
-                  ) : (
-                    <p className="text-sm italic text-neutral-500">
-                      {referenceFormat
-                        ? "Fill in author or title to see a citation preview."
-                        : "Select a book references format to enable citation preview."}
-                    </p>
-                  )}
-                </div>
+                  }
+                />
               </Stack>
             </Tabs.Panel>
             <Tabs.Panel>

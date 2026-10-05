@@ -65,9 +65,9 @@ export const getReferencesUsage = async ({
   const referenceUsage = await ReferenceUsage.findOne({
     projectID: { $eq: projectID },
   });
-  if (!referenceUsage) {
-    throw new ReferenceServiceError("ReferenceUsage not found", 404);
-  }
+  // No record until a citation format is first saved; callers treat that as
+  // "no references yet", not an error.
+  if (!referenceUsage) return null;
 
   const entries = await Reference.find({
     referenceID: { $in: referenceUsage.entries },
@@ -332,7 +332,8 @@ export const upsertReferenceEntry = async (
         return byId.toObject();
       }
 
-      // Different project → fork into this project
+      // Different project → fork into this project, replacing the original
+      // in this project's list so it doesn't show both versions.
       await assertCitationKeyAvailable(projectID, citationKey);
       const forkedID = base62(10);
       const forked = await Reference.create({
@@ -349,6 +350,10 @@ export const upsertReferenceEntry = async (
         ...optionalFields,
       });
       await addEntryToUsage(projectID, forkedID, actorUUID);
+      await ReferenceUsage.updateOne(
+        { projectID: { $eq: projectID } },
+        { $pull: { entries: byId.referenceID } },
+      );
       return forked.toObject();
     }
   }
