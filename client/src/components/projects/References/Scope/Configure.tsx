@@ -343,7 +343,7 @@ const Configure: React.FC<ConfigureProps> = ({
   return (
     <Modal open={open} onClose={(v) => !v && !busy && handleClose()} size="xl">
       <Modal.Header>
-        <Modal.Title>Configure References</Modal.Title>
+        <Modal.Title>Reference Scope</Modal.Title>
         <Modal.Close aria-label="Close" />
       </Modal.Header>
       <Modal.Body>

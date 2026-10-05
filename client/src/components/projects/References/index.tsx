@@ -24,11 +24,17 @@ import {
   EntryTypes,
 } from "./model";
 import AddContent from "./ReferenceEntry/AddContent";
+import EditReference from "./ReferenceEntry/EditReference";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
 import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
-import { IconCopy, IconSettings, IconTrash } from "@tabler/icons-react";
+import {
+  IconCopy,
+  IconPencil,
+  IconSettings,
+  IconTrash,
+} from "@tabler/icons-react";
 import Configure, { type ConfigureSettings } from "./Scope/Configure";
 import Populate, { hasPopulateJobData } from "./Populate";
 import { TableOfContents } from "../../../types";
@@ -51,6 +57,8 @@ const ReferenceManager: React.FC = () => {
     null,
   );
   const [deleteFromReferences, setDeleteFromReferences] = useState(false);
+  const [editingReference, setEditingReference] =
+    useState<ReferenceEntry | null>(null);
 
   const {
     project,
@@ -352,6 +360,58 @@ const ReferenceManager: React.FC = () => {
     },
   });
 
+  const { mutate: updateReference, isPending: isUpdatingReference } =
+    useMutation({
+      mutationFn: async (
+        data: ReferenceFormData & { referenceID: string },
+      ) => {
+        const entry = data.citationKey.trim()
+          ? data
+          : { ...data, citationKey: generateCitationKey(data) };
+        const res = await api.updateBookReference(id ?? "", entry);
+        if (res.err) throw new Error(res.errMsg);
+        return { res, entry };
+      },
+      onSuccess: ({ res, entry }) => {
+        const previousID = entry.referenceID;
+        const savedID = res.data.referenceID;
+        updateBookReferencesCache((current) => ({
+          ...current,
+          data: {
+            ...current.data,
+            entries: (current.data.entries ?? []).map((existing) =>
+              existing.referenceID === previousID
+                ? {
+                    ...existing,
+                    ...entry,
+                    referenceID: savedID,
+                    citationKey: res.data.citationKey,
+                    // A different ID means the server made this project's own copy.
+                    projectID:
+                      savedID === previousID ? existing.projectID : id,
+                  }
+                : existing,
+            ),
+          },
+        }));
+        setEditingReference(null);
+        addNotification({ type: "success", message: "Reference updated" });
+      },
+      onError: (error) => {
+        // The server explains conflicts such as a citation key already in use.
+        const serverMessage = (
+          error as { response?: { data?: { errMsg?: string } } }
+        )?.response?.data?.errMsg;
+        addNotification({
+          type: "error",
+          message:
+            serverMessage ||
+            (error instanceof Error && error.message) ||
+            "Error updating reference",
+        });
+      },
+    });
+
   const handleAddReference = async (
     data: ReferenceFormData,
   ): Promise<boolean> => {
@@ -485,7 +545,7 @@ const ReferenceManager: React.FC = () => {
       columnHelper.display({
         id: "actions",
         header: () => <span className="block w-full text-right">Actions</span>,
-        size: 80,
+        size: 112,
         enableSorting: false,
         enableColumnFilter: false,
         cell: ({ row }) => (
@@ -506,6 +566,15 @@ const ReferenceManager: React.FC = () => {
                   message: "Citation key copied to clipboard",
                 });
               }}
+            />
+            <IconButton
+              name="edit-reference"
+              title="Edit reference"
+              aria-label={`Edit ${row.original.citationKey}`}
+              variant="primary"
+              size="sm"
+              icon={<IconPencil />}
+              onClick={() => setEditingReference(row.original)}
             />
             <IconButton
               name="Delete"
@@ -615,6 +684,11 @@ const ReferenceManager: React.FC = () => {
       )}
       {isLoadingBookReferencesFormat ? (
         <Spinner />
+      ) : !referenceFormat ? (
+        <Text size="sm" className="text-neutral-500">
+          This book doesn't have references set up yet. Choose a Book
+          References Format above to start adding references.
+        </Text>
       ) : entries.length === 0 ? (
         <Text size="sm" className="text-neutral-500">
           No references yet. Add an entry to get started.
@@ -669,6 +743,14 @@ const ReferenceManager: React.FC = () => {
         onAddBookPageAsReference={handleAddBookPageAsReference}
         referenceFormat={referenceFormat}
         projectID={id ?? ""}
+      />
+      <EditReference
+        reference={editingReference}
+        projectID={id ?? ""}
+        referenceFormat={referenceFormat}
+        saving={isUpdatingReference}
+        onClose={() => setEditingReference(null)}
+        onSave={(data) => updateReference(data)}
       />
       <Populate
         open={showPopulateModal}

@@ -220,9 +220,10 @@ async function getReferenceDetails(
       showPageRefs: false,
     });
     if (!referenceUsage) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "ReferenceUsage not found",
+      // Nothing set up yet: choosing a format creates the record.
+      return res.send({
+        err: false,
+        data: { entries: [] },
       });
     }
     return res.send({
