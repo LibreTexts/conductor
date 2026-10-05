@@ -410,12 +410,12 @@ const Configure: React.FC<ConfigureProps> = ({
                 disabled={busy}
               />
 
-              <div className="mt-4 grid grid-cols-[1fr_16rem] gap-4">
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[1fr_16rem]">
                 <div>
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-sm font-semibold text-neutral-700">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-neutral-700">
                       Groups
-                    </h5>
+                    </h3>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -470,12 +470,12 @@ const Configure: React.FC<ConfigureProps> = ({
                         }
                       />
                     ))}
-                    {fields.length === 0 && (
-                      <p className="text-sm text-neutral-500">
-                        <em>No groups yet — add one to get started.</em>
-                      </p>
-                    )}
                   </ul>
+                  {fields.length === 0 && (
+                    <p className="mt-2 text-sm text-neutral-500">
+                      <em>No groups yet — add one to get started.</em>
+                    </p>
+                  )}
 
                   <UnassignedZone
                     pageIds={unassignedPageIds}
@@ -525,11 +525,20 @@ const Configure: React.FC<ConfigureProps> = ({
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        navigator.clipboard.writeText(bibScript);
-                        addNotification({
-                          message: "Script copied to clipboard",
-                          type: "success",
-                        });
+                        navigator.clipboard
+                          .writeText(bibScript)
+                          .then(() =>
+                            addNotification({
+                              message: "Script copied to clipboard",
+                              type: "success",
+                            }),
+                          )
+                          .catch(() =>
+                            addNotification({
+                              message: "Couldn't copy to the clipboard",
+                              type: "error",
+                            }),
+                          );
                       }}
                     >
                       Copy bibliography script
@@ -538,15 +547,17 @@ const Configure: React.FC<ConfigureProps> = ({
                 </div>
 
                 <div className="min-w-0">
-                  <h5 className="text-sm font-semibold text-neutral-700">
+                  <h3 className="text-sm font-semibold text-neutral-700">
                     Table of Contents
-                  </h5>
-                  {armedGroupIndex !== null && fields[armedGroupIndex] && (
-                    <p className="mt-1 rounded bg-primary-50 px-2 py-1 text-xs text-primary-700">
-                      Click a page to set it as the target for “
-                      {getGroupLabel(fields[armedGroupIndex], armedGroupIndex)}”.
-                    </p>
-                  )}
+                  </h3>
+                  <div role="status" aria-live="polite">
+                    {armedGroupIndex !== null && fields[armedGroupIndex] && (
+                      <p className="mt-1 rounded bg-primary-50 px-2 py-1 text-xs text-primary-700">
+                        Choose a page to set it as the target for “
+                        {getGroupLabel(fields[armedGroupIndex], armedGroupIndex)}”.
+                      </p>
+                    )}
+                  </div>
                   <div className="mt-2 max-h-[22rem] overflow-y-auto rounded-md border border-neutral-200 p-2">
                     <GlossaryConfigTocTree
                       items={bookToc.children}

@@ -76,12 +76,13 @@ const ImportBibtexDialog: React.FC<ImportBibtexDialogProps> = ({
               setRawText(e.target.value);
             }}
             rows={12}
+            error={!!error}
+            errorMessage={error ?? undefined}
           />
-          {error && (
-            <p className="text-sm text-red-700" role="alert">
-              {error}
-            </p>
-          )}
+          {/* The Textarea ties the message to the field; this announces it. */}
+          <p className="sr-only" role="alert">
+            {error ?? ""}
+          </p>
         </Stack>
       </Modal.Body>
       <Modal.Footer>

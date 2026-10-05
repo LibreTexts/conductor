@@ -5,7 +5,6 @@ import {
   Checkbox,
   Input,
   Modal,
-  Spinner,
   Stack,
   Tabs,
   Text,
@@ -151,7 +150,7 @@ const AddContent: React.FC<AddContentProps> = ({
   const searchColumns = useMemo(
     () => [
       searchColumnHelper.accessor("referenceID", {
-        header: "",
+        header: () => <span className="sr-only">Select</span>,
         size: 140,
         cell: (info) => {
           const id = info.getValue();
@@ -161,6 +160,8 @@ const AddContent: React.FC<AddContentProps> = ({
                 (reference) => reference.referenceID === id,
               )}
               name={id}
+              label={`Select ${info.row.original.citationKey}`}
+              labelClassName="sr-only"
               onChange={(checked) => {
                 setSelectedReferences((prev) =>
                   checked
@@ -223,19 +224,25 @@ const AddContent: React.FC<AddContentProps> = ({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
-                {query.trim().length > 0 && query.trim().length <= 3 && (
-                  <Text size="sm" className="text-neutral-500">
-                    Type at least 4 characters to search.
-                  </Text>
-                )}
-                {isSearching && <Spinner size="sm" />}
-                {!isSearching &&
-                  query.trim().length > 3 &&
-                  searchResults.length === 0 && (
+                <div role="status" aria-live="polite">
+                  {query.trim().length > 0 && query.trim().length <= 3 && (
                     <Text size="sm" className="text-neutral-500">
-                      No references found.
+                      Type at least 4 characters to search.
                     </Text>
                   )}
+                  {isSearching && (
+                    <Text size="sm" className="text-neutral-500">
+                      Searching…
+                    </Text>
+                  )}
+                  {!isSearching && query.trim().length > 3 && (
+                    <Text size="sm" className="text-neutral-500">
+                      {searchResults.length === 0
+                        ? "No references found."
+                        : `${searchResults.length} reference${searchResults.length === 1 ? "" : "s"} found.`}
+                    </Text>
+                  )}
+                </div>
                 {searchResults.length > 0 && (
                   <Stack direction="vertical" gap="sm">
                     <Stack
@@ -271,6 +278,7 @@ const AddContent: React.FC<AddContentProps> = ({
                     <DataTable<ReferenceEntry>
                       data={searchResults}
                       columns={searchColumns}
+                      aria-label="Reference search results"
                       stickyHeader
                       striped
                       bordered

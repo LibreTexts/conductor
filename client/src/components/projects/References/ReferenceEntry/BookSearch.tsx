@@ -1,12 +1,11 @@
 import {
   Button,
-  Checkbox,
   Input,
   Spinner,
   Stack,
   Text,
 } from "@libretexts/davis-react";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BookSearchProps, defaultBookSearchProps } from "../model";
 import { BookWithAutoMatched } from "../../../../types";
@@ -26,30 +25,9 @@ type BookDashboardProps = {
   onAddBookPageAsReference: (data: { bookID: string; pageID: string }) => Promise<boolean>;
 };
 
-const columnHelper = createColumnHelper<BookWithAutoMatched>();
+const SEARCH_INPUT_NAME = "searchQuery";
 
-const columns = [
-  columnHelper.accessor("title", {
-    header: "Title",
-    size: 280,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor("author", {
-    header: "Author",
-    size: 160,
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor("library", {
-    header: "Library",
-    size: 120,
-    cell: (info) => getLibraryName(info.getValue()) || info.getValue() || "—",
-  }),
-  columnHelper.accessor("subject", {
-    header: "Subject",
-    size: 140,
-    cell: (info) => info.getValue() || "—",
-  }),
-];
+const columnHelper = createColumnHelper<BookWithAutoMatched>();
 
 const BookDashboard: React.FC<BookDashboardProps> = ({
   books,
@@ -62,6 +40,59 @@ const BookDashboard: React.FC<BookDashboardProps> = ({
   );
   const [selectedBook, setSelectedBook] = useState<BookWithAutoMatched | null>(
     null,
+  );
+  const bookHeadingRef = useRef<HTMLHeadingElement>(null);
+  const returnFocusToSearch = useRef(false);
+
+  // Opening a book replaces the results, and going back replaces the book, so
+  // move focus to the new content instead of leaving it on a removed element.
+  useEffect(() => {
+    if (selectedBook) {
+      bookHeadingRef.current?.focus();
+    } else if (returnFocusToSearch.current) {
+      returnFocusToSearch.current = false;
+      document.getElementById(SEARCH_INPUT_NAME)?.focus();
+    }
+  }, [selectedBook]);
+
+  // Davis DataTable rows respond to clicks only (pending a Davis fix), so the
+  // title is also a button to open the book from the keyboard.
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("title", {
+        header: "Title",
+        size: 280,
+        cell: (info) => (
+          <button
+            type="button"
+            className="text-left text-primary underline-offset-2 hover:underline focus-visible:underline"
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedBook(info.row.original);
+            }}
+          >
+            {info.getValue() || "Untitled book"}
+          </button>
+        ),
+      }),
+      columnHelper.accessor("author", {
+        header: "Author",
+        size: 160,
+        cell: (info) => info.getValue() || "—",
+      }),
+      columnHelper.accessor("library", {
+        header: "Library",
+        size: 120,
+        cell: (info) =>
+          getLibraryName(info.getValue()) || info.getValue() || "—",
+      }),
+      columnHelper.accessor("subject", {
+        header: "Subject",
+        size: 140,
+        cell: (info) => info.getValue() || "—",
+      }),
+    ],
+    [],
   );
 
   const trimmedQuery = searchQuery.searchQuery.trim();
@@ -119,29 +150,38 @@ const BookDashboard: React.FC<BookDashboardProps> = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setSelectedBook(null)}
+            onClick={() => {
+              returnFocusToSearch.current = true;
+              setSelectedBook(null);
+            }}
           >
             <span className="inline-flex items-center gap-1">
-              <IconArrowLeft size={16} />
+              <IconArrowLeft size={16} aria-hidden="true" />
               Back to search
             </span>
           </Button>
         </div>
-        <Text size="sm" weight="semibold">
+        <h3
+          ref={bookHeadingRef}
+          tabIndex={-1}
+          className="text-sm font-semibold focus:outline-none"
+        >
           {selectedBook.title}
-        </Text>
-        <Text size="sm" className="text-neutral-500">
+        </h3>
+        <Text size="sm" className="text-neutral-500" id="reference-book-toc-label">
           Table of contents
         </Text>
-        {isLoadingToc && <Spinner size="sm" />}
+        {isLoadingToc && (
+          <Spinner size="sm" text="Loading table of contents…" />
+        )}
         {isTocError && (
-          <Text size="sm" className="text-neutral-500">
-            Could not load table of contents.
+          <Text size="sm" className="text-danger" role="alert">
+            Could not load the table of contents.
           </Text>
         )}
         {!isLoadingToc && toc && (
           <div className="max-h-[40vh] overflow-y-auto rounded border border-gray-200 p-2">
-            <ul className="list-none">
+            <ul className="list-none" aria-labelledby="reference-book-toc-label">
               <TocNode
                 node={toc}
                 bookID={selectedBook.bookID}
@@ -159,7 +199,7 @@ const BookDashboard: React.FC<BookDashboardProps> = ({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
           <Input
-            name="searchQuery"
+            name={SEARCH_INPUT_NAME}
             label="Search books"
             placeholder="Title, author, or ISBN…"
             value={searchQuery.searchQuery}
@@ -187,16 +227,21 @@ const BookDashboard: React.FC<BookDashboardProps> = ({
         {searchQuery.self ? " from your books only" : " across LibreTexts"}.
         {!isLoading && ` ${books.length} books available.`}
       </Text>
-      {isLoading && <Spinner size="sm" />}
-      {!isLoading && showResults && filteredBooks.length === 0 && (
-        <Text size="sm" className="text-neutral-500">
-          No books found.
-        </Text>
-      )}
+      {isLoading && <Spinner size="sm" text="Loading books…" />}
+      <div role="status" aria-live="polite">
+        {!isLoading && showResults && (
+          <Text size="sm" className="text-neutral-500">
+            {filteredBooks.length === 0
+              ? "No books found."
+              : `${filteredBooks.length} book${filteredBooks.length === 1 ? "" : "s"} found. Choose a title to see its pages.`}
+          </Text>
+        )}
+      </div>
       {!isLoading && showResults && filteredBooks.length > 0 && (
         <DataTable<BookWithAutoMatched>
           data={filteredBooks}
           columns={columns}
+          aria-label="Book search results"
           stickyHeader
           striped
           bordered
