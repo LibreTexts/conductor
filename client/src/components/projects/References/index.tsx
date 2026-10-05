@@ -20,8 +20,12 @@ import {
   ReferenceFormatType,
   ReferenceFormatTypes,
   ReferenceFormData,
+  ReferenceDisplayLocation,
+  ReferenceScopeGroup,
+  ReferenceScopeMode,
   generateCitationKey,
   EntryTypes,
+  scopeModeForDisplayLocation,
 } from "./model";
 import AddContent from "./ReferenceEntry/AddContent";
 import EditReference from "./ReferenceEntry/EditReference";
@@ -32,8 +36,9 @@ import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
 import {
   IconCopy,
   IconExternalLink,
+  IconListTree,
   IconPencil,
-  IconSettings,
+  IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
 import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
@@ -42,6 +47,31 @@ import Populate, { hasPopulateJobData } from "./Populate";
 
 const columnHelper = createColumnHelper<ReferenceEntry>();
 const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
+
+/** One-line description of where reference lists appear, as the scope editor names it. */
+function describeScope({
+  scopeMode,
+  scopeGroups,
+  displayLocation,
+  pageTitle,
+}: {
+  scopeMode?: ReferenceScopeMode;
+  scopeGroups?: ReferenceScopeGroup[];
+  displayLocation?: ReferenceDisplayLocation;
+  pageTitle?: string;
+}): string {
+  const mode = scopeMode ?? scopeModeForDisplayLocation(displayLocation);
+  if (mode === "CHAPTER") {
+    const count = scopeGroups?.length;
+    return count
+      ? `References by chapter (${count} group${count === 1 ? "" : "s"})`
+      : "References by chapter";
+  }
+  if (mode === "BACKMATTER") {
+    return `One “${pageTitle?.trim() || "References"}” page in the back matter`;
+  }
+  return "References at the end of each page";
+}
 
 type BookReferencesQueryData = Awaited<
   ReturnType<typeof api.getBookReferenceDetails>
@@ -607,134 +637,189 @@ const ReferenceManager: React.FC = () => {
 
   const pendingIsOwned = !!pendingDelete && pendingDelete.projectID === id;
 
+  const scopeSummary = describeScope({
+    scopeMode: bookReferencesDetails?.data?.scopeMode,
+    scopeGroups: bookReferencesDetails?.data?.scopeGroups,
+    displayLocation,
+    pageTitle,
+  });
+
   return (
-    <Stack direction="vertical" gap="md" className="px-4 py-8 md:px-16">
-      <Stack direction="vertical" gap="xs" className="mb-2">
-        <Heading level={2}>Reference Manager</Heading>
-        {!isLoadingProject && project?.title && (
-          <Breadcrumb className="ml-1">
-            <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
-            <Breadcrumb.Item href={`/projects/${id}`}>
-              {project?.title}
-            </Breadcrumb.Item>
-            <Breadcrumb.Item isCurrent>Reference Manager</Breadcrumb.Item>
-          </Breadcrumb>
+    <Stack direction="vertical" gap="lg" className="px-4 py-8 md:px-16">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <Stack direction="vertical" gap="xs">
+          <Heading level={2}>Reference Manager</Heading>
+          {!isLoadingProject && project?.title && (
+            <Breadcrumb className="ml-1">
+              <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+              <Breadcrumb.Item href={`/projects/${id}`}>
+                {project?.title}
+              </Breadcrumb.Item>
+              <Breadcrumb.Item isCurrent>Reference Manager</Breadcrumb.Item>
+            </Breadcrumb>
+          )}
+        </Stack>
+        {projectBookURL && (
+          <Button
+            as="a"
+            href={projectBookURL}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="ghost"
+            size="sm"
+            icon={<IconExternalLink size={16} aria-hidden="true" />}
+            iconPosition="right"
+          >
+            Project Link
+            <span className="sr-only"> (opens in a new tab)</span>
+          </Button>
         )}
-      </Stack>
+      </div>
+
       {isErrorProject && (
         <Alert variant="error" message="Error loading project" />
       )}
+
       {!isLoadingProject && !isErrorProject && (
         <Card variant="elevated">
           <Card.Body>
-            <Stack direction="vertical" gap="md">
-              <Stack direction="horizontal" gap="md" align="end" wrap>
-                <div className="min-w-[14rem] flex-1">
-                  <Select
-                    className="w-full"
-                    name="bookReferencesFormat"
-                    label="Book References Format"
-                    options={ReferenceFormatTypes.map((format) => ({
-                      label: format,
-                      value: format,
-                    }))}
-                    placeholder="Select a format"
-                    value={referenceFormat ?? ""}
-                    disabled={isUpdatingFormat || !id}
-                    onChange={(e) => {
-                      const format = e.target.value as ReferenceFormatType;
-                      if (!format || !id || format === referenceFormat) return;
-                      // Format only: the scope (and the display fields
-                      // derived from it) stays as saved.
-                      updateFormat({
-                        format,
-                        displayLocation: displayLocation ?? "endOfPage",
-                        pageTitle: pageTitle ?? "",
-                      });
-                    }}
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  className="shrink-0"
-                  icon={<IconSettings size={16} aria-hidden="true" />}
-                  iconPosition="left"
-                  onClick={() => setShowConfigureModal(true)}
+            <section aria-labelledby="citation-settings-heading">
+              <Heading
+                level={3}
+                id="citation-settings-heading"
+                className="mb-4 text-lg"
+              >
+                Citation settings
+              </Heading>
+              {/* One grid so the labels share a row and the controls share a
+                  row; plain elements avoid Semantic UI's paragraph margins. */}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-stretch gap-x-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <label
+                  htmlFor="bookReferencesFormat"
+                  className="block text-base/6 font-medium text-gray-700"
                 >
-                  Scope
-                </Button>
-                {projectBookURL && (
+                  Format
+                </label>
+                <span
+                  id="citation-scope-summary"
+                  title={scopeSummary}
+                  className="block min-w-0 truncate text-right text-base/6 font-medium text-gray-700"
+                >
+                  {scopeSummary}
+                </span>
+                <Select
+                  className="w-full"
+                  name="bookReferencesFormat"
+                  label=""
+                  labelClassName="sr-only"
+                  options={ReferenceFormatTypes.map((format) => ({
+                    label: format,
+                    value: format,
+                  }))}
+                  placeholder="Select a format"
+                  value={referenceFormat ?? ""}
+                  disabled={isUpdatingFormat || !id}
+                  onChange={(e) => {
+                    const format = e.target.value as ReferenceFormatType;
+                    if (!format || !id || format === referenceFormat) return;
+                    // Format only: the scope (and the display fields
+                    // derived from it) stays as saved.
+                    updateFormat({
+                      format,
+                      displayLocation: displayLocation ?? "endOfPage",
+                      pageTitle: pageTitle ?? "",
+                    });
+                  }}
+                />
+                {/* The Select puts its field 6px below its (hidden) label, so
+                    the same top padding here keeps the button level with it,
+                    and stretching makes it exactly the field's height. */}
+                <div className="flex justify-end pt-1.5">
                   <Button
-                    as="a"
-                    href={projectBookURL}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     variant="outline"
-                    className="shrink-0"
-                    icon={<IconExternalLink size={16} aria-hidden="true" />}
-                    iconPosition="right"
+                    size="sm"
+                    className="h-full"
+                    icon={<IconListTree size={16} aria-hidden="true" />}
+                    iconPosition="left"
+                    aria-describedby="citation-scope-summary"
+                    disabled={!id}
+                    onClick={() => setShowConfigureModal(true)}
                   >
-                    Project Link
-                    <span className="sr-only"> (opens in a new tab)</span>
+                    Scope
                   </Button>
-                )}
-                <Button
-                  onClick={() => setShowAddContentModal(true)}
-                  disabled={isUpdatingFormat || !id || !referenceFormat}
-                  variant="primary"
-                  className="shrink-0"
-                >
-                  Add Reference
-                </Button>
-
-                <Button
-                  onClick={() => setShowPopulateModal(true)}
-                  disabled={isUpdatingFormat || !id || !referenceFormat}
-                  variant="primary"
-                  className="shrink-0"
-                >
-                  Populate
-                </Button>
-              </Stack>
-            </Stack>
+                </div>
+              </div>
+              {!isLoadingBookReferencesFormat && !referenceFormat && (
+                <Text size="sm" className="mt-4 block text-neutral-600">
+                  This book doesn't have references set up yet. Choose a
+                  format to start adding references.
+                </Text>
+              )}
+            </section>
           </Card.Body>
         </Card>
       )}
+
       {isLoadingBookReferencesFormat ? (
         <Spinner text="Loading references…" />
-      ) : !referenceFormat ? (
-        <Text size="sm" className="text-neutral-500">
-          This book doesn't have references set up yet. Choose a Book
-          References Format above to start adding references.
-        </Text>
-      ) : entries.length === 0 ? (
-        <Text size="sm" className="text-neutral-500">
-          No references yet. Add an entry to get started.
-        </Text>
-      ) : (
-        <DataTable<ReferenceEntry>
-          data={entries}
-          columns={columns}
-          aria-label="References in this book"
-          stickyHeader
-          striped
-          bordered
-          density="compact"
-          maxHeight="calc(100vh - 320px)"
-          enableSorting
-          enableGlobalFilter
-          enableColumnFilters
-          toolbar={{
-            globalSearch: true,
-            globalSearchPlaceholder: "Search references…",
-          }}
-          emptyState="No references match your search."
-          classNames={{
-            table: "table-fixed w-full",
-            cell: "!whitespace-normal min-w-0 break-words",
-          }}
-        />
-      )}
+      ) : referenceFormat ? (
+        <section
+          aria-labelledby="references-heading"
+          className="flex flex-col gap-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Heading level={3} id="references-heading" className="text-lg">
+              References ({entries.length})
+            </Heading>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPopulateModal(true)}
+                disabled={isUpdatingFormat || !id}
+              >
+                Populate book
+              </Button>
+              <Button
+                variant="primary"
+                icon={<IconPlus size={16} aria-hidden="true" />}
+                iconPosition="left"
+                onClick={() => setShowAddContentModal(true)}
+                disabled={isUpdatingFormat || !id}
+              >
+                Add Reference
+              </Button>
+            </div>
+          </div>
+          {entries.length === 0 ? (
+            <Text size="sm" className="text-neutral-500">
+              No references yet. Use Add Reference to create the first one.
+            </Text>
+          ) : (
+            <DataTable<ReferenceEntry>
+              data={entries}
+              columns={columns}
+              aria-label="References"
+              stickyHeader
+              striped
+              bordered
+              density="compact"
+              maxHeight="calc(100vh - 420px)"
+              enableSorting
+              enableGlobalFilter
+              enableColumnFilters
+              toolbar={{
+                globalSearch: true,
+                globalSearchPlaceholder: "Search references…",
+              }}
+              emptyState="No references match your search."
+              classNames={{
+                table: "table-fixed w-full",
+                cell: "!whitespace-normal min-w-0 break-words",
+              }}
+            />
+          )}
+        </section>
+      ) : null}
       <Configure
         open={showConfigureModal}
         onClose={() => setShowConfigureModal(false)}
