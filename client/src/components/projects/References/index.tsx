@@ -553,18 +553,25 @@ const ReferenceManager: React.FC = () => {
             <IconButton
               name="copy-citation-key"
               title="Copy citation key to clipboard"
-              aria-label={`Copy citation key to clipboard as \librecite{${row.original.citationKey}}`}
+              aria-label={`Copy \\librecite{${row.original.citationKey}} to clipboard`}
               variant="primary"
               size="sm"
               icon={<IconCopy />}
               onClick={() => {
-                navigator.clipboard.writeText(
-                  `\\librecite{${row.original.citationKey}}`,
-                );
-                addNotification({
-                  type: "success",
-                  message: "Citation key copied to clipboard",
-                });
+                navigator.clipboard
+                  .writeText(`\\librecite{${row.original.citationKey}}`)
+                  .then(() =>
+                    addNotification({
+                      type: "success",
+                      message: "Citation key copied to clipboard",
+                    }),
+                  )
+                  .catch(() =>
+                    addNotification({
+                      type: "error",
+                      message: "Couldn't copy to the clipboard",
+                    }),
+                  );
               }}
             />
             <IconButton
@@ -595,7 +602,7 @@ const ReferenceManager: React.FC = () => {
   const pendingIsOwned = !!pendingDelete && pendingDelete.projectID === id;
 
   return (
-    <Stack direction="vertical" gap="md" className="py-8 px-16">
+    <Stack direction="vertical" gap="md" className="px-4 py-8 md:px-16">
       <Stack direction="vertical" gap="xs" className="mb-2">
         <Heading level={2}>Reference Manager</Heading>
         {!isLoadingProject && project?.title && (
@@ -683,7 +690,7 @@ const ReferenceManager: React.FC = () => {
         </Card>
       )}
       {isLoadingBookReferencesFormat ? (
-        <Spinner />
+        <Spinner text="Loading references…" />
       ) : !referenceFormat ? (
         <Text size="sm" className="text-neutral-500">
           This book doesn't have references set up yet. Choose a Book
@@ -697,6 +704,7 @@ const ReferenceManager: React.FC = () => {
         <DataTable<ReferenceEntry>
           data={entries}
           columns={columns}
+          aria-label="References in this book"
           stickyHeader
           striped
           bordered

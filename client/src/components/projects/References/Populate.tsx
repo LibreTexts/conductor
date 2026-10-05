@@ -7,7 +7,7 @@ import {
   Stack,
   Text,
 } from "@libretexts/davis-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../../api";
 
 export type PopulateJobDetails = {
@@ -44,11 +44,23 @@ const Populate: React.FC<PopulateProps> = ({
 }) => {
   const hasJob = hasPopulateJobData(job);
 
-  const { mutate: createPopulateJob, isPending: isCreatingJob } = useMutation({
-    mutationFn: () => api.createPopulateJob(projectID),
-    onSuccess: (response) => {
-      if (response.err) return;
-      window.location.reload();
+  const queryClient = useQueryClient();
+  const {
+    mutate: createPopulateJob,
+    isPending: isCreatingJob,
+    isError: startFailed,
+  } = useMutation({
+    mutationFn: async () => {
+      const response = await api.createPopulateJob(projectID);
+      if (response.err) throw new Error("Failed to start populate job");
+      return response;
+    },
+    onSuccess: () => {
+      // Refetching the job shows its progress here; a page reload would also
+      // throw away the user's place on the page.
+      queryClient.invalidateQueries({
+        queryKey: ["populateReferences", projectID],
+      });
     },
   });
 
@@ -77,9 +89,11 @@ const Populate: React.FC<PopulateProps> = ({
       <Modal.Body>
         {hasJob ? (
           <Stack direction="vertical" gap="md">
-            <Text size="sm" weight="semibold">
-              Status: {job.status}
-            </Text>
+            <div role="status" aria-live="polite">
+              <Text size="sm" weight="semibold">
+                Status: {job.status}
+              </Text>
+            </div>
             <Progress
               value={progressValue}
               label={`${job.completedPages} / ${job.totalPages} pages`}
@@ -87,18 +101,29 @@ const Populate: React.FC<PopulateProps> = ({
             />
             {messages.length > 0 && (
               <Stack direction="vertical" gap="xs">
-                <Text size="sm" weight="semibold">
+                <h3
+                  id="populate-messages-heading"
+                  className="text-sm font-semibold"
+                >
                   Messages
-                </Text>
+                </h3>
                 <Card variant="elevated">
-                  <Card.Body className="max-h-48 overflow-y-auto">
-                    <ul className="list-disc space-y-1 pl-5">
-                      {messages.map((message, index) => (
-                        <li key={`${index}-${message}`}>
-                          <Text size="sm">{message}</Text>
-                        </li>
-                      ))}
-                    </ul>
+                  {/* Scrollable, so it must be reachable from the keyboard. */}
+                  <Card.Body>
+                    <div
+                      className="max-h-48 overflow-y-auto"
+                      tabIndex={0}
+                      role="region"
+                      aria-labelledby="populate-messages-heading"
+                    >
+                      <ul className="list-disc space-y-1 pl-5">
+                        {messages.map((message, index) => (
+                          <li key={`${index}-${message}`}>
+                            <Text size="sm">{message}</Text>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </Card.Body>
                 </Card>
               </Stack>
@@ -106,17 +131,25 @@ const Populate: React.FC<PopulateProps> = ({
           </Stack>
         ) : (
           <Stack direction="vertical" gap="sm">
-            <Text size="lg" weight="bold">
-              Before you populate, please note:
-            </Text>
-            <Text>Add all the references tags to the pages.</Text>
-            <Text>Configure the references format and display location.</Text>
-            <Text>
-              Populate the references will generate the references list and
-              updates your book.
-            </Text>
-            <Text>It may take a few minutes to populate the references.</Text>
-            <Text>You will be notified when the references are populated.</Text>
+            <h3 className="text-lg font-bold">Before you populate</h3>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Add all the reference tags to the pages.</li>
+              <li>Configure the reference format and display location.</li>
+              <li>
+                Populating generates the reference lists and updates your
+                book.
+              </li>
+              <li>It may take a few minutes.</li>
+              <li>You will be notified when the references are populated.</li>
+            </ul>
+            <div role="alert">
+              {startFailed && (
+                <Text size="sm" className="text-danger">
+                  Populating couldn't start. Try again, or check that another
+                  populate job isn't already running.
+                </Text>
+              )}
+            </div>
           </Stack>
         )}
       </Modal.Body>
