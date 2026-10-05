@@ -132,7 +132,11 @@ interface GroupCardProps {
   onMoveDown: () => void;
   onRemoveGroup: () => void;
   onRemovePage: (pageId: string) => void;
-  onToggleArm: () => void;
+  onToggleArm?: () => void;
+  /** CHAPTER mode only: whether the user picks the page a group displays on. */
+  canSetTarget?: boolean;
+  /** Whether to show the "Displays on" line (never shown in PAGE mode). */
+  showTarget?: boolean;
 }
 
 export const GroupCard: React.FC<GroupCardProps> = ({
@@ -153,6 +157,8 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   onRemoveGroup,
   onRemovePage,
   onToggleArm,
+  canSetTarget = true,
+  showTarget = true,
 }) => {
   const dropTarget: DropTarget = { type: "group", groupIndex: index };
   const { setNodeRef, isOver } = useDroppable({
@@ -217,12 +223,12 @@ export const GroupCard: React.FC<GroupCardProps> = ({
         </div>
       </div>
 
-      {mode !== "PAGE" && (
+      {mode !== "PAGE" && showTarget && (
         <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
           <span>
             Displays on: <strong className="text-neutral-700">{targetTitle}</strong>
           </span>
-          {mode === "CHAPTER" && (
+          {mode === "CHAPTER" && canSetTarget && onToggleArm && (
             <Button
               size="sm"
               variant={armed ? "secondary" : "ghost"}
