@@ -20,6 +20,7 @@ import {
 } from "./validators/whatsnew.js";
 import { ZodReqWithUser } from "../types/Express.js";
 import {
+  conductor400Err,
   conductor404Err,
   conductor500Err,
 } from "../util/errorutils.js";
@@ -45,10 +46,11 @@ const PUBLIC_PROJECTION = {
  * newest published entry is ever a candidate, which is what makes a new entry
  * supersede an older one: the old one simply stops being served.
  *
- * Expiry is two-layered. The query applies the DEFAULT staleness window, then
- * any per-entry `staleAfterDays` override is re-checked in application code —
- * an override can only ever be more permissive in the query than the default,
- * so a widened window needs a second pass and a narrowed one needs a re-check.
+ * Order matters here. The newest published entry is selected FIRST, then tested
+ * for expiry and staleness. Those tests are terminal: if the newest entry is not
+ * servable the answer is null, never the next entry down. Pushing either test
+ * into the query instead would let an expired notice fall through to an older,
+ * still-valid one and re-open a modal users already dismissed.
  */
 export async function getActiveWhatsNew(
   req: ZodReqWithUser<Record<string, never>>,
@@ -56,21 +58,18 @@ export async function getActiveWhatsNew(
 ) {
   try {
     const now = new Date();
-    // Widest window any entry could claim, so an entry with a long
-    // `staleAfterDays` override is not filtered out before we can read it.
+    // A floor on `publishedAt` is the one time filter that IS safe to apply in
+    // the query: it is monotone with the sort, so if it excludes the newest entry
+    // it excludes every older entry too. `expiresAt` and the staleness window
+    // have no such property and are therefore checked after selection, below.
     const widestCutoff = new Date(now.getTime() - 3650 * MS_PER_DAY);
 
     const candidates = await WhatsNew.find(
       {
         status: "published",
         publishedAt: { $ne: null, $gt: widestCutoff },
-        $or: [
-          { expiresAt: { $exists: false } },
-          { expiresAt: null },
-          { expiresAt: { $gt: now } },
-        ],
       },
-      { ...PUBLIC_PROJECTION, staleAfterDays: 1 }
+      { ...PUBLIC_PROJECTION, staleAfterDays: 1, expiresAt: 1 }
     )
       .sort({ publishedAt: -1 })
       .limit(1)
@@ -81,15 +80,21 @@ export async function getActiveWhatsNew(
       return res.send({ err: false, entry: null });
     }
 
-    const staleDays = candidate.staleAfterDays ?? WHATS_NEW_DEFAULT_STALE_DAYS;
-    const staleCutoff = new Date(now.getTime() - staleDays * MS_PER_DAY);
-    if (new Date(candidate.publishedAt) <= staleCutoff) {
-      // The newest entry is itself stale, so there is nothing to show. An older
-      // entry can never be fresher, so there is no reason to look further.
+    // Both checks below are terminal. The newest published entry is the only
+    // candidate there will ever be, so if it is not servable the answer is null:
+    // falling back to an older entry would resurrect a notice users have already
+    // seen and dismissed.
+    if (candidate.expiresAt && new Date(candidate.expiresAt) <= now) {
       return res.send({ err: false, entry: null });
     }
 
-    const { staleAfterDays, ...entry } = candidate;
+    const staleDays = candidate.staleAfterDays ?? WHATS_NEW_DEFAULT_STALE_DAYS;
+    const staleCutoff = new Date(now.getTime() - staleDays * MS_PER_DAY);
+    if (new Date(candidate.publishedAt) <= staleCutoff) {
+      return res.send({ err: false, entry: null });
+    }
+
+    const { staleAfterDays, expiresAt, ...entry } = candidate;
     return res.send({ err: false, entry });
   } catch (err) {
     whatsNewLog.error({ err }, "getActiveWhatsNew failed");
@@ -107,7 +112,13 @@ export async function getWhatsNewEntries(
 ) {
   try {
     const { page, limit, status } = req.query;
-    const filter = status ? { status } : {};
+    const filter: { status?: { $eq: string } } = {};
+    if (status !== undefined) {
+      if (typeof status !== "string") {
+        return conductor400Err(res);
+      }
+      filter.status = { $eq: status };
+    }
     const offset = getPaginationOffset(page, limit);
 
     // Drafts have no publishedAt, so fall back to creation order for them.
@@ -185,6 +196,29 @@ export async function updateWhatsNewEntry(
     }
 
     const updates: Partial<WhatsNewInterface> = { ...req.body } as Partial<WhatsNewInterface>;
+
+    // Only copy known, allowed fields from request body into $set.
+    if ("title" in req.body && req.body.title !== null) {
+      updates.title = req.body.title;
+    }
+    if ("body" in req.body && req.body.body !== null) {
+      updates.body = req.body.body;
+    }
+    if ("status" in req.body && req.body.status !== null) {
+      updates.status = req.body.status;
+    }
+    if ("expiresAt" in req.body && req.body.expiresAt !== null) {
+      updates.expiresAt = req.body.expiresAt;
+    }
+    if ("staleAfterDays" in req.body && req.body.staleAfterDays !== null) {
+      updates.staleAfterDays = req.body.staleAfterDays;
+    }
+    if ("ctaLabel" in req.body && req.body.ctaLabel !== null) {
+      updates.ctaLabel = req.body.ctaLabel;
+    }
+    if ("ctaUrl" in req.body && req.body.ctaUrl !== null) {
+      updates.ctaUrl = req.body.ctaUrl;
+    }
 
     // `null` from the client means "clear this optional field".
     const unset: Record<string, ""> = {};

@@ -1,5 +1,12 @@
 export const WHATS_NEW_STATUSES = ["draft", "published", "archived"] as const;
 
+/**
+ * Must match `WHATS_NEW_DEFAULT_STALE_DAYS` in `server/models/whatsnew.ts`. The
+ * server is the authority on which entry is live; this copy exists only so the
+ * authoring UI can show the author the same answer.
+ */
+export const WHATS_NEW_DEFAULT_STALE_DAYS = 90;
+
 export type WhatsNewStatus = (typeof WHATS_NEW_STATUSES)[number];
 
 /**
