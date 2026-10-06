@@ -262,6 +262,7 @@ const publishRemixerProject = async (
       copyModeState,
       pathLevelFormats,
       importGlossaryTerms,
+      importReferences,
       liveBookFingerprint,
     } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
@@ -374,6 +375,7 @@ const publishRemixerProject = async (
         subdomain,
         coverId: project.libreCoverID ?? "",
         importGlossaryTerms: Boolean(importGlossaryTerms),
+        importReferences: Boolean(importReferences),
       })
       .catch((error: unknown) => {
         logger.error({ err: error }, "Failed to run remixer job");

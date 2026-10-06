@@ -27,7 +27,8 @@ import {
 } from "../../util/librariesclient.js";
 import { escapeRegEx, sleep } from "../../util/helpers.js";
 import { ReferencePopulateJob } from "../../models/referencepopulatejosb.js";
-import { ProjectInterface } from "../../models/project.js";
+import Project, { ProjectInterface } from "../../models/project.js";
+import GlossaryService from "./glossary-service.js";
 import MindTouch from "../../util/CXOne/index.js";
 import RemixerTemplates from "../../util/CXOne/CXOneRemixerTemplates.js";
 import { titleToRemixerPathSegment } from "../../util/remixerutils.js";
@@ -1258,4 +1259,265 @@ export const createReferencePopulateJob = async (
   });
 
   return populateJob;
+};
+
+// ── Remixer: bring imported pages' references into the remixed book ────────
+
+/** `\librecite{a, b}` → each key in the call. */
+const LIBRECITE_RE = /\librecite\{([^}]+)\}/g;
+
+/** Renames citation keys inside every `\librecite{…}` call, leaving others as they are. */
+export const rewriteCitationKeys = (
+  html: string,
+  renames: Record<string, string>,
+): string => {
+  if (Object.keys(renames).length === 0) return html;
+  return html.replace(LIBRECITE_RE, (_call, keys: string) => {
+    const rewritten = keys
+      .split(",")
+      .map((part) => {
+        const key = part.trim();
+        return renames[key] ? part.replace(key, renames[key]) : part;
+      })
+      .join(",");
+    return `\librecite{${rewritten}}`;
+  });
+};
+
+/** DOI or URL, normalized, used to tell that two references are the same work. */
+const workIdentity = (reference: {
+  doi?: string;
+  url?: string;
+}): string | null => {
+  const doi = reference.doi
+    ?.trim()
+    .toLowerCase()
+    .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "");
+  if (doi) return `doi:${doi}`;
+  const url = reference.url
+    ?.trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/+$/, "");
+  return url ? `url:${url}` : null;
+};
+
+/** The project that owns the book a library page belongs to, if any. */
+const findProjectForPage = async (pageID: string, library: string) => {
+  const candidateCoverIDs = (
+    await GlossaryService.getCandidateCoverIDs(parseInt(pageID, 10), library)
+  ).map(String);
+  return Project.findOne({
+    libreCoverID: { $in: candidateCoverIDs },
+    libreLibrary: { $eq: library },
+  });
+};
+
+/**
+ * A key free in the book both among the references it cites (borrowed ones
+ * included) and among those it owns, which the unique index also covers.
+ */
+const freeCitationKeyIn = async (
+  projectID: string,
+  base: string,
+  citedKeys: Map<string, unknown>,
+): Promise<string> => {
+  const candidates = [
+    base,
+    ...Array.from({ length: 26 }, (_, i) => `${base}${String.fromCharCode(97 + i)}`),
+  ];
+  for (const candidate of candidates) {
+    if (citedKeys.has(candidate)) continue;
+    const owned = await Reference.exists({
+      projectID: { $eq: projectID },
+      citationKey: { $eq: candidate },
+    });
+    if (!owned) return candidate;
+  }
+  return `${base}-${base62(4)}`;
+};
+
+export type ImportedPageReferences = {
+  /** References added to the remixed book. */
+  imported: number;
+  /** Old key → new key; apply to a copied page with `rewriteCitationKeys`. */
+  keyRenames: Record<string, string>;
+  /** Keys whose meaning in the remixed book differs and couldn't be fixed. */
+  conflicts: string[];
+  /** Cited keys the source book has no reference for. */
+  unresolved: number;
+};
+
+const NO_IMPORT: ImportedPageReferences = {
+  imported: 0,
+  keyRenames: {},
+  conflicts: [],
+  unresolved: 0,
+};
+
+/**
+ * Carries the references an imported page cites into the remixed book.
+ *
+ * The cited keys are read from the page content, not from the source book's
+ * last Populate, so this works even if the source never ran it and never
+ * writes to the source book. Each cited reference is shared by ID, so it
+ * stays the same reference in both books. A key the remixed book already
+ * uses for a different work is the only exception:
+ * - `canRewriteContent` (copied pages): the reference is copied under a free
+ *   key and `keyRenames` says how to rewrite the page's citations;
+ * - otherwise (transcluded pages, whose content stays the source's): the key
+ *   is reported in `conflicts`.
+ */
+export const importPageReferences = async ({
+  sourcePageID,
+  sourceLibrary,
+  sourceContent,
+  targetCoverID,
+  targetLibrary,
+  actorUUID,
+  canRewriteContent,
+}: {
+  sourcePageID: string;
+  sourceLibrary: string;
+  /** The source page's HTML when the caller already has it. */
+  sourceContent?: string;
+  targetCoverID: string;
+  targetLibrary: string;
+  actorUUID: string;
+  canRewriteContent: boolean;
+}): Promise<ImportedPageReferences> => {
+  const [sourceProject, targetProject] = await Promise.all([
+    findProjectForPage(sourcePageID, sourceLibrary),
+    Project.findOne({
+      libreCoverID: { $eq: targetCoverID },
+      libreLibrary: { $eq: targetLibrary },
+    }),
+  ]);
+  if (!sourceProject || !targetProject) return NO_IMPORT;
+  if (sourceProject.projectID === targetProject.projectID) return NO_IMPORT;
+
+  const sourceUsage = await ReferenceUsage.findOne(
+    { projectID: { $eq: sourceProject.projectID } },
+    { entries: 1, format: 1 },
+  ).lean();
+  if (!sourceUsage?.entries?.length) return NO_IMPORT;
+
+  const content =
+    sourceContent ??
+    normalizePageBody(
+      await new BookService({
+        bookID: `${sourceLibrary}-${sourceProject.libreCoverID}`,
+      }).getPageContent(sourcePageID, "json"),
+    );
+  const citedKeys = extractReferenceFromContent(content);
+  if (citedKeys.length === 0) return NO_IMPORT;
+
+  const sourceByKey = new Map(
+    (
+      await Reference.find({
+        referenceID: { $in: sourceUsage.entries },
+        citationKey: { $in: citedKeys },
+      }).lean()
+    ).map((reference) => [reference.citationKey, reference]),
+  );
+  const unresolved = citedKeys.filter((key) => !sourceByKey.has(key)).length;
+  if (sourceByKey.size === 0) return { ...NO_IMPORT, unresolved };
+
+  // A remix into a book with no references yet starts from the source's format.
+  const targetUsage =
+    (await ReferenceUsage.findOne({
+      projectID: { $eq: targetProject.projectID },
+    })) ??
+    (await upsertReferenceFormat(
+      targetProject.projectID,
+      sourceUsage.format,
+      actorUUID,
+    ));
+
+  const targetRefs = await Reference.find(
+    { referenceID: { $in: targetUsage.entries } },
+    { referenceID: 1, citationKey: 1, doi: 1, url: 1 },
+  ).lean();
+  const targetIDs = new Set(targetRefs.map((ref) => ref.referenceID));
+  const targetByKey = new Map(targetRefs.map((ref) => [ref.citationKey, ref]));
+  const targetKeyByWork = new Map<string, string>();
+  for (const ref of targetRefs) {
+    const work = workIdentity(ref);
+    if (work) targetKeyByWork.set(work, ref.citationKey);
+  }
+
+  const result: ImportedPageReferences = {
+    imported: 0,
+    keyRenames: {},
+    conflicts: [],
+    unresolved,
+  };
+  const toShare: string[] = [];
+
+  for (const [key, source] of sourceByKey) {
+    if (targetIDs.has(source.referenceID)) continue;
+
+    const work = workIdentity(source);
+    const sameWorkKey = work ? targetKeyByWork.get(work) : undefined;
+    const holder = targetByKey.get(key);
+
+    // The remixed book already has this work: cite its existing reference.
+    if (sameWorkKey === key) continue;
+    if (sameWorkKey && canRewriteContent) {
+      result.keyRenames[key] = sameWorkKey;
+      continue;
+    }
+    // A transcluded page keeps its key, so it needs a reference under that
+    // key below, even though the book has the same work under another one.
+
+    if (!holder) {
+      toShare.push(source.referenceID);
+      targetIDs.add(source.referenceID);
+      targetByKey.set(key, source);
+      if (work && !targetKeyByWork.has(work)) targetKeyByWork.set(work, key);
+      continue;
+    }
+
+    // The key means a different work in the remixed book.
+    if (!canRewriteContent) {
+      result.conflicts.push(key);
+      continue;
+    }
+    const freeKey = await freeCitationKeyIn(
+      targetProject.projectID,
+      key,
+      targetByKey,
+    );
+    const now = new Date();
+    const forked = await Reference.create({
+      ...pickOptionalFields(source as ReferenceEntryInput),
+      projectID: targetProject.projectID,
+      referenceID: base62(10),
+      createdBy: actorUUID,
+      updatedBy: actorUUID,
+      isFork: true,
+      forkedFrom: source.referenceID,
+      createdAt: now,
+      updatedAt: now,
+      entryType: source.entryType,
+      citationKey: freeKey,
+    });
+    toShare.push(forked.referenceID);
+    targetIDs.add(forked.referenceID);
+    targetByKey.set(freeKey, forked);
+    if (work) targetKeyByWork.set(work, freeKey);
+    result.keyRenames[key] = freeKey;
+  }
+
+  if (toShare.length > 0) {
+    await ReferenceUsage.updateOne(
+      { projectID: { $eq: targetProject.projectID } },
+      {
+        $addToSet: { entries: { $each: toShare } },
+        $set: { updatedBy: actorUUID },
+      },
+    );
+  }
+  result.imported = toShare.length;
+  return result;
 };

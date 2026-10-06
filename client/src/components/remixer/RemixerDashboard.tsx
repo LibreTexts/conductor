@@ -89,7 +89,9 @@ import {
 } from "@libretexts/davis-react";
 import useProject from "../../hooks/useProject";
 import { useModals } from "../../context/ModalContext";
-import ConfirmModal from "../ConfirmModal";
+import PublishImportOptionsModal, {
+  type PublishImportOptions,
+} from "./PublishImportOptionsModal";
 import ControlPanelNewUITemp from "./ControlPanel";
 import { useDocumentTitle } from "usehooks-ts";
 import BookActions from "./BookActions";
@@ -2172,6 +2174,7 @@ const RemixerDashboard: React.FC = () => {
         copyModeState?: string;
         pathLevelFormats?: PathLevelFormat[];
         importGlossaryTerms?: boolean;
+        importReferences?: boolean;
         liveBookFingerprint?: string;
       };
     }) => {
@@ -2227,7 +2230,10 @@ const RemixerDashboard: React.FC = () => {
       !page["@id"].startsWith("new-"),
   );
 
-  const startPublish = (importGlossaryTerms: boolean) => {
+  const startPublish = ({
+    importGlossaryTerms,
+    importReferences,
+  }: PublishImportOptions) => {
     if (!id) return;
     setPublishStatus("pending");
     setPublishMessages(["Publish request accepted. Creating backend job..."]);
@@ -2238,6 +2244,7 @@ const RemixerDashboard: React.FC = () => {
         copyModeState: uiState.copyModeState,
         pathLevelFormats: uiState.pathLevelFormats,
         importGlossaryTerms,
+        importReferences,
         liveBookFingerprint: liveBookFingerprintRef.current ?? undefined,
       },
     });
@@ -2247,25 +2254,17 @@ const RemixerDashboard: React.FC = () => {
     if (!id) return;
     if (hasImportedLibraryPages) {
       openModal(
-        <ConfirmModal
-          text="This remix includes pages imported from other books. Would you like to import the glossary terms used on those pages into this book's glossary as well?"
-          confirmText="Import Glossary Terms"
-          cancelText="Skip"
-          // "Skip" still publishes, so Esc/outside click must not trigger it.
-          dismissible={false}
-          onCancel={() => {
+        <PublishImportOptionsModal
+          onCancel={closeAllModals}
+          onPublish={(options) => {
             closeAllModals();
-            startPublish(false);
-          }}
-          onConfirm={() => {
-            closeAllModals();
-            startPublish(true);
+            startPublish(options);
           }}
         />,
       );
       return;
     }
-    startPublish(false);
+    startPublish({ importGlossaryTerms: false, importReferences: false });
   };
 
   // Rendered inline in the tree (see below) rather than pushed through
