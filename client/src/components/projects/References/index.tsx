@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Breadcrumb,
@@ -34,6 +34,7 @@ import api from "../../../api";
 import { useNotifications } from "../../../context/NotificationContext";
 import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
 import {
+  IconAlertTriangle,
   IconCopy,
   IconExternalLink,
   IconListTree,
@@ -44,9 +45,35 @@ import {
 import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
 import Configure, { type ConfigureSettings } from "./Scope/Configure";
 import Populate, { hasPopulateJobData } from "./Populate";
+import CitationCheck, { type CitationCheckData } from "./CitationCheck";
+import ReferenceWarningsModal, {
+  type ReferenceWarning,
+} from "./ReferenceWarningsModal";
 
 const columnHelper = createColumnHelper<ReferenceEntry>();
 const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
+
+/**
+ * Warnings for every reference, by referenceID. Only references with at least
+ * one warning are included. New kinds of warning are added here.
+ */
+function buildReferenceWarnings(
+  check: CitationCheckData | null | undefined,
+): Map<string, ReferenceWarning[]> {
+  const warnings = new Map<string, ReferenceWarning[]>();
+  const add = (referenceID: string, warning: ReferenceWarning) =>
+    warnings.set(referenceID, [...(warnings.get(referenceID) ?? []), warning]);
+
+  for (const reference of check?.unused ?? []) {
+    add(reference.referenceID, {
+      id: "not-cited",
+      title: "Not cited",
+      detail:
+        "The last citation scan found no page that cites this reference, so it appears in no reference list. Cite it on a page and scan again, or remove it from this book.",
+    });
+  }
+  return warnings;
+}
 
 /** The server's `errMsg` (e.g. "Citation key … is already used"), else `fallback`. */
 function errorMessageFrom(error: unknown, fallback: string): string {
@@ -100,6 +127,9 @@ const ReferenceManager: React.FC = () => {
   const [deleteFromReferences, setDeleteFromReferences] = useState(false);
   const [editingReference, setEditingReference] =
     useState<ReferenceEntry | null>(null);
+  const [warningReference, setWarningReference] =
+    useState<ReferenceEntry | null>(null);
+  const [notCitedOnly, setNotCitedOnly] = useState(false);
 
   const {
     project,
@@ -196,6 +226,17 @@ const ReferenceManager: React.FC = () => {
     if (hasPopulateJob) {
       setShowPopulateModal(true);
     }
+  }, [hasPopulateJob]);
+
+  // When a running scan finishes, reload the book's data so the citation
+  // check reflects it.
+  const scanWasRunning = useRef(false);
+  useEffect(() => {
+    if (scanWasRunning.current && !hasPopulateJob) {
+      queryClient.invalidateQueries({ queryKey: bookReferencesQueryKey });
+    }
+    scanWasRunning.current = hasPopulateJob;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPopulateJob]);
 
   const updateBookReferencesCache = (
@@ -585,6 +626,22 @@ const ReferenceManager: React.FC = () => {
     });
   };
 
+  const citationCheck = bookReferencesDetails?.data?.citationCheck;
+  /** Each reference's warnings; references without any aren't in the map. */
+  const referenceWarnings = useMemo(
+    () => buildReferenceWarnings(citationCheck),
+    [citationCheck],
+  );
+  const notCitedCount = citationCheck?.unused.length ?? 0;
+  const showNotCitedOnly = notCitedOnly && notCitedCount > 0;
+  const tableEntries = showNotCitedOnly
+    ? entries.filter((entry) =>
+        referenceWarnings
+          .get(entry.referenceID)
+          ?.some((warning) => warning.id === "not-cited"),
+      )
+    : entries;
+
   const columns = useMemo(
     () => [
       columnHelper.accessor("citationKey", {
@@ -619,11 +676,22 @@ const ReferenceManager: React.FC = () => {
       columnHelper.display({
         id: "actions",
         header: () => <span className="block w-full text-right">Actions</span>,
-        size: 112,
+        size: 144,
         enableSorting: false,
         enableColumnFilter: false,
         cell: ({ row }) => (
           <Stack direction="horizontal" gap="xs" className="justify-end">
+            {referenceWarnings.has(row.original.referenceID) && (
+              <IconButton
+                name="reference-warnings"
+                title="Show warnings"
+                aria-label={`Show warnings for ${row.original.citationKey}`}
+                variant="outline"
+                size="sm"
+                icon={<IconAlertTriangle className="text-amber-600" />}
+                onClick={() => setWarningReference(row.original)}
+              />
+            )}
             <IconButton
               name="copy-citation-key"
               title="Copy citation key to clipboard"
@@ -670,7 +738,7 @@ const ReferenceManager: React.FC = () => {
         ),
       }),
     ],
-    [],
+    [referenceWarnings],
   );
 
   const pendingIsOwned = !!pendingDelete && pendingDelete.projectID === id;
@@ -798,6 +866,14 @@ const ReferenceManager: React.FC = () => {
         </Card>
       )}
 
+      {referenceFormat && citationCheck && citationCheck.missing.length > 0 && (
+        <CitationCheck
+          missing={citationCheck.missing}
+          checkedAt={citationCheck.checkedAt}
+          library={project?.libreLibrary}
+        />
+      )}
+
       {isLoadingBookReferencesFormat ? (
         <Spinner text="Loading references…" />
       ) : referenceFormat ? (
@@ -809,13 +885,21 @@ const ReferenceManager: React.FC = () => {
             <Heading level={3} id="references-heading" className="text-lg">
               References ({entries.length})
             </Heading>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              {notCitedCount > 0 && (
+                <Checkbox
+                  name="references-not-cited-only"
+                  label={`Not cited only (${notCitedCount})`}
+                  checked={notCitedOnly}
+                  onChange={(checked) => setNotCitedOnly(checked === true)}
+                />
+              )}
               <Button
                 variant="outline"
                 onClick={() => setShowPopulateModal(true)}
                 disabled={isUpdatingFormat || !id}
               >
-                Populate book
+                Scan Citations
               </Button>
               <Button
                 variant="primary"
@@ -834,7 +918,7 @@ const ReferenceManager: React.FC = () => {
             </Text>
           ) : (
             <DataTable<ReferenceEntry>
-              data={entries}
+              data={tableEntries}
               columns={columns}
               aria-label="References"
               stickyHeader
@@ -885,6 +969,15 @@ const ReferenceManager: React.FC = () => {
         onAddBookPageAsReference={handleAddBookPageAsReference}
         referenceFormat={referenceFormat}
         projectID={id ?? ""}
+      />
+      <ReferenceWarningsModal
+        reference={warningReference}
+        warnings={
+          warningReference
+            ? (referenceWarnings.get(warningReference.referenceID) ?? [])
+            : []
+        }
+        onClose={() => setWarningReference(null)}
       />
       <EditReference
         reference={editingReference}

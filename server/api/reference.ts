@@ -43,6 +43,8 @@ import {
 import BookService from "./services/book-service.js";
 import GlossaryService from "./services/glossary-service.js";
 import { PageReferences } from "../models/referenceusage.js";
+import { ReferencePopulateJob } from "../models/referencepopulatejob.js";
+import { compareCitations } from "../util/referenceCitations.js";
 import { isValidCitationKey } from "../util/referenceSanitize.js";
 
 async function updateReferenceFormat(
@@ -219,7 +221,7 @@ async function getReferenceDetails(
 
     const referenceUsage = await getReferencesUsage({
       projectID,
-      showPageRefs: false,
+      showPageRefs: true,
     });
     if (!referenceUsage) {
       // Nothing set up yet: choosing a format creates the record.
@@ -228,9 +230,25 @@ async function getReferenceDetails(
         data: { entries: [] },
       });
     }
+
+    // Only meaningful once Populate has recorded every page's citations.
+    const lastPopulate = await ReferencePopulateJob.findOne(
+      { projectID: { $eq: projectID }, status: { $eq: "completed" } },
+      { updatedAt: 1 },
+    )
+      .sort({ updatedAt: -1 })
+      .lean();
+    const { pageReferences, ...usage } = referenceUsage;
+    const citationCheck = lastPopulate
+      ? {
+          checkedAt: lastPopulate.updatedAt,
+          ...compareCitations(pageReferences ?? [], usage.entries),
+        }
+      : null;
+
     return res.send({
       err: false,
-      data: { ...referenceUsage },
+      data: { ...usage, citationCheck },
     });
   } catch (err) {
     logger.error({ err }, "getReferenceDetails failed");

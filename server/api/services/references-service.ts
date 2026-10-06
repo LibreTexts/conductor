@@ -1023,6 +1023,7 @@ const runJob = async ({
           $push: {
             pageReferences: {
               pageID: page.id,
+              title: page.title,
               references: refs,
             },
           },
@@ -1053,7 +1054,7 @@ const runJob = async ({
         { jobID: { $eq: jobID } },
         {
           $set: { status: "failed" },
-          $push: { message: "Failed. Run Populate again to retry." },
+          $push: { message: "Failed. Run Scan Citations again to retry." },
         },
       );
     } catch (updateErr) {
@@ -1093,7 +1094,7 @@ export const getActivePopulateJob = async (projectID: string) => {
       $set: { status: "failed" },
       $push: {
         message:
-          "Stopped: no progress for 10 minutes (the server may have restarted). Run Populate again.",
+          "Stopped: no progress for 10 minutes (the server may have restarted). Run Scan Citations again.",
       },
     },
   );
@@ -1110,7 +1111,7 @@ export const createReferencePopulateJob = async (
 ): Promise<any> => {
   if (await getActivePopulateJob(projectID)) {
     throw new ReferenceServiceError(
-      "A reference populate job is already running for this book",
+      "A citation scan is already running for this book",
       409,
     );
   }
@@ -1130,13 +1131,13 @@ export const createReferencePopulateJob = async (
       status: "pending",
       totalPages: toc.length,
       completedPages: 0,
-      message: ["Reference populate job created"],
+      message: ["Citation scan started"],
     });
   } catch (err) {
     // Another request started a job between the check above and this insert.
     if (isDuplicateKeyError(err)) {
       throw new ReferenceServiceError(
-        "A reference populate job is already running for this book",
+        "A citation scan is already running for this book",
         409,
       );
     }

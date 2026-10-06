@@ -37,6 +37,57 @@ export const rewriteCitationKeys = (
   });
 };
 
+export type CitationCheck = {
+  /** Keys cited on pages that match no reference in the book, with the citing pages. */
+  missing: { key: string; pages: { pageID: string; title?: string }[] }[];
+  /** References in the book that no page cites. */
+  unused: { referenceID: string; citationKey: string; title?: string }[];
+};
+
+/**
+ * Compares the citations Populate recorded on each page with the book's
+ * current references. Keys are matched against the current list, not the
+ * IDs stored at Populate time, so adding or removing a reference afterwards
+ * shows up without running Populate again.
+ *
+ * `pageReferences` may repeat a page from older runs; its last entry wins.
+ */
+export const compareCitations = (
+  pageReferences: {
+    pageID: string;
+    title?: string;
+    references: { key: string }[];
+  }[],
+  entries: { referenceID: string; citationKey: string; title?: string }[],
+): CitationCheck => {
+  const latestByPage = new Map<string, (typeof pageReferences)[number]>();
+  for (const page of pageReferences) latestByPage.set(page.pageID, page);
+
+  const knownKeys = new Set(entries.map((entry) => entry.citationKey));
+  const citedKeys = new Set<string>();
+  const missing = new Map<string, { pageID: string; title?: string }[]>();
+  for (const page of latestByPage.values()) {
+    for (const { key } of page.references) {
+      citedKeys.add(key);
+      if (knownKeys.has(key)) continue;
+      const pages = missing.get(key) ?? [];
+      pages.push({ pageID: page.pageID, title: page.title });
+      missing.set(key, pages);
+    }
+  }
+
+  return {
+    missing: [...missing].map(([key, pages]) => ({ key, pages })),
+    unused: entries
+      .filter((entry) => !citedKeys.has(entry.citationKey))
+      .map(({ referenceID, citationKey, title }) => ({
+        referenceID,
+        citationKey,
+        title,
+      })),
+  };
+};
+
 /** DOI or URL, normalized, used to tell that two references are the same work. */
 export const workIdentity = (reference: {
   doi?: string;

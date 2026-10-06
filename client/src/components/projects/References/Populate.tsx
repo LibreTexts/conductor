@@ -83,7 +83,7 @@ const Populate: React.FC<PopulateProps> = ({
   return (
     <Modal open={open} onClose={onClose} size="md">
       <Modal.Header>
-        <Modal.Title>Populate References</Modal.Title>
+        <Modal.Title>Scan Citations</Modal.Title>
         <Modal.Close aria-label="Close" />
       </Modal.Header>
       <Modal.Body>
@@ -131,23 +131,22 @@ const Populate: React.FC<PopulateProps> = ({
           </Stack>
         ) : (
           <Stack direction="vertical" gap="sm">
-            <h3 className="text-lg font-bold">Before you populate</h3>
+            <h3 className="text-lg font-bold">Before you scan</h3>
             <ul className="list-disc space-y-1 pl-5">
-              <li>Add all the reference tags to the pages.</li>
-              <li>Configure the reference format and display location.</li>
+              <li>Cite references on the pages first.</li>
+              <li>Set the citation format and scope.</li>
               <li>
-                Populating reads the citations on every page so the library can
-                show each page&apos;s reference list. It doesn&apos;t change
-                your pages.
+                Scanning reads the citations on every page so the library can
+                show each page&apos;s reference list, and checks them against
+                this book&apos;s references. It doesn&apos;t change your pages.
               </li>
-              <li>It may take a few minutes.</li>
-              <li>You will be notified when the references are populated.</li>
+              <li>It may take a few minutes. Progress shows here.</li>
             </ul>
             <div role="alert">
               {startFailed && (
                 <Text size="sm" className="text-danger">
-                  Populating couldn't start. Try again, or check that another
-                  populate job isn't already running.
+                  The scan couldn&apos;t start. Try again, or check that a scan
+                  isn&apos;t already running for this book.
                 </Text>
               )}
             </div>
@@ -165,7 +164,7 @@ const Populate: React.FC<PopulateProps> = ({
             disabled={!projectID || isCreatingJob}
             loading={isCreatingJob}
           >
-            Populate
+            Start Scan
           </Button>
         )}
       </Modal.Footer>

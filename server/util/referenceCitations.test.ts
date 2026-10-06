@@ -1,10 +1,60 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  compareCitations,
   extractCitationKeys,
   rewriteCitationKeys,
   workIdentity,
 } from "./referenceCitations.js";
+
+describe("compareCitations", () => {
+  const entries = [
+    { referenceID: "r1", citationKey: "smith2020", title: "Cited" },
+    { referenceID: "r2", citationKey: "lee2019", title: "Never cited" },
+  ];
+  const page = (pageID: string, keys: string[], title = `Page ${pageID}`) => ({
+    pageID,
+    title,
+    references: keys.map((key) => ({ key })),
+  });
+
+  it("lists cited keys with no reference, with every page citing them", () => {
+    const check = compareCitations(
+      [page("1", ["smith2020", "ghost"]), page("2", ["ghost"])],
+      entries,
+    );
+    assert.deepEqual(check.missing, [
+      {
+        key: "ghost",
+        pages: [
+          { pageID: "1", title: "Page 1" },
+          { pageID: "2", title: "Page 2" },
+        ],
+      },
+    ]);
+  });
+
+  it("lists references no page cites", () => {
+    const check = compareCitations([page("1", ["smith2020"])], entries);
+    assert.deepEqual(check.unused, [
+      { referenceID: "r2", citationKey: "lee2019", title: "Never cited" },
+    ]);
+  });
+
+  it("uses the latest entry for a page recorded more than once", () => {
+    const check = compareCitations(
+      [page("1", ["old"]), page("1", ["smith2020", "lee2019"])],
+      entries,
+    );
+    assert.deepEqual(check, { missing: [], unused: [] });
+  });
+
+  it("reports everything as unused when nothing is cited", () => {
+    const check = compareCitations([], entries);
+    assert.equal(check.missing.length, 0);
+    assert.equal(check.unused.length, 2);
+  });
+});
 
 describe("extractCitationKeys", () => {
   it("returns unique keys in order of first appearance", () => {

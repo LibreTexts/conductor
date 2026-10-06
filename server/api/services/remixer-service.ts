@@ -2803,7 +2803,7 @@ const runRemixerJob = async ({
       // Importing only records which references the book uses; the pages
       // render them once Populate has run on this book.
       job.messages.push(
-        "References from imported pages were added. Run Populate in the Reference Manager to show them in the book.",
+        "References from imported pages were added. Run Scan Citations in the Reference Manager to show them in the book.",
       );
     }
 
