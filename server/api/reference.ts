@@ -764,7 +764,14 @@ async function populateReferenceDetails(
         errMsg: "You do not have permission to access this project",
       });
     }
-    const latestReferencePopulateJob = await getActivePopulateJob(projectID);
+    // The running scan if there is one (stalled ones are failed first),
+    // otherwise the latest finished scan, so a client watching a scan can
+    // tell whether it completed or failed.
+    const latestReferencePopulateJob =
+      (await getActivePopulateJob(projectID)) ??
+      (await ReferencePopulateJob.findOne({ projectID: { $eq: projectID } })
+        .sort({ createdAt: -1 })
+        .lean());
     if (!latestReferencePopulateJob) {
       return res.status(200).send({
         err: false,
@@ -774,13 +781,13 @@ async function populateReferenceDetails(
     return res.send({
       err: false,
       data: {
+        jobID: latestReferencePopulateJob.jobID,
         status: latestReferencePopulateJob.status,
         message: latestReferencePopulateJob.message,
         totalPages: latestReferencePopulateJob.totalPages,
         completedPages: latestReferencePopulateJob.completedPages,
       },
     });
-    //
   } catch (err) {
     logger.error({ err }, "populateReferenceDetails failed");
     return res.status(500).send({

@@ -220,10 +220,11 @@ const ReferenceManager: React.FC = () => {
     },
   });
 
+  // The latest scan, running or finished.
   const populateJob = hasPopulateJobData(populateDetails?.data)
     ? populateDetails.data
     : null;
-  const hasPopulateJob = !!populateJob;
+  const hasPopulateJob = populateJob?.status === "pending";
 
   useEffect(() => {
     if (hasPopulateJob) {
