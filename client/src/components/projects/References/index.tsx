@@ -85,6 +85,9 @@ function errorMessageFrom(error: unknown, fallback: string): string {
   );
 }
 
+/** Which references the table shows, by whether the last scan found them cited. */
+type CitationFilter = "all" | "cited" | "notCited";
+
 /** One-line description of where reference lists appear, as the scope editor names it. */
 function describeScope({
   scopeMode,
@@ -129,7 +132,7 @@ const ReferenceManager: React.FC = () => {
     useState<ReferenceEntry | null>(null);
   const [warningReference, setWarningReference] =
     useState<ReferenceEntry | null>(null);
-  const [notCitedOnly, setNotCitedOnly] = useState(false);
+  const [citationFilter, setCitationFilter] = useState<CitationFilter>("all");
 
   const {
     project,
@@ -632,15 +635,22 @@ const ReferenceManager: React.FC = () => {
     () => buildReferenceWarnings(citationCheck),
     [citationCheck],
   );
-  const notCitedCount = citationCheck?.unused.length ?? 0;
-  const showNotCitedOnly = notCitedOnly && notCitedCount > 0;
-  const tableEntries = showNotCitedOnly
-    ? entries.filter((entry) =>
-        referenceWarnings
-          .get(entry.referenceID)
-          ?.some((warning) => warning.id === "not-cited"),
-      )
-    : entries;
+  // Whether a reference is cited is only known after a citation scan.
+  const notCitedIDs = useMemo(
+    () => new Set(citationCheck?.unused.map((ref) => ref.referenceID)),
+    [citationCheck],
+  );
+  const activeCitationFilter: CitationFilter = citationCheck
+    ? citationFilter
+    : "all";
+  const tableEntries =
+    activeCitationFilter === "all"
+      ? entries
+      : entries.filter(
+          (entry) =>
+            notCitedIDs.has(entry.referenceID) ===
+            (activeCitationFilter === "notCited"),
+        );
 
   const columns = useMemo(
     () => [
@@ -675,8 +685,35 @@ const ReferenceManager: React.FC = () => {
       }),
       columnHelper.display({
         id: "actions",
-        header: () => <span className="block w-full text-right">Actions</span>,
-        size: 144,
+        header: () =>
+          citationCheck ? (
+            <div className="flex justify-end">
+              <span className="sr-only">Actions</span>
+              <Select
+                name="references-citation-filter"
+                label="Filter by citation"
+                labelClassName="sr-only"
+                placeholder="Filter"
+                size="sm"
+                className="w-36 [&>div]:mt-0"
+                options={[
+                  { label: `All (${entries.length})`, value: "all" },
+                  {
+                    label: `Cited (${entries.length - notCitedIDs.size})`,
+                    value: "cited",
+                  },
+                  { label: `Not cited (${notCitedIDs.size})`, value: "notCited" },
+                ]}
+                value={activeCitationFilter}
+                onChange={(e) =>
+                  setCitationFilter(e.target.value as CitationFilter)
+                }
+              />
+            </div>
+          ) : (
+            <span className="block w-full text-right">Actions</span>
+          ),
+        size: 160,
         enableSorting: false,
         enableColumnFilter: false,
         cell: ({ row }) => (
@@ -738,7 +775,7 @@ const ReferenceManager: React.FC = () => {
         ),
       }),
     ],
-    [referenceWarnings],
+    [referenceWarnings, citationCheck, activeCitationFilter, notCitedIDs, entries.length],
   );
 
   const pendingIsOwned = !!pendingDelete && pendingDelete.projectID === id;
@@ -885,15 +922,7 @@ const ReferenceManager: React.FC = () => {
             <Heading level={3} id="references-heading" className="text-lg">
               References ({entries.length})
             </Heading>
-            <div className="flex flex-wrap items-center gap-3">
-              {notCitedCount > 0 && (
-                <Checkbox
-                  name="references-not-cited-only"
-                  label={`Not cited only (${notCitedCount})`}
-                  checked={notCitedOnly}
-                  onChange={(checked) => setNotCitedOnly(checked === true)}
-                />
-              )}
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 onClick={() => setShowPopulateModal(true)}
