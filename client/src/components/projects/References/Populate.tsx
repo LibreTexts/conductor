@@ -80,6 +80,13 @@ const Populate: React.FC<PopulateProps> = ({
         queryKey: ["populateReferences", projectID],
       });
     },
+    // Usually a scan already running from elsewhere: refetching picks it up,
+    // and the dialog then follows it.
+    onError: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["populateReferences", projectID],
+      });
+    },
   });
 
   // Closing ends this session; reopening offers a new scan.

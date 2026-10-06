@@ -686,3 +686,41 @@ export const defaultBookSearchProps: BookSearchProps = {
 };
 
 export const bibScript = "{{template.ReferenceBib()}}";
+
+/** A citation key found by a scan, with the pages that cite it. */
+export type CitedKey = {
+  key: string;
+  pages: { pageID: string; title?: string }[];
+};
+
+/** What the server returns about the last completed citation scan. */
+export type CitationScanData = {
+  /** When that scan finished. */
+  checkedAt: string;
+  citations: CitedKey[];
+};
+
+/** The last scan compared with the book's current references. */
+export type CitationCheckResult = {
+  checkedAt: string;
+  /** Cited keys that match no reference in the book. */
+  missing: CitedKey[];
+  /** References no page cites. */
+  unused: ReferenceEntry[];
+};
+
+/**
+ * Compares a scan's citations with the references the book has now, so
+ * adding or removing a reference is reflected without scanning again.
+ */
+export function compareCitations(
+  citations: CitedKey[],
+  entries: ReferenceEntry[],
+): Pick<CitationCheckResult, "missing" | "unused"> {
+  const knownKeys = new Set(entries.map((entry) => entry.citationKey));
+  const citedKeys = new Set(citations.map((citation) => citation.key));
+  return {
+    missing: citations.filter((citation) => !knownKeys.has(citation.key)),
+    unused: entries.filter((entry) => !citedKeys.has(entry.citationKey)),
+  };
+}

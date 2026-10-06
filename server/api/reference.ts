@@ -46,7 +46,7 @@ import BookService from "./services/book-service.js";
 import GlossaryService from "./services/glossary-service.js";
 import { PageReferences } from "../models/referenceusage.js";
 import { ReferencePopulateJob } from "../models/referencepopulatejob.js";
-import { compareCitations } from "../util/referenceCitations.js";
+import { collectCitations } from "../util/referenceCitations.js";
 import { isValidCitationKey } from "../util/referenceSanitize.js";
 
 async function updateReferenceFormat(
@@ -233,18 +233,21 @@ async function getReferenceDetails(
       });
     }
 
-    // Only meaningful once Populate has recorded every page's citations.
-    const lastPopulate = await ReferencePopulateJob.findOne(
+    // Stored citations come only from completed scans (a scan writes them
+    // once, on success), so they're meaningful once one has completed. The
+    // client compares them with its current references, which keeps the
+    // check right as references are added or removed.
+    const lastScan = await ReferencePopulateJob.findOne(
       { projectID: { $eq: projectID }, status: { $eq: "completed" } },
       { updatedAt: 1 },
     )
       .sort({ updatedAt: -1 })
       .lean();
     const { pageReferences, ...usage } = referenceUsage;
-    const citationCheck = lastPopulate
+    const citationCheck = lastScan
       ? {
-          checkedAt: lastPopulate.updatedAt,
-          ...compareCitations(pageReferences ?? [], usage.entries),
+          checkedAt: lastScan.updatedAt,
+          citations: collectCitations(pageReferences ?? []),
         }
       : null;
 

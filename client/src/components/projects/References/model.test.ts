@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CITATION_KEY_PATTERN,
+  compareCitations,
   formatCitationPreview,
   generateCitationKey,
   parseBibtexToForm,
@@ -124,5 +125,36 @@ describe("formatCitationPreview", () => {
     expect(
       formatCitationPreview({ entryType: "article", citationKey: "" }, "APA"),
     ).toBe("");
+  });
+});
+
+describe("compareCitations", () => {
+  const ref = (referenceID: string, citationKey: string) => ({
+    referenceID,
+    citationKey,
+    entryType: "misc" as const,
+  });
+  const citations = [
+    { key: "smith2020", pages: [{ pageID: "1", title: "Page 1" }] },
+    { key: "ghost", pages: [{ pageID: "2", title: "Page 2" }] },
+  ];
+
+  it("finds cited keys with no reference and references nothing cites", () => {
+    const result = compareCitations(citations, [
+      ref("r1", "smith2020"),
+      ref("r2", "lee2019"),
+    ]);
+    expect(result.missing.map((m) => m.key)).toEqual(["ghost"]);
+    expect(result.unused.map((u) => u.referenceID)).toEqual(["r2"]);
+  });
+
+  it("treats a reference added after the scan as not cited", () => {
+    const result = compareCitations(citations, [ref("new", "brandnew")]);
+    expect(result.unused.map((u) => u.referenceID)).toEqual(["new"]);
+  });
+
+  it("clears a missing key once a reference with that key is added", () => {
+    const result = compareCitations(citations, [ref("g", "ghost")]);
+    expect(result.missing.map((m) => m.key)).toEqual(["smith2020"]);
   });
 });

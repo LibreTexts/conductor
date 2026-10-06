@@ -40,8 +40,13 @@ export async function runMigration() {
     logger.info("Connected to MongoDB.");
 
     // 1. Field renames. The pipeline form rewrites the nested arrays in place.
+    // Only where the new field has nothing yet: a scan run after deploying
+    // already wrote fresh data there, which the old field must not replace.
     const renamed = await ReferenceUsage.collection.updateMany(
-      { pageRefrences: { $exists: true } },
+      {
+        pageRefrences: { $exists: true },
+        "pageReferences.0": { $exists: false },
+      },
       [
         {
           $set: {
@@ -61,6 +66,11 @@ export async function runMigration() {
         },
         { $unset: "pageRefrences" },
       ],
+    );
+    // Old field left on documents that already had new data.
+    await ReferenceUsage.collection.updateMany(
+      { pageRefrences: { $exists: true } },
+      { $unset: { pageRefrences: "" } },
     );
     logger.info(
       `Renamed citation fields on ${renamed.modifiedCount} reference setting document(s).`,
