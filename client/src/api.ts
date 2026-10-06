@@ -3106,6 +3106,7 @@ class API {
       copyModeState?: string;
       pathLevelFormats?: unknown[];
       importGlossaryTerms?: boolean;
+      importReferences?: boolean;
       /** Fingerprint of the live book the edits were made against; see the publish route. */
       liveBookFingerprint?: string;
     },
