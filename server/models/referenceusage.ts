@@ -38,6 +38,11 @@ export interface ReferenceUsageInterface extends Document {
   projectID: string;
   createdBy: string;
   updatedBy: string;
+  /**
+   * Bumped by every change to the book's reference setup (populate, scope,
+   * sharing, removal), so the library script knows its cache is stale.
+   */
+  updatedAt?: Date;
   format: string;
   displayLocation?: ReferenceDisplayLocation;
   pageTitle?: string;
@@ -107,7 +112,7 @@ const ReferenceUsageSchema = new Schema<ReferenceUsageInterface>({
   // No default: an absent array is how "no saved scope" is told apart from
   // a saved scope with zero groups.
   scopeGroups: { type: [referenceScopeGroupSchema], default: undefined },
-});
+}, { timestamps: true });
 
 ReferenceUsageSchema.index({ projectID: 1 }, { unique: true });
 export const ReferenceUsage = model<ReferenceUsageInterface>(

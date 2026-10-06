@@ -136,8 +136,9 @@ const Populate: React.FC<PopulateProps> = ({
               <li>Add all the reference tags to the pages.</li>
               <li>Configure the reference format and display location.</li>
               <li>
-                Populating generates the reference lists and updates your
-                book.
+                Populating reads the citations on every page so the library can
+                show each page&apos;s reference list. It doesn&apos;t change
+                your pages.
               </li>
               <li>It may take a few minutes.</li>
               <li>You will be notified when the references are populated.</li>

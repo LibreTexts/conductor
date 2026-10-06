@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { checkBookIDFormat } from "../../util/bookutils";
 import conductorErrors from "../../conductor-errors";
+import {
+  CITATION_KEY_PATTERN,
+  CITATION_KEY_RULE,
+  maxLengthFor,
+  normalizeDoi,
+  normalizeHttpUrl,
+  sanitizeReferenceText,
+} from "../../util/referenceSanitize.js";
+import { REFERENCE_BACKMATTER_TARGET } from "../../models/referenceusage.js";
 
 export const ReferenceFormatTypeEnum = z.enum([
   "APA",
@@ -48,19 +57,72 @@ const OPTIONAL_REFERENCE_FIELDS = [
   "urldate",
 ] as const;
 
+/** Raw input cap before cleaning; cleaned values are capped per field. */
+const RAW_FIELD_MAX = 10_000;
+
+/**
+ * Each field is stored inert (see util/referenceSanitize): URLs must be
+ * http(s), DOIs must look like DOIs, and other fields become plain text.
+ * Empty strings stay allowed so a field can be cleared.
+ */
+const referenceFieldSchema = (field: string) =>
+  z
+    .string()
+    .max(RAW_FIELD_MAX)
+    .transform((value, ctx) => {
+      if (field === "url") {
+        const url = normalizeHttpUrl(value);
+        if (url === null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "URL must be a full http:// or https:// address",
+          });
+          return z.NEVER;
+        }
+        return url;
+      }
+      if (field === "doi") {
+        const doi = normalizeDoi(value);
+        if (doi === null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "DOI must look like 10.1234/example",
+          });
+          return z.NEVER;
+        }
+        return doi;
+      }
+      return sanitizeReferenceText(value, maxLengthFor(field));
+    })
+    .optional();
+
 const optionalReferenceFieldSchema = Object.fromEntries(
-  OPTIONAL_REFERENCE_FIELDS.map((key) => [key, z.string().optional()]),
+  OPTIONAL_REFERENCE_FIELDS.map((key) => [key, referenceFieldSchema(key)]),
 ) as Record<
   (typeof OPTIONAL_REFERENCE_FIELDS)[number],
-  z.ZodOptional<z.ZodString>
+  ReturnType<typeof referenceFieldSchema>
 >;
+
+export const CitationKeySchema = z
+  .string()
+  .trim()
+  .regex(CITATION_KEY_PATTERN, { message: CITATION_KEY_RULE });
 
 export const ReferenceEntrySchema = z.object({
   entryType: EntryTypeEnum,
   referenceID: z.string().length(10).optional(),
-  citationKey: z.string().min(1),
+  citationKey: CitationKeySchema,
   ...optionalReferenceFieldSchema,
 });
+
+/** Title of the back-matter References page: plain text. */
+const PageTitleSchema = z
+  .string()
+  .max(1000)
+  .transform((value) => sanitizeReferenceText(value, 200));
+
+/** A library page ID as stored in scope groups and lists. */
+const ScopePageIDSchema = z.string().regex(/^\d{1,12}$/);
 
 /** Shared route params for project-scoped reference endpoints. */
 const ProjectIDParamsSchema = z.object({
@@ -77,8 +139,8 @@ export const UpdateReferenceFormatSchema = ProjectIDParamsSchema.extend({
     displayLocation: z
       .enum(["endOfPage", "endOfChapter", "backmatter"])
       .optional(),
-    pageTitle: z.string().optional(),
-    selectedList: z.array(z.string()).optional(),
+    pageTitle: PageTitleSchema.optional(),
+    selectedList: z.array(ScopePageIDSchema).max(2000).optional(),
   }),
 });
 
@@ -86,16 +148,20 @@ export const ReferenceScopeModeEnum = z.enum(["PAGE", "CHAPTER", "BACKMATTER"]);
 
 /** Same limits as the glossary scope's groups. */
 const ReferenceScopeGroupSchema = z.object({
-  groupID: z.string().min(1).max(64),
-  pageIds: z.array(z.string().min(1).max(100)).max(2000),
-  targetPageId: z.string().min(1).max(100),
+  groupID: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+  pageIds: z.array(ScopePageIDSchema).max(2000),
+  // A page ID, or the placeholder for the not-yet-created back-matter page.
+  targetPageId: z.union([
+    ScopePageIDSchema,
+    z.literal(REFERENCE_BACKMATTER_TARGET),
+  ]),
 });
 
 export const SaveReferenceScopeSchema = ProjectIDParamsSchema.extend({
   body: z.object({
     format: ReferenceFormatTypeEnum,
     /** Title of the shared back-matter References page (BACKMATTER only). */
-    pageTitle: z.string().max(200).optional(),
+    pageTitle: PageTitleSchema.optional(),
     mode: ReferenceScopeModeEnum,
     groups: z.array(ReferenceScopeGroupSchema).max(500),
   }),
@@ -111,7 +177,7 @@ export const UpdateReferenceEntrySchema = ProjectIDParamsSchema.extend({
 
 export const SearchReferencesValidator = ProjectIDParamsSchema.extend({
   query: z.object({
-    query: z.string().min(1),
+    query: z.string().min(1).max(200),
   }),
 });
 
