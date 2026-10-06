@@ -43,6 +43,7 @@ import {
 import BookService from "./services/book-service.js";
 import GlossaryService from "./services/glossary-service.js";
 import { PageReferences } from "../models/referenceusage.js";
+import { isValidCitationKey } from "../util/referenceSanitize.js";
 
 async function updateReferenceFormat(
   req: ZodReqWithUser<z.infer<typeof UpdateReferenceFormatSchema>>,
@@ -589,13 +590,20 @@ async function getReferancePageDetails(
       projectID: project.projectID,
       showPageRefs: true,
     });
+    // The library script caches reference items and the citation map until
+    // this changes, so it must move on any change: an edited reference, or
+    // the book's setup (populate, scope, sharing or removing references).
     const lastUpdatedAt =
-      referenceUsage?.entries?.reduce<Date | null>((max, entry) => {
-        const updated = entry.updatedAt ? new Date(entry.updatedAt) : null;
-        if (!updated) return max;
-        if (!max || updated > max) return updated;
-        return max;
-      }, null) ?? null;
+      [
+        ...(referenceUsage?.entries ?? []).map((entry) => entry.updatedAt),
+        referenceUsage?.updatedAt,
+      ]
+        .filter((date): date is Date => !!date)
+        .map((date) => new Date(date))
+        .reduce<Date | null>(
+          (max, date) => (!max || date > max ? date : max),
+          null,
+        );
 
     return res.send({
       err: false,
@@ -606,7 +614,9 @@ async function getReferancePageDetails(
         displayLocation: referenceUsage?.displayLocation ?? null,
         pageTitle: referenceUsage?.pageTitle ?? null,
         backmatterPageID: referenceUsage?.backmatterPageID ?? null,
-        backmatterReferenceList: referenceUsage?.backmatterReferenceList ?? [],
+        backmatterReferenceList: (
+          referenceUsage?.backmatterReferenceList ?? []
+        ).filter(isValidCitationKey),
         selectedList: referenceUsage?.selectedList ?? [],
         // Scope model (same as the glossary scope). `displayGroups` are the
         // groups whose combined reference list belongs on this page; the
@@ -669,7 +679,8 @@ async function getReferenceItems(
           [...pageRefs]
             .reverse()
             .find((pageRef) => pageRef.pageID === toc.id)
-            ?.refrences.map((entry) => entry.key) ?? [],
+            ?.refrences.map((entry) => entry.key)
+            .filter(isValidCitationKey) ?? [],
         ),
       ],
       children: await Promise.all(

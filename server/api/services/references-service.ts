@@ -33,6 +33,10 @@ import MindTouch from "../../util/CXOne/index.js";
 import RemixerTemplates from "../../util/CXOne/CXOneRemixerTemplates.js";
 import { titleToRemixerPathSegment } from "../../util/remixerutils.js";
 import { childLogger } from "../../logger.js";
+import {
+  isValidCitationKey,
+  sanitizeReferenceField,
+} from "../../util/referenceSanitize.js";
 
 const populateLog = childLogger("reference-populate");
 
@@ -69,6 +73,7 @@ export const getReferencesUsage = async ({
   selectedList?: string[];
   scopeMode?: ReferenceScopeMode;
   scopeGroups?: ReferenceScopeGroup[];
+  updatedAt?: Date;
 } | null> => {
   const referenceUsage = await ReferenceUsage.findOne({
     projectID: { $eq: projectID },
@@ -93,6 +98,7 @@ export const getReferencesUsage = async ({
       : undefined,
     selectedList: referenceUsage.selectedList ?? [],
     scopeMode: referenceUsage.scopeMode ?? undefined,
+    updatedAt: referenceUsage.updatedAt ?? undefined,
     scopeGroups: referenceUsage.scopeGroups
       ? referenceUsage.scopeGroups.map(({ groupID, pageIds, targetPageId }) => ({
           groupID,
@@ -251,10 +257,12 @@ const pickOptionalFields = (
   const fields: Partial<
     Record<(typeof OPTIONAL_REFERENCE_FIELDS)[number], string>
   > = {};
+  // Every write goes through here, including copies of existing references,
+  // so stored values are always inert even if they arrived some other way.
   for (const key of OPTIONAL_REFERENCE_FIELDS) {
     const value = entry[key];
     if (typeof value === "string") {
-      fields[key] = value;
+      fields[key] = sanitizeReferenceField(key, value);
     }
   }
   return fields;
@@ -742,7 +750,21 @@ export const getReferenceItemsService = async (
     const referenceItems = await ReferenceUsage.aggregate<{
       output: ReferenceInterface;
     }>(pipeline);
-    return referenceItems.map((e) => ({ ...e.output }));
+    // Served to public library pages: clean every field on the way out too,
+    // so references stored before input sanitization can't carry markup.
+    return referenceItems
+      .map((e) => e.output)
+      .filter((item) => isValidCitationKey(item.citationKey ?? ""))
+      .map((item) => {
+        const cleaned: ReferenceInterface = { ...item };
+        for (const key of OPTIONAL_REFERENCE_FIELDS) {
+          const value = item[key];
+          if (typeof value === "string") {
+            cleaned[key] = sanitizeReferenceField(key, value);
+          }
+        }
+        return cleaned;
+      });
   } catch (error) {
     throw new ReferenceServiceError("Internal server error", 500);
   }
@@ -757,7 +779,9 @@ const extractReferenceFromContent = (content: string): string[] => {
     if (key) {
       for (const part of key.split(",")) {
         const trimmed = part.trim();
-        if (trimmed) {
+        // Page text is author-controlled; only well-formed keys are stored
+        // and served to the library script.
+        if (trimmed && isValidCitationKey(trimmed)) {
           keys.add(trimmed);
         }
       }
@@ -765,29 +789,6 @@ const extractReferenceFromContent = (content: string): string[] => {
   }
   return [...keys];
 };
-
-const REFERENCE_CITE_BLOCK = "<p>{{template.ReferenceCite()}}</p>";
-const REFERENCE_BIB_BLOCK = "<p>{{template.ReferenceBib()}}</p>";
-
-/** Matches `{{template.ReferenceCite()}}` with optional whitespace. Fresh instance each use. */
-const referenceCiteTemplateRe = (): RegExp =>
-  /\{\{\s*template\.ReferenceCite\s*\(\s*\)\s*\}\}/i;
-
-const referenceBibTemplateRe = (): RegExp =>
-  /\{\{\s*template\.ReferenceBib\s*\(\s*\)\s*\}\}/i;
-
-const referenceCiteBlockRe = (): RegExp =>
-  /<p>\s*\{\{\s*template\.ReferenceCite\s*\(\s*\)\s*\}\}\s*<\/p>/gi;
-
-const referenceBibBlockRe = (): RegExp =>
-  /<p>\s*\{\{\s*template\.ReferenceBib\s*\(\s*\)\s*\}\}\s*<\/p>/gi;
-
-/** Legacy biblizer `<pre class="script">…</pre>` block (any CDN @ref / version). */
-const biblizerScriptBlockRe = (): RegExp =>
-  /<pre\b[^>]*class=["'][^"']*\bscript\b[^"']*["'][^>]*>[\s\S]*?biblizer[\s\S]*?<\/pre>/gi;
-
-const buildReferenceCiteBlock = (bib = false): string =>
-  bib ? REFERENCE_BIB_BLOCK : REFERENCE_CITE_BLOCK;
 
 /** Normalize MindTouch contents JSON body (string or string[]). */
 const normalizePageBody = (rawOrBody: unknown): string => {
@@ -811,55 +812,6 @@ const normalizePageBody = (rawOrBody: unknown): string => {
     return String(rawOrBody[0]);
   }
   return "";
-};
-
-/**
- * Ensure page content includes the right LibreTexts reference template.
- * - `bib` → `{{template.ReferenceBib()}}`
- * - otherwise → `{{template.ReferenceCite()}}`
- * Leftover biblizer blocks or the opposite template are replaced.
- */
-const ensureReferenceScript = (
-  content: unknown,
-  bib?: boolean,
-): { content: string; action: "none" | "added" | "updated" } => {
-  const body = normalizePageBody(content);
-  const targetBlock = buildReferenceCiteBlock(bib === true);
-  const hasTarget = (
-    bib === true ? referenceBibTemplateRe() : referenceCiteTemplateRe()
-  ).test(body);
-  if (hasTarget) {
-    return { content: body, action: "none" };
-  }
-
-  const otherBlockRe =
-    bib === true ? referenceCiteBlockRe() : referenceBibBlockRe();
-  const otherCallRe =
-    bib === true ? referenceCiteTemplateRe() : referenceBibTemplateRe();
-  const otherCallReplacement =
-    bib === true
-      ? "{{template.ReferenceBib()}}"
-      : "{{template.ReferenceCite()}}";
-
-  const withOtherBlockReplaced = body.replace(otherBlockRe, targetBlock);
-  if (withOtherBlockReplaced !== body) {
-    return { content: withOtherBlockReplaced, action: "updated" };
-  }
-
-  const withOtherCallReplaced = body.replace(otherCallRe, otherCallReplacement);
-  if (withOtherCallReplaced !== body) {
-    return { content: withOtherCallReplaced, action: "updated" };
-  }
-
-  const withLegacyReplaced = body.replace(biblizerScriptBlockRe(), targetBlock);
-  if (withLegacyReplaced !== body) {
-    return { content: withLegacyReplaced, action: "updated" };
-  }
-
-  return {
-    content: `${body.trimEnd()}\n${targetBlock}`,
-    action: "added",
-  };
 };
 
 /** Matches LibreTexts Back Matter references slot: `/zz:_Back_Matter/31:...`. */
@@ -975,7 +927,7 @@ const ensureBackmatterReferencesPage = async ({
     options: {
       method: "POST",
       headers: { "Content-Type": "text/plain; charset=utf-8" },
-      body: `${RemixerTemplates.POST_CreateBlankPage("topic")}\n${buildReferenceCiteBlock(true)}`,
+      body: RemixerTemplates.POST_CreateBlankPage("topic"),
     },
   });
   if (!createRes.ok) {
@@ -1057,29 +1009,6 @@ const runJob = async ({
         backmatterReferenceList.add(key);
       }
 
-      let scriptAction: "none" | "added" | "updated" = "none";
-      // Per-page ReferenceCite template only when NOT using a shared backmatter page.
-      if (!isBackmatter) {
-        const bib =
-          referenceUsage.selectedList?.some((item) => item === page.id) &&
-          referenceUsage.displayLocation === "endOfChapter" || referenceUsage.displayLocation === "endOfPage";
-        const rawContent = await bookService.getPageRawContent(page.id);
-        const ensured = ensureReferenceScript(rawContent, bib);
-        scriptAction = ensured.action;
-        if (scriptAction !== "none") {
-          const updated = await bookService.updatePageContent(
-            page.id,
-            ensured.content,
-          );
-          if (!updated) {
-            populateLog.error(
-              { jobID, projectID, pageID: page.id, scriptAction },
-              "Failed to write reference template to page",
-            );
-          }
-        }
-      }
-
       await ReferencePopulateJob.updateOne(
         { jobID: { $eq: jobID } },
         {
@@ -1088,12 +1017,6 @@ const runJob = async ({
               referenceKeys.length
                 ? ` (${referenceKeys.length} cite${referenceKeys.length === 1 ? "" : "s"})`
                 : ""
-            }${
-              scriptAction === "added"
-                ? "; added ReferenceCite template"
-                : scriptAction === "updated"
-                  ? "; replaced biblizer script with ReferenceCite template"
-                  : ""
             }`,
           },
           $set: { completedPages: index + 1 },
@@ -1120,23 +1043,7 @@ const runJob = async ({
       );
     }
 
-    // Put / refresh ReferenceCite template on the shared backmatter page after scanning all pages.
     if (isBackmatter && backmatterPageID) {
-      const rawContent = await bookService.getPageRawContent(backmatterPageID);
-      const { content: nextContent, action: scriptAction } =
-        ensureReferenceScript(rawContent, true);
-      if (scriptAction !== "none") {
-        const updated = await bookService.updatePageContent(
-          backmatterPageID,
-          nextContent,
-        );
-        if (!updated) {
-          populateLog.error(
-            { jobID, projectID, pageID: backmatterPageID, scriptAction },
-            "Failed to write reference template to back-matter page",
-          );
-        }
-      }
       await ReferencePopulateJob.updateOne(
         { jobID: { $eq: jobID } },
         {

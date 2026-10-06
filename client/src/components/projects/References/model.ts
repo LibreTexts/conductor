@@ -662,4 +662,3 @@ export const defaultBookSearchProps: BookSearchProps = {
 };
 
 export const bibScript = "{{template.ReferenceBib()}}";
-export const referenceScript = "{{template.ReferenceCite()}}";
