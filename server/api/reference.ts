@@ -7,6 +7,7 @@ import {
   ReferenceEntrySchema,
   SearchReferencesValidator,
   DeleteReferenceEntrySchema,
+  BulkDeleteReferenceEntriesSchema,
   AddReferenceEntrySchema,
   tocValidator,
   BookAsReferenceValidator,
@@ -30,6 +31,7 @@ import {
   upsertReferenceEntry,
   searchReferences as searchReferencesService,
   deleteReferenceEntry as deleteReferenceEntryService,
+  deleteReferenceEntries as deleteReferenceEntriesService,
   ReferenceServiceError,
   addReferencesToUsage,
   createReferenceFromBookPage,
@@ -411,6 +413,32 @@ async function deleteReferenceEntry(
       });
     }
     logger.error({ err }, "deleteReferenceEntry failed");
+    return res.status(500).send({
+      err: true,
+      errMsg: "Internal server error",
+    });
+  }
+}
+
+/** Removes the selected references; reports any that couldn't be removed. */
+async function deleteReferenceEntries(
+  req: ZodReqWithUser<z.infer<typeof BulkDeleteReferenceEntriesSchema>>,
+  res: Response,
+) {
+  try {
+    const { projectID } = req.params;
+    const { referenceIDs, deleteFromReferences } = req.body;
+    const project = await loadProjectForMember(projectID, req.user, res);
+    if (!project) return;
+
+    const { removed, failed } = await deleteReferenceEntriesService(
+      projectID,
+      referenceIDs,
+      deleteFromReferences,
+    );
+    return res.send({ err: false, data: { removed, failed } });
+  } catch (err) {
+    logger.error({ err }, "deleteReferenceEntries failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -860,6 +888,7 @@ export default {
   updateReferenceEntry,
   searchReferences,
   deleteReferenceEntry,
+  deleteReferenceEntries,
   addReferenceEntry,
   getBookToc,
   addBookPageAsReference,

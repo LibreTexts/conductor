@@ -3647,6 +3647,13 @@ router.route('/projects/:projectID/reference')
 
 
 
+router.route('/projects/:projectID/reference/bulk-delete').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.BulkDeleteReferenceEntriesSchema),
+  referenceAPI.deleteReferenceEntries
+);
+
 router.route('/projects/:projectID/reference/scope')
 .put(
   authAPI.verifyRequest,
