@@ -26,7 +26,7 @@ import {
   getPage,
 } from "../../util/librariesclient.js";
 import { escapeRegEx, sleep } from "../../util/helpers.js";
-import { ReferencePopulateJob } from "../../models/referencepopulatejosb.js";
+import { ReferencePopulateJob } from "../../models/referencepopulatejob.js";
 import Project, { ProjectInterface } from "../../models/project.js";
 import GlossaryService from "./glossary-service.js";
 import MindTouch from "../../util/CXOne/index.js";
@@ -37,6 +37,10 @@ import {
   isValidCitationKey,
   sanitizeReferenceField,
 } from "../../util/referenceSanitize.js";
+import {
+  extractCitationKeys,
+  workIdentity,
+} from "../../util/referenceCitations.js";
 
 const populateLog = childLogger("reference-populate");
 
@@ -69,7 +73,7 @@ export const getReferencesUsage = async ({
   entries: ReferenceInterface[];
   backmatterPageID?: string;
   backmatterReferenceList: string[];
-  pageRefrences: PageReferences[] | undefined;
+  pageReferences: PageReferences[] | undefined;
   selectedList?: string[];
   scopeMode?: ReferenceScopeMode;
   scopeGroups?: ReferenceScopeGroup[];
@@ -93,8 +97,8 @@ export const getReferencesUsage = async ({
     entries: entries.map((entry) => entry.toObject()),
     backmatterPageID: referenceUsage.backmatterPageID ?? undefined,
     backmatterReferenceList: referenceUsage.backmatterReferenceList ?? [],
-    pageRefrences: showPageRefs
-      ? (referenceUsage.pageRefrences ?? [])
+    pageReferences: showPageRefs
+      ? (referenceUsage.pageReferences ?? [])
       : undefined,
     selectedList: referenceUsage.selectedList ?? [],
     scopeMode: referenceUsage.scopeMode ?? undefined,
@@ -572,10 +576,21 @@ export const deleteReferenceEntry = async (
   };
 };
 
+export type AddReferencesSkipReason = "not-found" | "key-in-use";
+
+/**
+ * Adds existing references (usually another project's) to this book's list.
+ * Inside one book a citation key must mean one reference, so a reference
+ * whose key the book already uses for a different reference is skipped, as
+ * is an ID that doesn't exist. Already-listed references are left as they are.
+ */
 export const addReferencesToUsage = async (
   projectID: string,
   referenceIDs: string[],
-): Promise<{ status: boolean }> => {
+): Promise<{
+  added: string[];
+  skipped: { referenceID: string; reason: AddReferencesSkipReason }[];
+}> => {
   const referenceUsage = await ReferenceUsage.findOne({
     projectID: { $eq: projectID },
   });
@@ -585,16 +600,45 @@ export const addReferencesToUsage = async (
   if (referenceIDs.length === 0) {
     throw new ReferenceServiceError("No referenceIDs provided", 400);
   }
-  const filteredReferenceIDs = referenceIDs.filter(
-    (referenceID) => !referenceUsage.entries.includes(referenceID),
-  );
 
-  referenceUsage.entries.push(...filteredReferenceIDs);
+  const listed = new Set(referenceUsage.entries);
+  const requestedIDs = [...new Set(referenceIDs)].filter((id) => !listed.has(id));
+  const [requested, current] = await Promise.all([
+    Reference.find(
+      { referenceID: { $in: requestedIDs } },
+      { referenceID: 1, citationKey: 1 },
+    ).lean(),
+    Reference.find(
+      { referenceID: { $in: referenceUsage.entries } },
+      { citationKey: 1 },
+    ).lean(),
+  ]);
+  const requestedByID = new Map(requested.map((ref) => [ref.referenceID, ref]));
+  const keysInUse = new Set(current.map((ref) => ref.citationKey));
 
-  await referenceUsage.save();
-  return {
-    status: true,
-  };
+  const added: string[] = [];
+  const skipped: { referenceID: string; reason: AddReferencesSkipReason }[] = [];
+  for (const referenceID of requestedIDs) {
+    const reference = requestedByID.get(referenceID);
+    if (!reference) {
+      skipped.push({ referenceID, reason: "not-found" });
+      continue;
+    }
+    if (keysInUse.has(reference.citationKey)) {
+      skipped.push({ referenceID, reason: "key-in-use" });
+      continue;
+    }
+    keysInUse.add(reference.citationKey);
+    added.push(referenceID);
+  }
+
+  if (added.length > 0) {
+    await ReferenceUsage.updateOne(
+      { projectID: { $eq: projectID } },
+      { $addToSet: { entries: { $each: added } } },
+    );
+  }
+  return { added, skipped };
 };
 
 const buildCitationKey = (
@@ -693,67 +737,31 @@ export const getReferenceItemsService = async (
   showReferenceID: boolean = false,
 ): Promise<ReferenceInterface[]> => {
   try {
-    const pipeline: PipelineStage[] = [
+    const usage = await ReferenceUsage.findOne(
+      { projectID: { $eq: projectID } },
+      { entries: 1 },
+    ).lean();
+    if (!usage?.entries?.length) return [];
+    // Uses the referenceID index; internal fields and the embedding vector
+    // never leave the server.
+    const items = await Reference.find(
+      { referenceID: { $in: usage.entries } },
       {
-        $match: {
-          projectID: {
-            $eq: projectID,
-          },
-        },
+        _id: 0,
+        __v: 0,
+        projectID: 0,
+        createdBy: 0,
+        updatedBy: 0,
+        isFork: 0,
+        forkedFrom: 0,
+        createdAt: 0,
+        updatedAt: 0,
+        ...(!showReferenceID ? { referenceID: 0 } : {}),
       },
-      {
-        $lookup: {
-          from: "reference",
-          let: {
-            entryIds: "$entries",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $in: [
-                    {
-                      $toString: "$referenceID",
-                    },
-                    "$$entryIds",
-                  ],
-                },
-              },
-            },
-          ],
-          as: "output",
-        },
-      },
-      {
-        $project: {
-          output: 1,
-          _id: 0,
-        },
-      },
-      {
-        $unwind: "$output",
-      },
-      {
-        $project: {
-          "output._id": 0,
-          "output.projectID": 0,
-          "output.createdBy": 0,
-          "output.isFork": 0,
-          "output.createdAt": 0,
-          "output.updatedAt": 0,
-          "output.updatedBy": 0,
-          "output.__v": 0,
-          ...(!showReferenceID ? { "output.referenceID": 0 } : {}),
-        },
-      },
-    ];
-    const referenceItems = await ReferenceUsage.aggregate<{
-      output: ReferenceInterface;
-    }>(pipeline);
+    ).lean<ReferenceInterface[]>();
     // Served to public library pages: clean every field on the way out too,
     // so references stored before input sanitization can't carry markup.
-    return referenceItems
-      .map((e) => e.output)
+    return items
       .filter((item) => isValidCitationKey(item.citationKey ?? ""))
       .map((item) => {
         const cleaned: ReferenceInterface = { ...item };
@@ -768,26 +776,6 @@ export const getReferenceItemsService = async (
   } catch (error) {
     throw new ReferenceServiceError("Internal server error", 500);
   }
-};
-
-/** Extract unique citation keys from `\librecite{key}` markers in page content. */
-const extractReferenceFromContent = (content: string): string[] => {
-  const regex = /\\librecite\{([^}]+)\}/g;
-  const keys = new Set<string>();
-  for (const match of content.matchAll(regex)) {
-    const key = match[1]?.trim();
-    if (key) {
-      for (const part of key.split(",")) {
-        const trimmed = part.trim();
-        // Page text is author-controlled; only well-formed keys are stored
-        // and served to the library script.
-        if (trimmed && isValidCitationKey(trimmed)) {
-          keys.add(trimmed);
-        }
-      }
-    }
-  }
-  return [...keys];
 };
 
 /** Normalize MindTouch contents JSON body (string or string[]). */
@@ -993,7 +981,7 @@ const runJob = async ({
     // Rebuild per-page cites from this run; previous populate jobs $push'd extras.
     await ReferenceUsage.updateOne(
       { projectID: { $eq: projectID } },
-      { $set: { pageRefrences: [] } },
+      { $set: { pageReferences: [] } },
     );
 
     for (let index = 0; index < toc.length; index++) {
@@ -1004,7 +992,7 @@ const runJob = async ({
       // wait for a second between pages
       const content = await bookService.getPageContent(page.id, "json");
       // extract \librecite{*} from content
-      const referenceKeys = extractReferenceFromContent(content);
+      const referenceKeys = extractCitationKeys(content);
       for (const key of referenceKeys) {
         backmatterReferenceList.add(key);
       }
@@ -1022,7 +1010,7 @@ const runJob = async ({
           $set: { completedPages: index + 1 },
         },
       );
-      // update pageRefrences
+      // update pageReferences
       const refs = referenceKeys.map((key) => ({
         key,
         refID:
@@ -1033,9 +1021,9 @@ const runJob = async ({
         { projectID: { $eq: projectID } },
         {
           $push: {
-            pageRefrences: {
+            pageReferences: {
               pageID: page.id,
-              refrences: refs,
+              references: refs,
             },
           },
           $set: { backmatterReferenceList: [...backmatterReferenceList] },
@@ -1170,45 +1158,6 @@ export const createReferencePopulateJob = async (
 
 // ── Remixer: bring imported pages' references into the remixed book ────────
 
-/** `\librecite{a, b}` → each key in the call. */
-const LIBRECITE_RE = /\librecite\{([^}]+)\}/g;
-
-/** Renames citation keys inside every `\librecite{…}` call, leaving others as they are. */
-export const rewriteCitationKeys = (
-  html: string,
-  renames: Record<string, string>,
-): string => {
-  if (Object.keys(renames).length === 0) return html;
-  return html.replace(LIBRECITE_RE, (_call, keys: string) => {
-    const rewritten = keys
-      .split(",")
-      .map((part) => {
-        const key = part.trim();
-        return renames[key] ? part.replace(key, renames[key]) : part;
-      })
-      .join(",");
-    return `\librecite{${rewritten}}`;
-  });
-};
-
-/** DOI or URL, normalized, used to tell that two references are the same work. */
-const workIdentity = (reference: {
-  doi?: string;
-  url?: string;
-}): string | null => {
-  const doi = reference.doi
-    ?.trim()
-    .toLowerCase()
-    .replace(/^(https?:\/\/)?(dx\.)?doi\.org\//, "");
-  if (doi) return `doi:${doi}`;
-  const url = reference.url
-    ?.trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, "")
-    .replace(/\/+$/, "");
-  return url ? `url:${url}` : null;
-};
-
 /** The project that owns the book a library page belongs to, if any. */
 const findProjectForPage = async (pageID: string, library: string) => {
   const candidateCoverIDs = (
@@ -1316,7 +1265,7 @@ export const importPageReferences = async ({
         bookID: `${sourceLibrary}-${sourceProject.libreCoverID}`,
       }).getPageContent(sourcePageID, "json"),
     );
-  const citedKeys = extractReferenceFromContent(content);
+  const citedKeys = extractCitationKeys(content);
   if (citedKeys.length === 0) return NO_IMPORT;
 
   const sourceByKey = new Map(

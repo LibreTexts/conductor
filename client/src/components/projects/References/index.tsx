@@ -371,11 +371,31 @@ const ReferenceManager: React.FC = () => {
       ),
     onSuccess: (response, entries) => {
       if (response.err) return;
-      appendEntriesToCache(entries);
-      addNotification({
-        type: "success",
-        message: "References added successfully",
-      });
+      const added = new Set(response.data.added);
+      appendEntriesToCache(
+        entries.filter((entry) => added.has(entry.referenceID)),
+      );
+      const keyClashes = response.data.skipped
+        .filter((skip) => skip.reason === "key-in-use")
+        .map(
+          (skip) =>
+            entries.find((entry) => entry.referenceID === skip.referenceID)
+              ?.citationKey ?? skip.referenceID,
+        );
+      if (added.size > 0) {
+        addNotification({
+          type: "success",
+          message: `Added ${added.size} reference${added.size === 1 ? "" : "s"}`,
+        });
+      }
+      if (response.data.skipped.length > 0) {
+        addNotification({
+          type: "error",
+          message: keyClashes.length
+            ? `Not added: this book already uses the citation key${keyClashes.length === 1 ? "" : "s"} ${keyClashes.join(", ")} for a different reference.`
+            : "Some references could not be found and were not added.",
+        });
+      }
     },
     onError: () => {
       addNotification({

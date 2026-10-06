@@ -28,7 +28,7 @@ export type ReferenceScopeGroup = {
 
 export type PageReferences = {
   pageID: string;
-  refrences: {
+  references: {
     key: string;
     refID: string;
   }[];
@@ -48,7 +48,7 @@ export interface ReferenceUsageInterface extends Document {
   pageTitle?: string;
   /** Reference document IDs (`referenceID`) belonging to this project. */
   entries: string[];
-  pageRefrences: PageReferences[];
+  pageReferences: PageReferences[];
   backmatterReferenceList: string[];
   backmatterPageID?: string;
   /**
@@ -62,10 +62,10 @@ export interface ReferenceUsageInterface extends Document {
   scopeGroups?: ReferenceScopeGroup[];
 }
 
-const pageRefrencesSchema = new Schema<PageReferences>(
+const pageReferencesSchema = new Schema<PageReferences>(
   {
     pageID: { type: String, required: true },
-    refrences: {
+    references: {
       type: [
         {
           key: { type: String, required: true },
@@ -100,7 +100,7 @@ const ReferenceUsageSchema = new Schema<ReferenceUsageInterface>({
   },
   pageTitle: { type: String, required: false },
   entries: { type: [String], default: () => [] },
-  pageRefrences: { type: [pageRefrencesSchema], default: () => [] },
+  pageReferences: { type: [pageReferencesSchema], default: () => [] },
   backmatterReferenceList: { type: [String], default: () => [] },
   backmatterPageID: { type: String, required: false },
   selectedList: { type: [String], default: () => [] },

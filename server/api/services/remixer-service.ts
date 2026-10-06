@@ -27,10 +27,8 @@ import { detectTranscludeStub } from "../../util/transclusion.js";
 import { RemixerSubPage } from "../../types/Remixer";
 import BookService from "./book-service";
 import GlossaryService from "./glossary-service";
-import {
-  importPageReferences,
-  rewriteCitationKeys,
-} from "./references-service.js";
+import { importPageReferences } from "./references-service.js";
+import { rewriteCitationKeys } from "../../util/referenceCitations.js";
 const remixerLog = childLogger("remixer");
 const glossaryService = new GlossaryService();
 

@@ -75,7 +75,6 @@ import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
 import * as ReferenceValidators from "./api/validators/Reference.js";
 import referenceAPI from "./api/reference.js";
-import { generateAPIRequestHeaders } from "./util/librariesclient.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -97,7 +96,7 @@ const corsMiddleware = cors({
       if (process.env.DEVELOPMENTURLS) {
         allowedOrigins = String(process.env.DEVELOPMENTURLS).split(",").map((url) => url.trim());
       } else {
-        allowedOrigins = ["http://localhost:5000","http://localhost:5500","http://127.0.0.1:5500", "https://*.libretexts.org"];
+        allowedOrigins = ["http://localhost:5000","http://localhost:5500","http://127.0.0.1:5500"];
       }
     }
 
@@ -3715,7 +3714,7 @@ router.route("/reference/projects/:projectID/populate").post(
 
 router.route("/reference/page/:pageID/library/:library").get(
   middleware.validateZod(ReferenceValidators.GetReferencePageByPageIDAndLibrarySchema),
-  referenceAPI.getReferancePageDetails
+  referenceAPI.getReferencePageDetails
 );
 
 router.route("/reference/projects/:projectID").get(
