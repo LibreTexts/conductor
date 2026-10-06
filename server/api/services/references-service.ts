@@ -31,6 +31,9 @@ import { ProjectInterface } from "../../models/project.js";
 import MindTouch from "../../util/CXOne/index.js";
 import RemixerTemplates from "../../util/CXOne/CXOneRemixerTemplates.js";
 import { titleToRemixerPathSegment } from "../../util/remixerutils.js";
+import { childLogger } from "../../logger.js";
+
+const populateLog = childLogger("reference-populate");
 
 export class ReferenceServiceError extends Error {
   constructor(
@@ -43,6 +46,10 @@ export class ReferenceServiceError extends Error {
 }
 
 type ReferenceEntryInput = z.infer<typeof ReferenceEntrySchema>;
+
+/** MongoDB's duplicate key error, raised when a write breaks a unique index. */
+const isDuplicateKeyError = (err: unknown): boolean =>
+  (err as { code?: number })?.code === 11000;
 
 export const getReferencesUsage = async ({
   projectID,
@@ -263,11 +270,41 @@ const assertCitationKeyAvailable = async (
     ...(excludeReferenceID ? { referenceID: { $ne: excludeReferenceID } } : {}),
   });
   if (conflict) {
-    throw new ReferenceServiceError(
-      "Citation key already exists in this project",
-      400,
-    );
+    throw citationKeyTakenError(citationKey);
   }
+};
+
+const citationKeyTakenError = (citationKey: string) =>
+  new ReferenceServiceError(
+    `Citation key "${citationKey}" is already used in this project. Choose a different key.`,
+    409,
+  );
+
+/**
+ * `base`, or `base` plus the first free letter suffix (Smith2024, Smith2024a,
+ * Smith2024b…), the usual BibTeX convention for same-author, same-year keys.
+ */
+export const nextAvailableCitationKey = async (
+  projectID: string,
+  base: string,
+): Promise<string> => {
+  const taken = new Set(
+    (
+      await Reference.find(
+        {
+          projectID: { $eq: projectID },
+          citationKey: { $regex: `^${escapeRegEx(base)}` },
+        },
+        { citationKey: 1 },
+      ).lean()
+    ).map((reference) => reference.citationKey),
+  );
+  if (!taken.has(base)) return base;
+  for (let code = 97; code <= 122; code += 1) {
+    const candidate = `${base}${String.fromCharCode(code)}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${base}-${base62(4)}`;
 };
 
 const addEntryToUsage = async (
@@ -286,9 +323,11 @@ const addEntryToUsage = async (
 
 /**
  * Upsert a bibliographic reference for a project:
- * - Same project + existing referenceID or citationKey → update in place
+ * - Existing referenceID owned by this project → update in place
  * - Existing referenceID from another project → create a forked copy
- * - Otherwise → create a new reference
+ * - Otherwise → create a new reference. A citation key that's already used
+ *   in the project is rejected (409), never treated as an update: that would
+ *   silently overwrite a different reference.
  * Then ensure the referenceID is listed on the project's ReferenceUsage.
  */
 export const upsertReferenceEntry = async (
@@ -358,23 +397,8 @@ export const upsertReferenceEntry = async (
     }
   }
 
-  // ── Lookup by citationKey within this project ────────────────────────────
-  const byKey = await Reference.findOne({
-    projectID: { $eq: projectID },
-    citationKey: { $eq: citationKey },
-  });
-
-  if (byKey) {
-    byKey.entryType = entryType;
-    byKey.updatedBy = actorUUID;
-    byKey.updatedAt = now;
-    Object.assign(byKey, optionalFields);
-    await byKey.save();
-    await addEntryToUsage(projectID, byKey.referenceID, actorUUID);
-    return byKey.toObject();
-  }
-
   // ── Create new ───────────────────────────────────────────────────────────
+  await assertCitationKeyAvailable(projectID, citationKey);
   const newID = base62(10);
   const toCreate = new Reference({
     projectID,
@@ -392,7 +416,15 @@ export const upsertReferenceEntry = async (
   if (validationError) {
     throw new ReferenceServiceError(validationError.message, 400);
   }
-  const created = await toCreate.save();
+  let created;
+  try {
+    created = await toCreate.save();
+  } catch (err) {
+    // The (projectID, citationKey) unique index: the same key was added
+    // concurrently after the check above.
+    if (isDuplicateKeyError(err)) throw citationKeyTakenError(citationKey);
+    throw err;
+  }
   await addEntryToUsage(projectID, newID, actorUUID);
   return created.toObject();
 };
@@ -479,42 +511,45 @@ export const deleteReferenceEntry = async (
     );
   }
 
+  // Decide everything a permanent delete needs before changing any data, so a
+  // refused delete leaves the project exactly as it was.
+  let transferToProjectID: string | undefined;
+  if (deleteFromReferences && ownedReference) {
+    const otherUsages = await ReferenceUsage.find({
+      projectID: { $ne: projectID },
+      entries: referenceID,
+    });
+    for (const usage of otherUsages) {
+      const citationConflict = await Reference.exists({
+        projectID: { $eq: usage.projectID },
+        citationKey: { $eq: ownedReference.citationKey },
+        referenceID: { $ne: referenceID },
+      });
+      if (!citationConflict) {
+        transferToProjectID = usage.projectID;
+        break;
+      }
+    }
+    if (!transferToProjectID && otherUsages.length > 0) {
+      throw new ReferenceServiceError(
+        "This reference is still used by another project, and its citation key clashes there, so it can't be permanently deleted. Remove it from this project instead.",
+        409,
+      );
+    }
+  }
+
   await ReferenceUsage.updateOne(
     { projectID: { $eq: projectID } },
     { $pull: { entries: referenceID } },
   );
 
   if (deleteFromReferences && ownedReference) {
-    const otherUsages = await ReferenceUsage.find({
-      projectID: { $ne: projectID },
-      entries: referenceID,
-    });
-
-    let transferred = false;
-    for (const usage of otherUsages) {
-      const citationConflict = await Reference.findOne({
-        projectID: { $eq: usage.projectID },
-        citationKey: { $eq: ownedReference.citationKey },
-        referenceID: { $ne: referenceID },
-      });
-      if (citationConflict) {
-        continue;
-      }
-
-      ownedReference.projectID = usage.projectID;
+    if (transferToProjectID) {
+      // Still used elsewhere: hand ownership over instead of deleting it.
+      ownedReference.projectID = transferToProjectID;
       ownedReference.updatedAt = new Date();
       await ownedReference.save();
-      transferred = true;
-      break;
-    }
-
-    if (!transferred) {
-      if (otherUsages.length > 0) {
-        throw new ReferenceServiceError(
-          "Reference is still used by another project, but citation key conflicts prevent ownership transfer",
-          400,
-        );
-      }
+    } else {
       await Reference.deleteOne({
         projectID: { $eq: projectID },
         referenceID: { $eq: referenceID },
@@ -627,7 +662,10 @@ export const createReferenceFromBookPage = async (
       entryType: "misc",
       citationKey:
         existingByUrl?.citationKey ??
-        buildCitationKey(title, pageID, createdYear || undefined),
+        (await nextAvailableCitationKey(
+          projectID,
+          buildCitationKey(title, pageID, createdYear || undefined),
+        )),
       ...(existingByUrl ? { referenceID: existingByUrl.referenceID } : {}),
       title,
       url,
@@ -1033,8 +1071,9 @@ const runJob = async ({
             ensured.content,
           );
           if (!updated) {
-            console.error(
-              `Failed to ${scriptAction === "added" ? "add" : "update"} reference script for ${page.title}`,
+            populateLog.error(
+              { jobID, projectID, pageID: page.id, scriptAction },
+              "Failed to write reference template to page",
             );
           }
         }
@@ -1091,8 +1130,9 @@ const runJob = async ({
           nextContent,
         );
         if (!updated) {
-          console.error(
-            `Failed to ${scriptAction === "added" ? "add" : "update"} reference script on backmatter page`,
+          populateLog.error(
+            { jobID, projectID, pageID: backmatterPageID, scriptAction },
+            "Failed to write reference template to back-matter page",
           );
         }
       }
@@ -1110,13 +1150,61 @@ const runJob = async ({
       { jobID: { $eq: jobID } },
       { $set: { status: "completed" } },
     );
-  } catch (error) {
-    console.error(error);
-    await ReferencePopulateJob.updateOne(
-      { jobID: { $eq: jobID } },
-      { $set: { status: "failed" } },
-    );
+  } catch (err) {
+    populateLog.error({ err, jobID, projectID }, "Reference populate job failed");
+    try {
+      await ReferencePopulateJob.updateOne(
+        { jobID: { $eq: jobID } },
+        {
+          $set: { status: "failed" },
+          $push: { message: "Failed. Run Populate again to retry." },
+        },
+      );
+    } catch (updateErr) {
+      // The stale-job check marks it failed later if this write is lost.
+      populateLog.error(
+        { err: updateErr, jobID },
+        "Could not mark reference populate job as failed",
+      );
+    }
   }
+};
+
+/**
+ * A job that hasn't written progress for this long is no longer running: the
+ * job runs inside the web process, so a restart or deploy stops it silently.
+ */
+const POPULATE_JOB_STALE_MS = 10 * 60 * 1000;
+
+/**
+ * The project's running populate job, or null. Pending jobs that stopped
+ * reporting progress are marked failed first, so a lost job can't block new
+ * ones or keep the client polling forever.
+ */
+export const getActivePopulateJob = async (projectID: string) => {
+  const staleBefore = new Date(Date.now() - POPULATE_JOB_STALE_MS);
+  await ReferencePopulateJob.updateMany(
+    {
+      projectID: { $eq: projectID },
+      status: { $eq: "pending" },
+      // Jobs created before timestamps were added have no updatedAt.
+      $or: [
+        { updatedAt: { $lt: staleBefore } },
+        { updatedAt: { $exists: false } },
+      ],
+    },
+    {
+      $set: { status: "failed" },
+      $push: {
+        message:
+          "Stopped: no progress for 10 minutes (the server may have restarted). Run Populate again.",
+      },
+    },
+  );
+  return ReferencePopulateJob.findOne({
+    projectID: { $eq: projectID },
+    status: { $eq: "pending" },
+  }).sort({ createdAt: -1 });
 };
 
 export const createReferencePopulateJob = async (
@@ -1124,25 +1212,43 @@ export const createReferencePopulateJob = async (
   actorUUID: string,
   project: ProjectInterface,
 ): Promise<any> => {
-  // fetch Toc
+  if (await getActivePopulateJob(projectID)) {
+    throw new ReferenceServiceError(
+      "A reference populate job is already running for this book",
+      409,
+    );
+  }
+
   const bookService = new BookService({
     bookID: `${project.libreLibrary}-${project.libreCoverID}`,
   });
   const toc: { id: string; title: string; url: string }[] =
     await bookService.getBookTOCFlat();
-  // create a new job
-  const populateJob = await ReferencePopulateJob.create({
-    jobID: base62(10),
-    projectID,
-    createdBy: actorUUID,
-    status: "pending",
-    totalPages: toc.length,
-    completedPages: 0,
-    message: ["Reference populate job created"],
-  });
 
-  // run the job
-  runJob({
+  let populateJob;
+  try {
+    populateJob = await ReferencePopulateJob.create({
+      jobID: base62(10),
+      projectID,
+      createdBy: actorUUID,
+      status: "pending",
+      totalPages: toc.length,
+      completedPages: 0,
+      message: ["Reference populate job created"],
+    });
+  } catch (err) {
+    // Another request started a job between the check above and this insert.
+    if (isDuplicateKeyError(err)) {
+      throw new ReferenceServiceError(
+        "A reference populate job is already running for this book",
+        409,
+      );
+    }
+    throw err;
+  }
+
+  // Runs in the background; it records its own success or failure on the job.
+  void runJob({
     jobID: populateJob.jobID,
     toc,
     bookService,
@@ -1150,8 +1256,6 @@ export const createReferencePopulateJob = async (
     library: project.libreLibrary,
     projectID,
   });
-
-  //
 
   return populateJob;
 };

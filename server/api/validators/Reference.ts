@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { checkBookIDFormat } from "../../util/bookutils";
 import conductorErrors from "../../conductor-errors";
-import { isNumber } from "es-toolkit";
 
 export const ReferenceFormatTypeEnum = z.enum([
   "APA",
@@ -134,27 +133,39 @@ export const AddReferenceEntrySchema = ProjectIDParamsSchema.extend({
 export const tocValidator = ProjectIDParamsSchema.extend({
   query: z.object({
     toc: z.coerce.boolean().optional(),
-    bookID: z.string().optional(),
+    bookID: z
+      .string()
+      .refine(checkBookIDFormat, { message: conductorErrors.err1 })
+      .optional(),
   }),
 });
+
+/** A library page ID: digits only (it is parsed and sent to the library API). */
+const PageIDSchema = z
+  .string()
+  .regex(/^\d{1,12}$/, { message: conductorErrors.err1 });
+
+/**
+ * A library subdomain (e.g. "chem"). These routes are public and the value
+ * picks API credentials and a hostname, so only plausible subdomains pass.
+ */
+const LibrarySchema = z
+  .string()
+  .regex(/^[a-z0-9-]{2,12}$/, { message: conductorErrors.err1 });
 
 export const BookAsReferenceValidator = ProjectIDParamsSchema.extend({
   body: z.object({
     bookID: z.string().refine(checkBookIDFormat, {
       message: conductorErrors.err1,
     }),
-    pageID: z.string().refine((pageID) => !isNumber(pageID), {
-      message: conductorErrors.err1,
-    }),
+    pageID: PageIDSchema,
   }),
 });
 
 export const GetReferencePageByPageIDAndLibrarySchema = z.object({
   params: z.object({
-    pageID: z.string().refine((pageID) => !isNumber(pageID), {
-      message: conductorErrors.err1,
-    }),
-    library: z.string(),
+    pageID: PageIDSchema,
+    library: LibrarySchema,
   }),
 });
 
