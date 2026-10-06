@@ -1,17 +1,10 @@
 import React from "react";
 import { Card, Heading, Text } from "@libretexts/davis-react";
 import { IconAlertTriangle } from "@tabler/icons-react";
-
-export type CitationCheckData = {
-  /** When the citation scan these results come from finished. */
-  checkedAt: string;
-  missing: { key: string; pages: { pageID: string; title?: string }[] }[];
-  /** Shown as warnings on their rows in the references table. */
-  unused: { referenceID: string; citationKey: string; title?: string }[];
-};
+import type { CitedKey } from "./model";
 
 interface CitationCheckProps {
-  missing: CitationCheckData["missing"];
+  missing: CitedKey[];
   checkedAt: string;
   /** Library subdomain, for links to the citing pages. */
   library?: string;

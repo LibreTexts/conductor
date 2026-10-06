@@ -25,7 +25,7 @@ import {
   generateAPIRequestHeaders,
   getPage,
 } from "../../util/librariesclient.js";
-import { escapeRegEx, sleep } from "../../util/helpers.js";
+import { escapeRegEx } from "../../util/helpers.js";
 import { ReferencePopulateJob } from "../../models/referencepopulatejob.js";
 import Project, { ProjectInterface } from "../../models/project.js";
 import GlossaryService from "./glossary-service.js";
@@ -481,16 +481,12 @@ export const searchReferences = async (
 };
 
 /**
- * Remove a reference from a project's usage list.
- * When `deleteFromReferences` is true and this project owns the Reference:
- * - If another project still lists it in usage → transfer ownership (`projectID`)
- * - Otherwise → permanently delete the Reference document
- */
-/**
- * Removes several references from a project, one at a time with the same
- * rules as a single removal. A permanent delete is applied only to the
- * references this project owns; the rest are just removed from its list.
- * One failure doesn't stop the others; each is reported with its reason.
+ * Removes several references from a project with the same rules as a single
+ * removal, using a few bulk reads and writes instead of a round of queries
+ * per reference. A permanent delete applies only to references this project
+ * owns: one no other book uses is deleted; one another book still uses is
+ * handed over to it, or refused if its key clashes there. Everything is
+ * decided before anything is written, so a refused reference stays listed.
  */
 export const deleteReferenceEntries = async (
   projectID: string,
@@ -500,34 +496,106 @@ export const deleteReferenceEntries = async (
   removed: string[];
   failed: { referenceID: string; message: string }[];
 }> => {
-  const ids = [...new Set(referenceIDs)];
-  const owned = new Set(
-    (
-      await Reference.find(
-        { projectID: { $eq: projectID }, referenceID: { $in: ids } },
-        { referenceID: 1 },
-      ).lean()
-    ).map((reference) => reference.referenceID),
-  );
+  const usage = await ReferenceUsage.findOne(
+    { projectID: { $eq: projectID } },
+    { entries: 1 },
+  ).lean();
+  if (!usage) {
+    throw new ReferenceServiceError("ReferenceUsage not found", 404);
+  }
 
-  const removed: string[] = [];
   const failed: { referenceID: string; message: string }[] = [];
-  for (const referenceID of ids) {
-    try {
-      await deleteReferenceEntry(
-        projectID,
-        referenceID,
-        deleteFromReferences && owned.has(referenceID),
-      );
-      removed.push(referenceID);
-    } catch (err) {
-      if (!(err instanceof ReferenceServiceError)) throw err;
-      failed.push({ referenceID, message: err.message });
+  const listed = new Set(usage.entries);
+  const ids = [...new Set(referenceIDs)].filter((referenceID) => {
+    if (listed.has(referenceID)) return true;
+    failed.push({
+      referenceID,
+      message: "Reference not found in this project's usage",
+    });
+    return false;
+  });
+
+  // Owned references being permanently deleted, and other books using them.
+  const owned = deleteFromReferences
+    ? await Reference.find(
+        { projectID: { $eq: projectID }, referenceID: { $in: ids } },
+        { referenceID: 1, citationKey: 1 },
+      ).lean()
+    : [];
+  const otherUsages = owned.length
+    ? await ReferenceUsage.find(
+        {
+          projectID: { $ne: projectID },
+          entries: { $in: owned.map((ref) => ref.referenceID) },
+        },
+        { projectID: 1, entries: 1 },
+      ).lean()
+    : [];
+
+  const toDelete: string[] = [];
+  const handovers: { referenceID: string; toProjectID: string }[] = [];
+  const refused = new Set<string>();
+  for (const reference of owned) {
+    const users = otherUsages.filter((other) =>
+      other.entries.includes(reference.referenceID),
+    );
+    if (users.length === 0) {
+      toDelete.push(reference.referenceID);
+      continue;
     }
+    let target: string | undefined;
+    for (const other of users) {
+      const clash = await Reference.exists({
+        projectID: { $eq: other.projectID },
+        citationKey: { $eq: reference.citationKey },
+        referenceID: { $ne: reference.referenceID },
+      });
+      if (!clash) {
+        target = other.projectID;
+        break;
+      }
+    }
+    if (target) {
+      handovers.push({ referenceID: reference.referenceID, toProjectID: target });
+    } else {
+      refused.add(reference.referenceID);
+      failed.push({
+        referenceID: reference.referenceID,
+        message:
+          "This reference is still used by another project, and its citation key clashes there, so it can't be permanently deleted. Remove it from this project instead.",
+      });
+    }
+  }
+
+  const removed = ids.filter((referenceID) => !refused.has(referenceID));
+  if (removed.length > 0) {
+    await ReferenceUsage.updateOne(
+      { projectID: { $eq: projectID } },
+      { $pull: { entries: { $in: removed } } },
+    );
+  }
+  if (toDelete.length > 0) {
+    await Reference.deleteMany({
+      projectID: { $eq: projectID },
+      referenceID: { $in: toDelete },
+    });
+  }
+  const now = new Date();
+  for (const { referenceID, toProjectID } of handovers) {
+    await Reference.updateOne(
+      { projectID: { $eq: projectID }, referenceID: { $eq: referenceID } },
+      { $set: { projectID: toProjectID, updatedAt: now } },
+    );
   }
   return { removed, failed };
 };
 
+/**
+ * Remove a reference from a project's usage list.
+ * When `deleteFromReferences` is true and this project owns the Reference:
+ * - If another project still lists it in usage → transfer ownership (`projectID`)
+ * - Otherwise → permanently delete the Reference document
+ */
 export const deleteReferenceEntry = async (
   projectID: string,
   referenceID: string,
@@ -1018,12 +1086,16 @@ const runJob = async ({
       });
     }
 
+    // Results are collected here and stored once, after every page succeeds.
+    // Until then library pages keep reading the previous scan's data, and a
+    // failed scan leaves it untouched.
     const backmatterReferenceList: Set<string> = new Set();
-
-    // Rebuild per-page cites from this run; previous populate jobs $push'd extras.
-    await ReferenceUsage.updateOne(
-      { projectID: { $eq: projectID } },
-      { $set: { pageReferences: [] } },
+    const pageReferences: PageReferences[] = [];
+    const referenceIDByKey = new Map(
+      references.map((reference) => [
+        reference.citationKey,
+        reference.referenceID,
+      ]),
     );
 
     for (let index = 0; index < toc.length; index++) {
@@ -1031,7 +1103,6 @@ const runJob = async ({
       if (page.id === coverID) continue;
       if (backmatterPageID && page.id === backmatterPageID) continue;
 
-      // wait for a second between pages
       const content = await bookService.getPageContent(page.id, "json");
       // extract \librecite{*} from content
       const referenceKeys = extractCitationKeys(content);
@@ -1052,27 +1123,26 @@ const runJob = async ({
           $set: { completedPages: index + 1 },
         },
       );
-      // update pageReferences
-      const refs = referenceKeys.map((key) => ({
-        key,
-        refID:
-          references.find((reference) => reference.citationKey === key)
-            ?.referenceID || "",
-      }));
-      await ReferenceUsage.updateOne(
-        { projectID: { $eq: projectID } },
-        {
-          $push: {
-            pageReferences: {
-              pageID: page.id,
-              title: page.title,
-              references: refs,
-            },
-          },
-          $set: { backmatterReferenceList: [...backmatterReferenceList] },
-        },
-      );
+      pageReferences.push({
+        pageID: page.id,
+        title: page.title,
+        references: referenceKeys.map((key) => ({
+          key,
+          refID: referenceIDByKey.get(key) ?? "",
+        })),
+      });
     }
+
+    // One write replaces the previous scan's data with this one's.
+    await ReferenceUsage.updateOne(
+      { projectID: { $eq: projectID } },
+      {
+        $set: {
+          pageReferences,
+          backmatterReferenceList: [...backmatterReferenceList],
+        },
+      },
+    );
 
     if (isBackmatter && backmatterPageID) {
       await ReferencePopulateJob.updateOne(
@@ -1121,7 +1191,18 @@ const POPULATE_JOB_STALE_MS = 10 * 60 * 1000;
  * ones or keep the client polling forever.
  */
 export const getActivePopulateJob = async (projectID: string) => {
+  const findPending = () =>
+    ReferencePopulateJob.findOne({
+      projectID: { $eq: projectID },
+      status: { $eq: "pending" },
+    }).sort({ createdAt: -1 });
+
+  // The client polls this while a scan runs, so the usual case is a read.
   const staleBefore = new Date(Date.now() - POPULATE_JOB_STALE_MS);
+  const pending = await findPending();
+  if (!pending) return null;
+  if (pending.updatedAt && pending.updatedAt >= staleBefore) return pending;
+
   await ReferencePopulateJob.updateMany(
     {
       projectID: { $eq: projectID },
@@ -1140,10 +1221,7 @@ export const getActivePopulateJob = async (projectID: string) => {
       },
     },
   );
-  return ReferencePopulateJob.findOne({
-    projectID: { $eq: projectID },
-    status: { $eq: "pending" },
-  }).sort({ createdAt: -1 });
+  return findPending();
 };
 
 export const createReferencePopulateJob = async (

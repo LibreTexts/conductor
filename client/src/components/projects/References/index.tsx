@@ -22,6 +22,8 @@ import {
   ReferenceScopeGroup,
   ReferenceScopeMode,
   generateCitationKey,
+  compareCitations,
+  type CitationCheckResult,
   EntryTypes,
   scopeModeForDisplayLocation,
 } from "./model";
@@ -43,7 +45,7 @@ import {
 import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
 import Configure, { type ConfigureSettings } from "./Scope/Configure";
 import Populate, { hasPopulateJobData } from "./Populate";
-import CitationCheck, { type CitationCheckData } from "./CitationCheck";
+import CitationCheck from "./CitationCheck";
 import BulkRemoveModal from "./BulkRemoveModal";
 import { useRowsMaxHeight } from "./useRowsMaxHeight";
 import ReferenceWarningsModal, {
@@ -58,7 +60,7 @@ const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
  * one warning are included. New kinds of warning are added here.
  */
 function buildReferenceWarnings(
-  check: CitationCheckData | null | undefined,
+  check: CitationCheckResult | null | undefined,
 ): Map<string, ReferenceWarning[]> {
   const warnings = new Map<string, ReferenceWarning[]>();
   const add = (referenceID: string, warning: ReferenceWarning) =>
@@ -682,7 +684,19 @@ const ReferenceManager: React.FC = () => {
     });
   };
 
-  const citationCheck = bookReferencesDetails?.data?.citationCheck;
+  // The last scan's citations compared with the references the book has now,
+  // so adding or removing a reference updates the check and the filter.
+  const citationScan = bookReferencesDetails?.data?.citationCheck;
+  const citationCheck = useMemo<CitationCheckResult | null>(
+    () =>
+      citationScan
+        ? {
+            checkedAt: citationScan.checkedAt,
+            ...compareCitations(citationScan.citations, entries),
+          }
+        : null,
+    [citationScan, entries],
+  );
   /** Each reference's warnings; references without any aren't in the map. */
   const referenceWarnings = useMemo(
     () => buildReferenceWarnings(citationCheck),
@@ -764,12 +778,10 @@ const ReferenceManager: React.FC = () => {
                   { label: `Not cited (${notCitedIDs.size})`, value: "notCited" },
                 ]}
                 value={activeCitationFilter}
-                onChange={(e) =>
-                {
+                onChange={(e) => {
                   setCitationFilter(e.target.value as CitationFilter);
                   setRowSelection({});
-                }
-                }
+                }}
               />
             </div>
           ) : (

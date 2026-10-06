@@ -124,7 +124,7 @@ import {
   GlossaryConfigGroup,
 } from "./screens/commons/Glossary/model";
 import { BookSearchProps, ReferenceDisplayLocation, ReferenceEntry, ReferenceFormatType, ReferenceFormData, ReferenceScopeGroup, ReferenceScopeMode } from "./components/projects/References/model";
-import type { CitationCheckData } from "./components/projects/References/CitationCheck";
+import type { CitationScanData } from "./components/projects/References/model";
 
 /**
  * @fileoverview
@@ -3323,7 +3323,7 @@ class API {
           scopeGroups?: ReferenceScopeGroup[];
           entries: ReferenceEntry[];
           /** Comparison with the last citation scan; null before the first one. */
-          citationCheck?: CitationCheckData | null;
+          citationCheck?: CitationScanData | null;
         };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference`);
