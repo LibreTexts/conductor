@@ -37,7 +37,7 @@ const HTML_COMMENT_RE = /<!--[\s\S]*?(-->|$)/g;
 const HTML_TAG_RE = /<\/?[A-Za-z!?][^>]*(>|$)/g;
 // C0/C1 controls (except tab/newline handled below) and bidi overrides, which
 // can disguise text.
-const CONTROL_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F‪-‮⁦-⁩]/g;
+const CONTROL_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/g;
 
 /**
  * Plain, inert text: tags and comments removed, control characters dropped,
@@ -49,8 +49,8 @@ export const sanitizeReferenceText = (value: string, maxLength = 2000): string =
     .replace(HTML_COMMENT_RE, "")
     .replace(HTML_TAG_RE, "")
     .replace(CONTROL_CHARS_RE, "")
-    .replace(/</g, "＜")
-    .replace(/>/g, "＞")
+    .replace(/</g, "\uFF1C")
+    .replace(/>/g, "\uFF1E")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLength);

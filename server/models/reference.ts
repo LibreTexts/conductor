@@ -65,9 +65,6 @@ export type ReferenceInterface = {
   updatedAt: Date;
   entryType: EntryType;
   citationKey: string;
-  /** OpenAI text-embedding-3-small vector over bibliographic text fields. */
-  embeddings?: number[];
-  embeddingsUpdatedAt?: Date;
 } & Partial<Record<ReferenceFieldKey, string>>;
 
 export const ReferenceSchema = new Schema<ReferenceInterface>({
@@ -81,14 +78,14 @@ export const ReferenceSchema = new Schema<ReferenceInterface>({
   updatedAt: { type: Date, required: true },
   entryType: { type: String, required: true },
   citationKey: { type: String, required: true },
-  embeddings: { type: [Number] },
-  embeddingsUpdatedAt: { type: Date },
   ...Object.fromEntries(
     OPTIONAL_REFERENCE_FIELDS.map((key) => [key, { type: String }]),
   ),
 });
 
 ReferenceSchema.index({ projectID: 1, referenceID: 1 }, { unique: true });
+// Books list references by ID, including ones owned by other projects.
+ReferenceSchema.index({ referenceID: 1 });
 ReferenceSchema.index({ projectID: 1, citationKey: 1 }, { unique: true });
 ReferenceSchema.index(
   {
@@ -116,26 +113,6 @@ ReferenceSchema.index(
   },
   { name: "ref_text" },
 );
-
-/** Atlas Vector Search — embed citationKey + bibliographic fields into `embeddings`. */
-ReferenceSchema.searchIndex({
-  name: "ref_vec",
-  type: "vectorSearch",
-  definition: {
-    fields: [
-      {
-        type: "vector",
-        path: "embeddings",
-        numDimensions: 256, // more accurate alternative: 1536 and slower
-        similarity: "dotProduct", // alternative: cosine (slower)
-      },
-      {
-        type: "filter",
-        path: "projectID",
-      },
-    ],
-  },
-});
 
 export const Reference = model<ReferenceInterface>(
   "Reference",

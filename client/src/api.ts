@@ -3418,7 +3418,12 @@ class API {
   async addReferencesToProject(projectID: string, referenceIDs: string[]) {
     const res = await axios.patch<
       {
-        data: { status: boolean; added: ReferenceEntry[] };
+        data: {
+          /** referenceIDs added to the book. */
+          added: string[];
+          /** Not added: unknown ID, or the book already uses its citation key. */
+          skipped: { referenceID: string; reason: "not-found" | "key-in-use" }[];
+        };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference`, { referenceIDs });
     return res.data;
@@ -3427,7 +3432,12 @@ class API {
   async addExistingReferencesToProject(projectID: string, referenceIDs: string[]) {
     const res = await axios.patch<
       {
-        data: { status: boolean; added: ReferenceEntry[] };
+        data: {
+          /** referenceIDs added to the book. */
+          added: string[];
+          /** Not added: unknown ID, or the book already uses its citation key. */
+          skipped: { referenceID: string; reason: "not-found" | "key-in-use" }[];
+        };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference/existing`, { referenceIDs });
     return res.data;

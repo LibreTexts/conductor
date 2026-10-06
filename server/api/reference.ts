@@ -426,10 +426,13 @@ async function addReferenceEntry(
         errMsg: "You do not have permission to access this project",
       });
     }
-    const statusCode = await addReferencesToUsage(projectID, referenceIDs);
+    const { added, skipped } = await addReferencesToUsage(
+      projectID,
+      referenceIDs,
+    );
     return res.send({
       err: false,
-      data: { status: statusCode.status },
+      data: { added, skipped },
     });
   } catch (err) {
     if (err instanceof ReferenceServiceError) {
@@ -558,7 +561,7 @@ async function addBookPageAsReference(
   }
 }
 
-async function getReferancePageDetails(
+async function getReferencePageDetails(
   req: ZodReqWithOptionalUser<
     z.infer<typeof GetReferencePageByPageIDAndLibrarySchema>
   >,
@@ -642,7 +645,7 @@ async function getReferancePageDetails(
         errMsg: err.message,
       });
     }
-    logger.error({ err }, "getReferancePageDetails failed");
+    logger.error({ err }, "getReferencePageDetails failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -663,6 +666,12 @@ async function getReferenceItems(
         errMsg: "Project not found",
       });
     }
+    if (!project.libreLibrary || !project.libreCoverID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: "This project has no book",
+      });
+    }
     const bookService = new BookService({
       bookID: `${project.libreLibrary}-${project.libreCoverID}`,
     });
@@ -679,7 +688,7 @@ async function getReferenceItems(
           [...pageRefs]
             .reverse()
             .find((pageRef) => pageRef.pageID === toc.id)
-            ?.refrences.map((entry) => entry.key)
+            ?.references.map((entry) => entry.key)
             .filter(isValidCitationKey) ?? [],
         ),
       ],
@@ -692,7 +701,7 @@ async function getReferenceItems(
     const usage = await getReferencesUsage({ projectID, showPageRefs: true });
     const toc = await mapToc(
       await bookService.getBookTOCNew(),
-      usage?.pageRefrences ?? [],
+      usage?.pageReferences ?? [],
     );
     return res.send({
       err: false,
@@ -829,7 +838,7 @@ export default {
   addReferenceEntry,
   getBookToc,
   addBookPageAsReference,
-  getReferancePageDetails,
+  getReferencePageDetails,
   getReferenceItems,
   populateReferenceDetails,
   startReferencePopulateJob,

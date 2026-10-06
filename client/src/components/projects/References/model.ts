@@ -291,6 +291,22 @@ function firstTitleWord(title: string): string {
   return meaningful ?? words[0] ?? "";
 }
 
+/** Same rule as the server: BibTeX-safe characters, no spaces, up to 100. */
+export const CITATION_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_\-:.+/]{0,99}$/;
+
+/**
+ * `key` with characters the server doesn't accept removed, or "" if nothing
+ * usable is left (e.g. `Smith & Jones 2020` → `SmithJones2020`).
+ */
+export function toValidCitationKey(key: string): string {
+  const cleaned = key
+    .trim()
+    .replace(/[^A-Za-z0-9_\-:.+/]/g, "")
+    .replace(/^[^A-Za-z0-9]+/, "")
+    .slice(0, 100);
+  return CITATION_KEY_PATTERN.test(cleaned) ? cleaned : "";
+}
+
 /**
  * Build a BibTeX citation key from filled fields when the user left key blank.
  * Prefer `AuthorYearTitle` (e.g. `Smith2026First`). When `takenKeys` is given,
@@ -361,9 +377,14 @@ function parseBibtexFields(
   body: string,
 ): Partial<Record<ReferenceFieldKey, string>> {
   const fields: Partial<Record<ReferenceFieldKey, string>> = {};
+  // Sticky (`y`) patterns match at `lastIndex`, so scanning doesn't copy the
+  // rest of the body at every position.
+  const fieldStart = /[\s,]*(\w+)\s*=\s*/y;
+  const bareNumber = /\d+/y;
   let i = 0;
   while (i < body.length) {
-    const keyMatch = body.slice(i).match(/^[\s,]*(\w+)\s*=\s*/);
+    fieldStart.lastIndex = i;
+    const keyMatch = fieldStart.exec(body);
     if (!keyMatch) {
       i += 1;
       continue;
@@ -383,13 +404,14 @@ function parseBibtexFields(
       value = unwrapBibtexBraces(body.slice(i + 1, end));
       i = end + 1;
     } else {
-      const numMatch = body.slice(i).match(/^(\d+)/);
+      bareNumber.lastIndex = i;
+      const numMatch = bareNumber.exec(body);
       if (!numMatch) {
         i += 1;
         continue;
       }
-      value = numMatch[1];
-      i += numMatch[1].length;
+      value = numMatch[0];
+      i += numMatch[0].length;
     }
 
     if (key !== "citationKey") {
@@ -408,7 +430,9 @@ export function parseBibtexToForm(raw: string): ReferenceFormData | null {
   const entryType = (
     VALID_ENTRY_TYPES.has(entryTypeRaw) ? entryTypeRaw : "misc"
   ) as EntryType;
-  const citationKey = header[2].trim();
+  // Keys must fit the server's rule; one that can't is left blank so a valid
+  // key is generated on save.
+  const citationKey = toValidCitationKey(header[2]);
 
   // Find the matching closing brace of the entry, then take fields after the key.
   const openBrace = raw.indexOf("{", header.index);
