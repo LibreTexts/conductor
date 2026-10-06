@@ -687,7 +687,7 @@ const ReferenceManager: React.FC = () => {
         id: "actions",
         header: () =>
           citationCheck ? (
-            <div className="flex justify-end">
+            <div className="flex w-full justify-end">
               <span className="sr-only">Actions</span>
               <Select
                 name="references-citation-filter"
