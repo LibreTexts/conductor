@@ -1,5 +1,5 @@
 import { Button, Drawer } from "@libretexts/davis-react";
-import { IconDownload, IconSend } from "@tabler/icons-react";
+import { IconDownload, IconRotate2, IconSend } from "@tabler/icons-react";
 import type { CompileStatus } from "../../../hooks/useShapeshift";
 
 interface CompileBookHeaderProps {
@@ -28,7 +28,7 @@ const CompileBookHeader: React.FC<CompileBookHeaderProps> = ({
   return (
     <Drawer.Header>
       <div className="mr-4">
-        <Drawer.Title className="!text-2xl">Compile Book</Drawer.Title>
+        <Drawer.Title className="!text-2xl">Export Book</Drawer.Title>
         <p className="mt-1 mb-0 text-sm text-gray-600">
           Generate print and LMS-ready files from the current contents of
           this book.
@@ -37,7 +37,7 @@ const CompileBookHeader: React.FC<CompileBookHeaderProps> = ({
       <div className="flex shrink-0 items-center gap-2">
         <Button
           variant="outline"
-          icon={<IconDownload size={16} />}
+          icon={<IconDownload size={18} />}
           as="a"
           href={downloadAllURL}
           // Soft-disabled rather than removing the href: the button keeps its
@@ -49,12 +49,12 @@ const CompileBookHeader: React.FC<CompileBookHeaderProps> = ({
         </Button>
         <Button
           variant="primary"
-          icon={<IconSend size={16} />}
+          icon={<IconRotate2 size={18} />}
           onClick={onCompile}
           loading={isCompiling}
           softDisabled={compileDisabled}
         >
-          Compile Book
+          Recompile Exports
         </Button>
         <Drawer.Close aria-label="Close compile book panel" />
       </div>

@@ -13,7 +13,7 @@ import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import ImportWorkbenchModal from "./ImportWorkbenchModal";
 import { Button as DavisButton } from "@libretexts/davis-react";
-import { IconBook, IconConfetti, IconSend } from "@tabler/icons-react";
+import { IconBook, IconConfetti, IconPackageExport, IconSend } from "@tabler/icons-react";
 
 type ActiveImportJob = {
   jobID: string;
@@ -176,10 +176,10 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
           <DavisButton
             variant="primary"
             size="sm"
-            icon={<IconSend size={16} />}
+            icon={<IconPackageExport size={18} />}
             onClick={() => setShowCompileDrawer(true)}
           >
-            Compile book
+            View Export Options
           </DavisButton>
         )}
         {/* Hidden on purpose. The publish flow is merged but not yet released to
@@ -226,7 +226,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
                 }
                 color="blue"
                 size="sm"
-                icon={<IconBook size={16} />}
+                icon={<IconBook size={18} />}
               >
                 View Book on Commons
               </DavisButton>
