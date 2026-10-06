@@ -486,6 +486,48 @@ export const searchReferences = async (
  * - If another project still lists it in usage → transfer ownership (`projectID`)
  * - Otherwise → permanently delete the Reference document
  */
+/**
+ * Removes several references from a project, one at a time with the same
+ * rules as a single removal. A permanent delete is applied only to the
+ * references this project owns; the rest are just removed from its list.
+ * One failure doesn't stop the others; each is reported with its reason.
+ */
+export const deleteReferenceEntries = async (
+  projectID: string,
+  referenceIDs: string[],
+  deleteFromReferences: boolean,
+): Promise<{
+  removed: string[];
+  failed: { referenceID: string; message: string }[];
+}> => {
+  const ids = [...new Set(referenceIDs)];
+  const owned = new Set(
+    (
+      await Reference.find(
+        { projectID: { $eq: projectID }, referenceID: { $in: ids } },
+        { referenceID: 1 },
+      ).lean()
+    ).map((reference) => reference.referenceID),
+  );
+
+  const removed: string[] = [];
+  const failed: { referenceID: string; message: string }[] = [];
+  for (const referenceID of ids) {
+    try {
+      await deleteReferenceEntry(
+        projectID,
+        referenceID,
+        deleteFromReferences && owned.has(referenceID),
+      );
+      removed.push(referenceID);
+    } catch (err) {
+      if (!(err instanceof ReferenceServiceError)) throw err;
+      failed.push({ referenceID, message: err.message });
+    }
+  }
+  return { removed, failed };
+};
+
 export const deleteReferenceEntry = async (
   projectID: string,
   referenceID: string,

@@ -4,10 +4,8 @@ import {
   Breadcrumb,
   Button,
   Card,
-  Checkbox,
   Heading,
   IconButton,
-  Modal,
   Select,
   Spinner,
   Stack,
@@ -46,6 +44,8 @@ import { buildLibraryPageGoURL } from "../../../utils/projectHelpers";
 import Configure, { type ConfigureSettings } from "./Scope/Configure";
 import Populate, { hasPopulateJobData } from "./Populate";
 import CitationCheck, { type CitationCheckData } from "./CitationCheck";
+import BulkRemoveModal from "./BulkRemoveModal";
+import { useRowsMaxHeight } from "./useRowsMaxHeight";
 import ReferenceWarningsModal, {
   type ReferenceWarning,
 } from "./ReferenceWarningsModal";
@@ -127,12 +127,16 @@ const ReferenceManager: React.FC = () => {
   const [pendingDelete, setPendingDelete] = useState<ReferenceEntry | null>(
     null,
   );
-  const [deleteFromReferences, setDeleteFromReferences] = useState(false);
   const [editingReference, setEditingReference] =
     useState<ReferenceEntry | null>(null);
   const [warningReference, setWarningReference] =
     useState<ReferenceEntry | null>(null);
   const [citationFilter, setCitationFilter] = useState<CitationFilter>("all");
+  /** Selected table rows, by referenceID. */
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [showBulkRemove, setShowBulkRemove] = useState(false);
 
   const {
     project,
@@ -370,6 +374,60 @@ const ReferenceManager: React.FC = () => {
     });
   };
 
+  const { mutate: removeReferences, isPending: isRemovingReferences } =
+    useMutation({
+      mutationFn: async ({
+        referenceIDs,
+        deleteFromReferences: permanentlyDelete,
+      }: {
+        referenceIDs: string[];
+        deleteFromReferences: boolean;
+      }) => {
+        const res = await api.deleteBookReferences(
+          id ?? "",
+          referenceIDs,
+          permanentlyDelete,
+        );
+        if (res.err) throw new Error(res.errMsg);
+        return res.data;
+      },
+      onSuccess: ({ removed, failed }) => {
+        const removedSet = new Set(removed);
+        updateBookReferencesCache((current) => ({
+          ...current,
+          data: {
+            ...current.data,
+            entries: (current.data.entries ?? []).filter(
+              (entry) => !removedSet.has(entry.referenceID),
+            ),
+          },
+        }));
+        // Keep failed rows selected so they can be retried or inspected.
+        setRowSelection(
+          Object.fromEntries(failed.map((f) => [f.referenceID, true])),
+        );
+        setShowBulkRemove(false);
+        if (removed.length > 0) {
+          addNotification({
+            type: "success",
+            message: `Removed ${removed.length} reference${removed.length === 1 ? "" : "s"}`,
+          });
+        }
+        if (failed.length > 0) {
+          addNotification({
+            type: "error",
+            message: `${failed.length} reference${failed.length === 1 ? " wasn't" : "s weren't"} removed: ${failed[0].message}`,
+          });
+        }
+      },
+      onError: (error) => {
+        addNotification({
+          type: "error",
+          message: errorMessageFrom(error, "Error removing references"),
+        });
+      },
+    });
+
   const removeEntryFromCache = (referenceID: string) => {
     updateBookReferencesCache((current) => ({
       ...current,
@@ -461,13 +519,7 @@ const ReferenceManager: React.FC = () => {
     onSuccess: (_data, variables) => {
       removeEntryFromCache(variables.referenceID);
       setPendingDelete(null);
-      setDeleteFromReferences(false);
-      addNotification({
-        type: "success",
-        message: variables.deleteFromReferences
-          ? "Reference permanently deleted"
-          : "Reference removed from project",
-      });
+      addNotification({ type: "success", message: "Reference removed" });
     },
     onError: (error) => {
       addNotification({
@@ -618,15 +670,15 @@ const ReferenceManager: React.FC = () => {
 
   const openDeleteDialog = (entry: ReferenceEntry) => {
     setPendingDelete(entry);
-    setDeleteFromReferences(false);
   };
 
   const confirmDelete = () => {
     if (!pendingDelete || !id) return;
-    const isOwned = pendingDelete.projectID === id;
+    // A reference this book owns is deleted, or handed over to another book
+    // still using it; a borrowed one is only removed from this book.
     deleteReference({
       referenceID: pendingDelete.referenceID,
-      deleteFromReferences: isOwned ? deleteFromReferences : false,
+      deleteFromReferences: pendingDelete.projectID === id,
     });
   };
 
@@ -640,6 +692,12 @@ const ReferenceManager: React.FC = () => {
   const notCitedIDs = useMemo(
     () => new Set(citationCheck?.unused.map((ref) => ref.referenceID)),
     [citationCheck],
+  );
+  // Rows scroll inside the table, sized to the window below it.
+  const rowsArea = useRowsMaxHeight<HTMLDivElement>();
+
+  const selectedEntries = entries.filter(
+    (entry) => rowSelection[entry.referenceID],
   );
   const activeCitationFilter: CitationFilter = citationCheck
     ? citationFilter
@@ -707,7 +765,10 @@ const ReferenceManager: React.FC = () => {
                 ]}
                 value={activeCitationFilter}
                 onChange={(e) =>
-                  setCitationFilter(e.target.value as CitationFilter)
+                {
+                  setCitationFilter(e.target.value as CitationFilter);
+                  setRowSelection({});
+                }
                 }
               />
             </div>
@@ -779,7 +840,6 @@ const ReferenceManager: React.FC = () => {
     [referenceWarnings, citationCheck, activeCitationFilter, notCitedIDs, entries.length],
   );
 
-  const pendingIsOwned = !!pendingDelete && pendingDelete.projectID === id;
 
   const scopeSummary = describeScope({
     scopeMode: bookReferencesDetails?.data?.scopeMode,
@@ -947,6 +1007,7 @@ const ReferenceManager: React.FC = () => {
               No references yet. Use Add Reference to create the first one.
             </Text>
           ) : (
+            <div ref={rowsArea.ref}>
             <DataTable<ReferenceEntry>
               data={tableEntries}
               columns={columns}
@@ -955,13 +1016,46 @@ const ReferenceManager: React.FC = () => {
               striped
               bordered
               density="compact"
-              maxHeight="calc(100vh - 420px)"
+              maxHeight={"calc(60vh)"}
               enableSorting
               enableGlobalFilter
               enableColumnFilters
+              enableRowSelection
+              tableOptions={{
+                getRowId: (row) => row.referenceID,
+                state: { rowSelection },
+                onRowSelectionChange: (updater) =>
+                  setRowSelection((current) =>
+                    typeof updater === "function" ? updater(current) : updater,
+                  ),
+              }}
               toolbar={{
                 globalSearch: true,
                 globalSearchPlaceholder: "Search references…",
+                end:
+                  selectedEntries.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Text size="sm" role="status" className="text-neutral-700">
+                        {selectedEntries.length} selected
+                      </Text>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        icon={<IconTrash size={16} aria-hidden="true" />}
+                        iconPosition="left"
+                        onClick={() => setShowBulkRemove(true)}
+                      >
+                        Remove selected
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRowSelection({})}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  ) : undefined,
               }}
               emptyState="No references match your search."
               classNames={{
@@ -969,6 +1063,7 @@ const ReferenceManager: React.FC = () => {
                 cell: "!whitespace-normal min-w-0 break-words",
               }}
             />
+            </div>
           )}
         </section>
       ) : null}
@@ -1000,6 +1095,28 @@ const ReferenceManager: React.FC = () => {
         referenceFormat={referenceFormat}
         projectID={id ?? ""}
       />
+      <BulkRemoveModal
+        open={showBulkRemove}
+        references={selectedEntries}
+        citedIDs={
+          citationCheck
+            ? new Set(
+                selectedEntries
+                  .filter((entry) => !notCitedIDs.has(entry.referenceID))
+                  .map((entry) => entry.referenceID),
+              )
+            : undefined
+        }
+        removing={isRemovingReferences}
+        onCancel={() => setShowBulkRemove(false)}
+        onConfirm={() =>
+          removeReferences({
+            referenceIDs: selectedEntries.map((entry) => entry.referenceID),
+            // The server applies this only to references this book owns.
+            deleteFromReferences: true,
+          })
+        }
+      />
       <ReferenceWarningsModal
         reference={warningReference}
         warnings={
@@ -1024,61 +1141,22 @@ const ReferenceManager: React.FC = () => {
         job={populateJob}
       />
 
-      <Modal
+      <BulkRemoveModal
         open={!!pendingDelete}
-        onClose={() => {
-          if (isDeleting) return;
-          setPendingDelete(null);
-          setDeleteFromReferences(false);
-        }}
-        size="sm"
-      >
-        <Modal.Header>
-          <Modal.Title>Remove reference</Modal.Title>
-          <Modal.Close aria-label="Close" />
-        </Modal.Header>
-        <Modal.Body>
-          <Stack direction="vertical" gap="md">
-            <Text size="sm">
-              Remove{" "}
-              <span className="font-semibold">
-                {pendingDelete?.citationKey}
-              </span>{" "}
-              from this project?
-            </Text>
-            {pendingIsOwned && (
-              <Checkbox
-                name="deleteFromReferences"
-                label="Also permanently delete this reference (owned by this project)"
-                checked={deleteFromReferences}
-                onChange={(checked) =>
-                  setDeleteFromReferences(checked === true)
-                }
-              />
-            )}
-          </Stack>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setPendingDelete(null);
-              setDeleteFromReferences(false);
-            }}
-            disabled={isDeleting}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={confirmDelete}
-            loading={isDeleting}
-            disabled={isDeleting}
-          >
-            Remove
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        references={pendingDelete ? [pendingDelete] : []}
+        citedIDs={
+          citationCheck && pendingDelete
+            ? new Set(
+                notCitedIDs.has(pendingDelete.referenceID)
+                  ? []
+                  : [pendingDelete.referenceID],
+              )
+            : undefined
+        }
+        removing={isDeleting}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={confirmDelete}
+      />
     </Stack>
   );
 };

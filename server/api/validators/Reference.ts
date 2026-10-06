@@ -188,6 +188,17 @@ export const DeleteReferenceEntrySchema = ProjectIDParamsSchema.extend({
   }),
 });
 
+export const BulkDeleteReferenceEntriesSchema = ProjectIDParamsSchema.extend({
+  body: z.object({
+    referenceIDs: z
+      .array(z.string().length(10))
+      .min(1, { message: "Select at least one reference" })
+      .max(500),
+    /** Applied only to references this project owns; others are just removed. */
+    deleteFromReferences: z.boolean().optional().default(false),
+  }),
+});
+
 export const AddReferenceEntrySchema = ProjectIDParamsSchema.extend({
   body: z.object({
     referenceIDs: z

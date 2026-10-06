@@ -3435,6 +3435,26 @@ class API {
     return res.data;
   }
 
+  /** Removes several references; the response lists any that couldn't be removed. */
+  async deleteBookReferences(
+    projectID: string,
+    referenceIDs: string[],
+    deleteFromReferences: boolean,
+  ) {
+    const res = await axios.post<
+      {
+        data: {
+          removed: string[];
+          failed: { referenceID: string; message: string }[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/bulk-delete`, {
+      referenceIDs,
+      deleteFromReferences,
+    });
+    return res.data;
+  }
+
   async deleteBookReference(
     projectID: string,
     referenceID: string,
