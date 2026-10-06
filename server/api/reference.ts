@@ -38,10 +38,10 @@ import {
   saveReferenceScope as saveReferenceScopeService,
   resetReferenceScope as resetReferenceScopeService,
   getScopeGroupsDisplayedOnPage,
+  getActivePopulateJob,
 } from "./services/references-service.js";
 import BookService from "./services/book-service.js";
 import GlossaryService from "./services/glossary-service.js";
-import { ReferencePopulateJob } from "../models/referencepopulatejosb.js";
 import { PageReferences } from "../models/referenceusage.js";
 
 async function updateReferenceFormat(
@@ -105,7 +105,8 @@ async function updateReferenceFormat(
         selectedList: referenceUsage.selectedList,
       },
     });
-  } catch (error) {
+  } catch (err) {
+    logger.error({ err }, "updateReferenceFormat failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -230,7 +231,8 @@ async function getReferenceDetails(
       err: false,
       data: { ...referenceUsage },
     });
-  } catch (error) {
+  } catch (err) {
+    logger.error({ err }, "getReferenceDetails failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -287,13 +289,14 @@ async function updateReferenceEntry(
         citationKey: reference.citationKey,
       },
     });
-  } catch (error) {
-    if (error instanceof ReferenceServiceError) {
-      return res.status(error.statusCode).send({
+  } catch (err) {
+    if (err instanceof ReferenceServiceError) {
+      return res.status(err.statusCode).send({
         err: true,
-        errMsg: error.message,
+        errMsg: err.message,
       });
     }
+    logger.error({ err }, "updateReferenceEntry failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -330,7 +333,14 @@ async function searchReferences(
       err: false,
       data: { references },
     });
-  } catch (error) {
+  } catch (err) {
+    if (err instanceof ReferenceServiceError) {
+      return res.status(err.statusCode).send({
+        err: true,
+        errMsg: err.message,
+      });
+    }
+    logger.error({ err }, "searchReferences failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -374,13 +384,14 @@ async function deleteReferenceEntry(
         citationKey: reference.citationKey,
       },
     });
-  } catch (error) {
-    if (error instanceof ReferenceServiceError) {
-      return res.status(error.statusCode).send({
+  } catch (err) {
+    if (err instanceof ReferenceServiceError) {
+      return res.status(err.statusCode).send({
         err: true,
-        errMsg: error.message,
+        errMsg: err.message,
       });
     }
+    logger.error({ err }, "deleteReferenceEntry failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -419,13 +430,14 @@ async function addReferenceEntry(
       err: false,
       data: { status: statusCode.status },
     });
-  } catch (error) {
-    if (error instanceof ReferenceServiceError) {
-      return res.status(error.statusCode).send({
+  } catch (err) {
+    if (err instanceof ReferenceServiceError) {
+      return res.status(err.statusCode).send({
         err: true,
-        errMsg: error.message,
+        errMsg: err.message,
       });
     }
+    logger.error({ err }, "addReferenceEntry failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -472,7 +484,8 @@ async function getBookToc(
       err: true,
       errMsg: "Invalid request",
     });
-  } catch (error) {
+  } catch (err) {
+    logger.error({ err }, "getBookToc failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -529,13 +542,14 @@ async function addBookPageAsReference(
         publisher: reference.publisher,
       },
     });
-  } catch (error) {
-    if (error instanceof ReferenceServiceError) {
-      return res.status(error.statusCode).send({
+  } catch (err) {
+    if (err instanceof ReferenceServiceError) {
+      return res.status(err.statusCode).send({
         err: true,
-        errMsg: error.message,
+        errMsg: err.message,
       });
     }
+    logger.error({ err }, "addBookPageAsReference failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -611,13 +625,14 @@ async function getReferancePageDetails(
         ),
       },
     });
-  } catch (error) {
-    if (error instanceof ReferenceServiceError) {
-      return res.status(error.statusCode).send({
+  } catch (err) {
+    if (err instanceof ReferenceServiceError) {
+      return res.status(err.statusCode).send({
         err: true,
-        errMsg: error.message,
+        errMsg: err.message,
       });
     }
+    logger.error({ err }, "getReferancePageDetails failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -672,13 +687,14 @@ async function getReferenceItems(
       err: false,
       data: { referenceItems, toc },
     });
-  } catch (error) {
-    if (error instanceof ReferenceServiceError) {
-      return res.status(error.statusCode).send({
+  } catch (err) {
+    if (err instanceof ReferenceServiceError) {
+      return res.status(err.statusCode).send({
         err: true,
-        errMsg: error.message,
+        errMsg: err.message,
       });
     }
+    logger.error({ err }, "getReferenceItems failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -710,13 +726,7 @@ async function populateReferenceDetails(
         errMsg: "You do not have permission to access this project",
       });
     }
-    // get Latest ReferencePopulateJob
-    const latestReferencePopulateJob = await ReferencePopulateJob.findOne({
-      projectID: { $eq: projectID },
-      status: { $eq: "pending" },
-    })
-      .sort({ createdAt: -1 })
-      .limit(1);
+    const latestReferencePopulateJob = await getActivePopulateJob(projectID);
     if (!latestReferencePopulateJob) {
       return res.status(200).send({
         err: false,
@@ -733,7 +743,8 @@ async function populateReferenceDetails(
       },
     });
     //
-  } catch (error) {
+  } catch (err) {
+    logger.error({ err }, "populateReferenceDetails failed");
     return res.status(500).send({
       err: true,
       errMsg: "Internal server error",
@@ -765,23 +776,7 @@ async function startReferencePopulateJob(
         errMsg: "You do not have permission to access this project",
       });
     }
-    try {
-      // check if there is a pending reference populate job
-      const pendingReferencePopulateJob = await ReferencePopulateJob.findOne({
-        projectID: { $eq: projectID, status: { $eq: "pending" } },
-      })
-        .sort({ createdAt: -1 })
-        .limit(1);
-
-      if (pendingReferencePopulateJob) {
-        return res.status(400).send({
-          err: true,
-          errMsg: "A reference populate job is already pending",
-        });
-      }
-    } catch (error) {}
-
-    // create a new reference populate job
+    // Rejects with 409 when a job is already running for this book.
     const referencePopulateJob = await createReferencePopulateJob(
       projectID,
       req.user?.decoded?.uuid ?? "",
@@ -797,13 +792,18 @@ async function startReferencePopulateJob(
       err: false,
       success: true,
     });
-  } catch (error) {
-    if (error instanceof ReferenceServiceError) {
-      return res.status(error.statusCode).send({
+  } catch (err) {
+    if (err instanceof ReferenceServiceError) {
+      return res.status(err.statusCode).send({
         err: true,
-        errMsg: error.message,
+        errMsg: err.message,
       });
     }
+    logger.error({ err }, "Failed to start reference populate job");
+    return res.status(500).send({
+      err: true,
+      errMsg: "Internal server error",
+    });
   }
 }
 

@@ -48,6 +48,16 @@ import Populate, { hasPopulateJobData } from "./Populate";
 const columnHelper = createColumnHelper<ReferenceEntry>();
 const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
 
+/** The server's `errMsg` (e.g. "Citation key … is already used"), else `fallback`. */
+function errorMessageFrom(error: unknown, fallback: string): string {
+  const serverMessage = (
+    error as { response?: { data?: { errMsg?: string } } }
+  )?.response?.data?.errMsg;
+  return (
+    serverMessage || (error instanceof Error && error.message) || fallback
+  );
+}
+
 /** One-line description of where reference lists appear, as the scope editor names it. */
 function describeScope({
   scopeMode,
@@ -151,6 +161,12 @@ const ReferenceManager: React.FC = () => {
   const displayLocation = bookReferencesDetails?.data?.displayLocation;
   const pageTitle = bookReferencesDetails?.data?.pageTitle;
   const entries = bookReferencesDetails?.data?.entries ?? [];
+
+  /** Keys already used by this book's references, optionally ignoring one. */
+  const citationKeysExcept = (referenceID?: string) =>
+    entries
+      .filter((entry) => entry.referenceID !== referenceID)
+      .map((entry) => entry.citationKey);
 
   const { data: populateDetails } = useQuery({
     queryKey: ["populateReferences", id],
@@ -339,10 +355,10 @@ const ReferenceManager: React.FC = () => {
         message: "Reference added successfully",
       });
     },
-    onError: () => {
+    onError: (error) => {
       addNotification({
         type: "error",
-        message: "Error adding reference",
+        message: errorMessageFrom(error, "Error adding reference"),
       });
     },
   });
@@ -388,10 +404,10 @@ const ReferenceManager: React.FC = () => {
           : "Reference removed from project",
       });
     },
-    onError: () => {
+    onError: (error) => {
       addNotification({
         type: "error",
-        message: "Error deleting reference",
+        message: errorMessageFrom(error, "Error deleting reference"),
       });
     },
   });
@@ -403,7 +419,13 @@ const ReferenceManager: React.FC = () => {
       ) => {
         const entry = data.citationKey.trim()
           ? data
-          : { ...data, citationKey: generateCitationKey(data) };
+          : {
+              ...data,
+              citationKey: generateCitationKey(
+                data,
+                citationKeysExcept(data.referenceID),
+              ),
+            };
         const res = await api.updateBookReference(id ?? "", entry);
         if (res.err) throw new Error(res.errMsg);
         return { res, entry };
@@ -434,16 +456,9 @@ const ReferenceManager: React.FC = () => {
         addNotification({ type: "success", message: "Reference updated" });
       },
       onError: (error) => {
-        // The server explains conflicts such as a citation key already in use.
-        const serverMessage = (
-          error as { response?: { data?: { errMsg?: string } } }
-        )?.response?.data?.errMsg;
         addNotification({
           type: "error",
-          message:
-            serverMessage ||
-            (error instanceof Error && error.message) ||
-            "Error updating reference",
+          message: errorMessageFrom(error, "Error updating reference"),
         });
       },
     });
@@ -461,7 +476,10 @@ const ReferenceManager: React.FC = () => {
     try {
       const entry = data.citationKey.trim()
         ? data
-        : { ...data, citationKey: generateCitationKey(data) };
+        : {
+            ...data,
+            citationKey: generateCitationKey(data, citationKeysExcept()),
+          };
       const response = await addReference(entry);
       return !response.err;
     } catch {

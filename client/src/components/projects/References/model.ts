@@ -293,9 +293,14 @@ function firstTitleWord(title: string): string {
 
 /**
  * Build a BibTeX citation key from filled fields when the user left key blank.
- * Prefer `AuthorYearTitle` (e.g. `Smith2026First`).
+ * Prefer `AuthorYearTitle` (e.g. `Smith2026First`). When `takenKeys` is given,
+ * a letter is appended until the key is free (`Smith2026Firsta`, `…b`), the
+ * same rule the server uses, so a generated key never collides.
  */
-export function generateCitationKey(form: ReferenceFormData): string {
+export function generateCitationKey(
+  form: ReferenceFormData,
+  takenKeys?: Iterable<string>,
+): string {
   const author = sanitizeCitationKeyPart(
     firstAuthorLastName(form.author?.trim() ?? ""),
   );
@@ -303,8 +308,14 @@ export function generateCitationKey(form: ReferenceFormData): string {
   const title = sanitizeCitationKeyPart(
     firstTitleWord(form.title?.trim() ?? ""),
   );
-  const key = `${author}${year}${title}`;
-  return key || "untitled";
+  const base = `${author}${year}${title}` || "untitled";
+  const taken = new Set(takenKeys ?? []);
+  if (!taken.has(base)) return base;
+  for (let code = 97; code <= 122; code += 1) {
+    const candidate = `${base}${String.fromCharCode(code)}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${base}-${Date.now().toString(36)}`;
 }
 
 const VALID_ENTRY_TYPES = new Set<string>(
