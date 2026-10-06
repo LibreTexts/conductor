@@ -43,7 +43,7 @@ const PublishImportOptionsModal: React.FC<PublishImportOptionsModalProps> = ({
           <Checkbox
             name="publish-import-references"
             label="References cited on those pages"
-            description="Shared with the source book, so corrections there also appear here. Run Populate afterwards to show them."
+            description="Shared with the source book, so corrections there also appear here. Run Scan Citations in the Reference Manager afterwards to show them."
             checked={importReferences}
             onChange={(checked) => setImportReferences(checked === true)}
           />

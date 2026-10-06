@@ -117,7 +117,7 @@ export async function runMigration() {
       {
         $set: { status: "failed" },
         $push: {
-          message: "Stopped by a maintenance migration. Run Populate again.",
+          message: "Stopped by a maintenance migration. Run Scan Citations again.",
         },
       },
     );

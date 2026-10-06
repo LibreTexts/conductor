@@ -28,6 +28,8 @@ export type ReferenceScopeGroup = {
 
 export type PageReferences = {
   pageID: string;
+  /** Page title at Populate time, for listing pages in the citation check. */
+  title?: string;
   references: {
     key: string;
     refID: string;
@@ -65,6 +67,7 @@ export interface ReferenceUsageInterface extends Document {
 const pageReferencesSchema = new Schema<PageReferences>(
   {
     pageID: { type: String, required: true },
+    title: { type: String, required: false },
     references: {
       type: [
         {
