@@ -11,6 +11,9 @@ interface CollectionCardProps {
   to?: string;
 }
 
+/** Shown when a collection has no cover set or its cover fails to load. */
+const COVER_PLACEHOLDER = "/mini.logo.png";
+
 const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
   const getResourceData = () => {
     if ("resourceData" in item) {
@@ -31,7 +34,16 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
   }
 
   const isBook = checkIsBook(resourceData);
-  const thumbnail = isBook ? resourceData.thumbnail : resourceData.coverPhoto;
+  const thumbnail =
+    (isBook ? resourceData.thumbnail : resourceData.coverPhoto) ||
+    COVER_PLACEHOLDER;
+
+  // A collection with a stale cover URL would otherwise paint the browser's
+  // broken-image glyph. The guard stops a missing placeholder from looping.
+  function handleImageError(event: React.SyntheticEvent<HTMLImageElement>) {
+    if (event.currentTarget.src.endsWith(COVER_PLACEHOLDER)) return;
+    event.currentTarget.src = COVER_PLACEHOLDER;
+  }
 
   return (
     <Card
@@ -40,12 +52,33 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
       className="relative h-full hover:border-secondary hover:border-2"
     >
       <div className="relative">
-        <Card.Header
-          image={{
-            src: thumbnail,
-            alt: "",
-          }}
-        />
+        <Card.Header>
+          {/* Negative margins cancel headerContent padding so the image stays
+              full-bleed (matches the Card.Header image prop layout). The image
+              is rendered here rather than through that prop because the prop
+              hardcodes object-cover. */}
+          <div className="-mx-6 -my-4">
+            {isBook ? (
+              <img
+                src={thumbnail}
+                alt="" // Thumbnails are purely decorative
+                className="w-full h-48 object-cover block"
+                onError={handleImageError}
+              />
+            ) : (
+              // Collection covers are campus logos and wordmarks, so they are
+              // contained and centered rather than cropped to fill the band.
+              <div className="h-48 w-full flex items-center justify-center bg-white p-6">
+                <img
+                  src={thumbnail}
+                  alt="" // Covers are purely decorative
+                  className="max-h-full max-w-full object-contain block"
+                  onError={handleImageError}
+                />
+              </div>
+            )}
+          </div>
+        </Card.Header>
         {isBook && (
           <div className="library-glyph-header">
             <img
