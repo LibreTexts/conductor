@@ -277,14 +277,32 @@ const assertCitationKeyAvailable = async (
   citationKey: string,
   excludeReferenceID?: string,
 ): Promise<void> => {
-  const conflict = await Reference.findOne({
-    projectID: { $eq: projectID },
+  const conflict = await Reference.exists({
+    ...(await bookReferencesFilter(projectID)),
     citationKey: { $eq: citationKey },
     ...(excludeReferenceID ? { referenceID: { $ne: excludeReferenceID } } : {}),
   });
   if (conflict) {
     throw citationKeyTakenError(citationKey);
   }
+};
+
+/**
+ * References whose keys a book's citations can resolve to: the ones it owns
+ * and the ones it lists, borrowed ones included. Within this set a citation
+ * key must mean one reference, or `\librecite{key}` becomes ambiguous.
+ */
+const bookReferencesFilter = async (projectID: string) => {
+  const usage = await ReferenceUsage.findOne(
+    { projectID: { $eq: projectID } },
+    { entries: 1 },
+  ).lean();
+  return {
+    $or: [
+      { projectID: { $eq: projectID } },
+      { referenceID: { $in: usage?.entries ?? [] } },
+    ],
+  };
 };
 
 const citationKeyTakenError = (citationKey: string) =>
@@ -305,7 +323,7 @@ export const nextAvailableCitationKey = async (
     (
       await Reference.find(
         {
-          projectID: { $eq: projectID },
+          ...(await bookReferencesFilter(projectID)),
           citationKey: { $regex: `^${escapeRegEx(base)}` },
         },
         { citationKey: 1 },
@@ -385,8 +403,9 @@ export const upsertReferenceEntry = async (
       }
 
       // Different project → fork into this project, replacing the original
-      // in this project's list so it doesn't show both versions.
-      await assertCitationKeyAvailable(projectID, citationKey);
+      // in this project's list so it doesn't show both versions. The original
+      // is excluded: keeping its key is fine, since the copy replaces it.
+      await assertCitationKeyAvailable(projectID, citationKey, byId.referenceID);
       const forkedID = base62(10);
       const forked = await Reference.create({
         projectID,
@@ -1103,8 +1122,14 @@ const runJob = async ({
       if (page.id === coverID) continue;
       if (backmatterPageID && page.id === backmatterPageID) continue;
 
-      const content = await bookService.getPageContent(page.id, "json");
-      // extract \librecite{*} from content
+      // A page that can't be read fails the scan: treating it as uncited
+      // would replace the previous results with wrong ones.
+      const content = await bookService.getPageContent(
+        page.id,
+        "json",
+        undefined,
+        { throwOnError: true },
+      );
       const referenceKeys = extractCitationKeys(content);
       for (const key of referenceKeys) {
         backmatterReferenceList.add(key);
@@ -1382,9 +1407,12 @@ export const importPageReferences = async ({
   const content =
     sourceContent ??
     normalizePageBody(
+      // A failed read must surface as an import warning, not as "no citations".
       await new BookService({
         bookID: `${sourceLibrary}-${sourceProject.libreCoverID}`,
-      }).getPageContent(sourcePageID, "json"),
+      }).getPageContent(sourcePageID, "json", undefined, {
+        throwOnError: true,
+      }),
     );
   const citedKeys = extractCitationKeys(content);
   if (citedKeys.length === 0) return NO_IMPORT;
