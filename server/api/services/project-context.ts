@@ -3,6 +3,7 @@ import type { HydratedDocument } from "mongoose";
 import type { Response } from "express";
 import { checkProjectGeneralPermission, checkProjectMemberPermission, checkProjectAdminPermission } from "../../util/project-permissions";
 import { Prettify } from "../../types";
+import { checkBookIDFormat } from "../../util/bookutils";
 
 // `as const satisfies` keeps the literal tuple type (so PermissionField is a
 // precise union) while still validating every entry is a real Project key.
@@ -14,6 +15,8 @@ const PERMISSION_FIELDS = [
     "auditors",
     "visibility",
     "status",
+    "libreLibrary", // Used for project-book permissions checks. Always load.
+    "libreCoverID" // Used for project-book permissions checks. Always load.
 ] as const satisfies readonly (keyof ProjectInterfaceRaw)[];
 
 type PermissionField = (typeof PERMISSION_FIELDS)[number];
@@ -111,5 +114,18 @@ export class ProjectContext<T = ProjectInterfaceRaw> {
 
     canAdmin(this: ProjectContext<ProjectPermissionShape>, user: unknown): boolean {
         return checkProjectAdminPermission(this.doc, user);
+    }
+
+    /**
+     * Returns the linked book identifier in the format "libreLibrary-libreCoverID".
+     * If either libreLibrary or libreCoverID is missing, or the resulting identifier is not in a valid format, returns null.
+     * @param this The project context containing the project document.
+     * @returns A string in the format "libreLibrary-libreCoverID", or null if either field is missing or the format is invalid.
+     */
+    getLinkedBook(this: ProjectContext<ProjectPermissionShape>): string | null {
+        if (!this.doc.libreLibrary || !this.doc.libreCoverID) return null;
+        const candidate = `${this.doc.libreLibrary}-${this.doc.libreCoverID}`;
+        if (!checkBookIDFormat(candidate)) return null;
+        return candidate;
     }
 }
