@@ -87,7 +87,18 @@ app.use(
         "https://fonts.gstatic.com",
         "data:",
       ],
-      frameSrc: ["'self'", "https://*.libretexts.org", "https://*.cloudflare.com", "https://www.youtube.com", "https://*.cloudflarestream.com"], // Cloudflare (Turnstile), YouTube, Cloudflare Stream
+      // The Compile Book preview frames a book export, which the downloads
+      // service hands off to its storage origin, so those hosts belong here
+      // alongside the embeds. They are already trusted in `connectSrc`.
+      frameSrc: [
+        "'self'",
+        "https://*.libretexts.org",
+        "https://*.libretexts.net", // LibreTexts CDN
+        "https://*.cloudfront.net", // downloads storage origin
+        "https://*.cloudflare.com", // Cloudflare (Turnstile)
+        "https://www.youtube.com",
+        "https://*.cloudflarestream.com", // Cloudflare Stream
+      ],
       imgSrc: ["'self'", "https:", "data:"],
       mediaSrc: ["'self'", "blob:"],
       objectSrc: ["'none'"],

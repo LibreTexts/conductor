@@ -165,6 +165,16 @@ export interface BookExportProbe {
   sizeBytes?: number;
   generatedAt?: string;
   downloadURL: string;
+  /**
+   * Where the file actually lives, once the downloads service redirect has been
+   * followed. Empty when there is nothing to resolve.
+   *
+   * `downloadURL` always 302s to a storage host, and a frame load blocked on a
+   * redirect hop is reported with its URL redacted to the empty string, naming
+   * no host to add to the CSP allowlist. Clients frame this instead, so the
+   * browser evaluates the host it is really reaching.
+   */
+  previewURL: string;
 }
 
 /**
@@ -199,6 +209,7 @@ const probeExport = async (
     key: definition.key,
     available: false,
     downloadURL,
+    previewURL: "",
   };
   if (!downloadURL) return unavailable;
 
@@ -218,6 +229,9 @@ const probeExport = async (
       key: definition.key,
       available: true,
       downloadURL,
+      // `fetch` followed the redirect already, so the resolved URL costs nothing
+      // extra to read here and nothing against the downloads API rate budget.
+      previewURL: res.url || downloadURL,
       ...(Number.isFinite(parsedLength) && parsedLength > 0
         ? { sizeBytes: parsedLength }
         : {}),
@@ -260,6 +274,7 @@ export const getBookExportManifest = async (
     key: e.key,
     available: false,
     downloadURL: "",
+    previewURL: "",
   }));
 
   const manifest = [...probes, ...unprobeable].sort(

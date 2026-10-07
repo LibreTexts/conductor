@@ -84,6 +84,13 @@ const ExportDetailPane: React.FC<ExportDetailPaneProps> = ({
   ].filter(Boolean);
 
   if (display.previewable) {
+    // The short download URL 302s to a storage host, and a frame load blocked on
+    // a redirect hop reports its URL as the empty string, naming no host to
+    // allowlist. The resolved URL is framed so CSP judges the real host; the
+    // download link and button keep the short one, which `frame-src` never
+    // applies to.
+    const previewSrc = entry.previewURL || entry.downloadURL;
+
     return (
       <div {...panelProps} className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-3">
@@ -110,9 +117,9 @@ const ExportDetailPane: React.FC<ExportDetailPaneProps> = ({
           drawer does not ship a second set of controls over the top of it.
         */}
         <iframe
-          key={entry.downloadURL}
+          key={previewSrc}
           title={`${display.label} preview`}
-          src={entry.downloadURL}
+          src={previewSrc}
           className="flex-1 w-full border-0 bg-gray-100"
         />
       </div>

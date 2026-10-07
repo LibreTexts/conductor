@@ -47,6 +47,13 @@ export type BookExport = {
   sizeBytes?: number;
   generatedAt?: string;
   downloadURL: string;
+  /**
+   * Where the file actually lives, with the downloads service redirect already
+   * followed server-side. Framed in place of `downloadURL` so a CSP violation
+   * names a host instead of being redacted to the empty string on the redirect
+   * hop. Optional: a client running against an older server falls back.
+   */
+  previewURL?: string;
 };
 
 export type BookExportInfo = {
