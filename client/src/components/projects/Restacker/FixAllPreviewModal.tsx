@@ -39,7 +39,7 @@ const FixAllPreviewModal: React.FC<FixAllPreviewModalProps> = ({
   return (
     <Modal open={open} onClose={onCancel} size="lg">
       <Modal.Header>
-        <Modal.Title>Fix All — Preview Changes</Modal.Title>
+        <Modal.Title>Fix All Licenses — Preview Changes</Modal.Title>
         <Modal.Close aria-label="Close preview" />
       </Modal.Header>
       <Modal.Body>
@@ -51,18 +51,19 @@ const FixAllPreviewModal: React.FC<FixAllPreviewModalProps> = ({
           </Text>
           <div className="max-h-[55vh] overflow-y-auto rounded border border-gray-200">
             <table className="w-full border-collapse text-sm">
+              <caption className="sr-only">License fixes to apply</caption>
               <thead className="sticky top-0 bg-gray-50 text-left">
                 <tr>
-                  <th className="border-b border-gray-200 px-3 py-2 font-medium text-gray-700">
+                  <th scope="col" className="border-b border-gray-200 px-3 py-2 font-medium text-gray-700">
                     Page
                   </th>
-                  <th className="border-b border-gray-200 px-3 py-2 font-medium text-gray-700">
+                  <th scope="col" className="border-b border-gray-200 px-3 py-2 font-medium text-gray-700">
                     Current
                   </th>
-                  <th className="border-b border-gray-200 px-3 py-2 font-medium text-gray-700">
+                  <th scope="col" className="border-b border-gray-200 px-3 py-2 font-medium text-gray-700">
                     New
                   </th>
-                  <th className="border-b border-gray-200 px-3 py-2 font-medium text-gray-700">
+                  <th scope="col" className="border-b border-gray-200 px-3 py-2 font-medium text-gray-700">
                     Reason
                   </th>
                 </tr>
@@ -73,14 +74,17 @@ const FixAllPreviewModal: React.FC<FixAllPreviewModalProps> = ({
                     key={entry.pageID}
                     className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
                   >
-                    <td className="border-b border-gray-100 px-3 py-2 break-words max-w-[220px]">
+                    <th
+                      scope="row"
+                      className="border-b border-gray-100 px-3 py-2 break-words max-w-[220px] text-left font-normal"
+                    >
                       {entry.title}
-                    </td>
+                    </th>
                     <td className="border-b border-gray-100 px-3 py-2 whitespace-nowrap">
                       {entry.currentLicense?.label ? (
                         <LicenseBadge license={entry.currentLicense} />
                       ) : (
-                        <span className="text-gray-400">None</span>
+                        <span className="text-gray-600">None</span>
                       )}
                     </td>
                     <td className="border-b border-gray-100 px-3 py-2 whitespace-nowrap">
@@ -94,7 +98,7 @@ const FixAllPreviewModal: React.FC<FixAllPreviewModalProps> = ({
                         }}
                       />
                     </td>
-                    <td className="border-b border-gray-100 px-3 py-2 text-gray-500">
+                    <td className="border-b border-gray-100 px-3 py-2 text-gray-600">
                       {entry.reason}
                     </td>
                   </tr>
@@ -105,10 +109,20 @@ const FixAllPreviewModal: React.FC<FixAllPreviewModalProps> = ({
         </Stack>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline" onClick={onCancel} disabled={loading}>
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          disabled={loading}
+          aria-label="Cancel Fix All Licenses"
+        >
           Cancel
         </Button>
-        <Button variant="primary" onClick={onConfirm} loading={loading}>
+        <Button
+          variant="primary"
+          onClick={onConfirm}
+          loading={loading}
+          aria-label={`Apply All (${entries.length}) license fixes`}
+        >
           Apply All ({entries.length})
         </Button>
       </Modal.Footer>
