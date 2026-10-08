@@ -73,6 +73,8 @@ import * as WhatsNewValidators from "./api/validators/whatsnew.js";
 
 import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
+import * as ReferenceValidators from "./api/validators/Reference.js";
+import referenceAPI from "./api/reference.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -94,7 +96,7 @@ const corsMiddleware = cors({
       if (process.env.DEVELOPMENTURLS) {
         allowedOrigins = String(process.env.DEVELOPMENTURLS).split(",").map((url) => url.trim());
       } else {
-        allowedOrigins = ["http://localhost:5000","http://localhost:5500","http://localhost:5501"];
+        allowedOrigins = ["http://localhost:5000","http://localhost:5500","http://127.0.0.1:5500"];
       }
     }
 
@@ -3631,6 +3633,101 @@ router.route('/projects/:projectID/restacker/license/bulk').patch(
   restackerAPI.bulkUpdateRestackerLicense
 );
 
+router.route('/projects/:projectID/reference')
+.get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.GetReferencePageSchema),
+  referenceAPI.getReferenceDetails
+)
+.post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.UpdateReferenceFormatSchema),
+  referenceAPI.updateReferenceFormat
+).put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.UpdateReferenceEntrySchema),
+  referenceAPI.updateReferenceEntry
+).delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.DeleteReferenceEntrySchema),
+  referenceAPI.deleteReferenceEntry
+)
+.patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.AddReferenceEntrySchema),
+  referenceAPI.addReferenceEntry
+);
+
+
+
+router.route('/projects/:projectID/reference/bulk-delete').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.BulkDeleteReferenceEntriesSchema),
+  referenceAPI.deleteReferenceEntries
+);
+
+router.route('/projects/:projectID/reference/scope')
+.put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.SaveReferenceScopeSchema),
+  referenceAPI.saveReferenceScope
+)
+.delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.DeleteReferenceScopeSchema),
+  referenceAPI.deleteReferenceScope
+);
+
+router.route('/projects/:projectID/reference/search').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.SearchReferencesValidator),
+  referenceAPI.searchReferences
+);
+
+router.route('/projects/:projectID/reference/book').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.tocValidator),
+  referenceAPI.getBookToc
+).post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.BookAsReferenceValidator),
+  referenceAPI.addBookPageAsReference
+);
+
+
+
+router.route("/reference/projects/:projectID/populate").post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.PopulateReferenceSchema),
+  referenceAPI.startReferencePopulateJob
+).get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.PopulateReferenceSchema),
+  referenceAPI.populateReferenceDetails
+);
+
+router.route("/reference/page/:pageID/library/:library").get(
+  middleware.validateZod(ReferenceValidators.GetReferencePageByPageIDAndLibrarySchema),
+  referenceAPI.getReferencePageDetails
+);
+
+router.route("/reference/projects/:projectID").get(
+  middleware.validateZod(ReferenceValidators.GetReferenceProjectsSchema),
+  referenceAPI.getReferenceItems
+);
 
 
 export default router;

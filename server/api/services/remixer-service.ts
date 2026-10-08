@@ -27,6 +27,8 @@ import { detectTranscludeStub } from "../../util/transclusion.js";
 import { RemixerSubPage } from "../../types/Remixer";
 import BookService from "./book-service";
 import GlossaryService from "./glossary-service";
+import { importPageReferences } from "./references-service.js";
+import { rewriteCitationKeys } from "../../util/referenceCitations.js";
 const remixerLog = childLogger("remixer");
 const glossaryService = new GlossaryService();
 
@@ -1458,10 +1460,63 @@ const handleImportedPage = async (
   options?: CreatePageOptions,
   importGlossaryTerms?: boolean,
   addedBy?: string,
+  importReferences?: boolean,
 ): Promise<{ pageID: string; pageURI: string; warnings: string[] }> => {
   // Per-page, non-fatal notes (skipped attachments, file-copy fallback) that the
   // caller folds into the job log so they reach the publish panel, not just pino.
   const warnings: string[] = [];
+
+  /**
+   * Shares the references the source page cites with this book (opt-in, and
+   * non-fatal like the glossary import). Returns the citation key renames a
+   * copied page's content needs; transcluded content can't be rewritten.
+   */
+  const importReferencesFor = async (
+    canRewriteContent: boolean,
+    sourceContent?: string,
+  ): Promise<Record<string, string>> => {
+    if (!importReferences || !coverId || !sourceSubdomain) return {};
+    try {
+      const result = await importPageReferences({
+        sourcePageID: sourceId.toString(),
+        sourceLibrary: sourceSubdomain,
+        sourceContent,
+        targetCoverID: coverId,
+        targetLibrary: subdomain,
+        actorUUID: addedBy || "system",
+        canRewriteContent,
+      });
+      if (result.imported > 0) {
+        warnings.push(
+          `imported ${result.imported} reference(s) cited on the source page`,
+        );
+      }
+      const renamed = Object.keys(result.keyRenames).length;
+      if (renamed > 0) {
+        warnings.push(
+          `changed ${renamed} citation key(s) on this page that already meant a different reference in this book`,
+        );
+      }
+      if (result.conflicts.length > 0) {
+        warnings.push(
+          `citation key(s) ${result.conflicts.join(", ")} already mean a different reference in this book; this page is transcluded and can't be changed, so resolve them in the Reference Manager`,
+        );
+      }
+      if (result.unresolved > 0) {
+        warnings.push(
+          `${result.unresolved} citation(s) on the source page have no matching reference in the source book`,
+        );
+      }
+      return result.keyRenames;
+    } catch (error) {
+      warnings.push("failed to import references from the source page");
+      remixerLog.warn(
+        { err: error },
+        `Reference import failed for imported page (source ${sourceId})`,
+      );
+      return {};
+    }
+  };
   const sourceUri = getRemixerPageUriUi(page);
   const sourceSubdomain = extractLibretextsSubdomain(sourceUri);
   if (!sourceSubdomain) {
@@ -1505,6 +1560,7 @@ const handleImportedPage = async (
 
     const shouldTransclude = copyModeState === "Transclude" && !hasChildren;
     if (shouldTransclude) {
+      await importReferencesFor(false);
       const resolvedSource = await resolveTranscludeSource({
         subdomain: sourceSubdomain,
         pageId: sourceId,
@@ -1547,7 +1603,13 @@ const handleImportedPage = async (
       // Fragment parse so we don't wrap the body in <html><head><body>.
       const $ = cheerio.load(rawHtml, null, false);
       $(".mt-guide-content").remove();
-      const cleanedRawHtml = $.root().html() ?? $.html() ?? "";
+      const sourceHtml = $.root().html() ?? $.html() ?? "";
+      // Copied content belongs to this book, so citations whose key means a
+      // different reference here are renamed to the imported one's key.
+      const cleanedRawHtml = rewriteCitationKeys(
+        sourceHtml,
+        await importReferencesFor(true, sourceHtml),
+      );
 
       // A same-library fork can keep the source's relative `/@api/deki/files/...`
       // paths: file ids resolve library-wide, so the target page renders the same
@@ -1803,6 +1865,8 @@ interface RunRemixerJobParams {
   coverId: string;
   /** Carry glossary terms used on imported pages' source pages over to this book. */
   importGlossaryTerms?: boolean;
+  /** Share the references imported pages cite with this book. */
+  importReferences?: boolean;
 }
 
 /** Plain snapshot of a remixer page for persistence (avoids spreading Mongoose subdocs). */
@@ -1950,6 +2014,7 @@ const runRemixerJob = async ({
   subdomain,
   coverId,
   importGlossaryTerms = false,
+  importReferences = false,
 }: RunRemixerJobParams) => {
   const job = await PrejectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({
     _id: -1,
@@ -2238,6 +2303,7 @@ const runRemixerJob = async ({
                     createOptions,
                     importGlossaryTerms,
                     job.userID,
+                    importReferences,
                   ),
                 { onRetry: logRetry },
               );
@@ -2731,6 +2797,14 @@ const runRemixerJob = async ({
     // whole published book (no-op when the book already has one).
     if (importGlossaryTerms && coverId) {
       await glossaryService.ensureDefaultGlossaryConfig(coverId, subdomain);
+    }
+
+    if (importReferences) {
+      // Importing only records which references the book uses; the pages
+      // render them once Populate has run on this book.
+      job.messages.push(
+        "References from imported pages were added. Run Scan Citations in the Reference Manager to show them in the book.",
+      );
     }
 
     job.status = "success";

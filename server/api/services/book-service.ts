@@ -652,7 +652,12 @@ export default class BookService {
   async getPageContent(
     pageID: string,
     format: "html" | "json",
-    mode?: "edit" | "view" | "raw"
+    mode?: "edit" | "view" | "raw",
+    /**
+     * Rethrow instead of returning "" when the page can't be read. For callers
+     * that must tell an empty page from a failed fetch.
+     */
+    options?: { throwOnError?: boolean }
   ): Promise<string> {
     try {
       const pageContentsRes = await CXOneFetch({
@@ -690,6 +695,7 @@ export default class BookService {
       return "";
     } catch (err) {
       logger.error({ err }, "getPageContent failed");
+      if (options?.throwOnError) throw err;
       return "";
     }
   }

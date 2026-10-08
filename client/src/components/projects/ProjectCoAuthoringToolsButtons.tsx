@@ -1,5 +1,8 @@
 import { Button, Header, Icon, Popup } from "semantic-ui-react";
-import { buildLibraryPageGoURL, buildRemixerURL } from "../../utils/projectHelpers";
+import {
+  buildLibraryPageGoURL,
+  buildRemixerURL,
+} from "../../utils/projectHelpers";
 import { ProjectClassification } from "../../types";
 
 interface ProjectCoAuthoringToolsButtonsProps {
@@ -13,7 +16,9 @@ interface ProjectCoAuthoringToolsButtonsProps {
   projectID?: string;
 }
 
-const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsProps> = ({
+const ProjectCoAuthoringToolsButtons: React.FC<
+  ProjectCoAuthoringToolsButtonsProps
+> = ({
   className,
   handleOpenReaderResourcesModal,
   hasCommonsBook = false,
@@ -122,6 +127,16 @@ const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsPro
                 Metadata Editor
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
+              <Button
+              onClick={() =>
+                window.open(`/projects/${projectID}/references`, "_blank")
+              }
+              color="blue"
+              size="small"
+            >
+              Reference Manager
+              <Icon name="external alternate" className="!ml-2" />
+            </Button>
             </>
           )}
       </div>
