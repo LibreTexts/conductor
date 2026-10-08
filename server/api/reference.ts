@@ -24,7 +24,6 @@ import {
   ZodReqWithOptionalUser,
   ZodReqWithUser,
 } from "../types";
-import projectsAPI from "./projects.js";
 import {
   getReferencesUsage,
   upsertReferenceFormat,
@@ -41,13 +40,59 @@ import {
   resetReferenceScope as resetReferenceScopeService,
   getScopeGroupsDisplayedOnPage,
   getActivePopulateJob,
+  isInCommonsCatalog,
 } from "./services/references-service.js";
 import BookService from "./services/book-service.js";
 import GlossaryService from "./services/glossary-service.js";
+import {
+  ProjectContext,
+  ProjectError,
+  returnProjectError,
+  type ProjectPermissionShape,
+} from "./services/project-context.js";
 import { PageReferences } from "../models/referenceusage.js";
 import { ReferencePopulateJob } from "../models/referencepopulatejob.js";
 import { collectCitations } from "../util/referenceCitations.js";
 import { isValidCitationKey } from "../util/referenceSanitize.js";
+
+/**
+ * Loads a project for a reference route and requires project-member access.
+ * Throws `ProjectError` (404/403), which each handler answers with
+ * `returnProjectError`.
+ */
+async function loadMemberContext(projectID: string, user: unknown) {
+  const ctx = await ProjectContext.load(projectID);
+  if (!ctx.canMember(user)) throw new ProjectError("unauthorized");
+  return ctx;
+}
+
+/**
+ * Whether a project may read/cite pages of `bookID`: its own linked book, or
+ * any book listed in the Commons catalog (citing other books' pages).
+ */
+async function canReferenceBook(
+  ctx: ProjectContext<ProjectPermissionShape>,
+  bookID: string,
+): Promise<boolean> {
+  if (bookID === ctx.getLinkedBook()) return true;
+  return isInCommonsCatalog(bookID);
+}
+
+/** Shared error answer for reference handlers. */
+function sendReferenceError(res: Response, err: unknown, context: string) {
+  if (err instanceof ProjectError) return returnProjectError(res, err);
+  if (err instanceof ReferenceServiceError) {
+    return res.status(err.statusCode).send({
+      err: true,
+      errMsg: err.message,
+    });
+  }
+  logger.error({ err }, `${context} failed`);
+  return res.status(500).send({
+    err: true,
+    errMsg: "Internal server error",
+  });
+}
 
 async function updateReferenceFormat(
   req: ZodReqWithUser<z.infer<typeof UpdateReferenceFormatSchema>>,
@@ -58,28 +103,8 @@ async function updateReferenceFormat(
     const { format, displayLocation, pageTitle, selectedList } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
-    }
-
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
-    }
-
-    const coverID = project.libreCoverID;
-    const library = project.libreLibrary;
-    if (!coverID || !library) {
+    const ctx = await loadMemberContext(projectID, req.user);
+    if (!ctx.doc.libreCoverID || !ctx.doc.libreLibrary) {
       return res.status(400).send({
         err: true,
         errMsg: "Project does not have a cover or library",
@@ -111,36 +136,8 @@ async function updateReferenceFormat(
       },
     });
   } catch (err) {
-    logger.error({ err }, "updateReferenceFormat failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "updateReferenceFormat");
   }
-}
-
-/**
- * Loads a project for a reference-settings write, answering 404/403 itself.
- * @returns The project, or null when a response has already been sent.
- */
-async function loadProjectForMember(
-  projectID: string,
-  user: Parameters<typeof projectsAPI.checkProjectMemberPermission>[1],
-  res: Response,
-) {
-  const project = await Project.findOne({ projectID: { $eq: projectID } });
-  if (!project) {
-    res.status(404).send({ err: true, errMsg: "Project not found" });
-    return null;
-  }
-  if (!projectsAPI.checkProjectMemberPermission(project, user)) {
-    res.status(403).send({
-      err: true,
-      errMsg: "You do not have permission to access this project",
-    });
-    return null;
-  }
-  return project;
 }
 
 /**
@@ -153,8 +150,7 @@ async function saveReferenceScope(
 ) {
   try {
     const { projectID } = req.params;
-    const project = await loadProjectForMember(projectID, req.user, res);
-    if (!project) return;
+    await loadMemberContext(projectID, req.user);
 
     const referenceUsage = await saveReferenceScopeService(
       projectID,
@@ -173,8 +169,7 @@ async function saveReferenceScope(
       },
     });
   } catch (err) {
-    logger.error({ err }, "Failed to save reference scope");
-    return res.status(500).send({ err: true, errMsg: "Internal server error" });
+    return sendReferenceError(res, err, "saveReferenceScope");
   }
 }
 
@@ -185,14 +180,12 @@ async function deleteReferenceScope(
 ) {
   try {
     const { projectID } = req.params;
-    const project = await loadProjectForMember(projectID, req.user, res);
-    if (!project) return;
+    await loadMemberContext(projectID, req.user);
 
     await resetReferenceScopeService(projectID, req.user?.decoded?.uuid ?? "");
     return res.send({ err: false });
   } catch (err) {
-    logger.error({ err }, "Failed to reset reference scope");
-    return res.status(500).send({ err: true, errMsg: "Internal server error" });
+    return sendReferenceError(res, err, "deleteReferenceScope");
   }
 }
 
@@ -202,24 +195,7 @@ async function getReferenceDetails(
 ) {
   try {
     const { projectID } = req.params;
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
-    }
-
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
-    }
+    await loadMemberContext(projectID, req.user);
 
     const referenceUsage = await getReferencesUsage({
       projectID,
@@ -256,11 +232,7 @@ async function getReferenceDetails(
       data: { ...usage, citationCheck },
     });
   } catch (err) {
-    logger.error({ err }, "getReferenceDetails failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "getReferenceDetails");
   }
 }
 
@@ -273,24 +245,7 @@ async function updateReferenceEntry(
     const { entry } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
-    }
-
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
-    }
+    await loadMemberContext(projectID, req.user);
 
     const validEntry = ReferenceEntrySchema.safeParse(entry);
     if (!validEntry.success) {
@@ -314,17 +269,7 @@ async function updateReferenceEntry(
       },
     });
   } catch (err) {
-    if (err instanceof ReferenceServiceError) {
-      return res.status(err.statusCode).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
-    logger.error({ err }, "updateReferenceEntry failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "updateReferenceEntry");
   }
 }
 
@@ -335,40 +280,15 @@ async function searchReferences(
   try {
     const { projectID } = req.params;
     const { query } = req.query;
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
-    }
+    await loadMemberContext(projectID, req.user);
+
     const references = await searchReferencesService(projectID, query);
     return res.send({
       err: false,
       data: { references },
     });
   } catch (err) {
-    if (err instanceof ReferenceServiceError) {
-      return res.status(err.statusCode).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
-    logger.error({ err }, "searchReferences failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "searchReferences");
   }
 }
 
@@ -379,23 +299,8 @@ async function deleteReferenceEntry(
   try {
     const { projectID } = req.params;
     const { referenceID, deleteFromReferences } = req.body;
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
-    }
+    await loadMemberContext(projectID, req.user);
+
     const reference = await deleteReferenceEntryService(
       projectID,
       referenceID,
@@ -409,17 +314,7 @@ async function deleteReferenceEntry(
       },
     });
   } catch (err) {
-    if (err instanceof ReferenceServiceError) {
-      return res.status(err.statusCode).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
-    logger.error({ err }, "deleteReferenceEntry failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "deleteReferenceEntry");
   }
 }
 
@@ -431,8 +326,7 @@ async function deleteReferenceEntries(
   try {
     const { projectID } = req.params;
     const { referenceIDs, deleteFromReferences } = req.body;
-    const project = await loadProjectForMember(projectID, req.user, res);
-    if (!project) return;
+    await loadMemberContext(projectID, req.user);
 
     const { removed, failed } = await deleteReferenceEntriesService(
       projectID,
@@ -441,11 +335,7 @@ async function deleteReferenceEntries(
     );
     return res.send({ err: false, data: { removed, failed } });
   } catch (err) {
-    logger.error({ err }, "deleteReferenceEntries failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "deleteReferenceEntries");
   }
 }
 
@@ -456,25 +346,8 @@ async function addReferenceEntry(
   try {
     const { projectID } = req.params;
     const { referenceIDs } = req.body;
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
-    }
+    await loadMemberContext(projectID, req.user);
 
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
-    }
     const { added, skipped } = await addReferencesToUsage(
       projectID,
       referenceIDs,
@@ -484,17 +357,7 @@ async function addReferenceEntry(
       data: { added, skipped },
     });
   } catch (err) {
-    if (err instanceof ReferenceServiceError) {
-      return res.status(err.statusCode).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
-    logger.error({ err }, "addReferenceEntry failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "addReferenceEntry");
   }
 }
 
@@ -505,44 +368,28 @@ async function getBookToc(
   try {
     const { projectID } = req.params;
     const { toc, bookID } = req.query;
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
+    const ctx = await loadMemberContext(projectID, req.user);
+
+    if (!toc || !bookID) {
+      return res.status(400).send({
         err: true,
-        errMsg: "Project not found",
+        errMsg: "Invalid request",
       });
     }
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
+    // The project's own book, or another Commons book being cited — never an
+    // arbitrary (unlisted/private) book just because the caller can access
+    // some project.
+    if (!(await canReferenceBook(ctx, bookID))) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
-    if (toc && bookID) {
-      const bookService = new BookService({
-        bookID: bookID,
-      });
-      const toc = await bookService.getBookTOCNew();
-      return res.send({
-        err: false,
-        toc,
-      });
-    }
-    return res.status(400).send({
-      err: true,
-      errMsg: "Invalid request",
+    const bookService = new BookService({ bookID });
+    return res.send({
+      err: false,
+      toc: await bookService.getBookTOCNew(),
     });
   } catch (err) {
-    logger.error({ err }, "getBookToc failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "getBookToc");
   }
 }
 
@@ -555,22 +402,9 @@ async function addBookPageAsReference(
     const { bookID, pageID } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
+    const ctx = await loadMemberContext(projectID, req.user);
+    if (!(await canReferenceBook(ctx, bookID))) {
+      return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
     const reference = await createReferenceFromBookPage(
@@ -596,20 +430,21 @@ async function addBookPageAsReference(
       },
     });
   } catch (err) {
-    if (err instanceof ReferenceServiceError) {
-      return res.status(err.statusCode).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
-    logger.error({ err }, "addBookPageAsReference failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "addBookPageAsReference");
   }
 }
 
+/** 404 shared by the public routes, so an unlisted book looks like a missing one. */
+const sendPublicNotFound = (res: Response) =>
+  res.status(404).send({
+    err: true,
+    errMsg: "Project not found",
+  });
+
+/**
+ * Public (library script). Only books listed in the Commons catalog are
+ * served; editing stays member-only on the `/projects/...` routes.
+ */
 async function getReferencePageDetails(
   req: ZodReqWithOptionalUser<
     z.infer<typeof GetReferencePageByPageIDAndLibrarySchema>
@@ -629,11 +464,11 @@ async function getReferencePageDetails(
       libreCoverID: { $in: candidateCoverIDs },
       libreLibrary: { $eq: library },
     });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
+    if (
+      !project ||
+      !(await isInCommonsCatalog(`${library}-${project.libreCoverID}`))
+    ) {
+      return sendPublicNotFound(res);
     }
 
     // find reference usage by project id
@@ -688,86 +523,64 @@ async function getReferencePageDetails(
       },
     });
   } catch (err) {
-    if (err instanceof ReferenceServiceError) {
-      return res.status(err.statusCode).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
-    logger.error({ err }, "getReferencePageDetails failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "getReferencePageDetails");
   }
 }
 
+/** Public (library script); same Commons-catalog gate as getReferencePageDetails. */
 async function getReferenceItems(
   req: ZodReqWithOptionalUser<z.infer<typeof GetReferenceProjectsSchema>>,
   res: Response,
 ) {
   try {
     const { projectID } = req.params;
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
+    const ctx = await ProjectContext.load(projectID, { select: [] });
+    const bookID = ctx.getLinkedBook();
+    if (!bookID || !(await isInCommonsCatalog(bookID))) {
+      return sendPublicNotFound(res);
     }
-    if (!project.libreLibrary || !project.libreCoverID) {
-      return res.status(400).send({
-        err: true,
-        errMsg: "This project has no book",
-      });
-    }
-    const bookService = new BookService({
-      bookID: `${project.libreLibrary}-${project.libreCoverID}`,
-    });
 
-    type TocIdTree = { id: string; title: string; children: TocIdTree[]; refs: string[] };
-    const mapToc = async (
-      toc: TableOfContents,
-      pageRefs: PageReferences[],
-    ): Promise<TocIdTree> => ({
-      id: toc.id,
-      title: toc.title,
-      refs: [
+    type TocIdTree = {
+      id: string;
+      title: string;
+      children: TocIdTree[];
+      refs: string[];
+    };
+
+    const [referenceItems, usage, bookToc] = await Promise.all([
+      getReferenceItemsService(projectID),
+      getReferencesUsage({ projectID, showPageRefs: true }),
+      new BookService({ bookID }).getBookTOCNew(),
+    ]);
+
+    // One pass over the scan results; a later entry for the same page wins
+    // (a re-scanned page is appended after its older entry).
+    const refsByPage = new Map<string, string[]>();
+    for (const pageRef of (usage?.pageReferences ?? []) as PageReferences[]) {
+      refsByPage.set(pageRef.pageID, [
         ...new Set(
-          [...pageRefs]
-            .reverse()
-            .find((pageRef) => pageRef.pageID === toc.id)
-            ?.references.map((entry) => entry.key)
-            .filter(isValidCitationKey) ?? [],
+          pageRef.references
+            .map((entry) => entry.key)
+            .filter(isValidCitationKey),
         ),
-      ],
-      children: await Promise.all(
-        toc.children.map((child) => mapToc(child, pageRefs)),
-      ),
+      ]);
+    }
+
+    const mapToc = (node: TableOfContents): TocIdTree => ({
+      id: node.id,
+      title: node.title,
+      refs: refsByPage.get(node.id) ?? [],
+      children: node.children.map(mapToc),
     });
 
-    const referenceItems = await getReferenceItemsService(projectID);
-    const usage = await getReferencesUsage({ projectID, showPageRefs: true });
-    const toc = await mapToc(
-      await bookService.getBookTOCNew(),
-      usage?.pageReferences ?? [],
-    );
     return res.send({
       err: false,
-      data: { referenceItems, toc },
+      data: { referenceItems, toc: mapToc(bookToc) },
     });
   } catch (err) {
-    if (err instanceof ReferenceServiceError) {
-      return res.status(err.statusCode).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
-    logger.error({ err }, "getReferenceItems failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    // An unknown project is a plain 404 here, like an unlisted book.
+    if (err instanceof ProjectError) return sendPublicNotFound(res);
+    return sendReferenceError(res, err, "getReferenceItems");
   }
 }
 
@@ -777,24 +590,8 @@ async function populateReferenceDetails(
 ) {
   try {
     const { projectID } = req.params;
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
-    }
-    // check canaccess
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
-    }
+    await loadMemberContext(projectID, req.user);
+
     // The running scan if there is one (stalled ones are failed first),
     // otherwise the latest finished scan, so a client watching a scan can
     // tell whether it completed or failed.
@@ -820,11 +617,7 @@ async function populateReferenceDetails(
       },
     });
   } catch (err) {
-    logger.error({ err }, "populateReferenceDetails failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "populateReferenceDetails");
   }
 }
 
@@ -834,29 +627,13 @@ async function startReferencePopulateJob(
 ) {
   try {
     const { projectID } = req.params;
-    // check canaccess
-    const project = await Project.findOne({ projectID: { $eq: projectID } });
-    if (!project) {
-      return res.status(404).send({
-        err: true,
-        errMsg: "Project not found",
-      });
-    }
-    const canAccess = projectsAPI.checkProjectMemberPermission(
-      project,
-      req.user,
-    );
-    if (!canAccess) {
-      return res.status(403).send({
-        err: true,
-        errMsg: "You do not have permission to access this project",
-      });
-    }
+    const ctx = await loadMemberContext(projectID, req.user);
+
     // Rejects with 409 when a job is already running for this book.
     const referencePopulateJob = await createReferencePopulateJob(
       projectID,
       req.user?.decoded?.uuid ?? "",
-      project,
+      ctx.doc,
     );
     if (!referencePopulateJob) {
       return res.status(500).send({
@@ -869,17 +646,7 @@ async function startReferencePopulateJob(
       success: true,
     });
   } catch (err) {
-    if (err instanceof ReferenceServiceError) {
-      return res.status(err.statusCode).send({
-        err: true,
-        errMsg: err.message,
-      });
-    }
-    logger.error({ err }, "Failed to start reference populate job");
-    return res.status(500).send({
-      err: true,
-      errMsg: "Internal server error",
-    });
+    return sendReferenceError(res, err, "startReferencePopulateJob");
   }
 }
 

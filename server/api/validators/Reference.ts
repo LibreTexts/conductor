@@ -10,6 +10,10 @@ import {
   sanitizeReferenceText,
 } from "../../util/referenceSanitize.js";
 import { REFERENCE_BACKMATTER_TARGET } from "../../models/referenceusage.js";
+import {
+  ENTRY_TYPES,
+  OPTIONAL_REFERENCE_FIELDS,
+} from "../../models/reference.js";
 
 export const ReferenceFormatTypeEnum = z.enum([
   "APA",
@@ -24,38 +28,7 @@ export const ReferenceFormatTypeEnum = z.enum([
   "ANSI",
 ]);
 
-export const EntryTypeEnum = z.enum([
-  "article",
-  "inproceedings",
-  "book",
-  "incollection",
-  "mastersthesis",
-  "phdthesis",
-  "misc",
-]);
-
-const OPTIONAL_REFERENCE_FIELDS = [
-  "author",
-  "title",
-  "journal",
-  "booktitle",
-  "year",
-  "volume",
-  "number",
-  "pages",
-  "doi",
-  "url",
-  "month",
-  "note",
-  "publisher",
-  "address",
-  "edition",
-  "isbn",
-  "editor",
-  "chapter",
-  "school",
-  "urldate",
-] as const;
+export const EntryTypeEnum = z.enum(ENTRY_TYPES);
 
 /** Raw input cap before cleaning; cleaned values are capped per field. */
 const RAW_FIELD_MAX = 10_000;

@@ -1,37 +1,20 @@
 import { Document, model, Schema } from "mongoose";
 
-type EntryType =
-  | "article"
-  | "inproceedings"
-  | "book"
-  | "incollection"
-  | "mastersthesis"
-  | "phdthesis"
-  | "misc";
+/** BibTeX entry types; the validators build their enum from this list. */
+export const ENTRY_TYPES = [
+  "article",
+  "inproceedings",
+  "book",
+  "incollection",
+  "mastersthesis",
+  "phdthesis",
+  "misc",
+] as const;
 
-export type ReferenceFieldKey =
-  | "author"
-  | "title"
-  | "journal"
-  | "booktitle"
-  | "year"
-  | "volume"
-  | "number"
-  | "pages"
-  | "doi"
-  | "url"
-  | "month"
-  | "note"
-  | "publisher"
-  | "address"
-  | "edition"
-  | "isbn"
-  | "editor"
-  | "chapter"
-  | "school"
-  | "urldate";
+type EntryType = (typeof ENTRY_TYPES)[number];
 
-const OPTIONAL_REFERENCE_FIELDS: ReferenceFieldKey[] = [
+/** Optional BibTeX fields; the validators build their schema from this list. */
+const OPTIONAL_REFERENCE_FIELDS = [
   "author",
   "title",
   "journal",
@@ -52,7 +35,9 @@ const OPTIONAL_REFERENCE_FIELDS: ReferenceFieldKey[] = [
   "chapter",
   "school",
   "urldate",
-];
+] as const;
+
+export type ReferenceFieldKey = (typeof OPTIONAL_REFERENCE_FIELDS)[number];
 
 export type ReferenceInterface = {
   projectID: string;

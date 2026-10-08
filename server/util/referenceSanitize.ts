@@ -5,6 +5,8 @@
  * and citation keys safe to use as `\librecite{}` keys and HTML ids.
  */
 
+import { isHttpUrl, sanitizeLibraryText } from "./sanitize-text.js";
+
 /** BibTeX-style keys: no spaces, commas, braces, quotes or angle brackets. */
 export const CITATION_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_\-:.+/]{0,99}$/;
 
@@ -31,41 +33,25 @@ const DEFAULT_FIELD_MAX_LENGTH = 300;
 export const maxLengthFor = (field: string): number =>
   FIELD_MAX_LENGTH[field] ?? DEFAULT_FIELD_MAX_LENGTH;
 
-// Tags and comments, closed or not: `<img src=x onerror=…` with no `>` would
-// still become an element once a renderer wraps it in its own markup.
-const HTML_COMMENT_RE = /<!--[\s\S]*?(-->|$)/g;
-const HTML_TAG_RE = /<\/?[A-Za-z!?][^>]*(>|$)/g;
-// C0/C1 controls (except tab/newline handled below) and bidi overrides, which
-// can disguise text.
-const CONTROL_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/g;
-
 /**
- * Plain, inert text: tags and comments removed, control characters dropped,
- * whitespace collapsed, and any remaining `<`/`>` swapped for look-alikes so
- * "p < 0.05" still reads the same but can never open a tag.
+ * Plain, inert text. Markup, entities, control/format characters and
+ * whitespace are handled by the shared `sanitizeLibraryText` (real HTML
+ * parser, decoded until stable). On top of that, references are inserted by
+ * the biblizer with innerHTML, so any `<`/`>` that survives as literal text is
+ * swapped for a look-alike: "p < 0.05" still reads the same but can never
+ * open a tag.
  */
 export const sanitizeReferenceText = (value: string, maxLength = 2000): string =>
-  value
-    .replace(HTML_COMMENT_RE, "")
-    .replace(HTML_TAG_RE, "")
-    .replace(CONTROL_CHARS_RE, "")
-    .replace(/</g, "\uFF1C")
-    .replace(/>/g, "\uFF1E")
-    .replace(/\s+/g, " ")
-    .trim()
+  sanitizeLibraryText(value)
+    .replace(/</g, "＜")
+    .replace(/>/g, "＞")
     .slice(0, maxLength);
 
 /** An absolute http(s) URL, or null. Rejects `javascript:`, `data:` and the like. */
 export const normalizeHttpUrl = (value: string): string | null => {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
+  return isHttpUrl(trimmed) ? new URL(trimmed).toString() : null;
 };
 
 const DOI_PATTERN = /^10\.\d{4,9}\/[^\s<>"'`{}]+$/;

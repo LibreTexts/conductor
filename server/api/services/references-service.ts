@@ -27,7 +27,8 @@ import {
 } from "../../util/librariesclient.js";
 import { escapeRegEx } from "../../util/helpers.js";
 import { ReferencePopulateJob } from "../../models/referencepopulatejob.js";
-import Project, { ProjectInterface } from "../../models/project.js";
+import Project, { ProjectInterfaceRaw } from "../../models/project.js";
+import Book from "../../models/book.js";
 import GlossaryService from "./glossary-service.js";
 import MindTouch from "../../util/CXOne/index.js";
 import RemixerTemplates from "../../util/CXOne/CXOneRemixerTemplates.js";
@@ -55,6 +56,14 @@ export class ReferenceServiceError extends Error {
 }
 
 type ReferenceEntryInput = z.infer<typeof ReferenceEntrySchema>;
+
+/**
+ * True when `bookID` is listed in the Commons catalog (the `Book` collection,
+ * synced from the libraries). References are publicly readable — by the
+ * library script and in other projects' searches — only for these books.
+ */
+export const isInCommonsCatalog = async (bookID: string): Promise<boolean> =>
+  !!(await Book.exists({ bookID: { $eq: bookID } }));
 
 /** MongoDB's duplicate key error, raised when a write breaks a unique index. */
 const isDuplicateKeyError = (err: unknown): boolean =>
@@ -481,6 +490,46 @@ export const searchReferences = async (
   const searchpipeline: PipelineStage[] = [
     { $match: { $text: { $search: trimmed } } },
     { $match: { referenceID: { $nin: [...referenceUsage.entries] } } },
+    // Only references that are already public: this project's own, or those
+    // of projects whose book is listed in the Commons catalog (the same rule
+    // that gates the library script's public reference routes).
+    {
+      $lookup: {
+        from: Project.collection.name,
+        let: { ownerID: "$projectID" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$projectID", "$$ownerID"] } } },
+          { $limit: 1 },
+          {
+            $project: {
+              _id: 0,
+              bookID: { $concat: ["$libreLibrary", "-", "$libreCoverID"] },
+            },
+          },
+        ],
+        as: "_ownerProject",
+      },
+    },
+    {
+      $lookup: {
+        from: Book.collection.name,
+        let: { bookID: { $first: "$_ownerProject.bookID" } },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$bookID", "$$bookID"] } } },
+          { $limit: 1 },
+          { $project: { _id: 1 } },
+        ],
+        as: "_catalogBook",
+      },
+    },
+    {
+      $match: {
+        $or: [
+          { projectID: { $eq: projectID } },
+          { "_catalogBook.0": { $exists: true } },
+        ],
+      },
+    },
     {
       $addFields: {
         score: { $meta: "textScore" },
@@ -491,7 +540,16 @@ export const searchReferences = async (
     },
     { $sort: { isCurrentProject: -1, score: -1 } },
     { $limit: 20 },
-    { $project: { score: 0, isCurrentProject: 0, __v: 0, _id: 0 } },
+    {
+      $project: {
+        score: 0,
+        isCurrentProject: 0,
+        __v: 0,
+        _id: 0,
+        _ownerProject: 0,
+        _catalogBook: 0,
+      },
+    },
   ];
   const references =
     await Reference.aggregate<ReferenceInterface>(searchpipeline);
@@ -1135,8 +1193,11 @@ const runJob = async ({
         backmatterReferenceList.add(key);
       }
 
-      await ReferencePopulateJob.updateOne(
-        { jobID: { $eq: jobID } },
+      // Progress only lands while the job is still pending. If the stale-job
+      // check (getActivePopulateJob) has already failed this job, a newer
+      // scan may be running, so stop here and never write results.
+      const progress = await ReferencePopulateJob.updateOne(
+        { jobID: { $eq: jobID }, status: { $eq: "pending" } },
         {
           $push: {
             message: `Processed ${page.title}${
@@ -1148,6 +1209,13 @@ const runJob = async ({
           $set: { completedPages: index + 1 },
         },
       );
+      if (progress.matchedCount === 0) {
+        populateLog.warn(
+          { jobID, projectID },
+          "Reference populate job is no longer pending; abandoning its results",
+        );
+        return;
+      }
       pageReferences.push({
         pageID: page.id,
         title: page.title,
@@ -1158,7 +1226,33 @@ const runJob = async ({
       });
     }
 
-    // One write replaces the previous scan's data with this one's.
+    // Claim completion before writing results. Only a still-pending job can
+    // claim it, and while it is pending the partial unique index keeps any
+    // other scan of this book from starting — so a job the stale check has
+    // already failed can never overwrite a newer scan's results.
+    const claimed = await ReferencePopulateJob.updateOne(
+      { jobID: { $eq: jobID }, status: { $eq: "pending" } },
+      {
+        $set: { status: "completed" },
+        ...(isBackmatter && backmatterPageID
+          ? {
+              $push: {
+                message: `Backmatter references page ready (${backmatterReferenceList.size} unique cite${backmatterReferenceList.size === 1 ? "" : "s"})`,
+              },
+            }
+          : {}),
+      },
+    );
+    if (claimed.matchedCount === 0) {
+      populateLog.warn(
+        { jobID, projectID },
+        "Reference populate job is no longer pending; abandoning its results",
+      );
+      return;
+    }
+
+    // One write replaces the previous scan's data with this one's. If it
+    // fails, the catch below marks the job failed again.
     await ReferenceUsage.updateOne(
       { projectID: { $eq: projectID } },
       {
@@ -1167,22 +1261,6 @@ const runJob = async ({
           backmatterReferenceList: [...backmatterReferenceList],
         },
       },
-    );
-
-    if (isBackmatter && backmatterPageID) {
-      await ReferencePopulateJob.updateOne(
-        { jobID: { $eq: jobID } },
-        {
-          $push: {
-            message: `Backmatter references page ready (${backmatterReferenceList.size} unique cite${backmatterReferenceList.size === 1 ? "" : "s"})`,
-          },
-        },
-      );
-    }
-
-    await ReferencePopulateJob.updateOne(
-      { jobID: { $eq: jobID } },
-      { $set: { status: "completed" } },
     );
   } catch (err) {
     populateLog.error({ err, jobID, projectID }, "Reference populate job failed");
@@ -1252,7 +1330,7 @@ export const getActivePopulateJob = async (projectID: string) => {
 export const createReferencePopulateJob = async (
   projectID: string,
   actorUUID: string,
-  project: ProjectInterface,
+  project: Pick<ProjectInterfaceRaw, "libreLibrary" | "libreCoverID">,
 ): Promise<any> => {
   if (await getActivePopulateJob(projectID)) {
     throw new ReferenceServiceError(
@@ -1451,6 +1529,25 @@ export const importPageReferences = async ({
     if (work) targetKeyByWork.set(work, ref.citationKey);
   }
 
+  // Forks this book already made of the cited references. Looked up by owner
+  // and source rather than through `targetUsage.entries`: a fork created by an
+  // attempt that failed before sharing it (the whole import is retried on
+  // transient errors) isn't listed there, and must be reused, not forked again.
+  const existingForks = canRewriteContent
+    ? await Reference.find(
+        {
+          projectID: { $eq: targetProject.projectID },
+          forkedFrom: {
+            $in: [...sourceByKey.values()].map((ref) => ref.referenceID),
+          },
+        },
+        { referenceID: 1, citationKey: 1, forkedFrom: 1 },
+      ).lean()
+    : [];
+  const forkBySource = new Map(
+    existingForks.map((fork) => [fork.forkedFrom!, fork]),
+  );
+
   const result: ImportedPageReferences = {
     imported: 0,
     keyRenames: {},
@@ -1461,6 +1558,21 @@ export const importPageReferences = async ({
 
   for (const [key, source] of sourceByKey) {
     if (targetIDs.has(source.referenceID)) continue;
+
+    // An earlier import already forked this reference into the book: cite
+    // that fork (re-listing it if a failed attempt never shared it).
+    const existingFork = forkBySource.get(source.referenceID);
+    if (existingFork) {
+      if (!targetIDs.has(existingFork.referenceID)) {
+        toShare.push(existingFork.referenceID);
+        targetIDs.add(existingFork.referenceID);
+        targetByKey.set(existingFork.citationKey, existingFork);
+      }
+      if (existingFork.citationKey !== key) {
+        result.keyRenames[key] = existingFork.citationKey;
+      }
+      continue;
+    }
 
     const work = workIdentity(source);
     const sameWorkKey = work ? targetKeyByWork.get(work) : undefined;
@@ -1510,6 +1622,7 @@ export const importPageReferences = async ({
     toShare.push(forked.referenceID);
     targetIDs.add(forked.referenceID);
     targetByKey.set(freeKey, forked);
+    forkBySource.set(source.referenceID, forked);
     if (work) targetKeyByWork.set(work, freeKey);
     result.keyRenames[key] = freeKey;
   }
