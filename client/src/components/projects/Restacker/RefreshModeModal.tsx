@@ -45,10 +45,20 @@ const RefreshModeModal: React.FC<RefreshModeModalProps> = ({
         </Stack>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline" onClick={onCancel}>
+        {/* Pending Davis fix: outline Button border and Radio/Modal.Close
+            contrast are below 3:1. */}
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          aria-label="Cancel Refresh License Data"
+        >
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => onConfirm(mode)}>
+        <Button
+          variant="primary"
+          onClick={() => onConfirm(mode)}
+          aria-label="Refresh License Data"
+        >
           Refresh
         </Button>
       </Modal.Footer>

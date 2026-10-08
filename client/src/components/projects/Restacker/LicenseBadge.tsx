@@ -6,16 +6,32 @@ import { getLicenseText } from "../../util/LicenseOptions";
 
 interface LicenseBadgeProps {
   license?: RestackerTocLicense;
+  /**
+   * Visible text when there is no license (e.g. "Not set" on an editable
+   * license button). Without it, a dash is shown and read as "None".
+   */
+  emptyLabel?: string;
 }
 
+/** Placeholder for a missing license; #4b5563 keeps 4.5:1 on white. */
+export const EmptyLicense: React.FC<{ label?: string }> = ({ label }) =>
+  label ? (
+    <span style={{ color: "#4b5563" }}>{label}</span>
+  ) : (
+    <span style={{ color: "#4b5563" }}>
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">None</span>
+    </span>
+  );
+
 const LicenseBadge: React.FC<LicenseBadgeProps> = (props) => {
-  const { license } = props;
+  const { license, emptyLabel } = props;
   if (!license?.label) {
-    return <span style={{ color: "#9ca3af" }}>—</span>;
+    return <EmptyLicense label={emptyLabel} />;
   }
   const key = parseLicenseKey(license);
   if (!key) {
-    return <span style={{ color: "#9ca3af" }}>—</span>;
+    return <EmptyLicense label={emptyLabel} />;
   }
   const version = parseLicenseVersion(license.version);
   const bgColor = getLicenseColor(key);
