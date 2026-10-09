@@ -43,12 +43,12 @@ describe("BulkAttributionDialog", () => {
       target: { value: "ccby" },
     });
     const version = await screen.findByRole("combobox", { name: /License Version/ });
-    fireEvent.change(version, { target: { value: "4.0" } });
+    fireEvent.change(version, { target: { value: "40" } });
 
     fireEvent.click(screen.getByRole("button", { name: /Apply to 1 Term/ }));
     await waitFor(() =>
       expect(api.bulkUpdateGlossaryAttribution).toHaveBeenCalledWith(
-        expect.objectContaining({ source: "ccby", sourceVersion: "4.0" }),
+        expect.objectContaining({ source: "ccby", sourceVersion: "40" }),
       ),
     );
   });

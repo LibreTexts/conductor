@@ -75,7 +75,7 @@ describe("glossaryEntriesToCsv", () => {
         {
           ...entry("Cell", "Basic unit"),
           source: "ccby",
-          sourceVersion: "4.0",
+          sourceVersion: "40",
           pages: [
             { pageID: "10", addedBy: "u", createdAt: "" },
             { pageID: "99", addedBy: "u", createdAt: "" },
@@ -88,6 +88,6 @@ describe("glossaryEntriesToCsv", () => {
     expect(header).toBe(
       "Term,Definition,Aliases,Author,Source,License Version,Link,Page IDs,Page Titles",
     );
-    expect(row).toBe("Cell,Basic unit,,,ccby,4.0,,10; 99,Chapter 1; Removed Page");
+    expect(row).toBe("Cell,Basic unit,,,ccby,40,,10; 99,Chapter 1; Removed Page");
   });
 });
