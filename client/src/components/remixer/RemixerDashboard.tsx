@@ -187,6 +187,8 @@ const RemixerDashboard: React.FC = () => {
     nodeId: string;
     x: number;
     y: number;
+    /** Row Actions button that opened the menu; focus returns to it. */
+    returnFocusTo?: HTMLElement | null;
   } | null>(null);
 
   const [pendingBookImport, setPendingBookImport] = useState<{
@@ -359,6 +361,16 @@ const RemixerDashboard: React.FC = () => {
     !(remixerData.currentBook ?? []).some(
       (n) => n.parentID === contextMenu.nodeId,
     );
+
+  const contextMenuDuplicateUnavailableReason =
+    contextMenu == null || contextMenuCanDuplicate
+      ? undefined
+      : isDefaultMatterItem(contextMenu.nodeId)
+        ? "not available for core pages"
+        : "not available for items with subpages";
+
+  const contextMenuTargetTitle =
+    contextMenuTargetNode?.["@title"] || contextMenuTargetNode?.title || "item";
 
   const contextMenuSiblingTypeLabel = contextMenu
     ? getNodeTypeLabelForDepth(getContextNodeDepth(contextMenu.nodeId) - 1)
@@ -2346,6 +2358,20 @@ const RemixerDashboard: React.FC = () => {
     },
     [],
   );
+  /** Keyboard route to the context menu: a row's "Actions for …" button. */
+  const handleNodeActions = useCallback(
+    (nodeId: string, trigger: HTMLElement) => {
+      const rect = trigger.getBoundingClientRect();
+      setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId }));
+      setContextMenu({
+        nodeId,
+        x: rect.left,
+        y: rect.bottom + 4,
+        returnFocusTo: trigger,
+      });
+    },
+    [],
+  );
   const handleRestoreNode = useCallback(
     (nodeId: string) => restoreBookNodeRef.current(nodeId),
     [],
@@ -3024,6 +3050,7 @@ const RemixerDashboard: React.FC = () => {
                   onSelectNode={handleSelectBookNode}
                   onNodeDoubleClick={handleNodeDoubleClick}
                   onNodeContextMenu={handleNodeContextMenu}
+                  onNodeActions={handleNodeActions}
                   onRestoreNode={handleRestoreNode}
                 />
               ) : (
@@ -3088,11 +3115,14 @@ const RemixerDashboard: React.FC = () => {
         canAddSibling={contextMenuCanAddSibling}
         canAddChild={contextMenuCanAddChild}
         canDuplicate={contextMenuCanDuplicate}
+        duplicateUnavailableReason={contextMenuDuplicateUnavailableReason}
         isDeleted={contextMenuIsDeleted}
         addAboveLabel={`Add ${contextMenuSiblingTypeLabel} Above`}
         addToLabel={`Add ${contextMenuChildTypeLabel} To`}
         addBelowLabel={`Add ${contextMenuSiblingTypeLabel} Below`}
+        label={`Actions for ${contextMenuTargetTitle}`}
         onAction={handleContextMenuAction}
+        onClose={() => setContextMenu(null)}
       />
     </div>
   );

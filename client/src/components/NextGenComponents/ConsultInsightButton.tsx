@@ -1,4 +1,5 @@
-import { Button, IconButton } from "@libretexts/davis-react";
+import { Button } from "@libretexts/davis-react";
+import { iconButton } from "@libretexts/davis-core";
 import { IconInfoCircle } from "@tabler/icons-react";
 
 type ConsultInsightButtonProps = {
@@ -6,26 +7,28 @@ type ConsultInsightButtonProps = {
   iconOnly?: boolean;
 };
 
+const ACCESSIBLE_NAME = "Consult Insight Knowledge Base (opens in new tab)";
+
+/**
+ * A single link to an Insight article. It used to be a link wrapping an
+ * IconButton, which put two focus stops (a link and a button) on one control;
+ * the icon-only form now styles the link itself with Davis's icon-button
+ * recipe so it looks the same but is one element.
+ */
 const ConsultInsightButton: React.FC<ConsultInsightButtonProps> = ({
   href,
   iconOnly = true,
 }) => {
-
   if (iconOnly) {
     return (
       <a
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="h-full "
+        aria-label={ACCESSIBLE_NAME}
+        className={iconButton({ variant: "secondary", size: "md" })}
       >
-        <IconButton
-          icon={<IconInfoCircle size={18} />}
-          variant="secondary"
-          aria-label="Consult Insight Knowledge Base"
-          title="Consult Insight Knowledge Base"
-          className="m-0" // This is a temp fix until Semantic UI is removed from the project. It's applying a margin to the button that isn't needed
-        />
+        <IconInfoCircle size={18} aria-hidden="true" />
       </a>
     );
   }
@@ -36,12 +39,11 @@ const ConsultInsightButton: React.FC<ConsultInsightButtonProps> = ({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      icon={<IconInfoCircle size={16} />}
+      icon={<IconInfoCircle size={16} aria-hidden="true" />}
       variant="secondary"
-      aria-label="Consult Insight Knowledge Base"
-      title="Consult Insight Knowledge Base"
     >
-      {iconOnly ? undefined : "Consult Insight"}
+      Consult Insight
+      <span className="sr-only"> Knowledge Base (opens in new tab)</span>
     </Button>
   );
 };

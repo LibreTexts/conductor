@@ -49,6 +49,8 @@ const BookActions: React.FC<BookActionsProps> = ({
     canRedo
 }) => {
 
+    // Non-primary actions use "secondary": the Davis "outline" border is
+    // below 3:1 contrast (pending Davis fix).
     const actions: BookAction[] = [
         {
             title: "Add",
@@ -61,7 +63,7 @@ const BookActions: React.FC<BookActionsProps> = ({
         isSelectedItemDeleted ? {
             title: "Restore",
             icon: <IconRestore size={18} />,
-            variant: "outline",
+            variant: "secondary",
             onClick: () => {
                 onRestoreItem();
             }
@@ -76,7 +78,7 @@ const BookActions: React.FC<BookActionsProps> = ({
         {
             title: "Undo",
             icon: <IconArrowBackUp size={18} />,
-            variant: "outline",
+            variant: "secondary",
             disabled: !canUndo,
             onClick: () => {
                 onUndo();
@@ -85,7 +87,7 @@ const BookActions: React.FC<BookActionsProps> = ({
         {
             title: "Redo",
             icon: <IconArrowForwardUp size={18} />,
-            variant: "outline",
+            variant: "secondary",
             disabled: !canRedo,
             onClick: () => {
                 onRedo();
@@ -94,7 +96,7 @@ const BookActions: React.FC<BookActionsProps> = ({
         {
             title: isAllExpanded ? "Collapse all" : "Expand all",
             icon: isAllExpanded ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />,
-            variant: "outline",
+            variant: "secondary",
             onClick: () => {
                 onToggleExpandCollapse();
             }
