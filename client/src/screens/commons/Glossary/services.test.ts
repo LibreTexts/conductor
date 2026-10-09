@@ -57,7 +57,37 @@ describe("glossaryEntriesToCsv", () => {
       entry("=cmd", "-1 is negative"),
     ]);
     const [, row1, row2] = csv.split("\r\n");
-    expect(row1).toBe("Inequality,\\(a<b\\),,,,,");
-    expect(row2).toBe("'=cmd,'-1 is negative,,,,,");
+    expect(row1).toBe("Inequality,\\(a<b\\),,,,,,,");
+    expect(row2).toBe("'=cmd,'-1 is negative,,,,,,,");
+  });
+
+  it("adds the license version and page titles (from the TOC)", () => {
+    const toc = {
+      id: "1",
+      title: "Book",
+      url: "",
+      children: [
+        { id: "10", title: "Chapter 1", url: "", children: [] },
+      ],
+    } as unknown as Parameters<typeof glossaryEntriesToCsv>[1];
+    const csv = glossaryEntriesToCsv(
+      [
+        {
+          ...entry("Cell", "Basic unit"),
+          source: "ccby",
+          sourceVersion: "4.0",
+          pages: [
+            { pageID: "10", addedBy: "u", createdAt: "" },
+            { pageID: "99", addedBy: "u", createdAt: "" },
+          ],
+        },
+      ],
+      toc,
+    );
+    const [header, row] = csv.split("\r\n");
+    expect(header).toBe(
+      "Term,Definition,Aliases,Author,Source,License Version,Link,Page IDs,Page Titles",
+    );
+    expect(row).toBe("Cell,Basic unit,,,ccby,4.0,,10; 99,Chapter 1; Removed Page");
   });
 });

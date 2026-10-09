@@ -12,6 +12,12 @@ const glossaryLinkSchema = z
   .max(2000)
   .refine(isHttpUrl, { message: "Link must be an http:// or https:// URL." });
 
+// License version of a glossary term's source, e.g. "4.0"; empty clears it.
+const glossaryLicenseVersionSchema = z
+  .string()
+  .max(10)
+  .regex(/^(\d+(\.\d+)?)?$/, { message: "License version must look like 4.0." });
+
 // Book ID format: library-pageid (e.g. "chem-123")
 export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
   message: "Book ID must be in the format 'library-pageid' (e.g. 'chem-123')",
@@ -295,6 +301,7 @@ export const addWithCoverIDParamSchema = z.object({
     source: z.string().refine(isValidLicense, {
       message: conductorErrors.err1,
     }).optional(),
+    sourceVersion: glossaryLicenseVersionSchema.optional(),
     author: z.string().max(500).optional(),
     imageSource: z.string().max(500).optional(),
     caption: z.string().max(500).optional(),
@@ -362,6 +369,7 @@ export const bulkUpdateGlossaryAttributionSchema = z.object({
     author: z.string().max(300).optional(),
     link: glossaryLinkSchema.optional(),
     source: z.string().max(300).optional(),
+    sourceVersion: glossaryLicenseVersionSchema.optional(),
   }),
 });
 
