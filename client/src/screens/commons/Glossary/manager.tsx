@@ -14,6 +14,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import GlossaryTermAutocomplete from "./GlossaryTermAutocomplete";
 import {
+  getLicenseVersionOptions,
+  getValidLicenseVersion,
   licenseOptions,
   normalizeLicenseKey,
 } from "../../../components/util/LicenseOptions";
@@ -44,6 +46,7 @@ type GlossaryFormFields = {
   aliases?: string[];
   link?: string;
   source?: string;
+  sourceVersion?: string;
   author?: string;
   imageSource?: string;
   caption?: string;
@@ -60,6 +63,7 @@ const DEFAULT_VALUES: GlossaryFormFields = {
   caption: "",
   link: "",
   source: "",
+  sourceVersion: "",
   imageSource: "",
   aliasInput: "",
   aliases: [],
@@ -125,7 +129,12 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     setValue("aliases", term.aliases ?? []);
     setValue("link", term.link ?? "");
     // Map renamed license values (e.g. "multiple") so the select shows the saved choice.
-    setValue("source", normalizeLicenseKey(term.source ?? ""));
+    const source = normalizeLicenseKey(term.source ?? "");
+    setValue("source", source);
+    setValue(
+      "sourceVersion",
+      getValidLicenseVersion(source, term.sourceVersion ?? ""),
+    );
     setValue("author", term.author ?? "");
     setValue("imageSource", term.imageSource ?? "");
     setValue("imageAuthor", term.imageAuthor ?? "");
@@ -214,6 +223,9 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     return null;
   };
 
+  const sourceVersionOptions: { key: string; label: string }[] =
+    getLicenseVersionOptions(watch("source") ?? "");
+
   const onSubmitHandler = async (data: GlossaryFormFields) => {
     const contextErr = validateContext();
     if (contextErr) {
@@ -235,6 +247,10 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         caption: data.caption?.trim() || undefined,
         link: data.link?.trim() || undefined,
         source: data.source?.trim() || undefined,
+        // Only licenses that are issued in versions carry one.
+        sourceVersion:
+          getValidLicenseVersion(data.source ?? "", data.sourceVersion ?? "") ||
+          undefined,
         glossaryID: glossaryID?.trim() || undefined,
         author: data.author?.trim() || undefined,
         imageAuthor: data.imageAuthor?.trim() || undefined,
@@ -438,8 +454,39 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 error={!!errors.source}
                 errorMessage={errors.source?.message}
                 className="mt-4"
-                {...register("source")}
+                {...register("source", {
+                  // Drop a version the newly chosen license isn't issued in.
+                  onChange: (e) =>
+                    setValue(
+                      "sourceVersion",
+                      getValidLicenseVersion(
+                        e.target.value,
+                        getValues("sourceVersion") ?? "",
+                      ),
+                    ),
+                })}
               />
+              {sourceVersionOptions.length > 0 && (
+                <Select
+                  label="License Version"
+                  placeholder="Select a version…"
+                  required
+                  options={sourceVersionOptions.map((o) => ({
+                    value: o.key,
+                    label: o.label,
+                  }))}
+                  error={!!errors.sourceVersion}
+                  errorMessage={errors.sourceVersion?.message}
+                  className="mt-4"
+                  {...register("sourceVersion", {
+                    validate: (value) =>
+                      getLicenseVersionOptions(getValues("source") ?? "")
+                        .length === 0 ||
+                      !!value ||
+                      "Choose the license version",
+                  })}
+                />
+              )}
               <Input
                 label="Author"
                 placeholder="Author of the term…"

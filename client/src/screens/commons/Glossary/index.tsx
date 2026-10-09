@@ -29,8 +29,9 @@ import "./Glossary.css";
 import {
   downloadCsv,
   extractLibraryFromURL,
-  filterGlossaryEntriesForPage,
+  filterGlossaryEntriesForPages,
   findTocNode,
+  findTocNodeById,
   glossaryEntriesToCsv,
   slugifyForFilename,
 } from "./services";
@@ -39,6 +40,7 @@ import { GlossaryEntry } from "./model";
 import AddPageDialog from "./AddPageDialog";
 import GlossaryCsvImportDialog from "./GlossaryCsvImportDialog";
 import GlossaryConfigModal from "./GlossaryConfigModal";
+import { collectSubtreeIds } from "./glossaryConfigDefaults";
 import { useNotifications } from "../../../context/NotificationContext";
 import { useModals } from "../../../context/ModalContext";
 import useProject from "../../../hooks/useProject";
@@ -101,16 +103,30 @@ const GlossaryManager: React.FC = () => {
     queryClient.invalidateQueries(["glossary-config", library, coverID]);
   };
 
-  /** Page ids with at least one glossary term — gates the TOC row export icon. */
+  /**
+   * TOC nodes whose own page or any page below it has a glossary term —
+   * gates the TOC row export icon, which exports the node's whole subtree
+   * (so a chapter gets the icon even when only its sections hold terms).
+   */
   const pageIdsWithTerms = useMemo(() => {
-    const ids = new Set<string>();
+    const direct = new Set<string>();
     for (const entry of glossaryEntries) {
       for (const page of entry.pages) {
-        ids.add(page.pageID);
+        direct.add(page.pageID);
       }
     }
-    return ids;
-  }, [glossaryEntries]);
+    const withTerms = new Set<string>();
+    const visit = (node: TableOfContents): boolean => {
+      let has = direct.has(node.id);
+      for (const child of node.children) {
+        if (visit(child)) has = true;
+      }
+      if (has) withTerms.add(node.id);
+      return has;
+    };
+    if (bookTOC) visit(bookTOC);
+    return withTerms;
+  }, [glossaryEntries, bookTOC]);
 
   const handleAddTermsToPages = async (
     pageIds: string[],
@@ -260,12 +276,15 @@ const GlossaryManager: React.FC = () => {
     }
     downloadCsv(
       `${slugifyForFilename(bookTOC?.title ?? "glossary")}-glossary.csv`,
-      glossaryEntriesToCsv(glossaryEntries),
+      glossaryEntriesToCsv(glossaryEntries, bookTOC),
     );
   };
 
+  /** Exports the terms used on a TOC node and every page under it (e.g. a chapter). */
   const handleExportPageCsv = (pageId: string, pageTitle: string) => {
-    const pageEntries = filterGlossaryEntriesForPage(glossaryEntries, pageId);
+    const node = bookTOC ? findTocNodeById(bookTOC, pageId) : undefined;
+    const pageIds = new Set(node ? collectSubtreeIds(node) : [pageId]);
+    const pageEntries = filterGlossaryEntriesForPages(glossaryEntries, pageIds);
     if (pageEntries.length === 0) {
       addNotification({
         message: `“${pageTitle}” has no glossary terms to export.`,
@@ -275,7 +294,7 @@ const GlossaryManager: React.FC = () => {
     }
     downloadCsv(
       `${slugifyForFilename(pageTitle)}-glossary.csv`,
-      glossaryEntriesToCsv(pageEntries),
+      glossaryEntriesToCsv(pageEntries, bookTOC),
     );
   };
 
