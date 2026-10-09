@@ -26,9 +26,9 @@ const GlossaryDefinitionPreview = ({
       ALLOWED_ATTR: [],
     });
 
-    typesetMathElements([el]).catch((err) =>
-      console.error("MathJax typeset failed:", err),
-    );
+    // Deliberately silent: if MathJax can't load or typeset, the definition
+    // simply shows its raw TeX, which is still readable.
+    typesetMathElements([el]).catch(() => {});
   }, [definition]);
 
   if (!definition) return null;
