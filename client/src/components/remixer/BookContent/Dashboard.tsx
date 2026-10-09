@@ -18,7 +18,7 @@ import {
   isDefaultMatterPage,
   isMatterRootNode,
 } from "../services";
-import TreeNodeContainer from "./TreeNodeContainer";
+import TreeNodeContainer, { RowActionsButton } from "./TreeNodeContainer";
 import { CATALOG_NODE_HIGHLIGHT_STYLE, STATUS_PALETTE } from "../style";
 
 type DropPosition = "before" | "inside" | "after";
@@ -60,6 +60,8 @@ interface TreeDndProps {
   onSelectNode?: (nodeId?: string) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
   onNodeContextMenu?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Opens the same actions menu from a row's keyboard-focusable Actions button (book tree only). */
+  onNodeActions?: (nodeId: string, trigger: HTMLElement) => void;
   /** Restore a deleted node (book tree only); wired to the row's trash icon. */
   onRestoreNode?: (nodeId: string) => void;
   expandedNodeIds: Set<string>;
@@ -130,6 +132,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
   onSelectNode,
   onNodeDoubleClick,
   onNodeContextMenu,
+  onNodeActions,
   onRestoreNode,
   expandedNodeIds,
   setExpandedNodeIds,
@@ -477,6 +480,13 @@ const TreeDnd: React.FC<TreeDndProps> = ({
 
   // Core matter pages get the menu too, so they can be deleted/restored
   // (deletion is confirmed by RemixerDashboard's core-page modal).
+  const handleRowActions = useCallback(
+    (page: RemixerSubPage, trigger: HTMLElement) => {
+      if (isBookTree) onNodeActions?.(page["@id"], trigger);
+    },
+    [isBookTree, onNodeActions],
+  );
+
   const handleRowContextMenu = useCallback(
     (page: RemixerSubPage, event: React.MouseEvent) => {
       if (isBookTree) {
@@ -575,6 +585,7 @@ const TreeDnd: React.FC<TreeDndProps> = ({
           onSelect={handleRowSelect}
           onDoubleClick={handleRowDoubleClick}
           onContextMenu={handleRowContextMenu}
+          onOpenActions={isBookTree && onNodeActions ? handleRowActions : undefined}
           onRestore={isBookTree && onRestoreNode ? handleRowRestore : undefined}
         >
           {isExpanded
@@ -830,12 +841,15 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                         {displayTitle}
                         <Icon
                           name="linkify"
+                          aria-hidden="true"
                           style={{ marginLeft: 8, color: "#1e70bf" }}
                         />
+                        <span className="sr-only"> (opens in new tab)</span>
                       </a>
                     );
                   }
 
+                  // Icon-only link: it needs its own accessible name.
                   return (
                     <>
                       <span className="text-base" style={titleStyle}>
@@ -845,18 +859,25 @@ const TreeDnd: React.FC<TreeDndProps> = ({
                         href={itemLink}
                         target="_blank"
                         rel="noreferrer"
-                        title="Open page"
+                        aria-label={`Open ${displayTitle} (opens in new tab)`}
                         onClick={(event) => event.stopPropagation()}
                         style={{ display: "inline-flex", marginLeft: 8 }}
                       >
                         <Icon
                           name="linkify"
+                          aria-hidden="true"
                           style={{ color: "#1e70bf", margin: 0 }}
                         />
                       </a>
                     </>
                   );
                 })()}
+                {isBookTree && onNodeActions && !isInteractionLocked && (
+                  <RowActionsButton
+                    title={displayTitle}
+                    onOpen={(trigger) => onNodeActions(root["@id"], trigger)}
+                  />
+                )}
               </List.Item>
               {renderNodes(
                 root["@id"],

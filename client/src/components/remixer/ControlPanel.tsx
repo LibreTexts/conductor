@@ -146,7 +146,9 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
         {
             title: "Save as Draft",
             icon: <IconCloudUpload size={18} />,
-            variant: "outline",
+            // Davis "outline" border is below 3:1 (pending Davis fix); the
+            // filled secondary variant passes.
+            variant: "secondary",
             group: 'right',
             onClick: () => {
                 onSaveDraft();
@@ -218,7 +220,6 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                                     key={index}
                                                     icon={action.icon}
                                                     onClick={action.onClick}
-                                                    title={action.tooltip}
                                                     disabled={action.disabled}
                                                     size="md"
                                                     className="m-0! shrink-0" // Temp fix: Semantic UI margin until SUI is removed
@@ -254,7 +255,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                                     variant={action.variant}
                                                     icon={action.icon}
                                                     onClick={action.onClick}
-                                                    title={action.tooltip}
+                                                    aria-label={action.tooltip}
                                                     disabled={action.disabled}
                                                     className="!inline-flex !flex-row !items-center shrink-0 whitespace-nowrap"
                                                 />
