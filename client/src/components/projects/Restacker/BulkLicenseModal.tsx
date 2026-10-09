@@ -37,7 +37,7 @@ interface BulkLicenseModalProps {
 }
 
 const SKIP_REASON_TEXT: Record<BulkLicenseSkipReason, string> = {
-  structural: "Structural page must stay Public Domain",
+  structural: "Core page must stay Public Domain",
   unchanged: "Already has this license",
   conflict: "Incompatible with",
 };
@@ -95,12 +95,13 @@ export const BulkLicensePreviewTable: React.FC<{
             key={row.id}
             className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
           >
-            <td
-              className="border-b border-gray-100 px-3 py-2 break-words max-w-[260px]"
+            <th
+              scope="row"
+              className="border-b border-gray-100 px-3 py-2 break-words max-w-[260px] text-left font-normal"
               style={{ paddingLeft: 12 + row.depth * 12 }}
             >
               {row.title}
-            </td>
+            </th>
             <td className="border-b border-gray-100 px-3 py-2 whitespace-nowrap">
               <LicenseBadge license={row.pageLicense} />
             </td>
@@ -213,6 +214,7 @@ const BulkLicenseModal: React.FC<BulkLicenseModalProps> = ({
               />
             )}
           </Stack>
+          {/* Pending Davis fix: Checkbox border contrast is below 3:1. */}
           <Checkbox
             name="bulk-license-recursive"
             label="Include all subpages"
@@ -230,7 +232,12 @@ const BulkLicenseModal: React.FC<BulkLicenseModalProps> = ({
         </Stack>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline" onClick={onCancel} disabled={loading}>
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          disabled={loading}
+          aria-label="Cancel Change Page Licenses"
+        >
           Cancel
         </Button>
         <Button

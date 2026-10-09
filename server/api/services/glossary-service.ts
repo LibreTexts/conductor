@@ -157,6 +157,7 @@ export interface AddGlossaryParams {
   caption?: string;
   link?: string;
   source?: string;
+  sourceVersion?: string;
   imageSource?: string;
   imageAuthor?: string;
   imageLicense?: string;
@@ -181,6 +182,7 @@ export interface GlossaryPageResponse {
   author?: string;
   link?: string;
   source?: string;
+  sourceVersion?: string;
   pages: string[];
   imageUrl?: string;
   imageSource?: string;
@@ -231,6 +233,7 @@ export interface GetGlossaryResponse {
   author?: string;
   link?: string;
   source?: string;
+  sourceVersion?: string;
   imageSource?: string;
   imageAuthor?: string;
   imageLicense?: string;
@@ -304,6 +307,7 @@ export default class GlossaryService {
           author: c.author,
           link: c.link,
           source: c.source,
+          sourceVersion: c.sourceVersion,
           imageSource: c.imageSource,
           imageAuthor: c.imageAuthor,
           imageLicense: c.imageLicense,
@@ -639,6 +643,7 @@ export default class GlossaryService {
         caption,
         link,
         source,
+        sourceVersion,
         imageSource,
         imageAuthor,
         imageLicense,
@@ -675,6 +680,10 @@ export default class GlossaryService {
         caption: sanitizeOptionalLibraryText(caption),
         link: sanitizeOptionalHttpUrl(link),
         source: sanitizeOptionalLibraryText(source),
+        // A version only means something alongside its license.
+        sourceVersion: source
+          ? sanitizeOptionalLibraryText(sourceVersion)
+          : undefined,
         imageSource: sanitizeOptionalLibraryText(imageSource),
         imageAuthor: sanitizeOptionalLibraryText(imageAuthor),
         imageLicense: sanitizeOptionalLibraryText(imageLicense),
@@ -804,9 +813,15 @@ export default class GlossaryService {
     usageIDs: string[],
     coverID: string,
     library: string,
-    attribution: { author?: string; link?: string; source?: string },
+    attribution: {
+      author?: string;
+      link?: string;
+      source?: string;
+      sourceVersion?: string;
+    },
   ): Promise<number> {
     const setFields: Record<string, string> = {};
+    const unsetFields: Record<string, ""> = {};
     if (attribution.author !== undefined) {
       setFields.author = sanitizeLibraryText(attribution.author);
     }
@@ -816,6 +831,14 @@ export default class GlossaryService {
     }
     if (attribution.source !== undefined) {
       setFields.source = sanitizeLibraryText(attribution.source);
+      // The version belongs to the license: setting a license replaces the
+      // version, and a license without one clears the old version.
+      const version = sanitizeOptionalLibraryText(attribution.sourceVersion);
+      if (version) {
+        setFields.sourceVersion = version;
+      } else {
+        unsetFields.sourceVersion = "";
+      }
     }
     if (Object.keys(setFields).length === 0) return 0;
 
@@ -825,7 +848,10 @@ export default class GlossaryService {
         coverID: parseInt(coverID),
         library: { $eq: library },
       },
-      { $set: { ...setFields, updatedAt: new Date() } },
+      {
+        $set: { ...setFields, updatedAt: new Date() },
+        ...(Object.keys(unsetFields).length > 0 ? { $unset: unsetFields } : {}),
+      },
     );
     return result.modifiedCount;
   }
@@ -915,6 +941,7 @@ export default class GlossaryService {
         author: usage.author,
         link: usage.link,
         source: usage.source,
+        sourceVersion: usage.sourceVersion,
         imageSource: usage.imageSource,
         imageAuthor: usage.imageAuthor,
         imageLicense: usage.imageLicense,
@@ -994,6 +1021,7 @@ export default class GlossaryService {
             author: c.author,
             link: c.link,
             source: c.source,
+            sourceVersion: c.sourceVersion,
             pages: c.pages.map((p: pageUsage) => p.pageID),
             imageUrl: c.imageFile
               ? `/api/v1/commons/glossary/usage/${c.usageID}/image`
@@ -1262,6 +1290,9 @@ export default class GlossaryService {
     const author = sanitizeOptionalLibraryText(params.author);
     const link = sanitizeOptionalHttpUrl(params.link);
     const source = sanitizeOptionalLibraryText(params.source);
+    const sourceVersion = source
+      ? sanitizeOptionalLibraryText(params.sourceVersion)
+      : undefined;
     const imageSource = sanitizeOptionalLibraryText(params.imageSource);
     const imageAuthor = sanitizeOptionalLibraryText(params.imageAuthor);
     const imageLicense = sanitizeOptionalLibraryText(params.imageLicense);
@@ -1326,6 +1357,7 @@ export default class GlossaryService {
         caption,
         link,
         source,
+        sourceVersion,
         imageSource,
         imageAuthor,
         imageLicense,

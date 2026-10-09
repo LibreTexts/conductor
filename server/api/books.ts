@@ -3085,7 +3085,7 @@ async function addBookGlossary(
   res: Response,
 ) {
   try {
-    const { glossaryID, term, definition, pageId, bookId, altText, caption, link, source, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage, italic } = req.body;
+    const { glossaryID, term, definition, pageId, bookId, altText, caption, link, source, sourceVersion, imageSource, imageAuthor, imageLicense, aliases, author, usageID, removeImage, italic } = req.body;
     const { coverID, library } = req.params;
 
     const glossaryService = new GlossaryService();
@@ -3115,6 +3115,7 @@ async function addBookGlossary(
         author: author?.trim() || undefined,
         link: link?.trim() || undefined,
         source: source?.trim() || undefined,
+        sourceVersion: sourceVersion?.trim() || undefined,
         imageSource: imageSource?.trim() || undefined,
         imageAuthor: imageAuthor?.trim() || undefined,
         imageLicense: imageLicense?.trim() || undefined,
@@ -3138,6 +3139,7 @@ async function addBookGlossary(
       author: author?.trim() || undefined,
       link: link?.trim() || undefined,
       source: source?.trim() || undefined,
+      sourceVersion: sourceVersion?.trim() || undefined,
       imageSource: imageSource?.trim() || undefined,
       imageAuthor: imageAuthor?.trim() || undefined,
       imageLicense: imageLicense?.trim() || undefined,
@@ -3211,7 +3213,7 @@ async function bulkUpdateGlossaryAttribution(
   res: Response,
 ) {
   try {
-    const { usageIds, author, link, source } = req.body;
+    const { usageIds, author, link, source, sourceVersion } = req.body;
     const { coverID, library } = req.params;
     const glossaryService = new GlossaryService();
     const project = await glossaryService.getProject({
@@ -3230,6 +3232,7 @@ async function bulkUpdateGlossaryAttribution(
         author: author?.trim() || undefined,
         link: link?.trim() || undefined,
         source: source?.trim() || undefined,
+        sourceVersion: sourceVersion?.trim() || undefined,
       },
     );
     return res.send({ err: false, modifiedCount });

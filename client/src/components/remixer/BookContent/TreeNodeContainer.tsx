@@ -1,4 +1,5 @@
 import React, { DragEvent } from "react";
+import { Tooltip } from "@libretexts/davis-react";
 import { Icon, List } from "semantic-ui-react";
 import { RemixerSubPage } from "../model";
 import { CATALOG_NODE_HIGHLIGHT_STYLE } from "../style";
@@ -13,6 +14,41 @@ interface StatusPalette {
   warning: string;
   warningBg: string;
 }
+
+/**
+ * Change-status icon with an accessible name. The Semantic `Icon` renders
+ * `aria-hidden`, so a `title` on it was never announced; the wrapper carries
+ * the name instead.
+ */
+const StatusIcon: React.FC<{
+  icon: "trash" | "sync" | "add circle";
+  label: string;
+}> = ({ icon, label }) => (
+  <span role="img" aria-label={label} style={{ marginLeft: 6 }}>
+    <Icon name={icon} color="grey" aria-hidden="true" style={{ margin: 0 }} />
+  </span>
+);
+
+/** Keyboard-focusable route to the row's context menu. */
+export const RowActionsButton: React.FC<{
+  title: string;
+  onOpen: (trigger: HTMLElement) => void;
+}> = ({ title, onOpen }) => (
+  <button
+    type="button"
+    aria-haspopup="menu"
+    aria-label={`Actions for ${title}`}
+    className="ml-1 inline-flex shrink-0 items-center justify-center rounded text-gray-700 hover:bg-gray-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+    style={{ width: 24, height: 24, padding: 0, border: 0, background: "transparent", cursor: "pointer" }}
+    onClick={(event) => {
+      event.stopPropagation();
+      onOpen(event.currentTarget);
+    }}
+    onDoubleClick={(event) => event.stopPropagation()}
+  >
+    <Icon name="ellipsis vertical" aria-hidden="true" style={{ margin: 0 }} />
+  </button>
+);
 
 /** Pixels added per tree level. Nested wrappers stack this once per depth (no compounding). */
 export const TREE_LEVEL_INDENT_PX = 12;
@@ -52,6 +88,11 @@ interface TreeNodeContainerProps {
   onContextMenu?: (page: RemixerSubPage, event: React.MouseEvent) => void;
   /** When set, the trash icon on a deleted row becomes a Restore button. */
   onRestore?: (page: RemixerSubPage) => void;
+  /**
+   * When set, the row shows an "Actions for …" button that opens the same
+   * menu as right-click, so the actions are reachable from the keyboard.
+   */
+  onOpenActions?: (page: RemixerSubPage, trigger: HTMLElement) => void;
   hideExpandIcon?: boolean;
   children?: React.ReactNode;
 }
@@ -86,6 +127,7 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
   onDoubleClick,
   onContextMenu,
   onRestore,
+  onOpenActions,
   hideExpandIcon = false,
   children,
 }) => {
@@ -136,20 +178,34 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
           borderRadius: 4,
           outline: isSelected ? `2px solid ${palette.info}` : "none",
           cursor: isVisualLocked ? "default" : "pointer",
-          textDecoration: isDeleted ? "line-through" : "none",
         }}
       >
         {isFolder && !hideExpandIcon ? (
-          <span
-            style={{ cursor: "pointer", width: 12 }}
+          // A real button so expand/collapse works from the keyboard.
+          <button
+            type="button"
+            aria-expanded={isExpanded}
+            aria-label={`${isExpanded ? "Collapse" : "Expand"} ${displayTitle}`}
+            className="inline-flex shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+            style={{
+              width: 16,
+              padding: 0,
+              border: 0,
+              background: "transparent",
+              cursor: "pointer",
+            }}
             onClick={(event) => {
               event.stopPropagation();
               onToggleFolder(page);
             }}
             onDoubleClick={(event) => event.stopPropagation()}
           >
-            <Icon name={isExpanded ? "caret down" : "caret right"} />
-          </span>
+            <Icon
+              name={isExpanded ? "caret down" : "caret right"}
+              style={{ margin: 0 }}
+              aria-hidden="true"
+            />
+          </button>
         ) : (
           <span style={{ width: 12 }} />
         )}
@@ -196,12 +252,15 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
                 {displayTitle}
                 <Icon
                   name="linkify"
+                  aria-hidden="true"
                   style={{ marginLeft: 8, color: "#1e70bf" }}
                 />
+                <span className="sr-only"> (opens in new tab)</span>
               </a>
             );
           }
 
+          // Icon-only link: it needs its own accessible name.
           return (
             <>
               <span className="text-base" style={titleStyle}>
@@ -211,10 +270,12 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
                 href={itemLink}
                 target="_blank"
                 rel="noreferrer"
+                aria-label={`Open ${displayTitle} (opens in new tab)`}
                 onClick={(event) => event.stopPropagation()}
               >
                 <Icon
                   name="linkify"
+                  aria-hidden="true"
                   style={{ marginLeft: 8, color: "#1e70bf" }}
                 />
               </a>
@@ -223,54 +284,53 @@ const TreeNodeContainerComponent: React.FC<TreeNodeContainerProps> = ({
         })()}
         {isDeleted &&
           (onRestore ? (
-            <button
-              type="button"
-              title="Restore"
-              aria-label={`Restore ${displayTitle}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onRestore(page);
-              }}
-              onDoubleClick={(event) => event.stopPropagation()}
-              style={{
-                marginLeft: 6,
-                padding: 0,
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-                display: "inline-flex",
-              }}
+            <Tooltip
+              content="Marked for deletion. Click to restore this item and everything under it."
+              placement="left"
             >
-              <Icon name="trash" color="grey" style={{ margin: 0 }} />
-            </button>
+              <button
+                type="button"
+                aria-label={`Restore ${displayTitle}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRestore(page);
+                }}
+                onDoubleClick={(event) => event.stopPropagation()}
+                style={{
+                  marginLeft: 6,
+                  padding: "1px 8px",
+                  border: `1px solid ${palette.error}`,
+                  borderRadius: 4,
+                  background: "#ffffff",
+                  color: palette.error,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  lineHeight: "18px",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Icon name="undo" style={{ margin: 0 }} aria-hidden="true" />
+                Restore
+              </button>
+            </Tooltip>
           ) : (
-            <Icon
-              name="trash"
-              color="grey"
-              style={{ marginLeft: 6, size: "small" }}
-              title="Deleted"
-            />
+            <StatusIcon icon="trash" label="Deleted" />
           ))}
-        {(isRenamed ||
+        {!isDeleted &&
+          (isRenamed ||
           isPlacementChanged ||
           page.movedItem) && (
-            <Icon
-              name="sync"
-              color="grey"
-              style={{
-                marginLeft: 6,
-                // verticalAlign: "middle",
-                size: "small",
-              }}
-              title="Modified, moved, renamed"
-            />
+            <StatusIcon icon="sync" label="Modified (moved or renamed)" />
           )}
-        {isImported && (
-          <Icon
-            name="add circle"
-            color="grey"
-            style={{ marginLeft: 6,  size: "small" }}
-            title="Imported, added"
+        {isImported && <StatusIcon icon="add circle" label="Added" />}
+        {onOpenActions && (
+          <RowActionsButton
+            title={displayTitle}
+            onOpen={(trigger) => onOpenActions(page, trigger)}
           />
         )}
       </List.Item>

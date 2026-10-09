@@ -15,6 +15,8 @@ export type GlossaryEntry = {
   author?: string;
   link?: string;
   source?: string;
+  /** Version of the `source` license, e.g. "4.0". */
+  sourceVersion?: string;
   imageSource?: string;
   imageAuthor?: string;
   imageLicense?: string;

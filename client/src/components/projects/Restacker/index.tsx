@@ -25,7 +25,8 @@ import {
   IconRefresh,
   IconTools,
 } from "@tabler/icons-react";
-import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
+import { createColumnHelper } from "@libretexts/davis-react-table";
+import { useDocumentTitle } from "usehooks-ts";
 import type {
   RestackerEntry,
   RestackerTocEntry,
@@ -49,8 +50,9 @@ import SubpageLicenseModal from "./SubpageLicenseModal";
 import RefreshModeModal, { type RefreshMode } from "./RefreshModeModal";
 import ComplianceDetails from "./ComplianceDetails";
 import FixAllPreviewModal, { type FixAllEntry } from "./FixAllPreviewModal";
-import LicenseBadge from "./LicenseBadge";
+import LicenseBadge, { EmptyLicense } from "./LicenseBadge";
 import LicenseEditor from "./LicenseEditor";
+import LicenseTable, { ROW_HEADER_COLUMN_ID } from "./LicenseTable";
 import LicenseWarningModal from "./LicenseWarningModal";
 import { useNotifications } from "../../../context/NotificationContext";
 import useProject from "../../../hooks/useProject";
@@ -63,7 +65,7 @@ import { useModals } from "../../../context/ModalContext";
 function getAutoFix(
   row: RestackerTocEntry,
 ): { license: string; version?: string } | null {
-  // Structural pages must be publicdomain; if already correct, skip entirely
+  // Core pages must be publicdomain; if already correct, skip entirely
   if (PUBLIC_DOMAIN_PAGE_SUFFIXES.some((s) => row.url?.includes(s))) {
     if (parseLicenseKey(row.pageLicense) !== "publicdomain") {
       return { license: "publicdomain", version: undefined };
@@ -141,6 +143,34 @@ function ComplianceRowCell({
   return <div data-non-compliant="true">{children}</div>;
 }
 
+/**
+ * Column header with a keyboard-reachable explanation: the info button takes
+ * focus, so the tooltip opens for keyboard users too (a tooltip on plain
+ * header text only ever opened on hover).
+ * Pending Davis fix: Tooltip can't be dismissed with Escape.
+ */
+function ColumnHeader({
+  label,
+  description,
+}: {
+  label: string;
+  description: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <Tooltip content={description} placement="bottom">
+        <IconButton
+          aria-label={`About ${label}`}
+          icon={<IconInfoCircle size={14} />}
+          variant="ghost"
+          size="sm"
+        />
+      </Tooltip>
+    </span>
+  );
+}
+
 type EditingLicenseCell = { rowId: string; field: "book" | "page" } | null;
 
 type RowSelectionProps = {
@@ -163,7 +193,7 @@ type PendingLicenseChange = {
 function createColumns(
   bookLicense?: RestackerTocLicense,
   bookPageId?: string,
-  onShowDetails?: (row: FlatRestackerRow) => void,
+  onShowDetails?: (row: FlatRestackerRow, trigger: HTMLElement) => void,
   onLicenseSubmit?: (
     pageID: string,
     field: "book" | "page",
@@ -223,7 +253,10 @@ function createColumns(
 
   return [
     ...selectColumn,
+    // Rendered as the row header (see LicenseTable), so screen readers announce
+    // the page title as context for every other cell in the row.
     columnHelper.accessor("title", {
+      id: ROW_HEADER_COLUMN_ID,
       header: "Page Title",
       size: 280,
       minSize: 120,
@@ -242,27 +275,29 @@ function createColumns(
             {getValue()}
             <IconExternalLink
               size={12}
+              aria-hidden="true"
               className="ml-1 inline align-middle opacity-60"
               style={{ flexShrink: 0 }}
             />
+            <span className="sr-only"> (opens in new tab)</span>
           </a>,
         ),
     }),
     columnHelper.accessor("bookLicense", {
       header: () => (
-        <Tooltip
-          content="The overall license that applies to the whole book"
-          placement="bottom"
-        >
-          <span>Book License</span>
-        </Tooltip>
+        <ColumnHeader
+          label="Book License"
+          description="The overall license that applies to the whole book"
+        />
       ),
       enableSorting: false,
-      size: 130,
+      size: 160,
       cell: ({ row }) =>
         wrap(
           row.original,
           <LicenseEditor
+            field="book"
+            pageTitle={row.original.title}
             license={bookLicense}
             editable={editable && !!bookPageId}
             isEditing={
@@ -287,12 +322,10 @@ function createColumns(
     }),
     columnHelper.accessor("pageLicense", {
       header: () => (
-        <Tooltip
-          content="The license declared directly on this page"
-          placement="bottom"
-        >
-          <span>Page License</span>
-        </Tooltip>
+        <ColumnHeader
+          label="Page License"
+          description="The license declared directly on this page"
+        />
       ),
       enableSorting: false,
       size: 160,
@@ -320,7 +353,7 @@ function createColumns(
               {editable && pageSourceMismatch && (
                 <Tooltip content="Apply source license to this page" placement="top">
                   <IconButton
-                    aria-label="Apply source license to this page"
+                    aria-label={`Apply source license to ${row.original.title}`}
                     icon={<IconTools size={14} />}
                     loading={updatingPageId === row.original.id}
                     disabled={updatingPageId === row.original.id}
@@ -345,6 +378,8 @@ function createColumns(
             </div>
           ) : (
             <LicenseEditor
+              field="page"
+              pageTitle={row.original.title}
               license={getValue()}
               editable={editable}
               isEditing={
@@ -370,37 +405,33 @@ function createColumns(
     }),
     columnHelper.accessor("sourceLicense", {
       header: () => (
-        <Tooltip
-          content="The license of the original source this page was transcluded from"
-          placement="bottom"
-        >
-          <span>Source License</span>
-        </Tooltip>
+        <ColumnHeader
+          label="Source License"
+          description="The license of the original source this page was transcluded from"
+        />
       ),
       enableSorting: false,
-      size: 130,
+      size: 160,
       cell: ({ getValue, row }) =>
         wrap(row.original, <LicenseBadge license={getValue()} />),
     }),
     columnHelper.accessor("contentLicenses", {
       header: () => (
-        <Tooltip
-          content="Licenses found within the embedded content of this page"
-          placement="bottom"
-        >
-          <span>Content Licenses</span>
-        </Tooltip>
+        <ColumnHeader
+          label="Content Licenses"
+          description="Licenses found within the embedded content of this page"
+        />
       ),
       enableSorting: false,
-      size: 130,
+      size: 160,
       cell: ({ getValue, row }) => {
         const licenses = getValue();
         return wrap(
           row.original,
           !licenses?.length ? (
-            <span style={{ color: "#9ca3af" }}>—</span>
+            <EmptyLicense />
           ) : (
-            <Stack direction="vertical" gap="xs">
+            <Stack direction="vertical" gap="xs" align="start">
               {licenses.map((l, i) => (
                 <LicenseBadge
                   key={`${l.label}::${l.version ?? ""}::${i}`}
@@ -421,7 +452,7 @@ function createColumns(
         return wrap(
           row.original,
           quotation === undefined || quotation === -1 ? (
-            <span style={{ color: "#9ca3af" }}>—</span>
+            <EmptyLicense />
           ) : (
             <span>{(quotation * 100).toFixed(1)}%</span>
           ),
@@ -438,9 +469,11 @@ function createColumns(
           row.original,
           <div className="flex w-full justify-end">
             <IconButton
-              aria-label="View compliance details"
+              aria-label={`View compliance details for ${row.original.title}`}
               icon={<IconInfoCircle size={16} />}
-              onClick={() => onShowDetails?.(row.original)}
+              onClick={(event) =>
+                onShowDetails?.(row.original, event.currentTarget)
+              }
             />
           </div>,
         ),
@@ -458,7 +491,11 @@ const Restacker: React.FC = () => {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const conflictCursorRef = useRef(-1);
 
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  // Compliance Details is rendered from state (not `openModal`) so the dialog
+  // closes normally and focus can go back to the Details button that opened it.
+  const [detailsRow, setDetailsRow] = useState<FlatRestackerRow | null>(null);
+  const detailsTriggerRef = useRef<HTMLElement | null>(null);
+  const detailsOpen = detailsRow !== null;
   const [editingLicense, setEditingLicense] =
     useState<EditingLicenseCell>(null);
   const [fixAllPreview, setFixAllPreview] = useState<FixAllEntry[] | null>(null);
@@ -467,35 +504,20 @@ const Restacker: React.FC = () => {
   const [bulkJobID, setBulkJobID] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
 
-  const handleShowDetails = (row: FlatRestackerRow) => {
+  const handleShowDetails = (row: FlatRestackerRow, trigger: HTMLElement) => {
     savedScrollY.current = window.scrollY;
+    detailsTriggerRef.current = trigger;
+    setDetailsRow(row);
+  };
 
-    const compliance = row
-      ? getLicenseCompliance(
-          bookLicense ?? { label: "", raw: "" },
-          row?.pageLicense ?? { label: "", raw: "" },
-          row?.sourceLicense ?? { label: "", raw: "" },
-          row?.contentLicenses ?? [],
-        )
-      : null;
-
-    setDetailsOpen(true);
-    openModal(
-      <ComplianceDetails
-        open={true}
-        onClose={() => {
-          setDetailsOpen(false);
-          closeAllModals();
-        }}
-        pageTitle={row?.title}
-        pageUrl={row?.url}
-        compliance={compliance}
-        bookLicense={bookLicense}
-        pageLicense={row?.pageLicense}
-        sourceLicense={row?.sourceLicense}
-        contentLicenses={row?.contentLicenses}
-      />,
-    );
+  const handleCloseDetails = () => {
+    setDetailsRow(null);
+    // Headless UI restores focus on close; also focus the trigger explicitly
+    // in case the table re-rendered it while the dialog was open.
+    const trigger = detailsTriggerRef.current;
+    requestAnimationFrame(() => {
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    });
   };
 
   useLayoutEffect(() => {
@@ -891,13 +913,38 @@ const Restacker: React.FC = () => {
     });
   }, []);
 
+  const detailsCompliance = useMemo(
+    () =>
+      detailsRow
+        ? getLicenseCompliance(
+            bookLicense ?? { label: "", raw: "" },
+            detailsRow.pageLicense ?? { label: "", raw: "" },
+            detailsRow.sourceLicense ?? { label: "", raw: "" },
+            detailsRow.contentLicenses ?? [],
+          )
+        : null,
+    [detailsRow, bookLicense],
+  );
+
+  useDocumentTitle(
+    `License Restacker | ${tocData?.toc?.title ?? project?.title ?? ""} | LibreTexts Conductor`,
+  );
+
+  // Announced whenever the selection changes, including when the Clear
+  // Selected Rows button appears or disappears (rendered always, so the live
+  // region exists before its text changes).
+  const selectionStatus =
+    selectedIds.size > 0
+      ? `${selectedIds.size} page${selectedIds.size === 1 ? "" : "s"} selected. Clear Selected Rows button available.`
+      : "No pages selected.";
+
   if (tocLoading) return <Spinner />;
   if (tocError) return <div>Error loading table of contents.</div>;
 
   return (
-    <Stack direction="vertical" gap="md" className="py-8 px-16">
+    <Stack direction="vertical" gap="md" className="py-8 px-4 md:px-16">
       <Stack direction="vertical" gap="xs" className="mb-2">
-        <Heading level={2}>License Restacker</Heading>
+        <Heading level={1}>License Restacker</Heading>
         {!isLoadingProject && project?.title && (
           <Breadcrumb className="ml-1">
             <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
@@ -914,12 +961,12 @@ const Restacker: React.FC = () => {
             direction="horizontal"
             gap="sm"
             align="start"
-            className="justify-between"
+            className="flex-wrap justify-between"
           >
-            <Stack direction="vertical" gap="xs">
-              <Text size="base" weight="semibold">
+            <Stack direction="vertical" gap="xs" className="min-w-0">
+              <Heading level={2} className="text-base">
                 {tocData?.toc?.title}
-              </Text>
+              </Heading>
               <Text size="sm">
                 URL:{" "}
                 <Link
@@ -929,6 +976,7 @@ const Restacker: React.FC = () => {
                   className="wrap-anywhere"
                 >
                   {truncateString(tocData?.toc?.url, 130)}
+                  <span className="sr-only"> (opens in new tab)</span>
                 </Link>
               </Text>
               <Text size="sm">
@@ -1010,14 +1058,14 @@ const Restacker: React.FC = () => {
                       license: fix.license,
                       version: fix.version,
                       reason: isStructural
-                        ? "Structural page must be Public Domain"
+                        ? "Core page must be Public Domain"
                         : "Page license must match source license",
                     };
                   });
                   setFixAllPreview(entries);
                 }}
               >
-                {`Fix All (${fixableRows.length})`}
+                {`Fix All Licenses (${fixableRows.length})`}
               </Button>
             )}
             {isCompleted && (
@@ -1034,13 +1082,29 @@ const Restacker: React.FC = () => {
               </Button>
             )}
             {selectedIds.size > 0 && (
+              // Pending Davis fix: outline Button border contrast is below 3:1.
               <Button variant="outline" onClick={() => setSelectedIds(new Set())}>
-                Clear Selection
+                {`Clear Selected Rows (${selectedIds.size})`}
               </Button>
             )}</Stack>
           </Stack>
+          <div role="status" aria-live="polite" className="sr-only">
+            {selectionStatus}
+          </div>
         </Card.Body>
       </Card>
+
+      <ComplianceDetails
+        open={detailsOpen}
+        onClose={handleCloseDetails}
+        pageTitle={detailsRow?.title}
+        pageUrl={detailsRow?.url}
+        compliance={detailsCompliance}
+        bookLicense={bookLicense}
+        pageLicense={detailsRow?.pageLicense}
+        sourceLicense={detailsRow?.sourceLicense}
+        contentLicenses={detailsRow?.contentLicenses}
+      />
 
       <FixAllPreviewModal
         open={fixAllPreview !== null}
@@ -1080,19 +1144,10 @@ const Restacker: React.FC = () => {
       />
 
       <div ref={tableContainerRef} className="[&_tbody_tr:has([data-non-compliant=true])]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!bg-[#fee2e2] [&_tbody_tr:has([data-non-compliant=true])_td]:!text-[#991b1b]">
-        <DataTable<FlatRestackerRow>
+        <LicenseTable<FlatRestackerRow>
           data={rows}
           columns={columns}
-          maxHeight="calc(100vh - 280px)"
-          stickyHeader
-          striped
-          bordered
-          density="compact"
-          classNames={{
-            table: "table-fixed w-full",
-            cell: "!py-0 relative !whitespace-normal min-w-0 break-words",
-            headerCell: "!py-0",
-          }}
+          caption="License compliance by page"
         />
       </div>
     </Stack>

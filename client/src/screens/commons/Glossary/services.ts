@@ -88,14 +88,16 @@ export const getPageAncestors = (toc: TableOfContents, nodeId: string): string[]
 }
 
 /**
- * Entries with at least one usage on the given page — used to scope a CSV
- * dump to a single TOC node rather than the whole book.
+ * Entries with at least one usage on any of the given pages — used to scope a
+ * CSV dump to a TOC node and everything under it (e.g. a whole chapter).
  */
-export const filterGlossaryEntriesForPage = (
+export const filterGlossaryEntriesForPages = (
   entries: GlossaryEntry[],
-  pageId: string,
+  pageIds: ReadonlySet<string>,
 ): GlossaryEntry[] =>
-  entries.filter((entry) => entry.pages.some((page) => page.pageID === pageId));
+  entries.filter((entry) =>
+    entry.pages.some((page) => pageIds.has(page.pageID)),
+  );
 
 /**
  * LaTeX segments MathJax renders (see utils/mathjax.ts): `\( \)`, `\[ \]`,
@@ -154,20 +156,36 @@ const GLOSSARY_CSV_HEADER = [
   "Aliases",
   "Author",
   "Source",
+  "License Version",
   "Link",
   "Page IDs",
+  "Page Titles",
 ];
 
-/** Serializes glossary entries to CSV — one row per term, in table order. */
-export const glossaryEntriesToCsv = (entries: GlossaryEntry[]): string => {
+/** Shown for a usage whose page is no longer in the book's table of contents. */
+const REMOVED_PAGE_TITLE = "Removed Page";
+
+/**
+ * Serializes glossary entries to CSV — one row per term, in table order.
+ * With the book's TOC, each term's pages are also listed by title (in the
+ * same order as "Page IDs").
+ */
+export const glossaryEntriesToCsv = (
+  entries: GlossaryEntry[],
+  toc?: TableOfContents | null,
+): string => {
+  const pageTitle = (pageId: string) =>
+    (toc && findTocNodeById(toc, pageId)?.title) || REMOVED_PAGE_TITLE;
   const rows = entries.map((entry) => [
     entry.term,
     stripHtml(entry.definition ?? ""),
     (entry.aliases ?? []).join("; "),
     entry.author ?? "",
     entry.source ?? "",
+    entry.sourceVersion ?? "",
     entry.link ?? "",
     entry.pages.map((page) => page.pageID).join("; "),
+    toc ? entry.pages.map((page) => pageTitle(page.pageID)).join("; ") : "",
   ]);
   return [GLOSSARY_CSV_HEADER, ...rows]
     .map((row) => row.map(escapeCsvField).join(","))
