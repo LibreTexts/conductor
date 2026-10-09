@@ -92,7 +92,7 @@ const GlossaryList = ({
     if (selectedTerms.length === 0) return;
     downloadCsv(
       `${slugifyForFilename(toc?.title ?? "glossary")}-selected-terms.csv`,
-      glossaryEntriesToCsv(selectedTerms),
+      glossaryEntriesToCsv(selectedTerms, toc),
     );
   };
 
@@ -511,7 +511,7 @@ const GlossaryList = ({
                     iconPosition="left"
                     onClick={openBulkAttributionModal}
                   >
-                    Update Attribution
+                    Bulk Attributions
                   </Button>
                   <Button
                     size="sm"

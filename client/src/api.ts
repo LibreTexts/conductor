@@ -2749,6 +2749,7 @@ class API {
     caption?: string;
     link?: string;
     source?: string;
+    sourceVersion?: string;
     glossaryID?: string;
     author?: string;
     imageAuthor?: string;
@@ -2918,8 +2919,10 @@ class API {
     author?: string;
     link?: string;
     source?: string;
+    sourceVersion?: string;
   }) {
-    const { library, coverID, usageIds, author, link, source } = props;
+    const { library, coverID, usageIds, author, link, source, sourceVersion } =
+      props;
     const res = await axios.patch<
       { modifiedCount: number } & ConductorBaseResponse
     >(`/commons/book/${library}/${coverID}/glossary/usage/bulk/attribution`, {
@@ -2927,6 +2930,7 @@ class API {
       author,
       link,
       source,
+      sourceVersion,
     });
     return res.data;
   }

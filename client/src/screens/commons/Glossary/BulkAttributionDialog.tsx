@@ -3,7 +3,11 @@ import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 import api from "../../../api";
-import { licenseOptions } from "../../../components/util/LicenseOptions";
+import {
+  getLicenseVersionOptions,
+  getValidLicenseVersion,
+  licenseOptions,
+} from "../../../components/util/LicenseOptions";
 import type { Notification } from "../../../context/NotificationContext";
 import { GlossaryEntry } from "./model";
 import { getErrorMessage, validateOptionalHttpUrl } from "./services";
@@ -22,9 +26,15 @@ type FormFields = {
   author: string;
   link: string;
   source: string;
+  sourceVersion: string;
 };
 
-const DEFAULT_VALUES: FormFields = { author: "", link: "", source: "" };
+const DEFAULT_VALUES: FormFields = {
+  author: "",
+  link: "",
+  source: "",
+  sourceVersion: "",
+};
 
 const BulkAttributionDialog: React.FC<BulkAttributionDialogProps> = ({
   open,
@@ -40,6 +50,8 @@ const BulkAttributionDialog: React.FC<BulkAttributionDialogProps> = ({
     handleSubmit,
     reset,
     watch,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm<FormFields>({ defaultValues: DEFAULT_VALUES });
 
@@ -62,6 +74,11 @@ const BulkAttributionDialog: React.FC<BulkAttributionDialogProps> = ({
         author: author || undefined,
         link: link || undefined,
         source: source || undefined,
+        // The version travels with the license; the server clears it when a
+        // license without versions is applied.
+        sourceVersion:
+          (source && getValidLicenseVersion(source, data.sourceVersion)) ||
+          undefined,
       });
       if (res.err) {
         throw new Error(res.errMsg ?? "Failed to update attribution.");
@@ -91,6 +108,8 @@ const BulkAttributionDialog: React.FC<BulkAttributionDialogProps> = ({
     values.link?.trim() ||
     values.source?.trim()
   );
+  const sourceVersionOptions: { key: string; label: string }[] =
+    getLicenseVersionOptions(values.source ?? "");
 
   return (
     <Modal
@@ -99,7 +118,7 @@ const BulkAttributionDialog: React.FC<BulkAttributionDialogProps> = ({
       size="md"
     >
       <Modal.Header>
-        <Modal.Title>Update Attribution</Modal.Title>
+        <Modal.Title>Bulk Attributions</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <p className="text-sm text-neutral-600">
@@ -134,8 +153,37 @@ const BulkAttributionDialog: React.FC<BulkAttributionDialogProps> = ({
               value: o.value,
               label: o.text,
             }))}
-            {...register("source")}
+            {...register("source", {
+              // Drop a version the newly chosen license isn't issued in.
+              onChange: (e) =>
+                setValue(
+                  "sourceVersion",
+                  getValidLicenseVersion(
+                    e.target.value,
+                    getValues("sourceVersion"),
+                  ),
+                ),
+            })}
           />
+          {sourceVersionOptions.length > 0 && (
+            <Select
+              label="License Version"
+              placeholder="Select a version…"
+              required
+              options={sourceVersionOptions.map((o) => ({
+                value: o.key,
+                label: o.label,
+              }))}
+              error={!!errors.sourceVersion}
+              errorMessage={errors.sourceVersion?.message}
+              {...register("sourceVersion", {
+                validate: (value) =>
+                  getLicenseVersionOptions(getValues("source")).length === 0 ||
+                  !!value ||
+                  "Choose the license version",
+              })}
+            />
+          )}
           <Input
             label="Author"
             placeholder="Author of the term…"
