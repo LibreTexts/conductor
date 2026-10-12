@@ -34,6 +34,7 @@ import {
   S3ClientConfig,
 } from "@aws-sdk/client-s3";
 import { assembleUrl } from "../util/helpers.js";
+import { addHeadingIds } from "../util/kb-headings.js";
 import axios from "axios";
 import projectFilesAPI from "./projectfiles.js";
 import OpenAI from 'openai';
@@ -241,7 +242,7 @@ async function createKBPage(
       uuid: v4(),
       title,
       description,
-      body: _sanitizeBodyContent(body),
+      body: addHeadingIds(_sanitizeBodyContent(body)),
       status,
       // Default to internal-only when unspecified so internal docs are never
       // inadvertently released to the public.
@@ -383,7 +384,7 @@ async function updateKBPage(
 
     kbPage.title = title;
     kbPage.description = description;
-    kbPage.body = _sanitizeBodyContent(body);
+    kbPage.body = addHeadingIds(_sanitizeBodyContent(body));
     kbPage.slug = safeURL;
     kbPage.status = status;
     kbPage.internalOnly = internalOnly ?? kbPage.internalOnly; // Preserve existing value if not provided
