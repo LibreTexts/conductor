@@ -62,13 +62,13 @@ const CollectionCard: React.FC<CollectionCardProps> = ({ item, to }) => {
               <img
                 src={thumbnail}
                 alt="" // Thumbnails are purely decorative
-                className="w-full h-48 object-cover block"
+                className="w-full aspect-3/2 object-cover block"
                 onError={handleImageError}
               />
             ) : (
               // Collection covers are campus logos and wordmarks, so they are
               // contained and centered rather than cropped to fill the band.
-              <div className="h-48 w-full flex items-center justify-center bg-white p-6">
+              <div className="aspect-3/2 w-full flex items-center justify-center bg-white p-6">
                 <img
                   src={thumbnail}
                   alt="" // Covers are purely decorative

@@ -29,31 +29,24 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
             <PausableImage
               src={book.thumbnail}
               alt="" // Thumbnails are purely decorative
-              className="w-full h-48 object-cover block"
+              className="w-full aspect-3/2 object-cover block"
               isAnimated={book.thumbnailIsAnimated}
             />
           </div>
         </Card.Header>
-        <div className="library-glyph-header">
-          <img
-            src={getLibGlyphURL(book.library)}
-            className="library-glyph !w-7 !h-7 !mr-0"
-            alt={getLibGlyphAltText(book.library)}
-          />
-        </div>
       </div>
       <Card.Body>
-        <Stack direction="vertical" gap="sm" className="py-4">
-          <Heading level={headingLevel} className="line-clamp-3 !text-lg">
+        <Stack direction="vertical" gap="xs" className="py-1!">
+          <Heading level={headingLevel} className="line-clamp-3 !text-[1.125rem] !leading-7 !mb-1">
             <Link to={linkTo} className="commons-card-title-link">
               {book.title}
             </Link>
           </Heading>
-          <Text size="base" className="line-clamp-2">
+          <Text size="base" className="line-clamp-2 !text-[0.975rem] !leading-5">
             {book.author}
           </Text>
-          <Text >
-            <em>{truncateString(book.affiliation, 30)}</em>
+          <Text className="line-clamp-2 !text-[0.875rem] !leading-5">
+            <em>{truncateString(book.affiliation, 75)}</em>
           </Text>
           {(publicAssets > 0 || instructorAssets > 0) ? (
             <Stack direction="vertical" gap="xs">
@@ -79,6 +72,13 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
           ) : null}
         </Stack>
       </Card.Body>
+      <div className="library-glyph-header">
+        <img
+          src={getLibGlyphURL(book.library)}
+          className="library-glyph !w-7 !h-7 !mr-0"
+          alt={getLibGlyphAltText(book.library)}
+        />
+      </div>
     </>
   );
 };

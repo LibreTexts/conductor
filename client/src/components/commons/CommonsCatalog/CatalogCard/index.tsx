@@ -28,7 +28,7 @@ interface CatalogCardProps {
 // link/button rather than a clickable container wrapping a heading (SC 1.3.1).
 // `h-full` lets the card fill its <li> grid cell so rows stay equal-height now
 // that the card is wrapped in a list item rather than being the grid item.
-const CARD_CLASSNAME = "relative h-full hover:border-secondary hover:border-2";
+const CARD_CLASSNAME = "relative h-full hover:border-secondary hover:border-2 p-4!";
 
 const CatalogCard: React.FC<CatalogCardProps> = ({
   item,
