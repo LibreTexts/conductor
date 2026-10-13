@@ -43,13 +43,13 @@
     "@uppy/progress-bar": "4.3.2",
     "@uppy/react": "4.5.2",
     "@uppy/screen-capture": "4.4.2",
-    "axios": "1.18.0",
+    "axios": "1.20.0",
     "classnames": "2.5.1",
     "d3": "7.9.0",
     "date-and-time": "0.14.2",
     "date-fns": "2.30.0",
     "date-fns-tz": "2.0.1",
-    "dompurify": "3.4.13",
+    "dompurify": "3.4.16",
     "extended-eventsource": "2.1.0",
     "file-saver": "2.0.5",
     "focus-trap-react": "10.3.1",
@@ -144,7 +144,7 @@
     "tailwindcss": "4.2.4",
     "vite": "6.4.2",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "4.1.8"
+    "vitest": "4.1.11"
   },
   "overrides": {
     "vfile": "5.3.7",
