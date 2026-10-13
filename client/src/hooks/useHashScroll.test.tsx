@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 import useHashScroll from "./useHashScroll";
 
 const Probe = ({ ready }: { ready: boolean }) => {
@@ -17,7 +17,7 @@ function renderAt(hash: string, ready = true) {
 }
 
 let target: HTMLHeadingElement;
-let scrollIntoView: ReturnType<typeof vi.fn>;
+let scrollIntoView: Mock<Element["scrollIntoView"]>;
 
 beforeEach(() => {
   document.body.innerHTML = "";
@@ -25,7 +25,7 @@ beforeEach(() => {
   target.id = "embedding-summative-assessments";
   document.body.appendChild(target);
 
-  scrollIntoView = vi.fn();
+  scrollIntoView = vi.fn<Element["scrollIntoView"]>();
   target.scrollIntoView = scrollIntoView;
 
   // jsdom has no matchMedia; the hook uses it to honour reduced motion.
