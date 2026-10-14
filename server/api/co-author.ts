@@ -413,7 +413,9 @@ async function _runBulkUpdateJob(
 
             // Create book service and get table of contents
             const bookService = new BookService({ bookID });
-            const toc = await bookService.getBookTOCNew();
+            const toc = await bookService.getBookTOCNew({
+                includeRestricted: true,
+            });
             const pageIDs: string[] = [];
             const content = toc.children; // skip root pages
 

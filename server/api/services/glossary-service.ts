@@ -1392,7 +1392,7 @@ export default class GlossaryService {
 
       const toc = await new BookService({
         bookID: `${library}-${coverID}`,
-      }).getBookTOCNew(false);
+      }).getBookTOCNew({ includeRestricted: true, cache: false });
 
       const project = await this.getProject({ coverID, library });
       const now = new Date();

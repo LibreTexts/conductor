@@ -1988,7 +1988,11 @@ const runRemixerJob = async ({
       const bookService = new BookService({
         bookID: `${subdomain}-${coverId}`,
       });
-      ownedPageIDs = await bookService.getBookPageIDs(false);
+      // Ownership gate: it must see every page the project owns, hidden ones included.
+      ownedPageIDs = await bookService.getBookPageIDs({
+        includeRestricted: true,
+        cache: false,
+      });
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new Error(

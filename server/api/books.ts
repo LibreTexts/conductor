@@ -2106,7 +2106,9 @@ async function getBookTOC(
 ) {
   try {
     const bookService = new BookService({ bookID: req.params.bookID });
-    const toc = await bookService.getBookTOCNew();
+    // This route is unauthenticated, so the listing must exclude the pages an
+    // author has hidden. See GetBookTOCOptions.
+    const toc = await bookService.getBookTOCNew({ includeRestricted: false });
     return res.send({
       err: false,
       toc,
@@ -2167,6 +2169,47 @@ async function getLicenseReport(
   }
 }
 
+/**
+ * Asserts the caller is on the team of the Conductor project behind a book.
+ *
+ * The routes that read or write a book's page internals previously ran only
+ * `verifyRequest`, which any Conductor account passes. They are author tooling
+ * and need the unfiltered page listing, so the gate has to actually check
+ * membership before they can be handed one. Mirrors `projectsAPI.getProjectToc`.
+ *
+ * @param bookID - A `library-coverID` Book ID.
+ * @param userUUID - The requesting user's UUID.
+ * @returns `null` when the caller may proceed, otherwise the error response to
+ * send back.
+ */
+async function denyUnlessProjectMember(
+  bookID: string,
+  userUUID: string,
+): Promise<{ status: number; errMsg: string } | null> {
+  const [library, coverID] = getLibraryAndPageFromBookID(bookID);
+  if (!library || !coverID) {
+    return { status: 400, errMsg: conductorErrors.err1 };
+  }
+
+  const [user, project] = await Promise.all([
+    User.findOne({ uuid: { $eq: userUUID } }).lean(),
+    Project.findOne({
+      libreLibrary: { $eq: library },
+      libreCoverID: { $eq: coverID },
+    }).lean(),
+  ]);
+
+  if (!user || !project) {
+    return { status: 404, errMsg: conductorErrors.err11 };
+  }
+
+  if (!projectsAPI.checkProjectMemberPermission(project, user)) {
+    return { status: 403, errMsg: conductorErrors.err8 };
+  }
+
+  return null;
+}
+
 async function getBookPagesDetails(
   req: ZodReqWithUser<z.infer<typeof getWithBookIDParamSchema>>,
   res: Response,
@@ -2174,8 +2217,18 @@ async function getBookPagesDetails(
   try {
     const { bookID } = req.params;
 
+    const denied = await denyUnlessProjectMember(
+      bookID,
+      req.user.decoded.uuid,
+    );
+    if (denied) {
+      return res.status(denied.status).send({ err: true, errMsg: denied.errMsg });
+    }
+
     const bookService = new BookService({ bookID });
-    const toc = await bookService.getBookTOCNew();
+    // Author tooling behind the membership check above: the page-tag manager has
+    // to show hidden pages, or they can never be retagged.
+    const toc = await bookService.getBookTOCNew({ includeRestricted: true });
 
     const [overviews, tags] = await Promise.all([
       bookService.getAllPageOverviews(toc),
@@ -2323,6 +2376,15 @@ async function bulkUpdatePageTags(
   try {
     const { bookID } = req.params;
     const { pages } = req.body;
+
+    // Writes tags to the book's pages, so it cannot be looser than the read.
+    const denied = await denyUnlessProjectMember(
+      bookID,
+      req.user.decoded.uuid,
+    );
+    if (denied) {
+      return res.status(denied.status).send({ err: true, errMsg: denied.errMsg });
+    }
 
     const bookService = new BookService({ bookID });
 
