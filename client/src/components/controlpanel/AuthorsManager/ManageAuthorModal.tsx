@@ -1,19 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Modal,
   Button,
   Checkbox,
+  Combobox,
   Input,
   FormSection,
   Stack,
   Alert,
 } from "@libretexts/davis-react";
 import { IconDeviceFloppy, IconTrash } from "@tabler/icons-react";
-import { Author } from "../../../types";
+import { Author, Organization } from "../../../types";
 import useGlobalError from "../../error/ErrorHooks";
 import api from "../../../api";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import FileUploader from "../../FileUploader";
 import { useNotifications } from "../../../context/NotificationContext";
 
@@ -28,6 +29,8 @@ interface ManageAuthorModalProps {
   onClose: () => void;
   authorID?: string;
 }
+
+type CampusOption = Pick<Organization, "orgID" | "name" | "domain">;
 
 const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) => {
   const queryClient = useQueryClient();
@@ -65,6 +68,45 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
 
   const pictureURL = watch("pictureURL");
   const pictureCircle = watch("pictureCircle");
+  const campusName = watch("campusName");
+  const campusURL = watch("campusURL");
+
+  const [campusSearch, setCampusSearch] = useState("");
+
+  const { data: orgs = [], isLoading: orgsLoading } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: async () => {
+      const res = await api.getAllOrganizations();
+      if (res.data.err) throw new Error(res.data.errMsg);
+      return res.data.orgs;
+    },
+    enabled: show,
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    onError: (err) => handleGlobalError(err),
+  });
+
+  // Campus name/URL are only ever set by picking an Organization, never typed.
+  // An author saved with a campus that isn't (or is no longer) an Organization
+  // is kept as a synthetic option so its values still display.
+  const selectedCampus = useMemo<CampusOption | null>(() => {
+    if (!campusName) return null;
+    const match = orgs.find((o) => o.name === campusName);
+    return (
+      match ?? { orgID: `legacy:${campusName}`, name: campusName, domain: campusURL ?? "" }
+    );
+  }, [orgs, campusName, campusURL]);
+
+  const filteredCampuses = useMemo(() => {
+    const query = campusSearch.trim().toLowerCase();
+    return orgs.filter((o) => !query || o.name.toLowerCase().includes(query));
+  }, [orgs, campusSearch]);
+
+  function handleCampusChange(org: CampusOption | null) {
+    setValue("campusName", org?.name ?? "", { shouldDirty: true });
+    setValue("campusURL", org?.domain ?? "", { shouldDirty: true });
+    setCampusSearch("");
+  }
 
   useEffect(() => {
     if (show) {
@@ -227,15 +269,34 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
             description="Optional institution and program credited alongside the author."
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Campus Name"
-                placeholder="Biola University"
-                {...register("campusName")}
-              />
+              <Combobox<CampusOption>
+                value={selectedCampus}
+                onChange={handleCampusChange}
+                by="orgID"
+                nullable
+                disabled={orgsLoading}
+                onClose={() => setCampusSearch("")}
+              >
+                <Combobox.Label>Campus Name</Combobox.Label>
+                <Combobox.Input<CampusOption>
+                  placeholder={orgsLoading ? "Loading campuses…" : "Search campuses…"}
+                  displayValue={(org) => org?.name ?? ""}
+                  onChange={(e) => setCampusSearch(e.target.value)}
+                />
+                <Combobox.Options>
+                  {filteredCampuses.map((org) => (
+                    <Combobox.Option<CampusOption> key={org.orgID} value={org}>
+                      {org.name}
+                    </Combobox.Option>
+                  ))}
+                  <Combobox.Empty>No campuses found.</Combobox.Empty>
+                </Combobox.Options>
+              </Combobox>
               <Input
                 label="Campus URL"
                 type="url"
-                placeholder="https://www.biola.edu"
+                readOnly
+                placeholder="Filled in when a campus is selected"
                 {...register("campusURL")}
               />
               <Input
