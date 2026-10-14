@@ -218,6 +218,27 @@ export const getProductionURL = () => {
     return process.env.CONDUCTOR_DOMAIN || '';
 };
 
+const DEFAULT_COMMONS_CANONICAL_URL = "https://commons.libretexts.org";
+
+/**
+ * Origin of the permanent Commons host. Asset permalinks are generated and
+ * resolved against this origin, not the instance's own CONDUCTOR_DOMAIN.
+ * Set COMMONS_CANONICAL_DOMAIN (host or absolute URL) so staging points at
+ * the staging commons host.
+ *
+ * @returns {string} Origin with no trailing slash.
+ */
+export const getCommonsCanonicalURL = () => {
+    const configured = (process.env.COMMONS_CANONICAL_DOMAIN || "").trim();
+    const raw = configured || DEFAULT_COMMONS_CANONICAL_URL;
+    const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+        return new URL(withProtocol).origin;
+    } catch {
+        return DEFAULT_COMMONS_CANONICAL_URL;
+    }
+};
+
 /**
  * Removes a leading slash, if any, from a string.
  *
