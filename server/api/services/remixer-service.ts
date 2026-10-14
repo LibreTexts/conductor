@@ -1,7 +1,7 @@
 import logger, { childLogger } from "../../logger.js";
 import base62 from "base62-random";
-import PrejectRemixerJob from "../../models/projectremixerjob";
-import PrejectRemixer, {
+import ProjectRemixerJob from "../../models/projectremixerjob";
+import ProjectRemixer, {
   RemixerSubPageState,
 } from "../../models/projectremixer";
 import RemixerTemplates from "../../util/CXOne/CXOneRemixerTemplates";
@@ -1960,7 +1960,7 @@ const runRemixerJob = async ({
   coverId,
   importGlossaryTerms = false,
 }: RunRemixerJobParams) => {
-  const job = await PrejectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({
+  const job = await ProjectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({
     _id: -1,
   });
   if (!job) {
@@ -1970,7 +1970,7 @@ const runRemixerJob = async ({
   // the primary so a lagging secondary can't serve the previous state.
   const stateID = remixerID || job.remixerID;
   const remixerState = stateID
-    ? await PrejectRemixer.findOne({
+    ? await ProjectRemixer.findOne({
         projectID: { $eq: projectID },
         remixerID: { $eq: stateID },
       })
@@ -2742,7 +2742,7 @@ const runRemixerJob = async ({
     remixerState.archived = true;
     // await remixerState.save();
 
-    await PrejectRemixer.create({
+    await ProjectRemixer.create({
       projectID: remixerState.projectID,
       archived: false,
       createdBy: remixerState.createdBy,
@@ -2795,10 +2795,10 @@ const runRemixerJob = async ({
  * that draft is newer, and the client maps `createdPages` onto it instead.
  */
 const saveFailedRunDraft = async (
-  remixerState: InstanceType<typeof PrejectRemixer>,
+  remixerState: InstanceType<typeof ProjectRemixer>,
   createdPages: { draftID: string; pageID: string }[],
 ): Promise<void> => {
-  const hasActiveDraft = await PrejectRemixer.exists({
+  const hasActiveDraft = await ProjectRemixer.exists({
     projectID: remixerState.projectID,
     archived: false,
   });
@@ -2812,7 +2812,7 @@ const saveFailedRunDraft = async (
       : plain;
   });
 
-  await PrejectRemixer.create({
+  await ProjectRemixer.create({
     projectID: remixerState.projectID,
     archived: false,
     createdBy: remixerState.createdBy,
