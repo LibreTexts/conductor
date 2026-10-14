@@ -50,7 +50,7 @@ export async function runMigration() {
       try {
         const toc = await new BookService({
           bookID: `${config.library}-${config.coverID}`,
-        }).getBookTOCNew();
+        }).getBookTOCNew({ includeRestricted: true });
         const glossaryPageId = findBackmatterGlossaryPageId(toc);
 
         if (!glossaryPageId) {

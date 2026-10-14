@@ -29,12 +29,43 @@ import ExpertWithSSM from "../../util/ExpertWithSSM";
 import Expert, {
   ExpertError,
   GetPageResponse,
+  GetPageTreeResponse,
+  many,
+  one,
 } from "@libretexts/cxone-expert-node";
+import {
+  isPubliclyListable,
+  pageRestriction,
+} from "../../util/CXOne/page-restriction.js";
+import { mapWithConcurrency } from "../../util/concurrency.js";
 import LibraryService from "./library-service";
 
 export interface BookServiceParams {
   bookID: string;
 }
+
+/**
+ * Visibility and caching for a table-of-contents read.
+ *
+ * `includeRestricted` has no default on purpose. A book's `Semi-Private` and
+ * `Private` pages are hidden deliberately, and a call site that forgot to say
+ * which listing it wanted used to get all of them, including on the public,
+ * unauthenticated `/commons/book/:bookID/toc` route. Requiring the flag makes
+ * every new caller state its intent at the point where the authorization
+ * context is actually known.
+ */
+export type GetBookTOCOptions = {
+  /**
+   * Include `Semi-Private` and `Private` pages. Only pass `true` from a caller
+   * already gated to the book's authors (or from a trusted background job):
+   * authorization gates such as {@link BookService.canAccessPage} and the
+   * remixer ownership checks need the unfiltered listing, or authors lose
+   * access to their own hidden pages.
+   */
+  includeRestricted: boolean;
+  /** Serve from (and populate) the shared 120-second TOC cache. Defaults to true. */
+  cache?: boolean;
+};
 
 /**
  * Raised when a page could not be created because the path is already taken.
@@ -75,6 +106,26 @@ export default class BookService {
     useClones: false,
   });
   private static _tocInFlightByBookID = new Map<string, Promise<TableOfContents>>();
+
+  /**
+   * How many `subpages` requests may be in flight at once while building a
+   * filtered table of contents.
+   *
+   * The walk is one request per listable page that has children, so a book's
+   * shape sets the count. Six keeps a cold build on a normal book under a second
+   * without opening a socket per chapter against one library.
+   */
+  private static readonly SUBPAGE_CONCURRENCY = 6;
+
+  /**
+   * Request count past which a filtered build is logged as unusual.
+   *
+   * Purely diagnostic: the walk is not capped, because a book being large is not
+   * an error and the tree-based path it replaced had no size limit either. This
+   * only makes an outlier visible, so a book whose shape costs hundreds of
+   * requests can be found in the logs rather than guessed at.
+   */
+  private static readonly SUBPAGE_REQUEST_WARN_THRESHOLD = 200;
 
   /**
    * Per-file ceiling for bulk attachment copying (remixer full-copy mode).
@@ -274,8 +325,13 @@ export default class BookService {
         return false;
       }
 
-      // Load all page ID's from the book's TOC and check if the requested pageID is in that list
-      const toc = await this.getBookPageIDs(false);
+      // Load all page ID's from the book's TOC and check if the requested pageID is in that list.
+      // This is an authorization gate, so it reads the unfiltered listing: filtering here would
+      // deny the project's own members access to their book's hidden pages.
+      const toc = await this.getBookPageIDs({
+        includeRestricted: true,
+        cache: false,
+      });
       return toc.includes(pageID.toString());
     } catch (err) {
       logger.error({ err }, "canAccessPage failed");
@@ -359,52 +415,234 @@ export default class BookService {
     return result;
   }
 
-  async getBookTOCNew(cache: boolean = true): Promise<TableOfContents> {
-    const cached = BookService._tocCacheByBookID.get<TableOfContents>(this._bookID);
+  /**
+   * Cache and in-flight key for a TOC read.
+   *
+   * The visibility mode is part of the key. Keying on the book alone would let a
+   * cached unfiltered TOC be served to a public request (or the reverse) for the
+   * next 120 seconds, which is the bug this filtering exists to fix, just with a
+   * fuse on it.
+   */
+  private _tocCacheKey(includeRestricted: boolean): string {
+    return `${this._bookID}:${includeRestricted ? "all" : "public"}`;
+  }
+
+  /**
+   * Normalizes an SDK page-tree node into the repo-local tree shape.
+   *
+   * The SDK types every field as `Partial`/`Maybe`/`OneOrMany`, while
+   * `_buildHierarchy` (shared with `getBookTreeFull`, which still reads through
+   * `CXOneFetch`) expects the raw Deki JSON shape. Converting here keeps that
+   * shared helper and its other caller untouched.
+   */
+  private static _toLocalTreePage(
+    page: unknown,
+  ): GetPageSubPagesResponse["page"] | undefined {
+    if (!page || typeof page !== "object") {
+      return undefined;
+    }
+    const node = page as Record<string, any>;
+    const children = many<Record<string, any>>(node.subpages?.page)
+      .map((child) => BookService._toLocalTreePage(child))
+      .filter((child): child is GetPageSubPagesResponse["page"] => !!child);
+
+    return {
+      ...node,
+      ...(children.length
+        ? { subpages: { page: children as any } }
+        : { subpages: node.subpages ?? "" }),
+    } as GetPageSubPagesResponse["page"];
+  }
+
+  /**
+   * Builds the full table of contents from the page tree, in one request.
+   *
+   * The tree response carries no `security`, so this cannot filter. Callers that
+   * need a filtered listing go through {@link BookService._buildFilteredTOC}.
+   */
+  private async _buildFullTOC(expert: Expert): Promise<TableOfContents> {
+    const tree = (await expert.pages.getPageTree(parseInt(this._coverID), {
+      include: "properties,lastmodified",
+    })) as GetPageTreeResponse;
+
+    const rootPage = BookService._toLocalTreePage(one(tree?.page as any));
+    if (!rootPage) {
+      throw new Error(`No page data in tree response for book ${this._bookID}`);
+    }
+
+    const buildStructure = (page: HierarchyPage): TableOfContents => ({
+      children: (Array.isArray(page.subpages) ? page.subpages : []).map((child) =>
+        buildStructure(child),
+      ),
+      id: page["@id"],
+      title: page.title,
+      url: page["uri.ui"],
+    });
+
+    return buildStructure(this._buildHierarchy(rootPage));
+  }
+
+  /**
+   * Builds the table of contents from `subpages`, keeping only pages an
+   * anonymous visitor may see listed.
+   *
+   * `GET /pages/{id}/subpages` reports each child's
+   * `security.permissions.page.restriction` alongside `@subpages`, so one
+   * request per parent yields both the structure and the visibility of its
+   * children. That is the whole filter: no separate restriction lookup, and
+   * nothing inferred.
+   *
+   * The tree endpoint returns the entire hierarchy in one request but omits
+   * `security`, which is why the unfiltered path still uses it and this one does
+   * not. The cost here is one request per listable page that has children, and
+   * hidden branches cost nothing: a page that fails the check is never descended
+   * into, which is also what makes its subtree disappear from the result. A
+   * restricted cover short-circuits the walk entirely.
+   */
+  private async _buildFilteredTOC(expert: Expert): Promise<TableOfContents> {
+    // `GET /pages/{id}` rather than `/info`: it carries the cover's `security`
+    // alongside its title and `@subpages`, so the cover's own restriction costs
+    // no extra request.
+    const cover = await expert.pages.getPage(parseInt(this._coverID));
+    if (!cover?.["@id"]) {
+      throw new Error(`No page data for book ${this._bookID}`);
+    }
+
+    // The cover node is always returned, even when restricted: callers read
+    // `toc.children`, so a hidden book has to come back as an empty book rather
+    // than as a null that would change this method's return type everywhere.
+    const root: TableOfContents = {
+      id: String(cover["@id"]),
+      title: cover.title ?? "",
+      url: cover["uri.ui"] ?? "",
+      children: [],
+    };
+
+    // A restricted cover hides the whole book, including any public page under
+    // it. Walking into it would list those children on the unauthenticated
+    // route, which is the leak this filtering exists to close.
+    if (!isPubliclyListable(pageRestriction(cover))) {
+      logger.debug(
+        { bookID: this._bookID, restriction: pageRestriction(cover) },
+        "Book cover is restricted; serving an empty filtered TOC",
+      );
+      return root;
+    }
+
+    type Pending = { node: TableOfContents; pageID: string };
+    let frontier: Pending[] =
+      cover["@subpages"] === "false" ? [] : [{ node: root, pageID: root.id }];
+
+    // Deki gives every page one parent, so the hierarchy is a tree and no page
+    // should be reached twice. This makes that an invariant of the walk rather
+    // than an assumption: each page is requested at most once, so the walk
+    // terminates on any shape, however deep or wide, without a size limit.
+    const visited = new Set<string>([root.id]);
+    let requests = 0;
+
+    // Level by level: a book is wide and shallow, so this bounds fan-out to one
+    // level's worth of parents while keeping the whole walk to a few round
+    // trips.
+    while (frontier.length > 0) {
+      requests += frontier.length;
+      const nextFrontier: Pending[] = [];
+
+      await mapWithConcurrency(
+        frontier,
+        BookService.SUBPAGE_CONCURRENCY,
+        async ({ node, pageID }) => {
+          const res = await expert.pages.getPageSubpages(pageID, {
+            limit: "all",
+          });
+
+          // Appended in response order, and each parent owns its own array, so
+          // the result keeps the order the library serves.
+          for (const child of many<Record<string, any>>(
+            res?.["page.subpage"] as any,
+          )) {
+            if (child["@deleted"] === "true") continue;
+            if (!isPubliclyListable(pageRestriction(child))) continue;
+
+            const childNode: TableOfContents = {
+              id: String(child["@id"]),
+              title: child.title ?? "",
+              url: child["uri.ui"] ?? "",
+              children: [],
+            };
+            node.children.push(childNode);
+
+            if (child["@subpages"] === "true" && !visited.has(childNode.id)) {
+              visited.add(childNode.id);
+              nextFrontier.push({ node: childNode, pageID: childNode.id });
+            }
+          }
+        },
+      );
+
+      frontier = nextFrontier;
+    }
+
+    if (requests > BookService.SUBPAGE_REQUEST_WARN_THRESHOLD) {
+      logger.warn(
+        { bookID: this._bookID, requests, parents: visited.size },
+        "Filtered TOC build needed an unusual number of subpage requests",
+      );
+    }
+
+    return root;
+  }
+
+  /**
+   * The book's table of contents as a nested tree, rooted at the cover page.
+   *
+   * @param opts.includeRestricted - Required. See {@link GetBookTOCOptions}.
+   * When false, `Semi-Private` and `Private` pages are dropped along with their
+   * subtrees: a public page under a hidden parent cannot be navigated to, so
+   * listing it would orphan it. The cover page itself is never dropped - a
+   * restricted book yields a root with no children rather than nothing at all.
+   * A page whose restriction cannot be established is omitted, on the grounds
+   * that wrongly hiding a page is recoverable and wrongly listing a hidden one
+   * is not.
+   * @throws If the tree or (when filtering) the restriction lookup fails.
+   * Serving the unfiltered tree because the restriction lookup broke would
+   * silently reinstate the leak.
+   */
+  async getBookTOCNew({
+    includeRestricted,
+    cache = true,
+  }: GetBookTOCOptions): Promise<TableOfContents> {
+    const cacheKey = this._tocCacheKey(includeRestricted);
+    const cached = BookService._tocCacheByBookID.get<TableOfContents>(cacheKey);
     if (cached && cache) {
       return cached;
     }
 
-    const inFlight = BookService._tocInFlightByBookID.get(this._bookID);
+    const inFlight = BookService._tocInFlightByBookID.get(cacheKey);
     if (inFlight) {
       return inFlight;
     }
 
     const tocPromise = (async () => {
-      const res = await CXOneFetch({
-        scope: "page",
-        path: parseInt(this._coverID),
-        api: MindTouch.API.Page.GET_Page_Tree,
-        subdomain: this._library,
-        options: {
-          method: "GET",
-        },
-      });
-      const rawTree = (await res.json()) as GetPageSubPagesResponse;
-      const structured = this._buildHierarchy(rawTree?.page);
-      const buildStructure = (
-        page: GetPageSubPagesResponse["page"] | PageBase
-      ): TableOfContents => ({
-        children:
-          "subpages" in page && Array.isArray(page.subpages)
-            ? page.subpages.map((s) => buildStructure(s))
-            : [],
-        id: page["@id"],
-        title: page.title,
-        url: page["uri.ui"],
-      });
+      const expert = await ExpertWithSSM.getInstance().forLibrary(this._library);
 
-      const toc = buildStructure(structured);
-      BookService._tocCacheByBookID.set(this._bookID, toc);
+      // Two endpoints, picked by what the caller needs. `tree` returns the whole
+      // hierarchy in one request but carries no `security`, so it can only serve
+      // the unfiltered listing; `subpages` reports each child's restriction, at
+      // one request per parent. See _buildFilteredTOC.
+      const toc = includeRestricted
+        ? await this._buildFullTOC(expert)
+        : await this._buildFilteredTOC(expert);
+
+      BookService._tocCacheByBookID.set(cacheKey, toc);
       return toc;
     })();
 
-    BookService._tocInFlightByBookID.set(this._bookID, tocPromise);
+    BookService._tocInFlightByBookID.set(cacheKey, tocPromise);
 
     try {
       return await tocPromise;
     } finally {
-      BookService._tocInFlightByBookID.delete(this._bookID);
+      BookService._tocInFlightByBookID.delete(cacheKey);
     }
   }
 
@@ -442,10 +680,13 @@ export default class BookService {
   /**
    * Retrieves a flat array of all pages in the book's table of contents
    * Calls getBookTOCNew() to get the structured TOC, then flattens it into an array of pages
+   * @param opts - Visibility and caching. See {@link GetBookTOCOptions}.
    * @returns {Promise<{ id: string; title: string; url: string }[]>} - An array of pages with their ID, title, and URL
    */
-  async getBookTOCFlat(cache: boolean = true): Promise<{ id: string; title: string; url: string }[]> {
-    const structured = await this.getBookTOCNew(cache);
+  async getBookTOCFlat(
+    opts: GetBookTOCOptions,
+  ): Promise<{ id: string; title: string; url: string }[]> {
+    const structured = await this.getBookTOCNew(opts);
 
     const flattenTOC = (toc: TableOfContents): { id: string; title: string; url: string }[] => {
       const result = [{ id: toc.id, title: toc.title, url: toc.url }];
@@ -463,20 +704,22 @@ export default class BookService {
   /**
    * Convenience method to get an array of all page IDs in the book's table of contents
    * Calls getBookTOCFlat() to get the flat array of pages, then maps it to an array of page IDs
+   * @param opts - Visibility and caching. See {@link GetBookTOCOptions}.
    * @returns {Promise<string[]>} - An array of page IDs
    */
-  async getBookPageIDs(cache: boolean = true): Promise<string[]> {
-    const toc = await this.getBookTOCFlat(cache);
+  async getBookPageIDs(opts: GetBookTOCOptions): Promise<string[]> {
+    const toc = await this.getBookTOCFlat(opts);
     return toc.map((page) => page.id);
   }
 
+  /**
+   * @param toc - The table of contents to read overviews for. Required: the
+   * caller is the only party that knows whether restricted pages belong in the
+   * listing, so this must not fetch a TOC of its own.
+   */
   async getAllPageOverviews(
-    toc?: TableOfContents
+    toc: TableOfContents
   ): Promise<PageSimpleWOverview[]> {
-    if (!toc) {
-      toc = await this.getBookTOCNew();
-    }
-
     // Recursive function to collect all page IDs
     const collectPageData = (
       toc: TableOfContents
@@ -519,11 +762,11 @@ export default class BookService {
     return pageOverviews;
   }
 
-  async getAllPageTags(toc?: TableOfContents): Promise<PageSimpleWTags[]> {
-    if (!toc) {
-      toc = await this.getBookTOCNew();
-    }
-
+  /**
+   * @param toc - The table of contents to read tags for. Required, for the same
+   * reason as {@link BookService.getAllPageOverviews}.
+   */
+  async getAllPageTags(toc: TableOfContents): Promise<PageSimpleWTags[]> {
     // Recursive function to collect all page IDs
     const collectPageData = (
       toc: TableOfContents

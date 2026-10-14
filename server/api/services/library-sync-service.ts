@@ -4,14 +4,15 @@ import { AuthorInterface } from "../../models/author.js";
 import Expert from "../../util/ExpertWithSSM.js";
 import {
   many,
-  one,
-  text,
   type default as ExpertClient,
   type GetPageResponse as FoundPage,
-  type Maybe,
   type PageTag,
-  type Scalar,
 } from "@libretexts/cxone-expert-node";
+import {
+  pageRestriction,
+  PUBLIC_RESTRICTIONS,
+  UNLISTED_RESTRICTIONS,
+} from "../../util/CXOne/page-restriction.js";
 import AuthorService from "./author-service.js";
 import CXOnePageProperties from "../../util/CXOne/CXOnePageProperties.js";
 import { sanitizeOptionalLibraryText } from "../../util/sanitize-text.js";
@@ -143,48 +144,6 @@ function isUnderSyncRoot(path: string, roots: string[]): boolean {
     return rootSegments.every((segment, i) => segments[i] === segment);
   });
 }
-
-/**
- * A page's restriction name, read from whichever shape the response used.
- *
- * The two endpoints this service reads disagree:
- *
- * - `GET /pages/{id}` nests it as
- *   `security["permissions.page"].restriction`, a scalar that carries an `@id`
- *   attribute and so arrives wrapped in `#text`.
- * - `GET /pages/{id}/find` puts a bare `restriction` string on each page and
- *   omits `security` entirely. The SDK types find pages as `PageBase & Tags`,
- *   which declares neither, hence the cast.
- *
- * Reading only the nested form rejects every page the bulk walk found — the
- * whole nightly sync, not just the webhook — because `security` isn't actually there.
- */
-function pageRestriction(page: FoundPage): string | undefined {
-  const nested = one(one(page.security)?.["permissions.page"])?.restriction;
-  if (nested) return text(nested);
-  return text((page as { restriction?: Maybe<Scalar> }).restriction);
-}
-
-/**
- * CXOne restrictions whose pages are readable by an anonymous visitor, and so
- * belong on Commons.
- *
- * A restriction is the baseline operation set CXOne applies to a user holding no
- * explicit grant on the page, and `permissions.page.operations` provides detail
- * on what actions are permitted:
- *
- * - `Public` (id 1) — the full operation mask.
- * - `Semi-Public` (id 2) — `LOGIN,BROWSE,READ,SUBSCRIBE`.
- * - `Semi-Private` (id 4) — `LOGIN,READ,SUBSCRIBE`. It withholds `BROWSE`, not
- *   `READ`: the page is excluded from listings but serves to anyone with the
- *   URL. However, for our needs we treat it as ineligible for Commons sync.
- * - `Private` (id 3) — `LOGIN` only. Anonymous requests 302 to the login page.
- *
- * The names are kept as the rule because `find` returns the name and no mask, and
- * one gate has to handle both response shapes; see {@link pageRestriction}.
- */
-const PUBLIC_RESTRICTIONS = new Set(["Public", "Semi-Public"]);
-const UNLISTED_RESTRICTIONS = new Set(["Private", "Semi-Private"]);
 
 /**
  * How many times a truncated search may be split into child subtrees.

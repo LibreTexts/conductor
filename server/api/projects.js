@@ -3966,7 +3966,8 @@ const getProjectToc = async (req, res) => {
     }
 
     const bookService = new BookService({ bookID: project.libreLibrary + '-' + project.libreCoverID });
-    const toc = await bookService.getBookTOCNew();
+    // Gated on checkProjectMemberPermission above, so hidden pages are included.
+    const toc = await bookService.getBookTOCNew({ includeRestricted: true });
     return res.send({
       err: false,
       toc,

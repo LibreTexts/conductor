@@ -333,7 +333,9 @@ const getRestackerToc = async (
     const bookService = new BookService({
       bookID: `${project.libreLibrary}-${project.libreCoverID}`,
     });
-    const toc = await bookService.getBookTOCNew();
+    // Project-gated: the restacker lists and relicenses a book's own pages, so it
+    // reads every page, hidden ones included.
+    const toc = await bookService.getBookTOCNew({ includeRestricted: true });
     var restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
     if (!restacker) {
       type RestackerPage = {
@@ -476,7 +478,7 @@ const restackerReload = async (
     const bookService = new BookService({
       bookID: `${project.libreLibrary}-${project.libreCoverID}`,
     });
-    const toc = await bookService.getBookTOCNew();
+    const toc = await bookService.getBookTOCNew({ includeRestricted: true });
     const tocPages = flattenTocForRestacker(toc);
 
     // Take the lock before resetting pages, so a concurrent /toc request can't see an
@@ -832,7 +834,12 @@ const bulkUpdateRestackerLicense = async (
     const bookService = new BookService({
       bookID: `${project.libreLibrary}-${project.libreCoverID}`,
     });
-    const bookPageIDs = new Set(await bookService.getBookPageIDs(false));
+    const bookPageIDs = new Set(
+      await bookService.getBookPageIDs({
+        includeRestricted: true,
+        cache: false,
+      }),
+    );
     const bookCoverId = project.libreCoverID;
     const pagesById = new Map(
       restacker.restackerCurrentBook.map((entry) => [entry.id, entry]),
