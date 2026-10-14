@@ -48,7 +48,7 @@ export interface PathLevelFormatState {
   continue?: boolean;
 }
 
-export interface PrejectRemixerInterface extends Document {
+export interface ProjectRemixerInterface extends Document {
   projectID: string;
   remixerID: string;
   createdBy: string;
@@ -111,7 +111,7 @@ const PathLevelFormatSchema = new Schema<PathLevelFormatState>(
   { _id: false },
 );
 
-const PrejectRemixerSchema = new Schema<PrejectRemixerInterface>(
+const ProjectRemixerSchema = new Schema<ProjectRemixerInterface>(
   {
     projectID: {
       type: String,
@@ -153,15 +153,17 @@ const PrejectRemixerSchema = new Schema<PrejectRemixerInterface>(
 
 // Only one active (non-archived) remixer state is allowed per project;
 // archived historical snapshots can accumulate freely.
-PrejectRemixerSchema.index(
+ProjectRemixerSchema.index(
   { projectID: 1 },
   { unique: true, partialFilterExpression: { archived: false } },
 );
 
-const PrejectRemixer = model<PrejectRemixerInterface>(
-  "PrejectRemixer",
-  PrejectRemixerSchema,
+// The collection keeps its historical (misspelled) name; renaming it would
+// orphan every saved remixer state.
+const ProjectRemixer = model<ProjectRemixerInterface>(
+  "ProjectRemixer",
+  ProjectRemixerSchema,
   "prejectremixer",
 );
 
-export default PrejectRemixer;
+export default ProjectRemixer;

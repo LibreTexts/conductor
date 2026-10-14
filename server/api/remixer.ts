@@ -9,9 +9,9 @@ import {
   GetRemixerProjectStateSchema,
   SaveRemixerProjectStateSchema,
 } from "./validators/remixer.js";
-import PrejectRemixer from "../models/projectremixer.js";
+import ProjectRemixer from "../models/projectremixer.js";
 import remixerService from "./services/remixer-service.js";
-import PrejectRemixerJob from "../models/projectremixerjob.js";
+import ProjectRemixerJob from "../models/projectremixerjob.js";
 import base62 from "base62-random";
 import CXOnePageAPIEndpoints from "../util/CXOne/CXOnePageAPIEndpoints.js";
 import {
@@ -189,7 +189,7 @@ const saveRemixerProjectState = async (
     }
 
     // Check for an existing pending or running remixer job before allowing state save
-    const existingJob = await PrejectRemixerJob.findOne({
+    const existingJob = await ProjectRemixerJob.findOne({
       projectID: { $eq: id },
       status: { $in: ["pending", "running"] },
     });
@@ -200,7 +200,7 @@ const saveRemixerProjectState = async (
       });
     }
 
-    const remixerState = await PrejectRemixer.findOneAndUpdate(
+    const remixerState = await ProjectRemixer.findOneAndUpdate(
       { projectID: { $eq: id }, archived: false },
       {
         $set: {
@@ -273,7 +273,7 @@ const publishRemixerProject = async (
       return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
-    const existingJob = await PrejectRemixerJob.findOne({
+    const existingJob = await ProjectRemixerJob.findOne({
       projectID: { $eq: id },
       status: { $in: ["pending", "running"] },
     });
@@ -338,7 +338,7 @@ const publishRemixerProject = async (
     // different record — a draft saved meanwhile, or a duplicate active draft
     // — and publish a book the user never submitted.
     const publishedRemixerID = base62(10);
-    const remixerState = await PrejectRemixer.findOneAndUpdate(
+    const remixerState = await ProjectRemixer.findOneAndUpdate(
       { projectID: id, archived: false },
       {
         $set: {
@@ -363,7 +363,7 @@ const publishRemixerProject = async (
         projection: { projectID: 1, remixerCurrentBook: 1, remixerID: 1, _id: 0 },
       },
     );
-    const job = await PrejectRemixerJob.create({
+    const job = await ProjectRemixerJob.create({
       jobID: base62(10),
       projectID: id,
       userID: actorUUID,
@@ -406,7 +406,7 @@ const getRemixerJobStatus = async (
 ) => {
   try {
     const { id } = req.params;
-    const job = await PrejectRemixerJob.findOne(
+    const job = await ProjectRemixerJob.findOne(
       { projectID: id },
       { status: 1, messages: 1, errorMessage: 1, createdPages: 1, _id: 0 },
     ).sort({ _id: -1 });
@@ -452,7 +452,7 @@ const getRemixerProjectState = async (
 
     const [toc, remixerState] = await Promise.all([
       tocPromise,
-      PrejectRemixer.findOne(
+      ProjectRemixer.findOne(
         { projectID: id },
         {
           projectID: 1,
@@ -484,7 +484,7 @@ const getRemixerProjectState = async (
       { uuid: { $eq: remixerState?.updatedBy } },
       { name: 1, email: 1, _id: 0 },
     );
-    const LatestPublishedJob = await PrejectRemixerJob.findOne(
+    const LatestPublishedJob = await ProjectRemixerJob.findOne(
       { projectID: id , status: "success"},
       { status: 1, messages: 1, errorMessage: 1, updatedAt: 1, _id: 0 },
     ).sort({ _id: -1 });
@@ -529,7 +529,7 @@ const deleteRemixerProjectState = async (
       return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
-    await PrejectRemixer.deleteOne({ projectID: { $eq: id } });
+    await ProjectRemixer.deleteOne({ projectID: { $eq: id } });
 
     return res.send({
       err: false,
@@ -687,7 +687,7 @@ const getRemixerPageTree = async (
     const [tree, remixerState] = await Promise.all([
       bookService.getBookTreeFull({ flatten }),
       preserveConfigs
-        ? PrejectRemixer.findOne(
+        ? ProjectRemixer.findOne(
             { projectID: req.params.id, archived: false },
             { remixerCurrentBook: 1, _id: 0 },
           )
