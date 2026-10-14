@@ -1,4 +1,4 @@
-import logger from "../logger.js";
+import logger, { childLogger } from "../logger.js";
 import { NextFunction, Request, Response } from "express";
 import conductorErrors from "../conductor-errors.js";
 import ProjectFile, {
@@ -22,6 +22,7 @@ import { isObjectIdOrHexString } from "mongoose";
 import async from "async";
 import {
   assembleUrl,
+  getCommonsCanonicalURL,
   getPaginationOffset,
   getRandomOffset,
 } from "../util/helpers.js";
@@ -75,6 +76,7 @@ import { generateVideoStreamURL } from "../util/videoutils.js";
 import axios from "axios";
 import mime from "mime";
 
+const permalinkLog = childLogger("permalink");
 const filesStorage = multer.memoryStorage();
 const MAX_UPLOAD_FILES = 20;
 const MAX_UPLOAD_FILE_SIZE = 100000000; // 100mb
@@ -634,14 +636,6 @@ async function getPermanentLink(
       });
     }
 
-    const { orgID } = project;
-    const organization = await Organization.findOne({ orgID }).lean();
-    if (!organization) {
-      return res.status(404).send({
-        err: true,
-        errMsg: conductorErrors.err11,
-      });
-    }
     const projectFile = await ProjectFile.findOne({
       projectID,
       fileID,
@@ -659,8 +653,7 @@ async function getPermanentLink(
         errMsg: conductorErrors.err29
       });
     }
-    const domain = organization.domain;
-    const permanentLink = `${domain}/permalink/${projectID}/${fileID}`;
+    const permanentLink = `${getCommonsCanonicalURL()}/permalink/${projectID}/${fileID}`;
     return res.status(200).send({
       error: false,
       url: permanentLink,
@@ -675,6 +668,15 @@ async function getPermanentLink(
   }
 }
 
+function receivingHost(req: Request) {
+  return (req.get("host") || req.hostname || "").toLowerCase();
+}
+
+function isCanonicalPermalinkHost(req: Request) {
+  const canonicalHost = new URL(getCommonsCanonicalURL()).hostname.toLowerCase();
+  return req.hostname.toLowerCase() === canonicalHost;
+}
+
 async function redirectPermanentLink(
   req: ZodReqWithOptionalUser<z.infer<typeof getProjectFileDownloadURLSchema>>,
   res: Response
@@ -682,6 +684,18 @@ async function redirectPermanentLink(
   try {
     const { projectID, fileID } = req.params;
     const { direct } = req.query;
+
+    if (!isCanonicalPermalinkHost(req)) {
+      const queryIndex = req.originalUrl.indexOf("?");
+      const query = queryIndex === -1 ? "" : req.originalUrl.slice(queryIndex);
+      const target = `${getCommonsCanonicalURL()}/permalink/${projectID}/${fileID}${query}`;
+      permalinkLog.debug(
+        { host: receivingHost(req) },
+        "redirecting permalink to canonical host"
+      );
+      return res.redirect(301, target);
+    }
+
     const project = await Project.findOne({ projectID }).lean();
 
     if (!project) {
@@ -692,7 +706,7 @@ async function redirectPermanentLink(
     }
 
     if (!direct) {
-      return res.redirect('https://commons.libretexts.org/download/' + projectID + '/' + fileID);
+      return res.redirect(`${getCommonsCanonicalURL()}/download/${projectID}/${fileID}`);
     }
 
     const downloadURLs = await downloadProjectFiles(
