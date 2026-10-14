@@ -1799,6 +1799,14 @@ const copyPageThumbnailAndOverview = async ({
 interface RunRemixerJobParams {
   jobID: string;
   projectID: string;
+  /**
+   * The remixer state this job publishes — the record the publish request
+   * just wrote. The job must load exactly this record: "the newest record for
+   * the project" can be a different one (a draft saved while the publish was
+   * being set up, or a duplicate active draft), which would publish a book
+   * the user never submitted.
+   */
+  remixerID: string;
   subdomain: string;
   coverId: string;
   /** Carry glossary terms used on imported pages' source pages over to this book. */
@@ -1947,6 +1955,7 @@ const previewPageIDs = (ids: string[], limit = 20): string => {
 const runRemixerJob = async ({
   jobID,
   projectID,
+  remixerID,
   subdomain,
   coverId,
   importGlossaryTerms = false,
@@ -1954,17 +1963,31 @@ const runRemixerJob = async ({
   const job = await PrejectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({
     _id: -1,
   });
-  const remixerState = await PrejectRemixer.findOne({
-    projectID: { $eq: projectID },
-  }).sort({
-    _id: -1,
-  });
-  let finalBook: RemixerSubPageState[] = [];
-  if (!remixerState) {
-    throw new Error("Remixer state not found");
-  }
   if (!job) {
     throw new Error("Job not found");
+  }
+  // Load the exact record the publish request wrote (by its remixerID), from
+  // the primary so a lagging secondary can't serve the previous state.
+  const stateID = remixerID || job.remixerID;
+  const remixerState = stateID
+    ? await PrejectRemixer.findOne({
+        projectID: { $eq: projectID },
+        remixerID: { $eq: stateID },
+      })
+        .sort({ updatedAt: -1 })
+        .read("primary")
+    : null;
+  let finalBook: RemixerSubPageState[] = [];
+  if (!remixerState) {
+    remixerLog.error(
+      { jobID, projectID, remixerID: stateID },
+      "Remixer state for publish job not found",
+    );
+    job.status = "error";
+    job.errorMessage = "The submitted book could not be found; nothing was published.";
+    job.messages.push(job.errorMessage);
+    await job.save();
+    throw new Error("Remixer state not found");
   }
 
   try {
