@@ -333,6 +333,11 @@ const publishRemixerProject = async (
       return res.status(403).send({ err: true, errMsg: ownershipError });
     }
 
+    // Every publish gets its own remixerID, and the job loads its book by that
+    // id. Looking the book up by project instead ("newest record") can pick a
+    // different record — a draft saved meanwhile, or a duplicate active draft
+    // — and publish a book the user never submitted.
+    const publishedRemixerID = base62(10);
     const remixerState = await PrejectRemixer.findOneAndUpdate(
       { projectID: id, archived: false },
       {
@@ -347,9 +352,9 @@ const publishRemixerProject = async (
         },
         $setOnInsert: {
           createdBy: actorUUID,
-          remixerID: base62(10),
           createdAt: new Date(),
           projectID: project.projectID,
+          remixerID: publishedRemixerID,
         },
       },
       {
@@ -362,7 +367,7 @@ const publishRemixerProject = async (
       jobID: base62(10),
       projectID: id,
       userID: actorUUID,
-      remixerID: remixerState?.remixerID ?? "",
+      remixerID: remixerState?.remixerID ?? publishedRemixerID,
       status: "pending",
       messages: ["Remixer job created."],
     });
@@ -371,6 +376,7 @@ const publishRemixerProject = async (
       .runRemixerJob({
         jobID: job.jobID,
         projectID: id,
+        remixerID: remixerState?.remixerID ?? publishedRemixerID,
         subdomain,
         coverId: project.libreCoverID ?? "",
         importGlossaryTerms: Boolean(importGlossaryTerms),

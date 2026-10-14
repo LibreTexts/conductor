@@ -139,7 +139,11 @@ const PrejectRemixerSchema = new Schema<PrejectRemixerInterface>(
     remixerID: {
       type: String,
       required: true,
-      default: base62(10),
+      // A function, so each record gets its own id. A plain `base62(10)` is
+      // evaluated once at import, giving every defaulted record the same id —
+      // and publish jobs load their book by this id.
+      default: () => base62(10),
+      index: true,
     },
   },
   {
