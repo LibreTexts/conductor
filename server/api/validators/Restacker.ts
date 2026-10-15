@@ -1,16 +1,8 @@
 import { z } from "zod";
-import licenseVersions from "../../../shared/license-versions.json";
-
-/**
- * Licenses that must carry a version, with the versions each allows. Read
- * from the table the client's LicenseOptions.js also uses, so both sides
- * enforce the same versions.
- */
-const LICENSE_VERSIONS: Record<string, string[]> = Object.fromEntries(
-  licenseVersions
-    .filter((entry) => entry.versions.length > 0)
-    .map((entry) => [entry.license, entry.versions.map((v) => v.key)]),
-);
+import {
+  LICENSE_KEYS,
+  LICENSE_VERSIONS,
+} from "../../util/license-versions.js";
 
 /** A versioned license without a valid version is flagged non-compliant, so reject it up front. */
 const hasRequiredLicenseVersion = (body: { license: string; version?: string }) => {
@@ -23,7 +15,6 @@ const hasRequiredLicenseVersion = (body: { license: string; version?: string }) 
  * removes the page's license). The value becomes a `license:<key>` tag on a
  * live library page, so nothing outside this list is accepted.
  */
-const LICENSE_KEYS = licenseVersions.map((entry) => entry.license);
 const licenseSchema = z
   .string()
   .refine((value) => value === "" || LICENSE_KEYS.includes(value), {
