@@ -127,6 +127,8 @@ import {
   GlossaryConfigMode,
   GlossaryConfigGroup,
 } from "./screens/commons/Glossary/model";
+import { BookSearchProps, ReferenceDisplayLocation, ReferenceEntry, ReferenceFormatType, ReferenceFormData, ReferenceScopeGroup, ReferenceScopeMode } from "./components/projects/References/model";
+import type { CitationScanData } from "./components/projects/References/model";
 
 /**
  * @fileoverview
@@ -3105,6 +3107,7 @@ class API {
       copyModeState?: string;
       pathLevelFormats?: unknown[];
       importGlossaryTerms?: boolean;
+      importReferences?: boolean;
       /** Fingerprint of the live book the edits were made against; see the publish route. */
       liveBookFingerprint?: string;
     },
@@ -3313,6 +3316,243 @@ class API {
         skipped: { pageID: string; reason: string }[];
       } & ConductorBaseResponse
     >(`/projects/${projectID}/restacker/license/bulk`, data);
+    return res.data;
+  }
+
+  async updateBookReferenceFormat(
+    projectID: string,
+    data: {
+      format: ReferenceFormatType;
+      displayLocation?: ReferenceDisplayLocation;
+      pageTitle?: string;
+      selectedList?: string[];
+    },
+  ) {
+    const res = await axios.post<
+      {
+        data: {
+          format: ReferenceFormatType;
+          displayLocation?: ReferenceDisplayLocation;
+          pageTitle?: string;   
+          selectedList?: string[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, data);
+    return res.data;
+  }
+
+  async getBookReferenceDetails(projectID: string) {
+    const res = await axios.get<
+      {
+        data: {
+          /** Absent until references are set up for the book. */
+          format?: ReferenceFormatType;
+          displayLocation?: ReferenceDisplayLocation;
+          pageTitle?: string;
+          selectedList?: string[];
+          backmatterPageID?: string;
+          scopeMode?: ReferenceScopeMode;
+          scopeGroups?: ReferenceScopeGroup[];
+          entries: ReferenceEntry[];
+          /** Comparison with the last citation scan; null before the first one. */
+          citationCheck?: CitationScanData | null;
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`);
+    return res.data;
+  }
+
+  /**
+   * Saves the reference format and scope (mode + groups) — the glossary
+   * scope model. The server derives the legacy display fields from it.
+   */
+  async saveReferenceScope(
+    projectID: string,
+    data: {
+      format: ReferenceFormatType;
+      pageTitle?: string;
+      mode: ReferenceScopeMode;
+      groups: ReferenceScopeGroup[];
+    },
+  ) {
+    const res = await axios.put<
+      {
+        data: {
+          format: ReferenceFormatType;
+          displayLocation?: ReferenceDisplayLocation;
+          pageTitle?: string;
+          selectedList: string[];
+          scopeMode: ReferenceScopeMode;
+          scopeGroups: ReferenceScopeGroup[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/scope`, data);
+    return res.data;
+  }
+
+  /** Forgets the saved reference scope; the editor falls back to defaults. */
+  async resetReferenceScope(projectID: string) {
+    const res = await axios.delete<ConductorBaseResponse>(
+      `/projects/${projectID}/reference/scope`,
+    );
+    return res.data;
+  }
+
+  async addBookReference(projectID: string, data: ReferenceFormData) {
+    const res = await axios.put<
+      {
+        data: { referenceID: string; citationKey: string };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, { entry: data });
+    return res.data;
+  }
+
+  /**
+   * Saves changes to an existing reference. A reference owned by another
+   * project is copied into this one instead, so the returned referenceID can
+   * differ from the one sent.
+   */
+  async updateBookReference(
+    projectID: string,
+    data: ReferenceFormData & { referenceID: string },
+  ) {
+    const res = await axios.put<
+      {
+        data: { referenceID: string; citationKey: string };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, { entry: data });
+    return res.data;
+  }
+
+  async getSearchReferences(projectID: string, query: string) {
+    const res = await axios.get<
+      {
+        data: { references: ReferenceEntry[] };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/search`, {
+      params: { query },
+    });
+    return res.data;
+  }
+
+  /** Removes several references; the response lists any that couldn't be removed. */
+  async deleteBookReferences(
+    projectID: string,
+    referenceIDs: string[],
+    deleteFromReferences: boolean,
+  ) {
+    const res = await axios.post<
+      {
+        data: {
+          removed: string[];
+          failed: { referenceID: string; message: string }[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/bulk-delete`, {
+      referenceIDs,
+      deleteFromReferences,
+    });
+    return res.data;
+  }
+
+  async deleteBookReference(
+    projectID: string,
+    referenceID: string,
+    deleteFromReferences: boolean,
+  ) {
+    const res = await axios.delete<
+      {
+        data: { referenceID: string; citationKey: string };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, {
+      data: { referenceID, deleteFromReferences },
+    });
+    return res.data;
+  }
+
+  async addReferencesToProject(projectID: string, referenceIDs: string[]) {
+    const res = await axios.patch<
+      {
+        data: {
+          /** referenceIDs added to the book. */
+          added: string[];
+          /** Not added: unknown ID, or the book already uses its citation key. */
+          skipped: { referenceID: string; reason: "not-found" | "key-in-use" }[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, { referenceIDs });
+    return res.data;
+  }
+
+  async addExistingReferencesToProject(projectID: string, referenceIDs: string[]) {
+    const res = await axios.patch<
+      {
+        data: {
+          /** referenceIDs added to the book. */
+          added: string[];
+          /** Not added: unknown ID, or the book already uses its citation key. */
+          skipped: { referenceID: string; reason: "not-found" | "key-in-use" }[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/existing`, { referenceIDs });
+    return res.data;
+  }
+
+  async getReferenceTOC(
+    projectID: string,
+    query: { toc: boolean; bookID: string },
+  ) {
+    const res = await axios.get<
+      {
+        toc: TableOfContents;
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/book`, {
+      params: query,
+    });
+    return res.data;
+  }
+
+  async addBookPageAsReference(projectID: string, data: { bookID: string; pageID: string }) {
+    const res = await axios.post<
+      {
+        data: { referenceID: string; citationKey: string, author: string, title: string, year: string, url: string , };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/book`, { ...data });
+    return res.data;
+  }
+
+  async populateReferencesDetails(projectID: string) {
+    try {
+      const res = await axios.get<
+        {
+          data: {
+            status?: string;
+            message?: string[];
+            totalPages?: number;
+            completedPages?: number;
+          };
+        } & ConductorBaseResponse
+      >(`/reference/projects/${projectID}/populate`);
+      return res.data;
+    } catch (error) {
+      // Server returns 404 with empty data when no populate job exists.
+      if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 500)) {
+        return (
+          error.response.data ?? {
+            err: false,
+            data: {},
+          }
+        );
+      }
+      throw error;
+    }
+  }
+  async createPopulateJob(projectID: string) {
+    const res = await axios.post<
+      {
+        data: { status: boolean; };
+      } & ConductorBaseResponse
+    >(`/reference/projects/${projectID}/populate`);
     return res.data;
   }
 }

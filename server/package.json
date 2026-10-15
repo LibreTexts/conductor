@@ -8,6 +8,7 @@
     "dev": "tsx watch --clear-screen=false server.ts | pino-pretty",
     "build": "tsup server.ts --format esm --dts --out-dir dist && tsc-alias",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"util/**/*.test.ts\"",
     "start:prod": "node --experimental-specifier-resolution=node dist/server.js",
     "export:support": "tsx scripts/exportSanitizedSupportTickets.ts"
   },

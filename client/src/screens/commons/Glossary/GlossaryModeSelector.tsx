@@ -1,17 +1,23 @@
 import { RadioGroup } from "@libretexts/davis-react";
 import { GlossaryConfigMode } from "./model";
 
+export type ScopeModeOption = {
+  label: string;
+  value: GlossaryConfigMode;
+  description: string;
+};
+
 interface GlossaryModeSelectorProps {
   value: GlossaryConfigMode;
   onChange: (mode: GlossaryConfigMode) => void;
   disabled?: boolean;
+  /** Wording for another feature using the same scope model (e.g. references). */
+  options?: ScopeModeOption[];
+  label?: string;
+  name?: string;
 }
 
-const MODE_OPTIONS: {
-  label: string;
-  value: GlossaryConfigMode;
-  description: string;
-}[] = [
+const MODE_OPTIONS: ScopeModeOption[] = [
   {
     label: "Glossary at the end of each page",
     value: "PAGE",
@@ -34,19 +40,22 @@ const GlossaryModeSelector = ({
   value,
   onChange,
   disabled,
+  options = MODE_OPTIONS,
+  label = "Glossary Mode",
+  name = "glossary-config-mode",
 }: GlossaryModeSelectorProps) => {
-  const selected = MODE_OPTIONS.find((option) => option.value === value);
+  const selected = options.find((option) => option.value === value);
 
   return (
     <div>
       <RadioGroup
-        name="glossary-config-mode"
-        label="Glossary Mode"
+        name={name}
+        label={label}
         value={value}
         onChange={(v) => onChange(v as GlossaryConfigMode)}
         disabled={disabled}
         orientation="horizontal"
-        options={MODE_OPTIONS.map(({ label, value: optionValue }) => ({
+        options={options.map(({ label, value: optionValue }) => ({
           label,
           value: optionValue,
         }))}

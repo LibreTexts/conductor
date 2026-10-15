@@ -98,6 +98,7 @@ import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
 import Restacker from './components/projects/Restacker';
 import { useTypedSelector } from './state/hooks';
+import ReferenceManager from './components/projects/References';
 
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
@@ -144,6 +145,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/ai-co-author/batch' component={BatchRun} />
           <PrivateRoute exact path='/projects/:id/remixer' component={RemixerDashboard} />
           <PrivateRoute exact path='/projects/:id/restacker' component={Restacker} />
+          <PrivateRoute exact path='/projects/:id/references' component={ReferenceManager} />
           <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
           {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
