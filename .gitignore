@@ -45,4 +45,5 @@ agents/
 .claude/
 .codegraph/
 .mcp.json
+.kiro/
 CLAUDE.md
