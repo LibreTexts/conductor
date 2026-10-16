@@ -31,6 +31,7 @@ import CampusAliasesControl from "./CampusAliasesControl";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../../api";
+import { useNotifications } from "../../../context/NotificationContext";
 const CustomOrgListModal = lazyWithRetry(() => import("../CustomOrgListModal"));
 
 type CampusSettingsFormProps = {
@@ -60,6 +61,7 @@ const CampusSettingsForm = forwardRef(
   ) => {
     const dispatch = useDispatch();
     const org = useTypedSelector((state) => state.org);
+    const { addNotification } = useNotifications();
     const { handleGlobalError } = useGlobalError();
     const [aliases, setAliases] = useState<string[]>([]);
     const [activeTab, setActiveTab] = useState<TabKey>("aliases");
@@ -214,8 +216,16 @@ const CampusSettingsForm = forwardRef(
         }
         setLoadedData(true);
         setSavedData(true);
+        addNotification({
+          type: "success",
+          message: "Changes saved successfully."
+        });
       } catch (err) {
         handleGlobalError(err);
+        addNotification({
+          type: "error",
+          message: "Failed to save changes."
+        })
       } finally {
         setLoadedData(true);
       }
