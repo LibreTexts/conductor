@@ -61,6 +61,8 @@ import {
 import BookService from './services/book-service.js';
 import { conductor500Err } from "../util/errorutils.js";
 import { createResponseCache } from '../util/response-cache.js';
+import { ProjectContext, ProjectError, returnProjectError } from "./services/project-context.js";
+import LibraryService from "./services/library-service.js";
 const commonsSyncLog = childLogger("commons-sync");
 
 // find-by-book runs on nearly every MindTouch library page load, almost always for a
@@ -2292,6 +2294,86 @@ async function reSyncProjectTeamBookAccess(req, res){
   }
 }
 
+async function checkTeamLibraryAccess(req, res){
+  try {
+    const { uuid: userID } = req.user.decoded;
+    const { projectID } = req.params;
+    const { library: libraryOverride } = req.query;
+
+    const user = await User.findOne({ uuid: userID }).orFail();
+    
+    if (!projectID) {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err1,
+      });
+    }
+
+    const ctx = await ProjectContext.load(projectID);
+
+    // Calling user must be a member of the project to see all team member's library access status
+    if (!ctx.canMember(user)) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
+    const libraryService = new LibraryService();
+    let library = null;
+
+    /**
+     * If a library override is provided in the query parameters, it will be used instead of the project's library.
+     * This is useful when the project's library is not yet set (e.g. preflight checks for Workbench creation)
+     * or needs to be temporarily overridden for the request.
+     */
+    if (libraryOverride) {
+      library = await libraryService.getLibraryFromSubdomain(libraryOverride, { includeHidden: true });
+    } else {
+      library = await ctx.getProjectLibrary();
+    }
+
+    if (!library) {
+      return res.status(404).send({
+        err: true,
+        errMsg: conductorErrors.err11,
+      });
+    }
+
+    const projectTeam = await ctx.getTeam();
+
+    const accessResults = await libraryService.checkLibraryAccess(
+      library.subdomain,
+      projectTeam,
+    )
+
+    // A null result means the lookup itself failed, which is not the same as "nobody has access"
+    if (!accessResults) {
+      return conductor500Err(res);
+    }
+
+    // Omit centralID from the results if the user does not have the appropriate role
+    const canViewCentralIDs = authAPI.checkHasRole(req.user, "libretexts", ["superadmin", "support"]);
+
+    return res.send({
+      err: false,
+      errMsg: "Successfully retrieved team library access.",
+      data: accessResults.map(result => {
+        if (!canViewCentralIDs) {
+          delete result.centralID;
+        }
+        return result;
+      }),
+    });
+  } catch (err) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
+    logger.error({ err }, "checkTeamLibraryAccess failed");
+    return conductor500Err(res);
+  }
+}
+
 /**
  * Sets a flag on the Project identified by the projectID in the request body
  * and sends an email to the user(s) in the flagging group.
@@ -4007,6 +4089,7 @@ export default {
     getProjectTeam,
     changeMemberRole,
     removeMemberFromProject,
+    checkTeamLibraryAccess,
     reSyncProjectTeamBookAccess,
     flagProject,
     clearProjectFlag,

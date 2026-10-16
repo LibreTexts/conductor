@@ -13,13 +13,15 @@ import axios from "axios";
 import { Controller, useForm } from "react-hook-form";
 import { Input } from "@libretexts/davis-react";
 import { required } from "../../utils/formRules";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTypedSelector } from "../../state/hooks";
-import { CentralIdentityApp, CreateWorkbenchForm } from "../../types";
+import { CreateWorkbenchForm } from "../../types";
 import TeamAccessWarningModal from './TeamAccessWarningModal';
 import api from "../../api";
 import useClientConfig from "../../hooks/useClientConfig";
 import { useNotifications } from "../../context/NotificationContext";
+import useProjectTeamLibraryAccess from "../../hooks/useProjectTeamLibraryAccess";
+import useLibraries from "../../hooks/useLibraries";
 
 interface CreateWorkbenchModalProps extends ModalProps {
   show: boolean;
@@ -28,13 +30,6 @@ interface CreateWorkbenchModalProps extends ModalProps {
   project: any;
   onClose: () => void;
   onSuccess: () => void;
-}
-
-interface TeamMemberWithoutAccess {
-  uuid: string;
-  firstName: string;
-  lastName: string;
-  avatar: string;
 }
 
 const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
@@ -79,117 +74,64 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
       title: "",
     },
   });
+
   const [loading, setLoading] = useState(false);
-  const [libraryOptsLoading, setLibraryOptsLoading] = useState(false);
-  const [libraryOptions, setLibraryOptions] = useState<CentralIdentityApp[]>(
-    []
-  );
   const [showAccessWarning, setShowAccessWarning] = useState(false);
-  const [membersWithoutAccess, setMembersWithoutAccess] = useState<TeamMemberWithoutAccess[]>([]);
-  const [selectedLibraryName, setSelectedLibraryName] = useState("");
-  const [canAccessLibrary, setCanAccessLibrary] = useState(true);
   const [blockingNotice, setBlockingNotice] = useState<string | null>(null);
 
+  const { libraries, isLoading: librariesLoading } = useLibraries({ enabled: show });
+  const { access, isFetching: accessLoading } = useProjectTeamLibraryAccess(
+    projectID,
+    watch("library")
+  );
+
   const selectedLibrary = watch("library");
+  const selectedLibraryTitle = useMemo(() => {
+    const library = libraries?.find(lib => lib.subdomain === selectedLibrary);
+    return library ? library.title : "";
+  }, [selectedLibrary, libraries]);
 
   useEffect(() => {
     if (show) {
       reset(); // reset form on open
       setBlockingNotice(null);
-      loadLibraries();
       setValue("title", projectTitle);
     }
   }, [show]);
 
-  async function loadLibraries() {
-    try {
-      setLibraryOptsLoading(true);
-      const res = await axios.get("/central-identity/public/apps");
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      if (!res.data.applications) throw new Error("No libraries found");
+  const userCanAccessLibrary = useMemo(() => {
+    if (!selectedLibrary) return true; // Don't show access warning if no library is selected
+    if (user.isSupport || user.isSuperAdmin) return true; // Support and super admins always have access
+    if (accessLoading) return true; // Don't warn while the check for the new library is in flight
+    return access?.find((result: any) => result.id === user.uuid)?.hasAccess ?? false;
+  }, [access, accessLoading, selectedLibrary, user.uuid, user.isSupport, user.isSuperAdmin]);
 
-      const libraries = res.data.applications.filter(
-        (a: CentralIdentityApp) => a.app_type === "library"
-      );
+  const membersWithoutAccess = useMemo(() => {
+    if (accessLoading) return [];
+    return teamMembers.filter(
+      (member) => !access?.find((result: any) => result.id === member.uuid)?.hasAccess
+    );
+  }, [access, accessLoading, teamMembers]);
 
-      if (!libraries.length) throw new Error("No libraries found");
-      setLibraryOptions(libraries);
-    } catch (err) {
-      handleGlobalError(err);
-    } finally {
-      setLibraryOptsLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    checkLibraryAccess();
-  }, [user, selectedLibrary]);
-
-  useEffect(() => {
-    if (selectedLibrary) {
-      const libraryObj = libraryOptions.find(lib => lib.id.toString() === selectedLibrary.toString());
-      if (libraryObj) {
-        setSelectedLibraryName(libraryObj.name);
-      }
-    }
-  }, [selectedLibrary, libraryOptions]);
-
-  const canCreate = canAccessLibrary && !loading;
   const titleErrorMessage = formState.errors.title?.message;
-
-  async function checkLibraryAccess() {
-    try {
-      if (!user.uuid || !getValues("library")) return;
-      const res = await axios.get(
-        `/central-identity/users/${user.uuid}/applications/${getValues(
-          "library"
-        )}`
-      );
-      if (res.data.err) {
-        throw new Error(res.data.errMsg);
-      }
-      setCanAccessLibrary(res.data.hasAccess ?? false);
-    } catch (err) {
-      handleGlobalError(err);
-    }
-  }
-
-  async function checkTeamMembersAccess() {
-    try {
-      if (!teamMembers.length || !getValues("library")) return [];
-      const ids = teamMembers.map((member) => member.uuid);
-
-      const res = await api.checkTeamLibraryAccess(getValues("library"), ids);
-
-      const withoutAccess = teamMembers.filter(
-        (member) => !res.data.accessResults.find((result: any) => result.id === member.uuid)?.hasAccess
-      );
-      return withoutAccess;
-    } catch (err) {
-      handleGlobalError(err);
-      return [];
-    }
-  }
 
   /**
    * Sole owner of the loading state for the create flow: it either hands off to
    * the team-access warning modal (which clears it) or runs the create itself.
    */
   async function handleCreateClick() {
-    if (!canCreate) return;
     try {
+      if (!userCanAccessLibrary) return;
+      if (loading) return;
+
       setLoading(true);
 
       // Check team members' access
-      const membersWithoutAccess = await checkTeamMembersAccess();
       if (membersWithoutAccess.length > 0) {
-        setMembersWithoutAccess(membersWithoutAccess);
         setShowAccessWarning(true);
         setLoading(false);
       } else {
-        // Everyone has access, proceed with creating the workbench
+        // Proceed with creating the workbench since all members have access
         await createWorkbench();
       }
     } catch (err) {
@@ -200,7 +142,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
 
   async function createWorkbench() {
     try {
-      if (!canAccessLibrary) return;
+      if (!userCanAccessLibrary) return;
       setLoading(true);
       clearErrors("title");
       setBlockingNotice(null);
@@ -283,21 +225,19 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
                 render={({ field }) => (
                   <Dropdown
                     id="projectStatus"
-                    options={libraryOptions.map((l) => ({
-                      key: l.id,
-                      text: l.name,
-                      value: l.id,
+                    options={libraries?.map((l) => ({
+                      key: l.subdomain,
+                      text: l.title,
+                      value: l.subdomain,
                     }))}
                     {...field}
-                    onChange={(e, data) => {
-                      field.onChange(data.value);
-                    }}
+                    onChange={(e, data) => field.onChange(data.value)}
                     fluid
                     selection
                     placeholder="Select Library..."
                     error={formState.errors.library ? true : false}
-                    loading={libraryOptsLoading}
-                    disabled={libraryOptsLoading}
+                    loading={librariesLoading}
+                    disabled={librariesLoading}
                   />
                 )}
               />
@@ -305,8 +245,8 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
                 <>
                   {/* Super Admins can use the dev library for debugging */}
                   <p
-                    className="underline cursor-pointer mt-1"
-                    onClick={() => setValue("library", "21", { shouldDirty: false })}
+                    className="underline cursor-pointer mt-2!"
+                    onClick={() => setValue("library", "dev", { shouldDirty: true })}
                   >
                     Use Dev (Super Admins Only)
                   </p>
@@ -347,7 +287,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
               <p className="mt-1 text-sm text-red-700">{blockingNotice}</p>
             </div>
           )}
-          {!canAccessLibrary && (
+          {!userCanAccessLibrary && (
             <Message warning>
               <Message.Header>Cannot Access Library</Message.Header>
               <p>
@@ -383,7 +323,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
             icon
             color="green"
             loading={loading}
-            disabled={!canCreate}
+            disabled={!userCanAccessLibrary || loading || accessLoading}
           >
             <Icon name="save" />
             Create
@@ -392,7 +332,7 @@ const CreateWorkbenchModal: React.FC<CreateWorkbenchModalProps> = ({
       </Modal>
       <TeamAccessWarningModal
         open={showAccessWarning}
-        selectedLibraryName={selectedLibraryName}
+        selectedLibraryName={selectedLibraryTitle}
         membersWithoutAccess={membersWithoutAccess}
         onClose={() => {
           setShowAccessWarning(false);

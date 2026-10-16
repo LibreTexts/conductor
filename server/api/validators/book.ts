@@ -63,7 +63,7 @@ export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
 
 export const createBookSchema = z.object({
   body: z.object({
-    library: z.coerce.number().positive().int(),
+    library: z.string().min(1).max(255), // library subdomain
     title: z.string().min(1).max(255),
     projectID: z.string().length(10),
   }),
@@ -276,7 +276,7 @@ export const GeneratePageImagesAltTextSchema =
 
   export const importPressBooksBookSchema = z.object({
     body: z.object({
-      library: z.coerce.number().positive().int(),
+      library: z.string().min(1).max(255), // library subdomain
       // pressbooks book URL
       pbBookURL: z.string().trim().url({ message: "Invalid URL" }),
       title: z.string().min(1).max(255).optional(),
