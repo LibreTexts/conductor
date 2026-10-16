@@ -192,7 +192,7 @@ const AuthorsManager = () => {
   );
 
   return (
-    <div className="bg-white h-full px-8 pt-8">
+    <div className="h-full px-8 pt-8">
       <Stack direction="vertical" gap="md" className="mb-4">
         <Heading level={2}>Authors Manager</Heading>
         <div className="flex items-center justify-between">
@@ -212,7 +212,7 @@ const AuthorsManager = () => {
         </div>
       </Stack>
 
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <div className="p-4 bg-white border-b border-gray-200">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:max-w-4xl">
             <Select

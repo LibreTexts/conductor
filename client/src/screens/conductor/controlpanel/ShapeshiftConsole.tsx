@@ -20,6 +20,7 @@ import {IconDownload, IconExternalLink, IconRefresh, IconSend} from "@tabler/ico
 import { useForm } from "react-hook-form";
 import DOMPurify from "dompurify";
 import { format as formatDate, parseISO } from "date-fns";
+import DefaultScreenContainer from "../../../components/navigation/DefaultScreenContainer";
 
 const getPrettyJobStatus = (statusRaw: ShapeshiftJobStatus) => {
   switch (statusRaw) {
@@ -160,7 +161,7 @@ const ShapeshiftConsole = () => {
   });
 
   return (
-    <div className="!pt-32 !bg-white !h-full !px-8">
+    <DefaultScreenContainer> 
       <Stack direction="vertical" gap="md" className="mb-4">
         <Heading level={2}>Shapeshift Admin Console</Heading>
         <Breadcrumb>
@@ -168,7 +169,7 @@ const ShapeshiftConsole = () => {
           <Breadcrumb.Item isCurrent>Shapeshift Admin Console</Breadcrumb.Item>
         </Breadcrumb>
         <form onSubmit={handleSubmit((data) => createJobMutation.mutateAsync(data))}>
-          <FormSection title="Create Job">
+          <FormSection title="Create Job" className="bg-white">
             <Input
               label="Resource URL"
               placeholder="Enter the URL of the resource to convert"
@@ -224,7 +225,7 @@ const ShapeshiftConsole = () => {
           }}
         />
       </Stack>
-    </div>
+    </DefaultScreenContainer>
   );
 };
 

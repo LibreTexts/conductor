@@ -22,7 +22,7 @@ const PeerReviewRubricInstructionsSegment: React.FC<
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-6">
+    <div className="bg-white border border-gray-200 rounded-lg p-6">
       <div className="flex items-center justify-between pb-3">
         <h3 className="text-base font-semibold text-gray-800 m-0">
           Editing Instructions
@@ -36,26 +36,26 @@ const PeerReviewRubricInstructionsSegment: React.FC<
       <ul className="list-disc pl-5 mb-3 space-y-1 text-sm">
         <li>
           A <strong>First Name</strong> field{" "}
-          <span className="text-gray-400">
+          <span className="text-gray-500">
             (collected automatically if logged into Conductor)
           </span>
         </li>
         <li>
           A <strong>Last Name</strong> field{" "}
-          <span className="text-gray-400">
+          <span className="text-gray-500">
             (collected automatically if logged into Conductor)
           </span>
         </li>
         <li>
           An <strong>Email</strong> field{" "}
-          <span className="text-gray-400">
+          <span className="text-gray-500">
             (collected automatically if logged into Conductor, not visible to
             others)
           </span>
         </li>
         <li>
           A <strong>Reviewer Type</strong> field{" "}
-          <span className="text-gray-400">(Student or Instructor)</span>
+          <span className="text-gray-500">(Student or Instructor)</span>
         </li>
         <li>
           An <strong>Overall Rating</strong> (up to five stars) field
@@ -97,16 +97,16 @@ const PeerReviewRubricInstructionsSegment: React.FC<
             </li>
             <li>
               <strong>Text:</strong> Free-response textual input{" "}
-              <span className="text-gray-400">(up to 10,000 characters)</span>
+              <span className="text-gray-500">(up to 10,000 characters)</span>
             </li>
             <li>
               <strong>Dropdown:</strong> Input requiring a selection between
               custom dropdown options{" "}
-              <span className="text-gray-400">(up to 10 options)</span>
+              <span className="text-gray-500">(up to 10 options)</span>
             </li>
             <li>
               <strong>Checkbox:</strong> Simple on/off checkbox{" "}
-              <span className="text-gray-400">
+              <span className="text-gray-500">
                 (setting 'Required' indicates the box must be checked to
                 submit)
               </span>

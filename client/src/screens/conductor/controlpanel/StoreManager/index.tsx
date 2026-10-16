@@ -18,6 +18,7 @@ import {
 import { useNotifications } from "../../../../context/NotificationContext";
 import { formatPrice, truncateOrderId } from "../../../../utils/storeHelpers";
 import { useMemo, useState } from "react";
+import DefaultScreenContainer from "../../../../components/navigation/DefaultScreenContainer";
 
 function luluStatusVariant(status?: string | null): BadgeVariant {
   if (!status) return "default";
@@ -85,7 +86,7 @@ const StoreManager = () => {
   const lastPage = data?.pages[data.pages.length - 1];
 
   return (
-    <div className="bg-white h-full px-8 pt-8">
+    <DefaultScreenContainer>
       <Stack direction="vertical" gap="md" className="mb-6">
         <Heading level={2}>LibreTexts Store Management</Heading>
         <Breadcrumb aria-label="Page navigation">
@@ -94,7 +95,7 @@ const StoreManager = () => {
         </Breadcrumb>
       </Stack>
 
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <div className="flex flex-wrap items-end gap-4 px-4 py-3 bg-gray-50 border-b border-gray-200">
           <div className="grow min-w-[16rem]">
             <Input
@@ -291,7 +292,7 @@ const StoreManager = () => {
           </div>
         )}
       </div>
-    </div>
+    </DefaultScreenContainer>
   );
 };
 

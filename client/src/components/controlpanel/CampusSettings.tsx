@@ -10,6 +10,7 @@ import {
 import { IconCircleCheck, IconDeviceFloppy } from "@tabler/icons-react";
 import CampusSettingsForm from "./OrgsManager/CampusSettingsForm.js";
 import { useTypedSelector } from "../../state/hooks";
+import DefaultScreenContainer from "../navigation/DefaultScreenContainer.js";
 
 const CampusSettings = () => {
   //Global state
@@ -31,18 +32,16 @@ const CampusSettings = () => {
   const [savedData, setSavedData] = useState(false);
 
   return (
-    <div className="bg-white h-full px-8 pt-8">
+    <DefaultScreenContainer>
       <Stack direction="vertical" gap="md" className="mb-4">
         <Heading level={2}>Campus Settings</Heading>
+        <Breadcrumb aria-label="Page navigation">
+          <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>Campus Settings</Breadcrumb.Item>
+        </Breadcrumb>
       </Stack>
 
       <Card>
-        <Card.Header>
-          <Breadcrumb aria-label="Page navigation">
-            <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
-            <Breadcrumb.Item isCurrent>Campus Settings</Breadcrumb.Item>
-          </Breadcrumb>
-        </Card.Header>
         <Card.Body>
           {!loadedData && (
             <div className="flex justify-center py-12">
@@ -76,7 +75,7 @@ const CampusSettings = () => {
           </Button>
         </Card.Footer>
       </Card>
-    </div>
+    </DefaultScreenContainer>
   );
 };
 

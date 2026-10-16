@@ -6,6 +6,7 @@ import {
   Alert,
   Breadcrumb,
   Button,
+  Divider,
   Heading,
   Spinner,
   Stack,
@@ -16,6 +17,7 @@ import {
   IconPlus,
   IconTrash,
 } from "@tabler/icons-react";
+import DefaultScreenContainer from "../navigation/DefaultScreenContainer";
 
 import PeerReview from "../peerreview/PeerReview";
 import ConfirmModal from "../ConfirmModal";
@@ -115,7 +117,7 @@ const PeerReviewRubrics = () => {
   }
 
   return (
-    <div className="bg-white h-full px-8 pt-8">
+    <DefaultScreenContainer>
       <Stack direction="vertical" gap="md" className="mb-4">
         <Heading level={2}>Peer Review Rubrics</Heading>
         <Breadcrumb aria-label="Page navigation">
@@ -143,7 +145,7 @@ const PeerReviewRubrics = () => {
         />
       )}
 
-      <div className="border border-gray-200 border-t-4 border-t-primary rounded-lg p-6 mb-4">
+      <div className="bg-white border border-gray-200 border-t-4 border-t-primary rounded-lg p-6 mb-4">
         <h3 className="text-base font-semibold text-gray-800 mb-2">
           Rubric Resolution
         </h3>
@@ -162,23 +164,13 @@ const PeerReviewRubrics = () => {
           <li>The LibreTexts default Rubric</li>
         </ol>
       </div>
-
-      <Button
-        variant="primary"
-        fullWidth
-        icon={<IconPlus size={16} />}
-        onClick={() => history.push("/controlpanel/peerreviewrubrics/create")}
-        className="mb-4"
-      >
-        Create Rubric
-      </Button>
-
+      <Divider className="mb-4" />
       {loadingRubrics ? (
         <div className="flex justify-center py-12">
           <Spinner size="md" />
         </div>
       ) : rubrics.length > 0 ? (
-        <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+        <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-200">
           {rubrics.map((item) => {
             const canManage =
               item.orgID === org.orgID &&
@@ -200,9 +192,9 @@ const PeerReviewRubrics = () => {
                       Last Updated:{" "}
                       {item.updatedAt
                         ? formatDate(
-                            new Date(item.updatedAt),
-                            DATE_FORMAT_STRING
-                          )
+                          new Date(item.updatedAt),
+                          DATE_FORMAT_STRING
+                        )
                         : "Unknown"}
                     </em>
                   </span>
@@ -246,6 +238,17 @@ const PeerReviewRubrics = () => {
         <p className="text-center text-gray-500 py-8">No rubrics found.</p>
       )}
 
+      <Stack direction="horizontal" justify="center" gap="md" className="my-6 w-full!">
+        <Button
+          variant="primary"
+          icon={<IconPlus size={20} />}
+          onClick={() => history.push("/controlpanel/peerreviewrubrics/create")}
+          size="lg"
+        >
+          Create Rubric
+        </Button>
+      </Stack>
+
       {showDeleteModal && (
         <ConfirmModal
           text={`Are you sure you want to delete the "${deleteRubricTitle}" rubric (ID: ${deleteRubricID})? Projects using this as their Preferred Rubric will fallback to the Campus or LibreTexts default.`}
@@ -263,7 +266,7 @@ const PeerReviewRubrics = () => {
         rubricID={prPreviewID}
         demoView={true}
       />
-    </div>
+    </DefaultScreenContainer>
   );
 };
 

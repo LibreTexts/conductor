@@ -20,6 +20,7 @@ import {
   IconQuestionMark,
   IconX,
 } from "@tabler/icons-react";
+import DefaultScreenContainer from "../navigation/DefaultScreenContainer";
 
 import PeerReviewRubricInstructionsSegment from "./PeerReviewRubricInstructionsSegment";
 import EditableFormBlock from "../CustomForms/EditableFormBlock";
@@ -505,7 +506,7 @@ const PeerReviewRubricManage = () => {
     manageMode === "create" ? "Create Peer Review Rubric" : "Edit Peer Review Rubric";
 
   return (
-    <div className="bg-white h-full px-8 pt-8">
+    <DefaultScreenContainer>
       <Stack direction="vertical" gap="md" className="mb-4">
         <Heading level={2}>{pageTitle}</Heading>
         <div className="flex items-center justify-between">
@@ -533,13 +534,13 @@ const PeerReviewRubricManage = () => {
           <span className="text-gray-400">Loading...</span>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 ">
           <PeerReviewRubricInstructionsSegment
             show={showInstructions}
             toggleVisibility={() => setShowInstructions(!showInstructions)}
           />
 
-          <div className="border border-gray-200 rounded-lg p-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
             <Heading level={4} style={{ margin: 0 }}>
               General Rubric Settings
             </Heading>
@@ -569,7 +570,7 @@ const PeerReviewRubricManage = () => {
             </div>
           </div>
 
-          <div className="border border-gray-200 rounded-lg p-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
             <Heading level={4} style={{ margin: 0 }}>
               New Peer Review
             </Heading>
@@ -619,7 +620,7 @@ const PeerReviewRubricManage = () => {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 justify-end">
             <Button
               variant="outline"
               icon={<IconX size={16} />}
@@ -698,7 +699,7 @@ const PeerReviewRubricManage = () => {
         blockType={dbType}
         loading={dbLoading}
       />
-    </div>
+    </DefaultScreenContainer>
   );
 };
 
