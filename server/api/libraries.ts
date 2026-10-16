@@ -1,11 +1,11 @@
 import logger from "../logger.js";
 import Library from "../models/library.js";
 import { Request, Response } from "express";
-import { conductor500Err } from "../util/errorutils.js";
+import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import { z } from "zod";
 import {
   FindShelfAcrossLibrariesSchema,
-  GetLibraryFromSubdomainSchema,
+  GetLibraryBySubdomainSchema,
   GetLibraryShelvesSchema,
 } from "./validators/libraries.js";
 import LibraryService from "./services/library-service.js";
@@ -23,22 +23,18 @@ export async function getLibraries(req: Request, res: Response) {
   }
 }
 
-export async function getLibraryFromSubdomain(
-  req: z.infer<typeof GetLibraryFromSubdomainSchema>,
+export async function getLibraryBySubdomain(
+  req: z.infer<typeof GetLibraryBySubdomainSchema>,
   res: Response,
 ) {
   try {
     const includeHidden =
       req.query.includeHidden?.toString() === "true" || req.query.includeHidden === true;
-    const library = await Library.findOne({
-      subdomain: req.params.subdomain,
-      ...(includeHidden ? {} : { hidden: false }),
-    });
+
+    const library = await new LibraryService().getLibraryFromSubdomain(req.params.subdomain, { includeHidden });
+
     if (!library) {
-      return res.status(404).send({
-        err: true,
-        message: "Library not found",
-      });
+      return conductor404Err(res);
     }
 
     return res.send({
@@ -46,7 +42,7 @@ export async function getLibraryFromSubdomain(
       library,
     });
   } catch (err) {
-    logger.error({ err }, "getLibraryFromSubdomain failed");
+    logger.error({ err }, "getLibraryBySubdomain failed");
     return conductor500Err(res);
   }
 }
@@ -137,7 +133,7 @@ export async function getLibraryNameKeys(
 
 export default {
   getLibraries,
-  getLibraryFromSubdomain,
+  getLibraryBySubdomain,
   getLibraryShelves,
   findShelfAcrossLibraries,
   getLibraryNameKeys,

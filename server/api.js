@@ -1133,8 +1133,8 @@ router.route("/commons/libraries/:subdomain/shelves").get(
 );
 
 router.route("/commons/libraries/:subdomain").get(
-  middleware.validateZod(LibraryValidators.GetLibraryFromSubdomainSchema),
-  librariesAPI.getLibraryFromSubdomain
+  middleware.validateZod(LibraryValidators.GetLibraryBySubdomainSchema),
+  librariesAPI.getLibraryBySubdomain
 )
 
 /* Commons Management */
@@ -2202,6 +2202,15 @@ router
     authAPI.getUserAttributes,
     middleware.validateZod(ProjectValidators.GetAddableTeamMembersSchema),
     projectsAPI.getAddableMembers
+  );
+
+router
+  .route("/project/:projectID/team/library-access")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(ProjectValidators.CheckTeamLibraryAccessSchema),
+    projectsAPI.checkTeamLibraryAccess
   );
 
 router.route("/project/:projectID/team/re-sync").put(

@@ -89,6 +89,7 @@ import {
   ProjectBookBatchUpdateJob,
   ProjectFileAuthor,
   ProjectTag,
+  TeamMemberLibraryAccess,
 } from "./types/Project";
 import {
   Collection,
@@ -1538,7 +1539,7 @@ class API {
     return res;
   }
 
-  async getLibraryFromSubdomain(subdomain: string, includeHidden?: boolean) {
+  async getLibraryBySubdomain(subdomain: string, includeHidden?: boolean) {
     const res = await axios.get<
       {
         library: Library;
@@ -1664,18 +1665,18 @@ class API {
   async updateUserPinnedProjects(
     data:
       | {
-          action: "add-project" | "move-project";
-          folder: string;
-          projectID: string;
-        }
+        action: "add-project" | "move-project";
+        folder: string;
+        projectID: string;
+      }
       | {
-          action: "remove-project";
-          projectID: string;
-        }
+        action: "remove-project";
+        projectID: string;
+      }
       | {
-          action: "add-folder" | "remove-folder";
-          folder: string;
-        },
+        action: "add-folder" | "remove-folder";
+        folder: string;
+      },
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
       "/user/projects/pinned",
@@ -2383,15 +2384,13 @@ class API {
   }
 
   // Library access
-  async checkTeamLibraryAccess(applicationId: string | number, ids: string[]) {
-    const res = await axios.post<
-      {
-        accessResults: { id: string; hasAccess: boolean }[];
-      } & ConductorBaseResponse
-    >(`/central-identity/users/applications/${applicationId}`, {
-      ids,
+  async checkTeamLibraryAccess(projectID: string, library?: string) {
+    const res = await axios.get<
+      ConductorBaseResponse & { data: TeamMemberLibraryAccess[] }
+    >(`/project/${projectID}/team/library-access`, {
+      params: { library },
     });
-    return res;
+    return res.data;
   }
 
   // user manager
@@ -3337,7 +3336,7 @@ class API {
         data: {
           format: ReferenceFormatType;
           displayLocation?: ReferenceDisplayLocation;
-          pageTitle?: string;   
+          pageTitle?: string;
           selectedList?: string[];
         };
       } & ConductorBaseResponse
@@ -3519,7 +3518,7 @@ class API {
   async addBookPageAsReference(projectID: string, data: { bookID: string; pageID: string }) {
     const res = await axios.post<
       {
-        data: { referenceID: string; citationKey: string, author: string, title: string, year: string, url: string , };
+        data: { referenceID: string; citationKey: string, author: string, title: string, year: string, url: string, };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference/book`, { ...data });
     return res.data;

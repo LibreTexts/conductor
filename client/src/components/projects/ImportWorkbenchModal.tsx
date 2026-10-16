@@ -1,16 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button, Input, Modal, Select } from "@libretexts/davis-react";
 import { IconDeviceFloppy } from "@tabler/icons-react";
 import { Controller, useForm } from "react-hook-form";
 import { httpUrl, required } from "../../utils/formRules";
-import { CentralIdentityApp, ImportWorkbenchForm } from "../../types";
+import { CreateWorkbenchForm, ImportWorkbenchForm } from "../../types";
 import { useTypedSelector } from "../../state/hooks";
 import useGlobalError from "../error/ErrorHooks";
 import axios from "axios";
 import TeamAccessWarningModal from "./TeamAccessWarningModal";
 import useClientConfig from "../../hooks/useClientConfig";
 import api from "../../api";
+import useLibraries from "../../hooks/useLibraries";
+import useProjectTeamLibraryAccess from "../../hooks/useProjectTeamLibraryAccess";
 
 interface ImportWorkbenchModalProps {
   show: boolean;
@@ -42,19 +44,21 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
     initialJobStatus,
     initialJobMessages,
   } = props;
-  const teamMembers = [
-    ...(project?.auditors || []),
-    ...(project?.leads || []),
-    ...(project?.liaisons || []),
-    ...(project?.members || []),
-  ].map((member) => {
-    return {
-      uuid: member.uuid,
-      firstName: member.firstName,
-      lastName: member.lastName,
-      avatar: member.avatar,
-    };
-  });
+  const teamMembers: TeamMemberWithoutAccess[] = useMemo(
+    () =>
+      [
+        ...(project?.auditors || []),
+        ...(project?.leads || []),
+        ...(project?.liaisons || []),
+        ...(project?.members || []),
+      ].map((member) => ({
+        uuid: member.uuid,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        avatar: member.avatar,
+      })),
+    [project]
+  );
   const { clientConfig } = useClientConfig();
 
   const { handleGlobalError } = useGlobalError();
@@ -66,12 +70,9 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
         pbBookURL: "",
       },
     });
+
   const [loading, setLoading] = useState(false);
   const [showAccessWarning, setShowAccessWarning] = useState(false);
-  const [membersWithoutAccess, setMembersWithoutAccess] = useState<
-    TeamMemberWithoutAccess[]
-  >([]);
-  const [selectedLibraryName, setSelectedLibraryName] = useState("");
   const [jobID, setJobID] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<
     "idle" | "pending" | "running" | "success" | "error"
@@ -85,65 +86,57 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
       messagesContainerRef.current.scrollHeight;
   }, [jobMessages]);
 
+
+  const { libraries, isLoading: librariesLoading } = useLibraries({ enabled: show });
+  const { access, isFetching: accessLoading } = useProjectTeamLibraryAccess(
+    projectID,
+    watch("library")
+  );
+
   const selectedLibrary = watch("library");
+  const selectedLibraryTitle = useMemo(() => {
+    const library = libraries?.find(lib => lib.subdomain === selectedLibrary);
+    return library ? library.title : "";
+  }, [selectedLibrary, libraries]);
 
-  const {
-    data: libraryData,
-    isLoading: libraryOptsLoading,
-    error: libraryError,
-  } = useQuery({
-    queryKey: ["central-identity", "public", "apps"],
-    queryFn: async () => {
-      const res = await axios.get("/central-identity/public/apps");
-      if (res.data.err) throw new Error(res.data.errMsg);
-      if (!res.data.applications) throw new Error("No libraries found");
-      const libraries = (res.data.applications as CentralIdentityApp[]).filter(
-        (a) => a.app_type === "library",
-      );
-      if (!libraries.length) throw new Error("No libraries found");
-      return libraries;
-    },
-    enabled: show,
-  });
-  const libraryOptions = libraryData ?? [];
+  const userCanAccessLibrary = useMemo(() => {
+    if (!selectedLibrary) return true; // Don't show access warning if no library is selected
+    if (user.isSupport || user.isSuperAdmin) return true; // Support and super admins always have access
+    if (accessLoading) return true; // Don't warn while the check for the new library is in flight
+    return access?.find((result: any) => result.id === user.uuid)?.hasAccess ?? false;
+  }, [access, accessLoading, selectedLibrary, user.uuid, user.isSupport, user.isSuperAdmin]);
 
-  useEffect(() => {
-    if (libraryError) handleGlobalError(libraryError);
-  }, [libraryError]);
-
-  const { data: hasLibraryAccess, error: libraryAccessError } = useQuery({
-    queryKey: [
-      "central-identity",
-      "users",
-      user.uuid,
-      "applications",
-      selectedLibrary,
-    ],
-    queryFn: async () => {
-      const res = await axios.get(
-        `/central-identity/users/${user.uuid}/applications/${selectedLibrary}`,
-      );
-      if (res.data.err) throw new Error(res.data.errMsg);
-      return (res.data.hasAccess as boolean) ?? false;
-    },
-    enabled: show && !!user.uuid && !!selectedLibrary,
-  });
-  const canAccessLibrary = hasLibraryAccess ?? true;
-
-  useEffect(() => {
-    if (libraryAccessError) handleGlobalError(libraryAccessError);
-  }, [libraryAccessError]);
+  const membersWithoutAccess = useMemo(() => {
+    if (accessLoading) return [];
+    return teamMembers.filter(
+      (member) =>
+        !access?.find((result: any) => result.id === member.uuid)?.hasAccess
+    );
+  }, [access, accessLoading, selectedLibrary, teamMembers]);
 
   useEffect(() => {
     if (show) {
       reset();
-      setValue("pbBookURL", "");
+      setShowAccessWarning(false);
+      // An in-flight import is owned by jobID and keeps polling while the modal
+      // is closed, so only clear the state that describes this modal session.
+      if (!jobID) {
+        setLoading(false);
+        setJobStatus("idle");
+        setJobMessages([]);
+      }
     }
   }, [show]);
+
+  const adoptedInitialJobRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!show) return;
     if (!initialJobID) return;
+    // Re-running this on a refetch of the parent query would overwrite the
+    // status and messages the poller has since collected.
+    if (adoptedInitialJobRef.current === initialJobID) return;
+    adoptedInitialJobRef.current = initialJobID;
 
     setJobID(initialJobID);
     if (initialJobStatus) {
@@ -156,31 +149,6 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
     }
     setLoading(true);
   }, [show, initialJobID, initialJobStatus, initialJobMessages]);
-
-  useEffect(() => {
-    if (selectedLibrary) {
-      const libraryObj = libraryOptions.find(
-        (lib) => lib.id.toString() === selectedLibrary.toString(),
-      );
-      if (libraryObj) {
-        setSelectedLibraryName(libraryObj.name);
-      }
-    }
-  }, [selectedLibrary, libraryOptions]);
-
-  const { mutateAsync: checkTeamMembersAccess } = useMutation({
-    mutationFn: async (): Promise<TeamMemberWithoutAccess[]> => {
-      if (!teamMembers.length || !getValues("library")) return [];
-      const ids = teamMembers.map((member) => member.uuid);
-      const res = await api.checkTeamLibraryAccess(getValues("library"), ids);
-      return teamMembers.filter(
-        (member) =>
-          !res.data.accessResults.find(
-            (result: any) => result.id === member.uuid,
-          )?.hasAccess,
-      );
-    },
-  });
 
   const { mutateAsync: createWorkbench } = useMutation({
     mutationFn: async () => {
@@ -259,13 +227,15 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
 
   async function handleCreateClick() {
     try {
+      if (!userCanAccessLibrary || accessLoading) return;
+      if (loading) return;
+
       setLoading(true);
-      const withoutAccess = await checkTeamMembersAccess();
-      if (withoutAccess.length > 0) {
-        setMembersWithoutAccess(withoutAccess);
+      if (membersWithoutAccess.length > 0) {
         setShowAccessWarning(true);
         setLoading(false);
       } else {
+        // Proceed with creating the workbench since all members have access
         await createWorkbench();
       }
     } catch (err) {
@@ -296,15 +266,17 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
                 <Select
                   name={field.name}
                   label="Library"
-                  options={libraryOptions.map((l) => ({
-                    value: l.id.toString(),
-                    label: l.name,
-                  }))}
+                  options={libraries?.map((l) => ({
+                    value: l.subdomain,
+                    label: l.title,
+                    key: l.subdomain,
+                  })) || []}
                   value={field.value?.toString() ?? ""}
                   onChange={(e) => field.onChange(e.target.value)}
                   placeholder="Select Library..."
                   error={!!formState.errors.library}
-                  disabled={libraryOptsLoading || loading}
+                  errorMessage={formState.errors.library?.message}
+                  disabled={librariesLoading}
                   required
                 />
               )}
@@ -312,8 +284,8 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
             {user.isSuperAdmin && (
               // Super Admins can use the dev library for debugging
               <p
-                className="underline cursor-pointer mt-1"
-                onClick={() => setValue("library", "21", { shouldDirty: false })}
+                className="underline cursor-pointer mt-2!"
+                onClick={() => setValue("library", "dev", { shouldDirty: true })}
               >
                 Use Dev (Super Admins Only)
               </p>
@@ -331,7 +303,10 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
                     placeholder="https://pressbooks.pub/example_book"
                     type="url"
                     required
+                    value={field.value ?? ""}
                     onChange={(e) => field.onChange(e.target.value)}
+                    error={!!formState.errors.pbBookURL}
+                    errorMessage={formState.errors.pbBookURL?.message}
                   />
                 )}
               />
@@ -341,7 +316,7 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
               <Controller
                 name="title"
                 control={control}
-                
+
                 render={({ field }) => (
                   <Input
                     name={field.name}
@@ -349,7 +324,10 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
                     label="Book Title"
                     placeholder="Enter Book Title"
                     required={false}
+                    value={field.value ?? ""}
                     onChange={(e) => field.onChange(e.target.value)}
+                    error={!!formState.errors.title}
+                    errorMessage={formState.errors.title?.message}
                   />
                 )}
               />
@@ -387,7 +365,7 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
             </div>
           )}
 
-          {!canAccessLibrary && (
+          {!userCanAccessLibrary && (
             <div className="mt-4 rounded-md border border-yellow-200 bg-yellow-50 p-4">
               <p className="font-semibold text-yellow-800">
                 Cannot Access Library
@@ -425,14 +403,14 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={onClose} loading={loading}  iconPosition="left">
+          <Button variant="secondary" onClick={onClose} loading={loading} iconPosition="left">
             Cancel
           </Button>
           <Button
             variant="primary"
             onClick={handleCreateClick}
             loading={loading}
-            disabled={!canAccessLibrary}
+            disabled={!userCanAccessLibrary || accessLoading}
             icon={<IconDeviceFloppy size={16} />}
             iconPosition="left"
           >
@@ -442,7 +420,7 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
       </Modal>
       <TeamAccessWarningModal
         open={showAccessWarning}
-        selectedLibraryName={selectedLibraryName}
+        selectedLibraryName={selectedLibraryTitle}
         membersWithoutAccess={membersWithoutAccess}
         onClose={() => {
           setShowAccessWarning(false);
@@ -451,6 +429,8 @@ const ImportWorkbenchModal: React.FC<ImportWorkbenchModalProps> = (props) => {
         onCreateWithWarning={async () => {
           setShowAccessWarning(false);
           try {
+            if (!userCanAccessLibrary) return;
+            setLoading(true);
             await createWorkbench();
           } catch (err) {
             handleGlobalError(err);

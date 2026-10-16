@@ -360,8 +360,27 @@ export async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function getSubdomainFromUrl(url){
-  const hostname = new URL(url).hostname;
+export function getSubdomainFromUrl(url) {
+  const SCHEME_REGEX = /^[a-z][a-z\d+\-.]*:\/\//i;
+
+  if (typeof url !== 'string' || url.trim() === '') {
+    return null;
+  }
+
+  let input = url.trim();
+  if (input.startsWith('//')) {
+    input = 'https:' + input;          // protocol-relative: //example.com
+  } else if (!SCHEME_REGEX.test(input)) {
+    input = 'https://' + input;        // bare host: www.example.com
+  }
+
+  let hostname;
+  try {
+    hostname = new URL(input).hostname;
+  } catch {
+    return null;
+  }
+
   const parts = hostname.split('.');
   if (parts.length > 2) {
     return parts[0];

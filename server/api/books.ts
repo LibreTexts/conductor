@@ -12,7 +12,6 @@ import PeerReview from "../models/peerreview.js";
 import CIDDescriptor from "../models/ciddescriptor.js";
 import conductorErrors from "../conductor-errors.js";
 import {
-  getSubdomainFromUrl,
   isEmptyString,
   isValidDateObject,
   sleep,
@@ -144,6 +143,7 @@ import {
   isCollectionSyncDryRun,
   syncAutoManagedCollections,
 } from "./services/collection-sync-service.js";
+import LibraryService from "./services/library-service.js";
 const commonsSyncLog = childLogger("commons-sync");
 
 
@@ -315,11 +315,11 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
 
     if (!complete || dropped > 0 || coverpages.length === 0) {
       commonsSyncLog.info(`Skipping missing-book detection for ${subdomain}: ` +
-                  (coverpages.length === 0
-                    ? "sync returned no books."
-                    : !complete
-                      ? "the coverpage search was incomplete."
-                      : `${dropped} coverpage(s) could not be mapped to a Book.`));
+        (coverpages.length === 0
+          ? "sync returned no books."
+          : !complete
+            ? "the coverpage search was incomplete."
+            : `${dropped} coverpage(s) could not be mapped to a Book.`));
       continue;
     }
     completeLibraries.push(subdomain);
@@ -473,8 +473,8 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
     commonsSyncLog.info("Limited sync — skipping missing-book detection.");
   } else if (detectableLibraries.length < completeLibraries.length) {
     commonsSyncLog.info(`Skipping missing-book detection for ${completeLibraries
-              .filter((lib) => librariesWithFailedWrites.has(lib))
-              .join(", ")}: some books could not be written this run.`);
+      .filter((lib) => librariesWithFailedWrites.has(lib))
+      .join(", ")}: some books could not be written this run.`);
   }
 
   /* Downstream jobs — each reports its own failure without sinking the sync */
@@ -503,9 +503,8 @@ const runLibrarySync = async (signal?: AbortSignal): Promise<string> => {
   /* Summarize */
   let msg = `Imported ${importCount} books from the Libraries.`;
   if (failed.length > 0) {
-    msg += ` FAILED to sync ${failed.length} librar${
-      failed.length === 1 ? "y" : "ies"
-    }: ${failed.map((f) => `${f.subdomain} (${f.error})`).join("; ")}.`;
+    msg += ` FAILED to sync ${failed.length} librar${failed.length === 1 ? "y" : "ies"
+      }: ${failed.map((f) => `${f.subdomain} (${f.error})`).join("; ")}.`;
   }
   if (limited) {
     msg = `LIMITED SYNC (${describeLimits(limits)}) — not a full catalog. ${msg}`;
@@ -578,11 +577,10 @@ const withSyncTimeout = async <T>(
           controller.abort();
           reject(
             new Error(
-              `Sync with Libraries exceeded its ${
-                LIBRARY_SYNC_TIMEOUT_MS / 60000
+              `Sync with Libraries exceeded its ${LIBRARY_SYNC_TIMEOUT_MS / 60000
               }-minute ceiling and was abandoned. It has been signalled to ` +
-                `stop and will not write; the next trigger is accepted once ` +
-                `it unwinds.`,
+              `stop and will not write; the next trigger is accepted once ` +
+              `it unwinds.`,
             ),
           );
         }, LIBRARY_SYNC_TIMEOUT_MS);
@@ -641,8 +639,8 @@ const syncWithLibraries = async (_req: Request, res: Response) => {
   withSyncTimeout(work, controller).catch((err) => {
     logger.error({ err }, "syncWithLibraries failed");
     commonsSyncLog.info(err.message === "bulkwrite"
-              ? "Sync with Libraries failed: no books could be written."
-              : `Sync with Libraries failed: ${err.message}`);
+      ? "Sync with Libraries failed: no books could be written."
+      : `Sync with Libraries failed: ${err.message}`);
   });
 
   return res.status(202).send({
@@ -1287,23 +1285,13 @@ async function createBook(
   res: Response,
 ) {
   try {
-    const { library, title, projectID } = req.body;
+    const { library: subdomain, title, projectID } = req.body;
     const { uuid: userID } = req.user.decoded;
 
     const user = await User.findOne({ uuid: userID }).orFail();
 
-    const libraryApp = await centralIdentity.getApplicationById(library);
-    if (!libraryApp) {
-      return createBookErr(res, 404, "bad_library", conductorErrors.err11);
-    }
-
-    const subdomain = getSubdomainFromUrl(libraryApp.main_url);
-    if (!subdomain) {
-      return createBookErr(res, 404, "bad_library", conductorErrors.err11);
-    }
-
     const ctx = await ProjectContext.load(projectID, { hydrate: true });
-    if (!ctx.canMember(userID)) {
+    if (!ctx.canMember(userID) || !user.centralID) { // We need central ID to check library access
       return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
@@ -1318,11 +1306,14 @@ async function createBook(
       );
     }
 
-    const hasLibAccess =
-      await centralIdentity.checkUserApplicationAccessInternal(
-        user.centralID,
-        libraryApp.id,
-      );
+    // Check caller access directly instead of pulling from team list (this lets support/admin users bypass team membership checks)
+    const accessData = await new LibraryService().checkLibraryAccess(
+      subdomain,
+      [{ uuid: userID, centralID: user.centralID }]
+    );
+
+    const hasLibAccess = accessData?.[0]?.hasAccess ?? false;
+
     if (!hasLibAccess) {
       return createBookErr(res, 403, "no_library_access", conductorErrors.err8);
     }
@@ -1354,7 +1345,7 @@ async function createBook(
     let newCoverPageID: number | null = null;
     try {
       newCoverPageID = await BookService.createBookCoverPage({
-        library: subdomain,
+        library: subdomain, // if LibraryService.checkLibraryAccess returned a valid entry for the user, then we know this is a valid subdomain (library)
         coverPagePath: bookPath,
         title,
         throwOnConflict: true,
@@ -1408,7 +1399,7 @@ async function createBook(
         ],
       },
       {
-        libreLibrary: subdomain,
+        libreLibrary: subdomain, // if LibraryService.checkLibraryAccess returned a valid entry for the user, then we know this is a valid subdomain (library)
         libreCoverID: newCoverPageID.toString(),
         didCreateWorkbench: true,
       },
@@ -2720,8 +2711,8 @@ async function catchUpSearchIndexSince(
 
     if (changed.length > SEARCH_INDEX_CATCH_UP_MAX) {
       logger.info(`Catch-up window covers more than ${SEARCH_INDEX_CATCH_UP_MAX} books — a library ` +
-                  `walk most likely overlapped this run and restamped every lastSyncedAt. ` +
-                  `Skipping the catch-up; the next re-sync covers it.`);
+        `walk most likely overlapped this run and restamped every lastSyncedAt. ` +
+        `Skipping the catch-up; the next re-sync covers it.`);
       break;
     }
 
@@ -2828,17 +2819,32 @@ async function importPressBooksBook(
     const { library, title, projectID, pbBookURL } = req.body;
     const { uuid: userID } = req.user.decoded;
     const user = await User.findOne({ uuid: userID }).orFail();
-    const project = await Project.findOne({ projectID }).orFail();
 
-    const libraryApp = await centralIdentity.getApplicationById(library);
-    if (!libraryApp) {
-      throw new Error("badlibrary");
-    }
-    if (!projectsAPI.checkProjectMemberPermission(project, user)) {
+    const ctx = await ProjectContext.load(projectID);
+
+    // Check calling user is at least project member
+    if (!ctx.canMember(user)) {
       throw new Error(conductorErrors.err8);
     }
-    if (!await centralIdentity.checkUserApplicationAccessInternal(user.centralID, libraryApp.id)) {
+
+    // Check caller access directly instead of pulling from team list (this lets support/admin users bypass team membership checks)
+    const accessResults = await new LibraryService().checkLibraryAccess(library, [
+      { uuid: userID, centralID: user.centralID }
+    ]);
+    const hasLibAccess = accessResults?.[0]?.hasAccess ?? false;
+    if (!hasLibAccess) {
       throw new Error(conductorErrors.err8);
+    }
+
+    // Creating a second book would orphan the first one and silently relink the
+    // project, so refuse rather than half-succeed.
+    if (ctx.doc.libreLibrary && ctx.doc.libreCoverID) {
+      return createBookErr(
+        res,
+        409,
+        "already_linked",
+        ALREADY_LINKED_MSG,
+      );
     }
 
     const jobID = base62(10);
@@ -2868,6 +2874,9 @@ async function importPressBooksBook(
       userID,
     });
   } catch (err: any) {
+    if (err instanceof ProjectError) {
+      return returnProjectError(res, err);
+    }
     return res.status(500).send({
       err: true,
       errMsg: err.message,
@@ -2877,7 +2886,7 @@ async function importPressBooksBook(
 
 type PressbooksImportJobParams = {
   jobID: string;
-  library: number;
+  library: string;
   title?: string;
   projectID: string;
   pbBookURL: string;
@@ -2897,7 +2906,12 @@ async function appendPressbooksJobMessages(jobID: string, messages: string[]) {
   );
 }
 
-
+/**
+ * Runs the Pressbooks import job for the given parameters.
+ * NOTE: This function assumes that the user, project, and library access have already been validated.
+ * DO NOT call this function directly without validating user, project, and library access first.
+ * @param params 
+ */
 async function runPressbooksImportJob(params: PressbooksImportJobParams) {
   const { jobID, library, title, projectID, pbBookURL, userID } = params;
 
@@ -2915,36 +2929,15 @@ async function runPressbooksImportJob(params: PressbooksImportJobParams) {
       "Validating user, project, and library access...",
     ]);
 
-    const user = await User.findOne({ uuid: userID }).orFail();
-    const project = await Project.findOne({ projectID }).orFail();
+    const ctx = await ProjectContext.load(projectID, { hydrate: true });
 
-    const libraryApp = await centralIdentity.getApplicationById(library);
-    if (!libraryApp) {
-      throw new Error("badlibrary");
+    // Creating a second book attached to project would orphan the first one and silently relink the
+    // project, so refuse rather than half-succeed.
+    if (ctx.doc.libreLibrary && ctx.doc.libreCoverID) {
+      throw new Error(ALREADY_LINKED_MSG);
     }
 
-    const subdomain = getSubdomainFromUrl(libraryApp.main_url);
-    if (!subdomain) {
-      throw new Error("badlibrary");
-    }
-
-    // Check project permissions
-    const canCreate = projectsAPI.checkProjectMemberPermission(project, user);
-    if (!canCreate) {
-      throw new Error(conductorErrors.err8);
-    }
-
-    const hasLibAccess =
-      await centralIdentity.checkUserApplicationAccessInternal(
-        user.centralID,
-        libraryApp.id,
-      );
-
-    if (!hasLibAccess) {
-      throw new Error(conductorErrors.err8);
-    }
-
-    const scraper = new PressBookScraper(pbBookURL, subdomain, title);
+    const scraper = new PressBookScraper(pbBookURL, library, title);
     const result = await scraper.publishBook({
       log: (message: string) => {
         void appendPressbooksJobMessages(jobID, [message]);
@@ -2955,15 +2948,15 @@ async function runPressbooksImportJob(params: PressbooksImportJobParams) {
       "Updating associated project with new Workbench information...",
     ]);
 
-    project.libreLibrary = subdomain;
-    project.libreCoverID = result.bookID;
-    project.didCreateWorkbench = true;
-    result.authorsName && (project.author = result.authorsName);
-    result.license && (project.license = result.license);
-    // result.sourcePublicationDate && (project.sourceOriginalPublicationDate = result.sourcePublicationDate);
-    result.thumbnail && (project.thumbnail = result.thumbnail);
-    result.resourceURL && (project.projectURL = result.resourceURL);
-    await project.save();
+    ctx.doc.libreLibrary = library;
+    ctx.doc.libreCoverID = result.bookID;
+    ctx.doc.didCreateWorkbench = true;
+    result.authorsName && (ctx.doc.author = result.authorsName);
+    result.license && (ctx.doc.license = result.license);
+    // result.sourcePublicationDate && (ctx.doc.sourceOriginalPublicationDate = result.sourcePublicationDate);
+    result.thumbnail && (ctx.doc.thumbnail = result.thumbnail);
+    result.resourceURL && (ctx.doc.projectURL = result.resourceURL);
+    await ctx.doc.save();
 
     await PressbooksImportJob.updateOne(
       { jobID },
@@ -3608,7 +3601,7 @@ async function glossaryCsvUploadHandler(
  */
 const GLOSSARY_CSV_MAX_ROWS = 2000;
 
-class GlossaryCsvTooManyRowsError extends Error {}
+class GlossaryCsvTooManyRowsError extends Error { }
 
 function parseGlossaryCsvEntries(
   buffer: Buffer,

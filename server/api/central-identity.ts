@@ -418,24 +418,7 @@ async function checkUsersApplicationAccess(
     const users = await User.find({ uuid: { $in: ids } });
     if (!users?.length) return conductor404Err(res);
 
-    const accessPromises = users.map((u) => {
-      return new Promise<{ id: string; hasAccess: boolean }>((resolve, reject) => {
-        if (!u.centralID) {
-          resolve({ id: u.uuid, hasAccess: false });
-        } else {
-          checkUserApplicationAccessInternal(u.centralID, applicationId)
-            .then((hasAccess) => {
-              resolve({ id: u.uuid, hasAccess: hasAccess ?? false });
-            })
-            .catch((err) => {
-              logger.error({ err }, "accessPromises failed");
-              reject(err);
-            });
-        }
-      })
-    });
-
-    const accessResults = await Promise.all(accessPromises);
+    const accessResults = await checkUserApplicationAccessInternalBulk(users, applicationId);
 
     return res.send({
       err: false,
@@ -444,6 +427,49 @@ async function checkUsersApplicationAccess(
   } catch (err) {
     logger.error({ err }, "checkUsersApplicationAccess failed");
     return conductor500Err(res);
+  }
+}
+
+export async function checkUserApplicationAccessInternalBulk(
+  userIds: ({ uuid: string; centralID?: string })[],
+  appId: number | string
+): Promise<{ id: string; centralID: string | undefined; hasAccess: boolean }[]> {
+  try {
+    const accessPromises = userIds.map((u) => {
+      return new Promise<{ id: string; centralID: string | undefined; hasAccess: boolean }>((resolve, reject) => {
+        if (!u.centralID) {
+          resolve({
+            id: u.uuid,
+            centralID: u.centralID,
+            hasAccess: false
+          });
+        } else {
+          checkUserApplicationAccessInternal(u.centralID, appId)
+            .then((hasAccess) => {
+              resolve({
+                id: u.uuid,
+                centralID: u.centralID,
+                hasAccess: hasAccess ?? false
+              });
+            })
+            .catch((err) => {
+              logger.error({ err, uuid: u.uuid }, "accessPromises failed");
+              // Resolve, not reject: one user's failed check must not abandon the
+              // whole batch. Failing closed here means the caller sees no access.
+              resolve({
+                id: u.uuid,
+                centralID: u.centralID,
+                hasAccess: false
+              });
+            });
+        }
+      })
+    });
+
+    return await Promise.all(accessPromises);
+  } catch (err) {
+    logger.error({ err }, "checkUserApplicationAccessInternalBulk failed");
+    return [];
   }
 }
 
@@ -950,22 +976,6 @@ async function getApplicationById(
     return found ?? null;
   } catch (err) {
     logger.error({ err }, "getApplicationById failed");
-    return null;
-  }
-}
-
-async function getLibraryFromSubdomain(
-  subdomain: string
-): Promise<CentralIdentityApp | null> {
-  try {
-    const apps = await _getApplicationsPriveledgedInternal(1, 1000);
-    if (!apps) return null;
-    const found = apps.applications.find((app) =>
-      app.main_url.includes(subdomain)
-    );
-    return found ?? null;
-  } catch (err) {
-    logger.error({ err }, "getLibraryFromSubdomain failed");
     return null;
   }
 }
@@ -2387,7 +2397,6 @@ export default {
   getApplicationsPriveledged,
   getApplicationsPublic,
   getApplicationById,
-  getLibraryFromSubdomain,
   getOrgs,
   getOrg,
   updateOrg,
