@@ -67,8 +67,11 @@ export const GetAuthorAssetsValidator = z.object({
   query: PaginationSchema,
 });
 
+// On create the key is optional: when omitted, the service generates a unique one from `name`.
 export const CreateAuthorValidator = z.object({
-  body: _AuthorValidator,
+  body: _AuthorValidator.extend({
+    nameKey: nameKeySchema.optional().or(z.literal("")),
+  }),
 });
 
 export const UpdateAuthorValidator = z.object({
