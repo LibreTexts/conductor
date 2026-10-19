@@ -10,6 +10,8 @@ import {
 import Author from "../models/author.js";
 import {
   CreateAuthorValidator,
+  CreateAuthorGroupValidator,
+  FindSimilarAuthorsValidator,
   DeleteAuthorValidator,
   GetAuthorsValidator,
   GetAuthorAssetsValidator,
@@ -17,13 +19,14 @@ import {
   UpdateAuthorValidator,
   UploadAuthorPictureValidator,
   GetAuthorByNameKeyValidator,
+  GetAuthorsByNameKeysValidator,
   NAME_KEY_LOOKUP_REGEX,
 } from "./validators/authors.js";
 import conductorErrors from "../conductor-errors.js";
 import { conductor404Err, conductor500Err } from "../util/errorutils.js";
 import { getPaginationOffset } from "../util/helpers.js";
 import ProjectFile from "../models/projectfile.js";
-import AuthorService from "./services/author-service.js";
+import AuthorService, { AuthorGroupError } from "./services/author-service.js";
 
 const ALLOWED_PICTURE_MIMETYPES = ["image/jpeg", "image/png", "image/webp"];
 const authorPictureStorage = multer.memoryStorage();
@@ -138,6 +141,28 @@ async function getAuthorByNameKey(
     });
   } catch (err: any) {
     logger.error({ err }, "getAuthorByNameKey failed");
+    return conductor500Err(res);
+  }
+}
+
+async function getAuthorsByNameKeys(
+  req: z.infer<typeof GetAuthorsByNameKeysValidator>,
+  res: Response
+) {
+  try {
+    const authorService = new AuthorService();
+    const { authors, missing } = await authorService.getAuthorsByNameKeys(req.query.keys);
+
+    // Same reasoning as the single-key lookup: anonymous, identical for every caller.
+    res.setHeader("Cache-Control", `public, max-age=${AUTHOR_BY_KEY_MAX_AGE_SECONDS}`);
+
+    res.send({
+      err: false,
+      authors,
+      missing,
+    });
+  } catch (err: any) {
+    logger.error({ err }, "getAuthorsByNameKeys failed");
     return conductor500Err(res);
   }
 }
@@ -289,6 +314,9 @@ async function createAuthor(
       author,
     });
   } catch (err: any) {
+    if (err instanceof AuthorGroupError) {
+      return res.status(err.status).send({ err: true, errMsg: err.message });
+    }
     if (err.name === "MongoServerError" && err.code === 11000) {
       return res.status(409).send({
         err: true,
@@ -296,6 +324,51 @@ async function createAuthor(
       });
     }
     logger.error({ err }, "createAuthor failed");
+    return conductor500Err(res);
+  }
+}
+
+async function findSimilarAuthors(
+  req: z.infer<typeof FindSimilarAuthorsValidator>,
+  res: Response
+) {
+  try {
+    const authorService = new AuthorService();
+    const matches = await authorService.findSimilarAuthors(req.body);
+
+    res.send({
+      err: false,
+      matches,
+    });
+  } catch (err: any) {
+    logger.error({ err }, "findSimilarAuthors failed");
+    return conductor500Err(res);
+  }
+}
+
+async function createAuthorGroup(
+  req: z.infer<typeof CreateAuthorGroupValidator>,
+  res: Response
+) {
+  try {
+    const authorService = new AuthorService();
+    const author = await authorService.createGroup(req.body);
+
+    res.send({
+      err: false,
+      author,
+    });
+  } catch (err: any) {
+    if (err instanceof AuthorGroupError) {
+      return res.status(err.status).send({ err: true, errMsg: err.message });
+    }
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return res.status(409).send({
+        err: true,
+        errMsg: "An author with that nameKey already exists.",
+      });
+    }
+    logger.error({ err }, "createAuthorGroup failed");
     return conductor500Err(res);
   }
 }
@@ -313,6 +386,9 @@ async function updateAuthor(
       author,
     });
   } catch (err: any) {
+    if (err instanceof AuthorGroupError) {
+      return res.status(err.status).send({ err: true, errMsg: err.message });
+    }
     if (err.name === "MongoServerError" && err.code === 11000) {
       return res.status(409).send({
         err: true,
@@ -340,6 +416,9 @@ async function deleteAuthor(
       deleted: true,
     });
   } catch (err: any) {
+    if (err instanceof AuthorGroupError) {
+      return res.status(err.status).send({ err: true, errMsg: err.message });
+    }
     if (err.name === "DocumentNotFoundError") {
       return conductor404Err(res);
     }
@@ -469,8 +548,11 @@ export default {
   getAuthors,
   getAuthor,
   getAuthorByNameKey,
+  getAuthorsByNameKeys,
   getAuthorAssets,
   createAuthor,
+  createAuthorGroup,
+  findSimilarAuthors,
   updateAuthor,
   deleteAuthor,
   authorPictureUploadHandler,

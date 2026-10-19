@@ -32,6 +32,8 @@ export type SyncedBook = Pick<BookInterface, "bookID" | "title" | "library"> &
     Pick<
       BookInterface,
       | "author"
+      | "authorKeys"
+      | "authorGroupKey"
       | "affiliation"
       | "subject"
       | "location"
@@ -139,6 +141,8 @@ export const toBookRecord = (
     title: sanitizeLibraryText(coverpage.title),
     library: subdomain,
     author: sanitizeOptionalLibraryText(coverpage.author),
+    authorKeys: coverpage.authorKeys,
+    authorGroupKey: coverpage.authorGroupKey,
     affiliation: sanitizeOptionalLibraryText(coverpage.affiliation),
     subject,
     location,
@@ -269,6 +273,12 @@ export const buildBookUpsertOp = (book: SyncedBook, syncedAt: Date) => ({
         title: book.title,
         author: book.author,
         affiliation: book.affiliation,
+        // Only books tagged with an author group carry these. Every other book is written
+        // exactly as before; the $unset below clears them if a book stops using a group.
+        ...(book.authorGroupKey && {
+          authorGroupKey: book.authorGroupKey,
+          authorKeys: book.authorKeys ?? [],
+        }),
         library: book.library,
         subject: book.subject,
         location: book.location,
@@ -291,7 +301,10 @@ export const buildBookUpsertOp = (book: SyncedBook, syncedAt: Date) => ({
         syncedBy: "conductor" as const,
       },
       // The Book is present in its library again.
-      $unset: { syncMissingSince: "" },
+      $unset: {
+        syncMissingSince: "",
+        ...(!book.authorGroupKey && { authorGroupKey: "", authorKeys: "" }),
+      },
     },
     upsert: true,
   },
