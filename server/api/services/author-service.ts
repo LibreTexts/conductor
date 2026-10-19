@@ -104,11 +104,52 @@ export default class AuthorService {
     }
 
     public async createAuthor(data: z.infer<typeof CreateAuthorValidator>['body']): Promise<AuthorInterface> {
-        const author = await Author.create({
-            ...this.sanitizeAuthorData(data),
-            orgID: process.env.ORG_ID,
-        });
-        return author;
+        const generate = !data.nameKey;
+        // A generated key can lose a race with a parallel create; the unique index catches it, so retry.
+        const maxAttempts = generate ? 3 : 1;
+
+        for (let attempt = 1; ; attempt += 1) {
+            try {
+                return await Author.create({
+                    ...this.sanitizeAuthorData(data),
+                    ...(generate && { nameKey: await this.generateUniqueNameKey(data.name) }),
+                    orgID: process.env.ORG_ID,
+                });
+            } catch (err: any) {
+                if (err?.code === 11000 && attempt < maxAttempts) continue;
+                throw err;
+            }
+        }
+    }
+
+    /**
+     * Builds a nameKey from an author's name (e.g. "Jane Q. Doe" -> "jane-q-doe"),
+     * appending the next free "-N" suffix when the base key is already taken in this org.
+     */
+    public async generateUniqueNameKey(name: string): Promise<string> {
+        const base =
+            name
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "")
+                .slice(0, 90)
+                .replace(/-+$/g, "") || "author";
+
+        const re = new RegExp(`^${escapeRegEx(base)}(?:-(\\d+))?$`);
+        const existing = await Author.find(
+            { orgID: process.env.ORG_ID, nameKey: re },
+            { nameKey: 1 }
+        ).lean();
+        if (existing.length === 0) return base;
+
+        const taken = new Set<number>(
+            existing.map((a) => Number(String(a.nameKey).match(re)?.[1] ?? 1))
+        );
+        let n = 2;
+        while (taken.has(n)) n += 1;
+        return `${base}-${n}`;
     }
 
     public async updateAuthor(id: string, data: z.infer<typeof UpdateAuthorValidator>['body']): Promise<AuthorInterface> {
