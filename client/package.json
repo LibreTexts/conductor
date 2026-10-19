@@ -124,9 +124,9 @@
     ]
   },
   "devDependencies": {
-    "@percy/cli": "^1.32.6",
-    "@percy/playwright": "^1.1.2",
-    "@playwright/test": "^1.61.1",
+    "@percy/cli": "1.32.6",
+    "@percy/playwright": "1.1.2",
+    "@playwright/test": "1.61.1",
     "@tailwindcss/forms": "0.5.11",
     "@tailwindcss/postcss": "4.2.4",
     "@tailwindcss/vite": "4.2.4",
