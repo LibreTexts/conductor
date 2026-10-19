@@ -214,9 +214,8 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
         return;
       }
 
-      const byKey = await api.getAuthorsByKeys(members.map((m) => m.nameKey));
-      if (byKey.data.err) throw new Error(byKey.data.errMsg);
-      const known = new Map(byKey.data.authors.map((a) => [a.nameKey, a]));
+      // Members come with the record (read fresh), not from the cached public key lookup.
+      const known = new Map((author.members ?? []).map((a) => [a.nameKey, a]));
       setIsGroup(true);
       setPeople(
         members.map((m) =>
@@ -280,7 +279,9 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
 
     const res = await api.findSimilarAuthors(
       toCheck.map((p) => p.name.trim()),
-      [...rows.map((p) => p.nameKey).filter((k): k is string => !!k), ...(entryKey ? [entryKey] : [])]
+      [...rows.map((p) => p.nameKey).filter((k): k is string => !!k), ...(entryKey ? [entryKey] : [])],
+      // By id too, so a keyless author being renamed isn't reported as similar to itself.
+      authorID ? [authorID] : undefined
     );
     if (res.data.err) throw new Error(res.data.errMsg);
 
