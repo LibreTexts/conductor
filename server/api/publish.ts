@@ -13,6 +13,7 @@ import PublishService, {
 } from "./services/publish-service.js";
 import {
   ListDestinationsValidator,
+  LuluTagValidator,
   MoveBookValidator,
   PublishStatusValidator,
   PublishStepValidator,
@@ -147,6 +148,37 @@ export async function setPublishBookSecurity(
       .json({ err: false, msg: "Book set to public on the library." });
   } catch (err) {
     return respondToStepError(res, err, "setPublishBookSecurity");
+  }
+}
+
+/**
+ * Writes the book's Lulu printing tag onto its coverpage, or removes it when
+ * the body carries an empty string.
+ *
+ * Optional, and not one of the recorded steps — see `PublishService.setLuluTag`.
+ */
+export async function setPublishLuluTag(
+  req: ZodReqWithUser<z.infer<typeof LuluTagValidator>>,
+  res: Response
+) {
+  const project = await loadPublishableProject(req.params.projectID, res);
+  if (!project) return;
+
+  try {
+    const luluTag = await new PublishService().setLuluTag(
+      project,
+      req.body.tag || null,
+      req.user.decoded.uuid
+    );
+    return res.status(200).json({
+      err: false,
+      msg: luluTag
+        ? "Lulu printing tag saved."
+        : "Lulu printing tag removed.",
+      luluTag,
+    });
+  } catch (err) {
+    return respondToStepError(res, err, "setPublishLuluTag");
   }
 }
 

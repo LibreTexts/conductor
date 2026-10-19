@@ -3000,6 +3000,17 @@ class API {
     return res.data;
   }
 
+  /**
+   * Writes the book's Lulu printing tag onto its coverpage. Pass an empty
+   * string to remove whatever tag is there.
+   */
+  async setPublishLuluTag(projectID: string, tag: string) {
+    const res = await axios.put<
+      { luluTag: string | null } & ConductorBaseResponse
+    >(`/project/${projectID}/publish/lulu-tag`, { tag });
+    return res.data;
+  }
+
   async movePublishedBook(projectID: string, to: string) {
     const res = await axios.post<{ path: string } & ConductorBaseResponse>(
       `/project/${projectID}/publish/move`,

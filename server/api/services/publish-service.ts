@@ -15,7 +15,8 @@ import User from "../../models/user.js";
 import BookBotRun from "../../models/bookbotrun.js";
 import { ShapeshiftJob } from "../../types/Shapeshift.js";
 import ExpertWithSSM from "../../util/ExpertWithSSM.js";
-import { ExpertError, text } from "@libretexts/cxone-expert-node";
+import { ExpertError, text, type Tags } from "@libretexts/cxone-expert-node";
+import { buildTagsPayload, readTagValues } from "../../util/pageTags.js";
 
 const publishLog = childLogger("publish");
 
@@ -41,6 +42,11 @@ export type PublishStatus = {
   currentPath: string | null;
   /** The coverpage's current MindTouch restriction, read live. */
   restriction: string | null;
+  /**
+   * The coverpage's current `lulu@` printing tag, read live. Optional, so it
+   * never counts toward `isPublished`.
+   */
+  luluTag: string | null;
   visibility: ProjectInterfaceRaw["visibility"];
   steps: Record<PublishStepKey, PublishStepState>;
   /** Progress of the in-flight editor-preprocess run, when there is one. */
@@ -61,6 +67,12 @@ const STEP_KEYS: PublishStepKey[] = [
  * level that lets an anonymous reader open the page.
  */
 const PUBLIC_RESTRICTION = "Public";
+
+/**
+ * Prefix every Lulu print-fulfillment tag carries. What follows it is Lulu's
+ * business, so only the prefix is enforced.
+ */
+const LULU_TAG_PREFIX = "lulu@";
 
 const NOT_STARTED: PublishStepState = { status: "not-started" };
 
@@ -283,6 +295,138 @@ export default class PublishService {
   }
 
   /**
+   * Optional step, between steps 2 and 3 — write the book's Lulu printing tag
+   * onto the coverpage.
+   *
+   * Not every published book is printed, so this is deliberately not one of the
+   * recorded steps: nothing is written to `project.publishing` and the tag has
+   * no bearing on whether a book counts as published. The coverpage's own tag
+   * set is the only record, read back live by {@link getStatus}.
+   *
+   * `PUT /pages/{id}/tags` replaces the page's entire tag set, so this reads the
+   * current tags, swaps the `lulu@` value in or out, and writes the whole set
+   * back.
+   *
+   * The `lulu@` prefix is lowercased on the way in, because the Commons sync
+   * that reads these tags back matches it case-sensitively.
+   *
+   * @param tag - The tag to store, or `null` to remove whatever is there.
+   * @returns The tag now on the page, or `null` once it has been removed.
+   */
+  public async setLuluTag(
+    project: ProjectInterfaceRaw,
+    tag: string | null,
+    actorUUID: string
+  ): Promise<string | null> {
+    const { libreLibrary, libreCoverID, projectID } = project;
+    if (!libreLibrary || !libreCoverID) {
+      throw new PublishStepError(
+        "This project is not linked to a library book, so there is nothing to tag."
+      );
+    }
+    if (tag && !tag.toLowerCase().startsWith(LULU_TAG_PREFIX)) {
+      throw new PublishStepError(
+        `A Lulu printing tag must start with "${LULU_TAG_PREFIX}".`
+      );
+    }
+
+    const expert = await ExpertWithSSM.getInstance().forLibrary(libreLibrary);
+    const current = readTagValues(await expert.pages.getPageTags(libreCoverID));
+
+    // A PUT replaces the whole set, so refuse to write a set we could not fully
+    // read — that would delete the tags we failed to parse.
+    if (current.unreadable) {
+      throw new PublishStepError(
+        `${current.unreadable} tag(s) on the coverpage could not be read, so its ` +
+          "tags cannot be rewritten without losing them. Check the page's tags " +
+          "on the library."
+      );
+    }
+
+    // The Commons sync matches the prefix case-sensitively — see
+    // `parsePublishingTags` in library-sync-service.ts — so a tag stored as
+    // `LULU@…` is accepted everywhere here and then silently ignored by the
+    // catalog, which is the worst of both outcomes. The prefix is normalized
+    // before anything is written; the rest of the value is left exactly as the
+    // user typed it, since those segments are printed verbatim.
+    const normalized = tag
+      ? `${LULU_TAG_PREFIX}${tag.slice(LULU_TAG_PREFIX.length)}`
+      : null;
+
+    const isLulu = (value: string) =>
+      value.toLowerCase().startsWith(LULU_TAG_PREFIX);
+    const kept = current.values.filter((value) => !isLulu(value));
+    const next = normalized ? [...kept, normalized] : kept;
+
+    // Re-saving a tag the page already carries writes nothing. Also covers
+    // clearing a field that was already empty.
+    if (
+      next.length === current.values.length &&
+      next.every((value) => current.values.includes(value))
+    ) {
+      publishLog.debug(
+        { projectID, libreLibrary, libreCoverID, tag: normalized },
+        "Lulu printing tag unchanged, skipping write"
+      );
+      return normalized;
+    }
+
+    const payload = buildTagsPayload(next);
+    let updated: Partial<Tags> | undefined;
+    try {
+      // The SDK's request client hard-defaults `Content-Type: application/json`
+      // and `putPageTags` sets no type of its own, so the XML body would go out
+      // mislabelled. `funcArgs.headers` is merged over the client defaults,
+      // which is the only hook for correcting it. Axios leaves a string body
+      // untouched, so `payload` is sent verbatim.
+      updated = await expert.pages.putPageTags(
+        libreCoverID,
+        payload,
+        undefined,
+        { headers: { "Content-Type": "application/xml" } }
+      );
+    } catch (err) {
+      // Rewriting tags needs ADMIN on the page; without it the API answers 403
+      // and nothing else here would explain why.
+      if (PublishService.httpStatusOf(err) === 403) {
+        throw new PublishStepError(
+          "The library account does not have admin access to this book, so its tags cannot be changed.",
+          400
+        );
+      }
+      throw err;
+    }
+
+    // CXOne echoes the new tag set back. Checking it keeps a write that did not
+    // take from being reported as a success, and catches the failure that
+    // matters most here: a tag that should have survived going missing.
+    const after = readTagValues(updated);
+    const stored = after.values.find(isLulu) ?? null;
+    if (
+      normalized
+        ? stored?.toLowerCase() !== normalized.toLowerCase()
+        : stored !== null
+    ) {
+      throw new Error(
+        `Coverpage tags did not take: expected ${normalized ?? "no lulu@ tag"}, ` +
+          `got ${stored ?? "none"}`
+      );
+    }
+    const lost = kept.filter((value) => !after.values.includes(value));
+    if (lost.length) {
+      throw new Error(
+        `PUT dropped coverpage tag(s) that should have been kept: ${lost.join(", ")}`
+      );
+    }
+
+    publishLog.info(
+      { projectID, libreLibrary, libreCoverID, tag: normalized, actor: actorUUID },
+      normalized ? "Lulu printing tag set" : "Lulu printing tag removed"
+    );
+    return stored;
+  }
+
+  /**
    * Step 3 — move the book's coverpage, and with it every subpage, to its
    * final location on the library.
    *
@@ -475,10 +619,19 @@ export default class PublishService {
       }
     }
 
-    const live =
-      libreLibrary && libreCoverID
-        ? await this.getLivePageState(libreLibrary, libreCoverID)
-        : { path: null, restriction: null };
+    let live: { path: string | null; restriction: string | null } = {
+      path: null,
+      restriction: null,
+    };
+    let luluTag: string | null = null;
+    if (libreLibrary && libreCoverID) {
+      // Both reads hit the same library host, so they go out together rather
+      // than serially — the drawer re-reads this while a step is running.
+      [live, luluTag] = await Promise.all([
+        this.getLivePageState(libreLibrary, libreCoverID),
+        this.getLuluTag(libreLibrary, libreCoverID),
+      ]);
+    }
 
     // Like visibility, the library's restriction is a fact rather than a claim:
     // a book somebody made public by hand is public whether or not the step ran.
@@ -496,6 +649,7 @@ export default class PublishService {
       coverID: libreCoverID ?? null,
       currentPath: live.path,
       restriction: live.restriction,
+      luluTag,
       visibility: project.visibility,
       steps,
       preprocessPercentage,
@@ -540,6 +694,34 @@ export default class PublishService {
         "Could not read live coverpage state"
       );
       return { path: null, restriction: null };
+    }
+  }
+
+  /**
+   * The `lulu@` tag currently on the coverpage, if there is one.
+   *
+   * Read live because the coverpage's tag set is the only record of it. A
+   * failure is swallowed rather than raised: the printing tag is a side detail,
+   * and it must not take down the status read the whole drawer depends on.
+   */
+  private async getLuluTag(
+    library: string,
+    coverID: string
+  ): Promise<string | null> {
+    try {
+      const expert = await ExpertWithSSM.getInstance().forLibrary(library);
+      const { values } = readTagValues(await expert.pages.getPageTags(coverID));
+      return (
+        values.find((value) =>
+          value.toLowerCase().startsWith(LULU_TAG_PREFIX)
+        ) ?? null
+      );
+    } catch (err) {
+      publishLog.warn(
+        { err, library, coverID },
+        "Could not read the Lulu printing tag"
+      );
+      return null;
     }
   }
 
