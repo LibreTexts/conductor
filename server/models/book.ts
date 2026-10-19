@@ -5,6 +5,13 @@ export interface BookInterface extends Document {
   bookID: string;
   title: string;
   author?: string;
+  /**
+   * Ordered nameKeys of the book's individual authors (groups already expanded). `author`
+   * stays the joined display string that older readers use; this is the structured form.
+   */
+  authorKeys?: string[];
+  /** Set only when the book is tagged with an author group: that group's own nameKey. */
+  authorGroupKey?: string;
   affiliation?: string;
   library: string;
   subject?: string;
@@ -66,6 +73,17 @@ const BookSchema = new Schema<BookInterface>(
      * Book author's name.
      */
     author: String,
+    /**
+     * Ordered nameKeys of the book's individual authors. See BookInterface.authorKeys.
+     */
+    authorKeys: {
+      type: [String],
+      default: undefined,
+    },
+    /**
+     * The author group the book is tagged with, when it is tagged with one.
+     */
+    authorGroupKey: String,
     /**
      * Book author's affiliation/institution.
      */

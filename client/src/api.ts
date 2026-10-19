@@ -15,6 +15,8 @@ import {
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
   Author,
+  CreateAuthorGroupPayload,
+  SimilarAuthorMatch,
   Book,
   BookSearchParams,
   CentralIdentityApp,
@@ -541,7 +543,7 @@ class API {
     return res;
   }
 
-  async createAuthor(author: Omit<Author, "_id">) {
+  async createAuthor(author: Omit<Author, "_id" | "orgID" | "nameKey">) {
     const res = await axios.post<
       {
         author: Author;
@@ -550,7 +552,35 @@ class API {
     return res;
   }
 
-  async updateAuthor(id: string, data: Author) {
+  async findSimilarAuthors(names: string[], excludeKeys?: string[]) {
+    const res = await axios.post<
+      {
+        matches: SimilarAuthorMatch[];
+      } & ConductorBaseResponse
+    >("/authors/similar", { names, excludeKeys });
+    return res;
+  }
+
+  async createAuthorGroup(payload: CreateAuthorGroupPayload) {
+    const res = await axios.post<
+      {
+        author: Author;
+      } & ConductorBaseResponse
+    >("/authors/groups", payload);
+    return res;
+  }
+
+  async getAuthorsByKeys(keys: string[]) {
+    const res = await axios.get<
+      {
+        authors: Author[];
+        missing: string[];
+      } & ConductorBaseResponse
+    >("/authors/keys", { params: { keys: keys.join(",") } });
+    return res;
+  }
+
+  async updateAuthor(id: string, data: Partial<Author>) {
     const res = await axios.patch<
       {
         author: Author;
