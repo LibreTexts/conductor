@@ -28,8 +28,10 @@ const memberOverrideSchema = z.object({
   programURL: z.url().optional().or(z.literal("")),
 });
 
+// Members are existing authors, so their keys use the lookup format: keys inserted by a
+// migration may not match the stricter write format, and must still be usable here.
 const groupMemberSchema = memberOverrideSchema.extend({
-  nameKey: nameKeySchema,
+  nameKey: nameKeyLookupSchema,
 });
 
 const _AuthorValidator = z.object({
@@ -99,7 +101,7 @@ export const CreateAuthorGroupValidator = z.object({
       .array(
         memberOverrideSchema
           .extend({
-            nameKey: nameKeySchema.optional(),
+            nameKey: nameKeyLookupSchema.optional(),
             new: _AuthorValidator
               .omit({ groupMembers: true, autoName: true, nameKey: true })
               .optional(),
@@ -117,7 +119,12 @@ export const CreateAuthorGroupValidator = z.object({
 export const FindSimilarAuthorsValidator = z.object({
   body: z.object({
     names: z.array(z.string().trim().min(1).max(200)).min(1).max(MAX_GROUP_MEMBERS),
-    excludeKeys: z.array(nameKeySchema).max(100).optional(),
+    excludeKeys: z.array(nameKeyLookupSchema).max(100).optional(),
+    // Records to leave out by id, for authors that have no key to exclude them by.
+    excludeIDs: z
+      .array(z.string().refine((val: string) => isMongoIDValidator(val)))
+      .max(100)
+      .optional(),
   }),
 });
 

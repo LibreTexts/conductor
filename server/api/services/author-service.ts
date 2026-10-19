@@ -106,7 +106,20 @@ export default class AuthorService {
         const groups = author.nameKey
             ? (await this.findParentGroupKeys([author.nameKey])).get(author.nameKey)
             : undefined;
-        return groups?.length ? { ...author, memberOfKeys: groups } : author;
+
+        // A group's members, read fresh. The editor uses these, so they must not come from
+        // the cached public lookups, which can be up to three minutes old.
+        const members = isAuthorGroup(author)
+            ? await this.findPublicAuthors(
+                  author.groupMembers.map((m: { nameKey: string }) => m.nameKey)
+              ).then((byKey) => expandGroupMembers(author, (k) => byKey.get(k)))
+            : undefined;
+
+        return {
+            ...author,
+            ...(groups?.length && { memberOfKeys: groups }),
+            ...(members && { members }),
+        };
     }
 
     /** For each key, the keys of the groups it is a member of. */
@@ -465,6 +478,7 @@ export default class AuthorService {
         data: z.infer<typeof FindSimilarAuthorsValidator>["body"]
     ): Promise<Array<{ input: string; candidates: Array<Record<string, unknown>> }>> {
         const excluded = new Set(data.excludeKeys ?? []);
+        const excludedIDs = new Set(data.excludeIDs ?? []);
         // Groups are skipped (their name is just their members' names joined).
         const people = (await Author.find(
             { orgID: process.env.ORG_ID, groupMembers: { $exists: false } },
@@ -474,7 +488,7 @@ export default class AuthorService {
         return data.names.map((input) => ({
             input,
             candidates: people
-                .filter((p) => !excluded.has(p.nameKey))
+                .filter((p) => !excluded.has(p.nameKey) && !excludedIDs.has(String(p._id)))
                 .map((p) => ({
                     // Older records can lack a key, so the id is what always identifies one.
                     _id: String(p._id),

@@ -552,12 +552,12 @@ class API {
     return res;
   }
 
-  async findSimilarAuthors(names: string[], excludeKeys?: string[]) {
+  async findSimilarAuthors(names: string[], excludeKeys?: string[], excludeIDs?: string[]) {
     const res = await axios.post<
       {
         matches: SimilarAuthorMatch[];
       } & ConductorBaseResponse
-    >("/authors/similar", { names, excludeKeys });
+    >("/authors/similar", { names, excludeKeys, excludeIDs });
     return res;
   }
 
@@ -567,16 +567,6 @@ class API {
         author: Author;
       } & ConductorBaseResponse
     >("/authors/groups", payload);
-    return res;
-  }
-
-  async getAuthorsByKeys(keys: string[]) {
-    const res = await axios.get<
-      {
-        authors: Author[];
-        missing: string[];
-      } & ConductorBaseResponse
-    >("/authors/keys", { params: { keys: keys.join(",") } });
     return res;
   }
 
