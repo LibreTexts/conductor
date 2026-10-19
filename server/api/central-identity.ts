@@ -1614,8 +1614,8 @@ async function createUserNote(
 ) {
   try {
     const userId = req.params.userId;
-    const callingUserId = req.user.decoded.uuid;
-    const callingUser = await User.findOne({ uuid: { $eq: callingUserId } });
+    const callingUserLocalId = req.user.decoded.uuid;
+    const callingUser = await User.findOne({ uuid: { $eq: callingUserLocalId } });
     if (!userId || !callingUser || !callingUser.centralID) {
       return conductor400Err(res);
     }
@@ -1623,7 +1623,7 @@ async function createUserNote(
     const noteRes = await centralIdentityService.createUserNote(
       userId,
       req.body.content,
-      callingUserId
+      callingUser.centralID // Needs the Central ID, not our local uuid
     );
 
     if (!noteRes.data || !noteRes.data.data) {
