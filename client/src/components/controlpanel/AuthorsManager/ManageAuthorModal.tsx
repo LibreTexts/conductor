@@ -64,6 +64,8 @@ interface ManageAuthorModalProps {
   show: boolean;
   onClose: () => void;
   authorID?: string;
+  /** Called with the new record after a successful create (not after an edit). */
+  onCreated?: (author: Author) => void;
 }
 
 const DEFAULT_VALUES: SharedFormValues = {
@@ -83,7 +85,7 @@ const DEFAULT_VALUES: SharedFormValues = {
  * person (a single author) or several (a group); either way every person only has a name and
  * a URL, and the campus/program shown is shared by the entry.
  */
-const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) => {
+const ManageAuthorModal = ({ show, onClose, authorID, onCreated }: ManageAuthorModalProps) => {
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
   const { handleGlobalError } = useGlobalError();
@@ -359,6 +361,7 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
       pictureCircle: values.pictureCircle ? "yes" : "no",
     };
 
+    let created: Author | undefined;
     if (mode === "create") {
       const onlyNew = rows.length === 1 && !rows[0].nameKey;
       if (onlyNew) {
@@ -369,6 +372,7 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
           nameURL: rows[0].nameURL,
         });
         if (res.data.err) throw new Error(res.data.errMsg);
+        created = res.data.author;
       } else {
         const res = await api.createAuthorGroup({
           ...shared,
@@ -379,6 +383,7 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
           ),
         });
         if (res.data.err) throw new Error(res.data.errMsg);
+        created = res.data.author;
       }
     } else if (authorID && isGroup) {
       // New people are created first so the group can reference their keys.
@@ -420,6 +425,7 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
       type: "success",
     });
 
+    if (created) onCreated?.(created);
     onClose();
   }
 
