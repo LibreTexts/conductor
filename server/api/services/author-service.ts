@@ -10,6 +10,7 @@ import { BaseConductorInfiniteScrollResponse } from "../../types";
 import Author, { AuthorInterface } from "../../models/author.js";
 import { escapeRegEx, getPaginationOffset } from "../../util/helpers.js";
 import { Types } from "mongoose";
+import { randomInt } from "node:crypto";
 import { createResponseCache } from "../../util/response-cache.js";
 import {
     MEMBER_OVERRIDE_FIELDS,
@@ -328,7 +329,11 @@ export default class AuthorService {
                 return await Author.create({
                     ...this.sanitizeAuthorData(data),
                     ...(groupMembers?.length && { groupMembers, autoName: data.autoName ?? true }),
-                    nameKey: await this.generateUniqueNameKey(data.name),
+                    // A group's name is several people's names joined, far too long for a tag,
+                    // so it gets a short random key instead.
+                    nameKey: groupMembers?.length
+                        ? await this.generateGroupKey()
+                        : await this.generateUniqueNameKey(data.name),
                     orgID: process.env.ORG_ID,
                 });
             } catch (err: any) {
@@ -368,6 +373,27 @@ export default class AuthorService {
         return `${base}-${n}`;
     }
 
+    private static readonly GROUP_KEY_LENGTH = 10;
+    private static readonly GROUP_KEY_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+    /**
+     * A short random key for a group, e.g. "k3x9q2m7ab". Lowercase letters and digits only:
+     * keys are matched case-insensitively against library tags and must pass NAME_KEY_REGEX,
+     * so a mixed-case base62 key could not be looked up.
+     */
+    public async generateGroupKey(): Promise<string> {
+        const { GROUP_KEY_LENGTH, GROUP_KEY_ALPHABET } = AuthorService;
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+            let key = "";
+            for (let i = 0; i < GROUP_KEY_LENGTH; i += 1) {
+                key += GROUP_KEY_ALPHABET[randomInt(GROUP_KEY_ALPHABET.length)];
+            }
+            const taken = await Author.exists({ orgID: process.env.ORG_ID, nameKey: key });
+            if (!taken) return key;
+        }
+        throw new Error("Could not generate a unique group key.");
+    }
+
     public async updateAuthor(id: string, data: z.infer<typeof UpdateAuthorValidator>['body']): Promise<AuthorInterface> {
         const toSet: Record<string, unknown> = {};
         const toUnset: Record<string, 1> = {};
@@ -375,7 +401,7 @@ export default class AuthorService {
         const groupMembers = data.groupMembers ? this.normalizeGroupMembers(data.groupMembers) : undefined;
         const existing = await Author.findOne(
             { _id: id, orgID: process.env.ORG_ID },
-            { nameKey: 1, name: 1 }
+            { nameKey: 1, name: 1, groupMembers: 1 }
         ).orFail().lean();
         if (groupMembers?.length) {
             await this.assertValidGroupMembers(groupMembers, existing.nameKey || undefined, id);
@@ -390,7 +416,10 @@ export default class AuthorService {
         // change it. A record that somehow has none (e.g. imported directly) gets one generated.
         delete toSet.nameKey;
         if (!existing.nameKey) {
-            toSet.nameKey = await this.generateUniqueNameKey(data.name || existing.name);
+            toSet.nameKey =
+                groupMembers?.length || isAuthorGroup(existing)
+                    ? await this.generateGroupKey()
+                    : await this.generateUniqueNameKey(data.name || existing.name);
         }
 
         if (groupMembers?.length) {

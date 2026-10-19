@@ -484,7 +484,9 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
           >
             {mode === "create" ? (
               <Text size="sm" color="muted">
-                A key is generated from the name when you save.
+                {people.length > 1 || people.some((p) => p.nameKey)
+                  ? "A short key (e.g. k3x9q2m7ab) is generated for this group when you save."
+                  : "A key is generated from the name when you save."}
               </Text>
             ) : entryKey ? (
               <div className="flex items-center gap-2 font-mono">
@@ -511,10 +513,14 @@ const ManageAuthorModal = ({ show, onClose, authorID }: ManageAuthorModalProps) 
             ) : (
               <Alert
                 variant="warning"
-                title="This author has no key"
-                message={`${
-                  people[0]?.name || originalName || "This author"
-                } has no key yet, so a new one will be generated from the name when you save.`}
+                title={isGroup ? "This group has no key" : "This author has no key"}
+                message={
+                  isGroup
+                    ? "This group has no key yet, so a new short key will be generated when you save."
+                    : `${
+                        people[0]?.name || originalName || "This author"
+                      } has no key yet, so a new one will be generated from the name when you save.`
+                }
               />
             )}
             {mode === "edit" && !isGroup && memberOfKeys.length > 0 && (
