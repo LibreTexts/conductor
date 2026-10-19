@@ -13,6 +13,11 @@ import {
   type Scalar,
 } from "@libretexts/cxone-expert-node";
 import AuthorService from "./author-service.js";
+import {
+  describeGroup,
+  expandGroupMembers,
+  isAuthorGroup,
+} from "../../util/author-groups.js";
 import CXOnePageProperties from "../../util/CXOne/CXOnePageProperties.js";
 import { sanitizeOptionalLibraryText } from "../../util/sanitize-text.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
@@ -226,6 +231,10 @@ export type LibraryCoverpage = {
   tags: string[];
   dateModified?: string;
   author?: string;
+  /** Set only when the page is tagged with an author group: its members' keys, in order... */
+  authorKeys?: string[];
+  /** ...and the group's own key. Absent for every other book. */
+  authorGroupKey?: string;
   affiliation?: string;
   summary?: string;
 };
@@ -481,7 +490,12 @@ function splitAuthorLiteral(literal: string): {
 function resolveAuthor(
   parsed: ReturnType<typeof parsePublishingTags>,
   index: AuthorIndex
-): { author?: string; affiliation?: string } {
+): {
+  author?: string;
+  affiliation?: string;
+  authorKeys?: string[];
+  authorGroupKey?: string;
+} {
   const { luluAuthor, luluAffiliation, nameKey, authorLiteral } = parsed;
 
   if (luluAuthor) {
@@ -494,6 +508,23 @@ function resolveAuthor(
     (literal ? index.byName.get(literal.author.toLowerCase()) : undefined);
 
   if (match) {
+    // A group stands for several individual authors. Only this branch is new: anything that
+    // isn't a group resolves exactly as it always has.
+    if (isAuthorGroup(match)) {
+      const members = expandGroupMembers(match, (key) =>
+        index.byNameKey.get(key.toLowerCase())
+      );
+      if (members.length > 0) {
+        const view = describeGroup(match, members);
+        return {
+          author: view.name,
+          affiliation: view.campusName || literal?.affiliation,
+          authorKeys: members.map((m) => m.nameKey),
+          authorGroupKey: match.nameKey,
+        };
+      }
+    }
+
     return {
       author: match.name,
       affiliation: match.campusName || literal?.affiliation,
@@ -724,7 +755,7 @@ export default class LibrarySyncService {
     // `authorname:` slugs are structure, not display text. Only the values it
     // produces are sanitized.
     const parsed = parsePublishingTags(tags);
-    const { author, affiliation } = resolveAuthor(parsed, index);
+    const { author, affiliation, authorKeys, authorGroupKey } = resolveAuthor(parsed, index);
     return {
       id,
       // A `lulu` tag is the explicit per-book override, so its title wins over
@@ -737,6 +768,8 @@ export default class LibrarySyncService {
       tags,
       dateModified: page["date.modified"],
       author: sanitizeOptionalLibraryText(author),
+      authorKeys,
+      authorGroupKey,
       affiliation: sanitizeOptionalLibraryText(affiliation),
     };
   }

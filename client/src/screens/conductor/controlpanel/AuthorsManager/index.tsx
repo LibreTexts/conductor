@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import {
+  Badge,
   Breadcrumb,
   Button,
   Heading,
+  IconButton,
   Input,
   Select,
   Stack,
@@ -15,6 +17,7 @@ import {
   IconDownload,
   IconExternalLink,
   IconPlus,
+  IconUsersGroup,
 } from "@tabler/icons-react";
 import { Author } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
@@ -119,15 +122,23 @@ const AuthorsManager = () => {
         id: "nameKey",
         header: "Name Key (Unique)",
         accessorKey: "nameKey",
-        cell: ({ row }) => (
+        cell: ({ row }) => {
+          // Older records can have a key that is missing, empty, or only whitespace.
+          const nameKey = row.original.nameKey?.trim() ?? "";
+          return (
           <div className="flex items-center gap-1 font-mono">
-            <span>{truncateString(row.original.nameKey, 30)}</span>
-            <CopyButton val={row.original.nameKey || ""}>
+            <span>{truncateString(nameKey, 30)}</span>
+            <CopyButton val={nameKey}>
               {({ copied, copy }) => (
-                <button
-                  type="button"
-                  className="cursor-pointer text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                <IconButton
+                  icon={copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                  aria-label="Copy name key"
+                  tooltip={nameKey ? "Copy name key" : "No key to copy"}
+                  variant="ghost"
+                  size="sm"
+                  disabled={!nameKey}
                   onClick={(e) => {
+                    // The row itself opens the editor; copying shouldn't.
                     e.stopPropagation();
                     copy();
                     addNotification({
@@ -136,16 +147,12 @@ const AuthorsManager = () => {
                       duration: 2000,
                     });
                   }}
-                  aria-label="Copy name key"
-                >
-                  {copied
-                    ? <IconCheck size={14} className="text-green-600" />
-                    : <IconCopy size={14} />}
-                </button>
+                />
               )}
             </CopyButton>
           </div>
-        ),
+          );
+        },
       },
       {
         id: "name",
@@ -161,8 +168,54 @@ const AuthorsManager = () => {
               />
             )}
             <span>{row.original.name}</span>
+            {row.original.groupMembers?.length ? (
+              <Badge
+                label={`Group of ${row.original.groupMembers.length}`}
+                variant="primary"
+                size="sm"
+                icon={<IconUsersGroup size={12} aria-hidden="true" />}
+              />
+            ) : null}
           </div>
         ),
+      },
+      {
+        id: "relations",
+        header: "Relations",
+        cell: ({ row }) => {
+          const author = row.original;
+          const isGroup = !!author.groupMembers?.length;
+          const keys = isGroup
+            ? author.groupMembers!.map((m) => m.nameKey)
+            : author.memberOfKeys ?? [];
+          if (keys.length === 0) return null;
+
+          return (
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span className="text-xs text-gray-500">{isGroup ? "Authors:" : "In groups:"}</span>
+              {keys.slice(0, 3).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className="cursor-pointer font-mono text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchString(key);
+                    setActiveSearch(key);
+                  }}
+                  aria-label={`Show ${key}`}
+                >
+                  {truncateString(key, 24)}
+                </button>
+              ))}
+              {keys.length > 3 && (
+                <span className="text-xs text-gray-500" title={keys.slice(3).join(", ")}>
+                  +{keys.length - 3} more
+                </span>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: "nameURL",
@@ -188,7 +241,7 @@ const AuthorsManager = () => {
         cell: ({ row }) => renderURLCell(row.original.programURL),
       },
     ],
-    [addNotification]
+    [addNotification, setSearchString, setActiveSearch]
   );
 
   return (

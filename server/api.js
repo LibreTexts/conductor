@@ -812,6 +812,34 @@ router
     authorsAPI.createAuthor
   );
 
+// Declared before /authors/:id, which would otherwise capture "groups"/"keys" as an id.
+router
+  .route("/authors/groups")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(AuthorsValidators.CreateAuthorGroupValidator),
+    authorsAPI.createAuthorGroup
+  );
+
+router
+  .route("/authors/similar")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(AuthorsValidators.FindSimilarAuthorsValidator),
+    authorsAPI.findSimilarAuthors
+  );
+
+router
+  .route("/authors/keys")
+  .get(
+    middleware.validateZod(AuthorsValidators.GetAuthorsByNameKeysValidator),
+    authorsAPI.getAuthorsByNameKeys
+  );
+
 router
   .route("/authors/:id")
   .get(
