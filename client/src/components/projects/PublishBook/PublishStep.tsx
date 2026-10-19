@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { Fragment, useId } from "react";
 import { Badge, Button, Progress, Text } from "@libretexts/davis-react";
 import { format as formatDate } from "date-fns";
 import type { PublishStepStatus } from "../../../types/Publish";
@@ -19,10 +19,10 @@ const DATE_FORMAT = "MM/dd/yyyy h:mm aaa";
 interface PublishStepProps {
   index: number;
   title: string;
-  description: string;
+  description: string | React.ReactNode;
   status: PublishStepStatus;
   /** Short facts the step recorded — a job ID, the path it wrote. */
-  facts?: (string | undefined)[];
+  facts?: (string | React.ReactNode | undefined)[];
   finishedAt?: string;
   errorMessage?: string;
   /** Progress of an in-flight run, 0-100. Omit for an indeterminate step. */
@@ -64,7 +64,7 @@ const PublishStep: React.FC<PublishStepProps> = ({
   const badge = STATUS_BADGE[status];
   const running = status === "running" || isSubmitting;
 
-  const shownFacts = facts.filter((f): f is string => !!f);
+  const shownFacts = facts.filter((f): f is React.ReactNode => !!f);
   if (status === "succeeded" && finishedAt) {
     shownFacts.push(formatDate(new Date(finishedAt), DATE_FORMAT));
   }
@@ -93,7 +93,12 @@ const PublishStep: React.FC<PublishStepProps> = ({
 
           {shownFacts.length > 0 && (
             <Text size="sm" color="muted" className="!mt-2 !mb-0 break-all">
-              {shownFacts.join(" · ")}
+              {shownFacts.map((fact, i) => (
+                <Fragment key={i}>
+                  {i > 0 && " · "}
+                  {fact}
+                </Fragment>
+              ))}
             </Text>
           )}
 

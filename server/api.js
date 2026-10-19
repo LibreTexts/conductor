@@ -3459,6 +3459,16 @@ router.route('/project/:projectID/publish/security').post(
   catchInternal((req, res) => publishAPI.setPublishBookSecurity(req, res)),
 );
 
+// PUT rather than POST: this replaces one value on the coverpage and is
+// idempotent, mirroring the CXOne tags call underneath it.
+router.route('/project/:projectID/publish/lulu-tag').put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(PublishValidators.LuluTagValidator),
+  catchInternal((req, res) => publishAPI.setPublishLuluTag(req, res)),
+);
+
 router.route('/project/:projectID/publish/move').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

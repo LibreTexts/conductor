@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Alert, Drawer, Spinner, Text } from "@libretexts/davis-react";
 import usePublishBook from "../../../hooks/usePublishBook";
 import PublishStep from "./PublishStep";
+import LuluTagStep from "./LuluTagStep";
 import MoveDestinationPicker from "./MoveDestinationPicker";
 import { IconBolt, IconEye, IconHandMove, IconPackage } from "@tabler/icons-react";
 
@@ -30,6 +31,9 @@ const PublishBookDrawer: React.FC<PublishBookDrawerProps> = ({
     runMove,
     runVisibility,
     runCompile,
+    luluTag,
+    runSetLuluTag,
+    isSavingLuluTag,
   } = usePublishBook({ projectID, enabled: open });
 
   const [destination, setDestination] = useState<string | null>(null);
@@ -114,8 +118,15 @@ const PublishBookDrawer: React.FC<PublishBookDrawerProps> = ({
             isSubmitting={isSubmitting("security")}
           />
 
-          <PublishStep
+          <LuluTagStep
             index={3}
+            luluTag={luluTag}
+            onSave={runSetLuluTag}
+            isSaving={isSavingLuluTag}
+          />
+
+          <PublishStep
+            index={4}
             title="Move book to its final location"
             description="Relocates the cover page and every page beneath it on the library."
             status={steps.move.status}
@@ -124,7 +135,11 @@ const PublishBookDrawer: React.FC<PublishBookDrawerProps> = ({
               // The live path is the honest answer to "where is this book now",
               // and it can differ from what a past move recorded.
               status?.currentPath && status.currentPath !== steps.move.detail
-                ? ` Currently at ${status.currentPath}`
+                ? <span>Currently at {" "}
+                  <code>
+                    {status.currentPath}
+                  </code>.
+                </span>
                 : undefined,
             ]}
             finishedAt={steps.move.finishedAt}
@@ -147,7 +162,7 @@ const PublishBookDrawer: React.FC<PublishBookDrawerProps> = ({
           </PublishStep>
 
           <PublishStep
-            index={4}
+            index={5}
             title="Set project visibility to public"
             description="Lists the project on the Commons catalog. Separate from the library permissions in step 2."
             status={steps.visibility.status}
@@ -163,7 +178,7 @@ const PublishBookDrawer: React.FC<PublishBookDrawerProps> = ({
           />
 
           <PublishStep
-            index={5}
+            index={6}
             title="Compile the book"
             description="Submits a Shapeshift job to generate the PDF, LMS, and print exports."
             status={steps.compile.status}

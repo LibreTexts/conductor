@@ -59,6 +59,15 @@ export interface UsePublishBookResult {
   runMove: (to: string) => void;
   runVisibility: () => void;
   runCompile: () => void;
+  /**
+   * The coverpage's `lulu@` printing tag, and the save for it. Kept apart from
+   * the steps because the tag is optional and nothing about it is persisted on
+   * the project — see `PublishService.setLuluTag`.
+   */
+  luluTag: string | null;
+  /** Pass an empty string to remove the tag. */
+  runSetLuluTag: (tag: string) => void;
+  isSavingLuluTag: boolean;
   refetch: () => void;
 }
 
@@ -134,6 +143,25 @@ export default function usePublishBook({
 
   const compileMutation = useMutation({
     mutationFn: async () => api.submitPublishCompile(projectID as string),
+    ...stepMutationOptions,
+  });
+
+  /**
+   * The tag save is synchronous, so it announces itself here rather than
+   * through the step-transition effect below — that effect walks
+   * `PUBLISH_STEP_ORDER`, and the printing tag is deliberately not in it.
+   */
+  const luluTagMutation = useMutation({
+    mutationFn: async (tag: string) =>
+      api.setPublishLuluTag(projectID as string, tag),
+    onSuccess: (data) => {
+      addNotification({
+        type: "success",
+        message: data.luluTag
+          ? "Lulu printing tag saved."
+          : "Lulu printing tag removed.",
+      });
+    },
     ...stepMutationOptions,
   });
 
@@ -219,6 +247,14 @@ export default function usePublishBook({
     compileMutation.mutate();
   }, [projectID, compileMutation]);
 
+  const runSetLuluTag = useCallback(
+    (tag: string) => {
+      if (!projectID) return;
+      luluTagMutation.mutate(tag);
+    },
+    [projectID, luluTagMutation]
+  );
+
   return {
     status,
     steps,
@@ -231,6 +267,9 @@ export default function usePublishBook({
     runMove,
     runVisibility,
     runCompile,
+    luluTag: status?.luluTag ?? null,
+    runSetLuluTag,
+    isSavingLuluTag: luluTagMutation.isPending,
     refetch: invalidate,
   };
 }

@@ -48,6 +48,13 @@ export type PublishStatus = {
   currentPath: string | null;
   /** The coverpage's current MindTouch restriction, read live. */
   restriction: string | null;
+  /**
+   * The coverpage's current `lulu@` printing tag, read live from the library.
+   *
+   * Optional, and not one of the steps: it is absent from `PublishStepKey` and
+   * `PUBLISH_STEP_ORDER` on purpose, so it can never affect `isPublished`.
+   */
+  luluTag: string | null;
   visibility: "public" | "private";
   steps: Record<PublishStepKey, PublishStepState>;
   preprocessPercentage?: number;
