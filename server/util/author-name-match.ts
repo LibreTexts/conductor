@@ -36,7 +36,7 @@ type ParsedName = {
 export function normalizeName(name: string): string {
   let n = name
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
 

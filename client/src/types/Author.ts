@@ -18,6 +18,7 @@ export type Author = {
     groupMembers?: AuthorGroupMember[]; // Set only on a group: the individual authors it stands for
     autoName?: boolean; // Groups only. When not false, the name is derived from the members
     memberOfKeys?: string[]; // Authors only: the keys of the groups this author belongs to
+    members?: Author[]; // Groups only, from the single-record lookup: the members, read fresh
 }
 
 // A group's membership of one author. The optional fields override that author's own
