@@ -90,6 +90,12 @@ const AuthorsManager = () => {
         show
         onClose={() => closeAllModals()}
         authorID={authorID}
+        // Narrow the list to the new record so it's easy to find straight away.
+        onCreated={(author) => {
+          if (!author.nameKey) return;
+          setSearchString(author.nameKey);
+          setActiveSearch(author.nameKey);
+        }}
       />
     );
   }
