@@ -4,6 +4,7 @@ import { truncateString } from "../../../util/HelperFunctions";
 import { getLibGlyphAltText, getLibGlyphURL } from "../../../util/LibraryOptions";
 import { Heading, Card, Text, Stack } from "@libretexts/davis-react";
 import PausableImage from "../../../util/PausableImage";
+import { COVER_PLACEHOLDER, handleCoverError } from "./cardImageFallback";
 import { IconFileDescription, IconSchoolFilled, IconUsersGroup } from "@tabler/icons-react";
 
 interface BookCardContentProps {
@@ -27,10 +28,11 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
           {/* Negative margins cancel headerContent padding so the image stays full-bleed (matches Card.Header image prop layout) */}
           <div className="-mx-6 -my-4">
             <PausableImage
-              src={book.thumbnail}
+              src={book.thumbnail || COVER_PLACEHOLDER}
               alt="" // Thumbnails are purely decorative
               className="w-full aspect-3/2 object-cover block"
               isAnimated={book.thumbnailIsAnimated}
+              onError={handleCoverError}
             />
           </div>
         </Card.Header>
