@@ -32,7 +32,8 @@ import {
 import { useTypedSelector } from "../../../state/hooks";
 import api from "../../../api";
 import { Collection, CollectionResource } from "../../../types";
-import CollectionCard from "../../../components/Collections/CollectionCard";
+import CatalogCard from "../../../components/commons/CommonsCatalog/CatalogCard";
+import PlaceholderCard from "../../../components/commons/CommonsCatalog/PlaceholderCard";
 import CollectionTable from "../../../components/Collections/CollectionTable";
 import useDebounce from "../../../hooks/useDebounce";
 import { useJumpToBottom } from "../../../hooks/useJumpToBottom";
@@ -42,6 +43,7 @@ import {
 } from "../../../components/util/CollectionHelpers";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
+import { ErrorBoundary } from "react-error-boundary";
 
 // The Collection endpoint's lookup is far cheaper than the Book catalog's,
 // and most orgs hold only a handful of collections, so pull effectively
@@ -112,21 +114,48 @@ const VisualMode: React.FC<{
   return (
     // Davis Grid rendered as a real <ul>; role="list" restores the list
     // semantics Chromium drops from a display:grid container (SC 1.3.1).
+    // Breakpoints match /catalog's grid: CatalogCard's type scale and
+    // line clamps are tuned for that cell width, so a wider column count
+    // here would make the same card look different between the two pages.
     <Grid
       as="ul"
       role="list"
       gap="lg"
-      className="grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 list-none m-0 p-0"
+      className="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 list-none m-0 p-0"
     >
       {/* Items arrive already flattened across pages, so the same record
           appearing on two pages still gets distinct, render-stable keys.
           These were previously crypto.randomUUID(), which remounted every
           card on every render. */}
-      {keyCollectionItems(items).map(({ item, key }) => (
-        <li key={key} className="h-full">
-          <CollectionCard item={item} to={getToLink(item, pathname)} />
-        </li>
-      ))}
+      {keyCollectionItems(items).map(({ item, key }) => {
+        // The root listing returns Collections directly; a collection's
+        // contents arrive wrapped as CollectionResources. CatalogCard
+        // classifies the record itself, so unwrap before handing it over.
+        const record = "resourceData" in item ? item.resourceData : item;
+
+        // A CollectionResource whose parent record was deleted, made private,
+        // or filtered out by the server arrives with no resourceData.
+        if (!record) {
+          console.warn("Collection item has no resource data, skipping.", item);
+          return null;
+        }
+
+        return (
+          <li key={key} className="h-full">
+            {/* Per-card boundary: a single malformed record degrades to a
+                placeholder tile instead of unmounting the whole grid via the
+                app-level ErrorBoundary in Platform.tsx. */}
+            <ErrorBoundary
+              fallback={<PlaceholderCard />}
+              onError={(error) =>
+                console.error("CatalogCard failed to render item:", error, item)
+              }
+            >
+              <CatalogCard item={record} linkTo={getToLink(item, pathname)} />
+            </ErrorBoundary>
+          </li>
+        );
+      })}
     </Grid>
   );
 };
