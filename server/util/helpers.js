@@ -235,7 +235,28 @@ export const getCommonsCanonicalURL = () => {
     try {
         return new URL(withProtocol).origin;
     } catch {
+        logger.warn(
+            { configured },
+            "Invalid COMMONS_CANONICAL_DOMAIN, falling back to default"
+        );
         return DEFAULT_COMMONS_CANONICAL_URL;
+    }
+};
+
+/**
+ * Whether this Conductor instance is the permanent Commons host.
+ * Compares CONDUCTOR_DOMAIN (this instance) to getCommonsCanonicalURL().
+ *
+ * @returns {boolean}
+ */
+export const isCanonicalCommonsInstance = () => {
+    const self = (process.env.CONDUCTOR_DOMAIN || "").trim();
+    if (!self) return false;
+    const withProtocol = /^https?:\/\//i.test(self) ? self : `https://${self}`;
+    try {
+        return new URL(withProtocol).origin === getCommonsCanonicalURL();
+    } catch {
+        return false;
     }
 };
 
