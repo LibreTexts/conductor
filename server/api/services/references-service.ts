@@ -1330,7 +1330,9 @@ export const getActivePopulateJob = async (projectID: string) => {
 export const createReferencePopulateJob = async (
   projectID: string,
   actorUUID: string,
+  bookID: string,
   project: Pick<ProjectInterfaceRaw, "libreLibrary" | "libreCoverID">,
+  canAccessRestricted: boolean,
 ): Promise<any> => {
   if (await getActivePopulateJob(projectID)) {
     throw new ReferenceServiceError(
@@ -1339,11 +1341,12 @@ export const createReferencePopulateJob = async (
     );
   }
 
-  const bookService = new BookService({
-    bookID: `${project.libreLibrary}-${project.libreCoverID}`,
-  });
+  const bookService = new BookService({ bookID });
+
   const toc: { id: string; title: string; url: string }[] =
-    await bookService.getBookTOCFlat();
+    await bookService.getBookTOCFlat({
+      includeRestricted: canAccessRestricted,
+    });
 
   let populateJob;
   try {
