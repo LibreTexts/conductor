@@ -25,6 +25,7 @@ import {
   getCommonsCanonicalURL,
   getPaginationOffset,
   getRandomOffset,
+  isCanonicalCommonsInstance,
 } from "../util/helpers.js";
 import {
   CopyObjectCommand,
@@ -669,31 +670,36 @@ async function getPermanentLink(
 }
 
 function receivingHost(req: Request) {
-  return (req.get("host") || req.hostname || "").toLowerCase();
-}
-
-function isCanonicalPermalinkHost(req: Request) {
-  const canonicalHost = new URL(getCommonsCanonicalURL()).hostname.toLowerCase();
-  return req.hostname.toLowerCase() === canonicalHost;
+  return (req.get("host") || "").toLowerCase();
 }
 
 async function redirectPermanentLink(
-  req: ZodReqWithOptionalUser<z.infer<typeof getProjectFileDownloadURLSchema>>,
+  req: Request &
+    ZodReqWithOptionalUser<z.infer<typeof getProjectFileDownloadURLSchema>>,
   res: Response
 ) {
   try {
     const { projectID, fileID } = req.params;
     const { direct } = req.query;
 
-    if (!isCanonicalPermalinkHost(req)) {
+    if (!isCanonicalCommonsInstance()) {
       const queryIndex = req.originalUrl.indexOf("?");
       const query = queryIndex === -1 ? "" : req.originalUrl.slice(queryIndex);
       const target = `${getCommonsCanonicalURL()}/permalink/${projectID}/${fileID}${query}`;
-      permalinkLog.debug(
-        { host: receivingHost(req) },
-        "redirecting permalink to canonical host"
-      );
-      return res.redirect(301, target);
+      if (target.endsWith(req.originalUrl)) {
+        permalinkLog.warn(
+          { host: receivingHost(req) },
+          "canonical host check rejected its own origin; skipping redirect"
+        );
+      } else {
+        permalinkLog.debug(
+          { host: receivingHost(req) },
+          "redirecting permalink to canonical host"
+        );
+        return res
+          .setHeader("Cache-Control", "no-store")
+          .redirect(302, target);
+      }
     }
 
     const project = await Project.findOne({ projectID }).lean();
