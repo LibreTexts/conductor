@@ -56,44 +56,61 @@ import { collectCitations } from "../util/referenceCitations.js";
 import { isValidCitationKey } from "../util/referenceSanitize.js";
 
 /**
- * Loads a project for a reference route and requires project-member access.
- * Throws `ProjectError` (404/403), which each handler answers with
- * `returnProjectError`.
+ * Get the reference permissions for a user within a project context.
+ * Determines if the user can reference pages and view restricted pages.
+ * Slightly more verbose at each call site, but provides a single,
+ * consistent place to determine reference permissions.
+ * @param projectID The ID of the project context.
+ * @param bookID The ID of the book to check permissions for, or null (will effectively fail closed if null is passed and useProjectOwnBookID falsey).
+ * @param user The user whose permissions are being checked.
+ * @param opts Options for determining reference permissions, including whether to use the project's linked book ID and whether membership is required.
+ * @returns An object containing the project context, reference permissions, and membership status.
  */
-async function loadMemberContext(projectID: string, user: unknown) {
-  const ctx = await ProjectContext.load(projectID);
-  if (!ctx.canMember(user)) throw new ProjectError("unauthorized");
-  return ctx;
-}
+async function getReferencePermissions(
+  projectID: string,
+  bookID: string | null,
+  user: unknown,
+  opts: { useProjectOwnBookID?: boolean; requireMember?: boolean } = {},
+) {
+  const ctx = await ProjectContext.load(projectID, { select: [] });
+  const isMember = ctx.canMember(user);
+  if (opts.requireMember && !isMember) throw new ProjectError("unauthorized");
 
-/**
- * Whether a project may read/cite pages of `bookID`: its own linked book, or
- * any book listed in the Commons catalog (citing other books' pages).
- */
-async function canReferenceBook(
-  ctx: ProjectContext<ProjectPermissionShape>,
-  bookID: string,
-): Promise<boolean> {
-  if (bookID === ctx.getLinkedBook()) return true;
-  return isInCommonsCatalog(bookID);
-}
+  const linkedBook = ctx.getLinkedBook();
+  const resolvedBookID = opts.useProjectOwnBookID ? linkedBook : bookID;
+  const isLinkedBook = !!linkedBook && resolvedBookID === linkedBook;
 
-/**
- * Checks if the user can view restricted pages of the specified book.
- * Assumes that the user has already been verified to have access to the project.
- * @param ctx The project context.
- * @param bookID The ID of the book to check.
- * @returns Whether the user can view restricted pages of the book.
- */
-async function canViewRestrictedPages(
-  ctx: ProjectContext<ProjectPermissionShape>,
-  bookID: string,
-): Promise<boolean> {
-  // If the user is requesting restricted pages of the book linked to
-  // their project, they can view restricted pages.
-  if (bookID === ctx.getLinkedBook()) return true;
-  // Otherwise, restricted pages are not viewable.
-  return false;
+  const isInCommons = !isLinkedBook && !!resolvedBookID
+    ? await isInCommonsCatalog(resolvedBookID)
+    : false;
+
+  return {
+    /**
+     * The project context for the current request. If the project doesn't
+     * exist, ProjectContext.load will throw an error, so a nullish value will technically
+     * never be returned.
+     */
+    ctx,
+    /**
+     * Whether the current user is a member of the project.
+     */
+    isMember,
+    /**
+     * The book linked to the project, if any.
+     */
+    linkedBook,
+    /**
+     * If the user is a member and the requested book is the one linked to
+     * to the project, they can reference it. Otherwise, the user can only
+     * reference the requested book if it is in the public Commons catalog.
+    */
+    canReference: (isMember && isLinkedBook) || isInCommons,
+    /**
+     * To view restricted pages, the user must be a member and the requested
+     * book must be the one linked to the project.
+     */
+    canViewRestricted: isMember && isLinkedBook,
+  };
 }
 
 /** Shared error answer for reference handlers. */
@@ -121,8 +138,14 @@ async function updateReferenceFormat(
     const { format, displayLocation, pageTitle, selectedList } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
-    const ctx = await loadMemberContext(projectID, req.user);
-    if (!ctx.doc.libreCoverID || !ctx.doc.libreLibrary) {
+    const { linkedBook } = await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
+
+    if (!linkedBook) {
       return res.status(400).send({
         err: true,
         errMsg: "Project does not have a cover or library",
@@ -137,8 +160,8 @@ async function updateReferenceFormat(
         ...(displayLocation !== undefined ? { displayLocation } : {}),
         ...(pageTitle !== undefined ? { pageTitle } : {}),
         ...(displayLocation === "endOfChapter" &&
-        selectedList !== undefined &&
-        selectedList?.length > 0
+          selectedList !== undefined &&
+          selectedList?.length > 0
           ? { selectedList }
           : {}),
       },
@@ -168,7 +191,12 @@ async function saveReferenceScope(
 ) {
   try {
     const { projectID } = req.params;
-    await loadMemberContext(projectID, req.user);
+    await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
 
     const referenceUsage = await saveReferenceScopeService(
       projectID,
@@ -198,7 +226,12 @@ async function deleteReferenceScope(
 ) {
   try {
     const { projectID } = req.params;
-    await loadMemberContext(projectID, req.user);
+    await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
 
     await resetReferenceScopeService(projectID, req.user?.decoded?.uuid ?? "");
     return res.send({ err: false });
@@ -213,7 +246,12 @@ async function getReferenceDetails(
 ) {
   try {
     const { projectID } = req.params;
-    await loadMemberContext(projectID, req.user);
+    await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
 
     const referenceUsage = await getReferencesUsage({
       projectID,
@@ -240,9 +278,9 @@ async function getReferenceDetails(
     const { pageReferences, ...usage } = referenceUsage;
     const citationCheck = lastScan
       ? {
-          checkedAt: lastScan.updatedAt,
-          citations: collectCitations(pageReferences ?? []),
-        }
+        checkedAt: lastScan.updatedAt,
+        citations: collectCitations(pageReferences ?? []),
+      }
       : null;
 
     return res.send({
@@ -263,7 +301,12 @@ async function updateReferenceEntry(
     const { entry } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
-    await loadMemberContext(projectID, req.user);
+    await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
 
     const validEntry = ReferenceEntrySchema.safeParse(entry);
     if (!validEntry.success) {
@@ -298,7 +341,12 @@ async function searchReferences(
   try {
     const { projectID } = req.params;
     const { query } = req.query;
-    await loadMemberContext(projectID, req.user);
+    await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
 
     const references = await searchReferencesService(projectID, query);
     return res.send({
@@ -317,7 +365,12 @@ async function deleteReferenceEntry(
   try {
     const { projectID } = req.params;
     const { referenceID, deleteFromReferences } = req.body;
-    await loadMemberContext(projectID, req.user);
+    await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
 
     const reference = await deleteReferenceEntryService(
       projectID,
@@ -344,7 +397,12 @@ async function deleteReferenceEntries(
   try {
     const { projectID } = req.params;
     const { referenceIDs, deleteFromReferences } = req.body;
-    await loadMemberContext(projectID, req.user);
+    await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
 
     const { removed, failed } = await deleteReferenceEntriesService(
       projectID,
@@ -364,7 +422,12 @@ async function addReferenceEntry(
   try {
     const { projectID } = req.params;
     const { referenceIDs } = req.body;
-    await loadMemberContext(projectID, req.user);
+    await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
 
     const { added, skipped } = await addReferencesToUsage(
       projectID,
@@ -379,6 +442,12 @@ async function addReferenceEntry(
   }
 }
 
+/**
+ * The requested bookID does NOT necessarily need to be linked to the
+ * project for this request (i.e. for adding references from other books),
+ * however, this endpoint allows the project members to retrieve data from
+ * private pages in the requested book if that is in fact the one they are requesting.
+ */
 async function getBookToc(
   req: ZodReqWithUser<z.infer<typeof tocValidator>>,
   res: Response,
@@ -386,7 +455,6 @@ async function getBookToc(
   try {
     const { projectID } = req.params;
     const { toc, bookID } = req.query;
-    const ctx = await loadMemberContext(projectID, req.user);
 
     if (!toc || !bookID) {
       return res.status(400).send({
@@ -394,14 +462,18 @@ async function getBookToc(
         errMsg: "Invalid request",
       });
     }
-    // The project's own book, or another Commons book being cited — never an
-    // arbitrary (unlisted/private) book just because the caller can access
-    // some project.
-    if (!(await canReferenceBook(ctx, bookID))) {
+
+    const { canReference, canViewRestricted } = await getReferencePermissions(
+      projectID,
+      bookID,
+      req.user,
+      { requireMember: true }
+    );
+
+    // If the user cannot at least reference this book, return unauthorized
+    if (!canReference) {
       return returnProjectError(res, new ProjectError("unauthorized"));
     }
-
-    const canViewRestricted = await canViewRestrictedPages(ctx, bookID);
 
     const bookService = new BookService({ bookID });
     return res.send({
@@ -424,8 +496,14 @@ async function addBookPageAsReference(
     const { bookID, pageID } = req.body;
     const actorUUID = req.user?.decoded?.uuid ?? "";
 
-    const ctx = await loadMemberContext(projectID, req.user);
-    if (!(await canReferenceBook(ctx, bookID))) {
+    const { canReference } = await getReferencePermissions(
+      projectID,
+      bookID,
+      req.user,
+      { requireMember: true }
+    );
+
+    if (!canReference) {
       return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
@@ -533,9 +611,9 @@ async function getReferencePageDetails(
         // current ReferenceBib template.
         scope: referenceUsage?.scopeMode
           ? {
-              mode: referenceUsage.scopeMode,
-              groups: referenceUsage.scopeGroups ?? [],
-            }
+            mode: referenceUsage.scopeMode,
+            groups: referenceUsage.scopeGroups ?? [],
+          }
           : null,
         displayGroups: getScopeGroupsDisplayedOnPage(
           referenceUsage?.scopeGroups,
@@ -556,11 +634,6 @@ async function getReferenceItems(
 ) {
   try {
     const { projectID } = req.params;
-    const ctx = await ProjectContext.load(projectID, { select: [] });
-    const bookID = ctx.getLinkedBook();
-    if (!bookID || !(await isInCommonsCatalog(bookID))) {
-      return sendPublicNotFound(res);
-    }
 
     type TocIdTree = {
       id: string;
@@ -569,12 +642,16 @@ async function getReferenceItems(
       refs: string[];
     };
 
-    const canViewRestricted = await canViewRestrictedPages(ctx, bookID);
+
+    const { linkedBook } = await getReferencePermissions(projectID, null, req.user, { useProjectOwnBookID: true });
+    if (!linkedBook || !(await isInCommonsCatalog(linkedBook))) {
+      return sendPublicNotFound(res);
+    }
 
     const [referenceItems, usage, bookToc] = await Promise.all([
       getReferenceItemsService(projectID),
       getReferencesUsage({ projectID, showPageRefs: true }),
-      new BookService({ bookID }).getBookTOCNew({ includeRestricted: canViewRestricted }),
+      new BookService({ bookID: linkedBook }).getBookTOCNew({ includeRestricted: false }), // for public reference endpoint, assume no restricted content should be visible
     ]);
 
     // One pass over the scan results; a later entry for the same page wins
@@ -614,7 +691,7 @@ async function populateReferenceDetails(
 ) {
   try {
     const { projectID } = req.params;
-    await loadMemberContext(projectID, req.user);
+    await getReferencePermissions(projectID, null, req.user, { useProjectOwnBookID: true, requireMember: true });
 
     // The running scan if there is one (stalled ones are failed first),
     // otherwise the latest finished scan, so a client watching a scan can
@@ -651,22 +728,25 @@ async function startReferencePopulateJob(
 ) {
   try {
     const { projectID } = req.params;
-    const ctx = await loadMemberContext(projectID, req.user);
 
-    const bookID = ctx.getLinkedBook();
-    if (!bookID) {
+    const { ctx, linkedBook, canViewRestricted } = await getReferencePermissions(
+      projectID,
+      null,
+      req.user,
+      { useProjectOwnBookID: true, requireMember: true }
+    );
+
+    if (!linkedBook) {
       return sendReferenceError(res, new Error("No linked book found"), "startReferencePopulateJob");
     }
-
-    const canAccessRestricted =  await canViewRestrictedPages(ctx, bookID);
 
     // Rejects with 409 when a job is already running for this book.
     const referencePopulateJob = await createReferencePopulateJob(
       projectID,
       req.user?.decoded?.uuid ?? "",
-      bookID,
+      linkedBook,
       ctx.doc,
-      canAccessRestricted,
+      canViewRestricted,
     );
 
     if (!referencePopulateJob) {
