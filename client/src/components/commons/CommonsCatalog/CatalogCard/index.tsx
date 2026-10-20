@@ -2,6 +2,7 @@ import { Card } from "@libretexts/davis-react";
 import {
   Book,
   Author,
+  Collection,
   ConductorSearchResponseFile,
   Project,
 } from "../../../../types";
@@ -11,16 +12,24 @@ import {
   isConductorSearchResponseFile,
   isProject,
 } from "../../../../utils/typeHelpers";
+import { checkIsCollection } from "../../../util/TypeHelpers";
 import BookCardContent from "./BookCardContent";
+import CollectionCardContent from "./CollectionCardContent";
 import FileCardContent from "./FileCardContent";
 import "../../Commons.css";
 import ProjectCardContent from "./ProjectCardContent";
 import AuthorCardContent from "./AuthorCardContent";
 
 interface CatalogCardProps {
-  item: Book | ConductorSearchResponseFile | Project | Author;
+  item: Book | ConductorSearchResponseFile | Project | Author | Collection;
   onDetailClick?: () => void;
   headingLevel?: 2 | 3;
+  /**
+   * Overrides the link target. Only the Collection branch honors it: a nested
+   * collection links relative to the pathname it was reached from, which the
+   * record alone cannot express. Every other item type has a canonical route.
+   */
+  linkTo?: string;
 }
 
 // `relative` anchors the title's stretched-link overlay to the card, so the
@@ -34,7 +43,22 @@ const CatalogCard: React.FC<CatalogCardProps> = ({
   item,
   onDetailClick,
   headingLevel = 2,
+  linkTo,
 }) => {
+  // Checked first: a Collection carries a title like a Book does, so it is
+  // classified on its own discriminant before the looser guards below run.
+  if (checkIsCollection(item)) {
+    return (
+      <Card variant="elevated" className={CARD_CLASSNAME}>
+        <CollectionCardContent
+          collection={item}
+          linkTo={linkTo}
+          headingLevel={headingLevel}
+        />
+      </Card>
+    );
+  }
+
   if (isAuthor(item)) {
     return (
       <Card variant="elevated" className={CARD_CLASSNAME}>
