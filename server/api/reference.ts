@@ -78,6 +78,24 @@ async function canReferenceBook(
   return isInCommonsCatalog(bookID);
 }
 
+/**
+ * Checks if the user can view restricted pages of the specified book.
+ * Assumes that the user has already been verified to have access to the project.
+ * @param ctx The project context.
+ * @param bookID The ID of the book to check.
+ * @returns Whether the user can view restricted pages of the book.
+ */
+async function canViewRestrictedPages(
+  ctx: ProjectContext<ProjectPermissionShape>,
+  bookID: string,
+): Promise<boolean> {
+  // If the user is requesting restricted pages of the book linked to
+  // their project, they can view restricted pages.
+  if (bookID === ctx.getLinkedBook()) return true;
+  // Otherwise, restricted pages are not viewable.
+  return false;
+}
+
 /** Shared error answer for reference handlers. */
 function sendReferenceError(res: Response, err: unknown, context: string) {
   if (err instanceof ProjectError) return returnProjectError(res, err);
@@ -383,10 +401,14 @@ async function getBookToc(
       return returnProjectError(res, new ProjectError("unauthorized"));
     }
 
+    const canViewRestricted = await canViewRestrictedPages(ctx, bookID);
+
     const bookService = new BookService({ bookID });
     return res.send({
       err: false,
-      toc: await bookService.getBookTOCNew(),
+      toc: await bookService.getBookTOCNew({
+        includeRestricted: canViewRestricted,
+      }),
     });
   } catch (err) {
     return sendReferenceError(res, err, "getBookToc");
@@ -547,10 +569,12 @@ async function getReferenceItems(
       refs: string[];
     };
 
+    const canViewRestricted = await canViewRestrictedPages(ctx, bookID);
+
     const [referenceItems, usage, bookToc] = await Promise.all([
       getReferenceItemsService(projectID),
       getReferencesUsage({ projectID, showPageRefs: true }),
-      new BookService({ bookID }).getBookTOCNew(),
+      new BookService({ bookID }).getBookTOCNew({ includeRestricted: canViewRestricted }),
     ]);
 
     // One pass over the scan results; a later entry for the same page wins
@@ -629,12 +653,22 @@ async function startReferencePopulateJob(
     const { projectID } = req.params;
     const ctx = await loadMemberContext(projectID, req.user);
 
+    const bookID = ctx.getLinkedBook();
+    if (!bookID) {
+      return sendReferenceError(res, new Error("No linked book found"), "startReferencePopulateJob");
+    }
+
+    const canAccessRestricted =  await canViewRestrictedPages(ctx, bookID);
+
     // Rejects with 409 when a job is already running for this book.
     const referencePopulateJob = await createReferencePopulateJob(
       projectID,
       req.user?.decoded?.uuid ?? "",
+      bookID,
       ctx.doc,
+      canAccessRestricted,
     );
+
     if (!referencePopulateJob) {
       return res.status(500).send({
         err: true,
