@@ -43,7 +43,10 @@ import {
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 
-const limit = 12;
+// The Collection endpoint's lookup is far cheaper than the Book catalog's,
+// and most orgs hold only a handful of collections, so pull effectively
+// everything on the first page instead of paging 12 at a time.
+const limit = 500;
 const BASE_PATH = "/collections";
 
 const getIDFromPath = (path?: string): string => {
@@ -201,6 +204,7 @@ const CommonsCollection: React.FC<{}> = () => {
     isSuccess: resourcesLoaded,
     hasNextPage,
     fetchNextPage,
+    isFetchingNextPage,
   } = useInfiniteQuery<{
     data: Collection[] | CollectionResource[];
     total_items: number;
@@ -240,6 +244,12 @@ const CommonsCollection: React.FC<{}> = () => {
   };
   const hasMore = hasNextPage || false;
   const isLoading = resourcesLoading;
+
+  // Only the first fetch may replace the list with a spinner. Unmounting the
+  // rendered pages on "Load More" collapses the document height and the
+  // browser clamps the scroll position back to the top, which is what
+  // /catalog avoids by keeping its results mounted while the next page loads.
+  const isInitialLoad = resourcesLoading && !isFetchingNextPage && !resources;
 
   // Flattened once here so both view modes render the same list and the key
   // helper can disambiguate a record that appears on more than one page.
@@ -467,7 +477,7 @@ const CommonsCollection: React.FC<{}> = () => {
       </div>
 
       <div className="min-h-[800px] px-6 pb-6" aria-busy={collectionLoading || resourcesLoading}>
-        {collectionLoading || resourcesLoading ? (
+        {collectionLoading || isInitialLoad ? (
           <div className="flex justify-center items-center p-16">
             <Spinner />
           </div>
