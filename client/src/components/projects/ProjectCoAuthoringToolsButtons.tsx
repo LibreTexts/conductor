@@ -103,6 +103,16 @@ const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsPro
                 License Restacker
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
+              <Button
+                onClick={() =>
+                  window.open(`/projects/${projectID}/authorship`, "_blank")
+                }
+                color="blue"
+                size="small"
+              >
+                Authorship
+                <Icon name="external alternate" className="!ml-2" />
+              </Button>
               {hasCommonsBook && (
                 <Button
                   onClick={handleOpenReaderResourcesModal}

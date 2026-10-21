@@ -8,6 +8,7 @@ export const NAME_KEY_LOOKUP_REGEX = /^[a-z0-9_-]{1,100}$/;
 
 const MAX_GROUP_MEMBERS = 20;
 const MAX_LOOKUP_KEYS = 50;
+const MAX_SEARCH_RESULTS = 20;
 
 const NAME_KEY_MESSAGE =
   "Name Key must be lowercase letters, numbers, hyphens, and underscores only.";
@@ -125,6 +126,14 @@ export const FindSimilarAuthorsValidator = z.object({
       .array(z.string().refine((val: string) => isMongoIDValidator(val)))
       .max(100)
       .optional(),
+  }),
+});
+
+// Anonymous, lightweight author search by name or key (e.g. for autocomplete).
+export const SearchAuthorsValidator = z.object({
+  query: z.object({
+    q: z.string().trim().min(2).max(100),
+    limit: z.coerce.number().int().min(1).max(MAX_SEARCH_RESULTS).optional().default(10),
   }),
 });
 
