@@ -15,6 +15,10 @@ import {
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
   Author,
+  AuthorSearchResult,
+  AuthorshipBulkJob,
+  AuthorshipEntry,
+  AuthorshipStatus,
   CreateAuthorGroupPayload,
   SimilarAuthorMatch,
   Book,
@@ -550,6 +554,14 @@ class API {
       } & ConductorBaseResponse
     >("/authors", author);
     return res;
+  }
+
+  /** Public search by name or key (no login needed). */
+  async searchAuthors(q: string, limit = 10) {
+    const res = await axios.get<
+      { authors: AuthorSearchResult[] } & ConductorBaseResponse
+    >("/authors/search", { params: { q, limit } });
+    return res.data;
   }
 
   async findSimilarAuthors(names: string[], excludeKeys?: string[], excludeIDs?: string[]) {
@@ -3668,6 +3680,66 @@ class API {
         data: { status: boolean; };
       } & ConductorBaseResponse
     >(`/reference/projects/${projectID}/populate`);
+    return res.data;
+  }
+
+  // Authorship
+  async getAuthorshipToc(projectID: string) {
+    const res = await axios.get<
+      { toc: TableOfContents; status: AuthorshipStatus } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/toc`);
+    return res.data;
+  }
+
+  async reloadAuthorship(projectID: string) {
+    const res = await axios.post<{ status: AuthorshipStatus } & ConductorBaseResponse>(
+      `/projects/${projectID}/authorship/toc`,
+    );
+    return res.data;
+  }
+
+  async getAuthorship(projectID: string) {
+    const res = await axios.get<
+      { bookPageID: string; pages: AuthorshipEntry[] } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship`);
+    return res.data;
+  }
+
+  async getAuthorshipStatus(projectID: string) {
+    const res = await axios.get<
+      {
+        status: AuthorshipStatus | "notfound";
+        processing: boolean;
+        total: number;
+        completed: number;
+        failed: number;
+        pending: number;
+        bulkJob?: AuthorshipBulkJob;
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/status`);
+    return res.data;
+  }
+
+  /** Sets (or, with null, clears) the `author@` tag on one page. */
+  async updateAuthorshipAuthor(projectID: string, data: { pageID: string; authorKey: string | null }) {
+    const res = await axios.patch<
+      { pageID: string; authorKey: string | null } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/author`, data);
+    return res.data;
+  }
+
+  async bulkUpdateAuthorshipAuthor(
+    projectID: string,
+    data: { pageIDs: string[]; authorKey: string | null },
+  ) {
+    const res = await axios.patch<
+      {
+        /** Set when pages were queued; poll getAuthorshipStatus for `bulkJob`. */
+        jobID?: string;
+        queued: number;
+        skipped: { pageID: string; reason: string }[];
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/author/bulk`, data);
     return res.data;
   }
 }

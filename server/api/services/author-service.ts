@@ -5,6 +5,7 @@ import {
     CreateAuthorGroupValidator,
     UpdateAuthorValidator,
     FindSimilarAuthorsValidator,
+    SearchAuthorsValidator,
 } from "../validators/authors.js";
 import { BaseConductorInfiniteScrollResponse } from "../../types";
 import Author, { AuthorInterface } from "../../models/author.js";
@@ -45,6 +46,15 @@ const PUBLIC_AUTHOR_PROJECTION = {
     groupMembers: 1,
     autoName: 1,
 } as const;
+
+/** One row of the anonymous author search. */
+export type AuthorSearchResult = {
+    nameKey: string;
+    name: string;
+    nameURL?: string;
+    campusName?: string;
+    isGroup: boolean;
+};
 
 type GroupMemberInput = z.infer<typeof CreateAuthorGroupValidator>["body"]["members"][number];
 
@@ -193,6 +203,60 @@ export default class AuthorService {
             return { ...author, ...describeGroup(author, members), members };
         });
     }
+
+    private static readonly _searchCache = createResponseCache<AuthorSearchResult[]>({
+        ttlSeconds: AuthorService.BY_NAME_KEY_CACHE_TTL_SECONDS,
+        maxKeys: AuthorService.BY_NAME_KEY_CACHE_MAX_KEYS,
+        name: "author-search",
+    });
+
+    /**
+     * Anonymous search by name or key, for autocomplete. Returns only the public essentials,
+     * best matches first: an exact key, then names/keys that start with the text, then the rest.
+     */
+    public async searchAuthors(
+        params: z.infer<typeof SearchAuthorsValidator>["query"]
+    ): Promise<AuthorSearchResult[]> {
+        const q = params.q.toLowerCase();
+        const cacheKey = `${process.env.ORG_ID}:${q}:${params.limit}`;
+
+        return AuthorService._searchCache.getOrLoad(cacheKey, async () => {
+            const pattern = new RegExp(escapeRegEx(q), "i");
+            const docs = await Author.find(
+                {
+                    orgID: process.env.ORG_ID,
+                    // Records without a key can't be referenced, so they aren't offered.
+                    nameKey: { $exists: true, $nin: [null, ""] },
+                    $or: [{ name: pattern }, { nameKey: pattern }],
+                },
+                { _id: 0, nameKey: 1, name: 1, nameURL: 1, campusName: 1, groupMembers: 1 }
+            )
+                // Fetch a few extra so ranking can bring the best ones forward.
+                .limit(AuthorService.SEARCH_CANDIDATE_LIMIT)
+                .lean();
+
+            const rank = (a: { nameKey: string; name: string }) => {
+                const key = a.nameKey.toLowerCase();
+                const name = a.name.toLowerCase();
+                if (key === q) return 0;
+                if (key.startsWith(q) || name.startsWith(q)) return 1;
+                return 2;
+            };
+
+            return docs
+                .map((a) => ({
+                    nameKey: a.nameKey,
+                    name: a.name,
+                    nameURL: a.nameURL,
+                    campusName: a.campusName,
+                    isGroup: isAuthorGroup(a),
+                }))
+                .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
+                .slice(0, params.limit);
+        });
+    }
+
+    private static readonly SEARCH_CANDIDATE_LIMIT = 100;
 
     private static readonly _byNameKeysCache = createResponseCache<{
         authors: AuthorInterface[];

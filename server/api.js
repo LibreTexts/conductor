@@ -82,6 +82,8 @@ import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
 import * as ReferenceValidators from "./api/validators/Reference.js";
 import referenceAPI from "./api/reference.js";
+import * as AuthorshipValidators from "./api/validators/Authorship.js";
+import authorshipAPI from "./api/authorship.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -840,6 +842,14 @@ router
     authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     middleware.validateZod(AuthorsValidators.FindSimilarAuthorsValidator),
     authorsAPI.findSimilarAuthors
+  );
+
+// Public: no login or role. Lightweight search by name or key, e.g. for autocomplete.
+router
+  .route("/authors/search")
+  .get(
+    middleware.validateZod(AuthorsValidators.SearchAuthorsValidator),
+    authorsAPI.searchAuthors
   );
 
 router
@@ -3829,6 +3839,48 @@ router.route('/projects/:projectID/restacker/license/bulk').patch(
   authAPI.getUserAttributes ,
   middleware.validateZod(RestackerValidators.BulkUpdateRestackerLicenseSchema),
   restackerAPI.bulkUpdateRestackerLicense
+);
+
+/* Authorship */
+router.route('/projects/:projectID/authorship/toc').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.GetAuthorshipSchema),
+  authorshipAPI.getAuthorshipToc
+)
+.post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.AuthorshipReloadSchema),
+  authorshipAPI.reloadAuthorship
+);
+
+router.route('/projects/:projectID/authorship').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.GetAuthorshipSchema),
+  authorshipAPI.getAuthorship
+);
+
+router.route('/projects/:projectID/authorship/status').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.GetAuthorshipSchema),
+  authorshipAPI.getAuthorshipStatus
+);
+
+router.route('/projects/:projectID/authorship/author').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.UpdateAuthorshipAuthorSchema),
+  authorshipAPI.updateAuthorshipAuthor
+);
+
+router.route('/projects/:projectID/authorship/author/bulk').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.BulkUpdateAuthorshipAuthorSchema),
+  authorshipAPI.bulkUpdateAuthorshipAuthor
 );
 
 router.route('/projects/:projectID/reference')

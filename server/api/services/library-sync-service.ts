@@ -462,7 +462,11 @@ function resolveAuthor(
   }
 
   const literal = authorLiteral ? splitAuthorLiteral(authorLiteral) : undefined;
+  // The Authorship tool writes `author@<key>`, so an `author@` value is tried as a key first.
+  // Display text such as "Jane Doe (Some College)" never looks like a key, so older tags still
+  // fall through to the lookups below exactly as before.
   const match =
+    (authorLiteral ? index.byNameKey.get(authorLiteral.trim().toLowerCase()) : undefined) ??
     (nameKey ? index.byNameKey.get(nameKey.toLowerCase()) : undefined) ??
     (literal ? index.byName.get(literal.author.toLowerCase()) : undefined);
 

@@ -99,6 +99,7 @@ import LibreTextsRoute from './components/util/LibreTextsRoute';
 import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
 import Restacker from './components/projects/Restacker';
+const Authorship = lazyWithRetry(() => import('./components/projects/Authorship'));
 import { useTypedSelector } from './state/hooks';
 import ReferenceManager from './components/projects/References';
 
@@ -151,6 +152,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/remixer' component={RemixerDashboard} />
           <PrivateRoute exact path='/projects/:id/restacker' component={Restacker} />
           <PrivateRoute exact path='/projects/:id/references' component={ReferenceManager} />
+          <PrivateRoute exact path='/projects/:id/authorship' component={Authorship} />
           <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
           {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
