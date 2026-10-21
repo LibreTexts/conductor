@@ -20,6 +20,7 @@ import {
   UploadAuthorPictureValidator,
   GetAuthorByNameKeyValidator,
   GetAuthorsByNameKeysValidator,
+  SearchAuthorsValidator,
   NAME_KEY_LOOKUP_REGEX,
 } from "./validators/authors.js";
 import conductorErrors from "../conductor-errors.js";
@@ -141,6 +142,27 @@ async function getAuthorByNameKey(
     });
   } catch (err: any) {
     logger.error({ err }, "getAuthorByNameKey failed");
+    return conductor500Err(res);
+  }
+}
+
+async function searchAuthors(
+  req: z.infer<typeof SearchAuthorsValidator>,
+  res: Response
+) {
+  try {
+    const authorService = new AuthorService();
+    const authors = await authorService.searchAuthors(req.query);
+
+    // Anonymous and identical for every caller, like the key lookups.
+    res.setHeader("Cache-Control", `public, max-age=${AUTHOR_BY_KEY_MAX_AGE_SECONDS}`);
+
+    res.send({
+      err: false,
+      authors,
+    });
+  } catch (err: any) {
+    logger.error({ err }, "searchAuthors failed");
     return conductor500Err(res);
   }
 }
@@ -549,6 +571,7 @@ export default {
   getAuthor,
   getAuthorByNameKey,
   getAuthorsByNameKeys,
+  searchAuthors,
   getAuthorAssets,
   createAuthor,
   createAuthorGroup,
