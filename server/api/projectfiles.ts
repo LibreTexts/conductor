@@ -670,7 +670,7 @@ async function getPermanentLink(
 }
 
 function receivingHost(req: Request) {
-  return (req.get("host") || "").toLowerCase();
+  return (req.get("host") || "").toLowerCase().split(":")[0].replace(/\.$/, "");
 }
 
 async function redirectPermanentLink(
@@ -682,18 +682,23 @@ async function redirectPermanentLink(
     const { projectID, fileID } = req.params;
     const { direct } = req.query;
 
-    if (!isCanonicalCommonsInstance()) {
-      const queryIndex = req.originalUrl.indexOf("?");
-      const query = queryIndex === -1 ? "" : req.originalUrl.slice(queryIndex);
-      const target = `${getCommonsCanonicalURL()}/permalink/${projectID}/${fileID}${query}`;
-      if (target.endsWith(req.originalUrl)) {
+    // Canonicalization is a deployed-environment concern. Local instances have no
+    // CONDUCTOR_DOMAIN, which would otherwise classify them as non-canonical and
+    // send dev traffic to the real Commons host.
+    if (process.env.NODE_ENV === "production" && !isCanonicalCommonsInstance()) {
+      const canonicalHost = new URL(getCommonsCanonicalURL()).hostname.toLowerCase();
+      if (receivingHost(req) === canonicalHost) {
+        // Already serving the canonical host, so redirecting would loop back here.
         permalinkLog.warn(
-          { host: receivingHost(req) },
-          "canonical host check rejected its own origin; skipping redirect"
+          { host: receivingHost(req), canonicalHost },
+          "serving canonical host but CONDUCTOR_DOMAIN does not match COMMONS_CANONICAL_DOMAIN; skipping redirect"
         );
       } else {
-        permalinkLog.debug(
-          { host: receivingHost(req) },
+        const queryIndex = req.originalUrl.indexOf("?");
+        const query = queryIndex === -1 ? "" : req.originalUrl.slice(queryIndex);
+        const target = `${getCommonsCanonicalURL()}/permalink/${projectID}/${fileID}${query}`;
+        permalinkLog.info(
+          { host: receivingHost(req), target },
           "redirecting permalink to canonical host"
         );
         return res
