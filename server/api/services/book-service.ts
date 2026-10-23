@@ -183,6 +183,13 @@ export default class BookService {
     "stage:",
     "lulu@",
     "author@",
+    // Credit roles managed by the Attribution Manager (author@ is above).
+    "editor@",
+    "remixer@",
+    "translator@",
+    "contributor@",
+    "illustrator@",
+    "reviewedBy@",
     "printoptions:",
     "showtoc:",
     "coverpage:",
@@ -1034,6 +1041,32 @@ export default class BookService {
     } catch (err) {
       logger.error({ err }, "updatePageContent failed");
       return false;
+    }
+  }
+
+  /**
+   * Replaces a page's tags with exactly `tags`. Unlike `updatePageDetails`, which always carries
+   * the page's existing system tags over (so it can't remove one, e.g. clear an `author@` tag),
+   * this writes the list as given. Callers should start from the page's current tags and change
+   * only what they mean to.
+   */
+  async setPageTags(pageID: string, tags: string[]): Promise<void> {
+    const body = `<tags>${[...new Set(tags)]
+      .map((tag) => `<tag value="${encodeXML(tag)}" />`)
+      .join("")}</tags>`;
+    const res = await CXOneFetch({
+      scope: "page",
+      path: parseInt(pageID),
+      api: MindTouch.API.Page.PUT_Page_Tags,
+      subdomain: this._library,
+      options: {
+        method: "PUT",
+        headers: { "Content-Type": "application/xml" },
+        body,
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to update page tags: ${res.status} ${res.statusText}`);
     }
   }
 

@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { NAME_KEY_LOOKUP_REGEX } from "./authors.js";
+import { CREDIT_ROLES } from "../../util/author-tags.js";
+
+const roleSchema = z.enum(CREDIT_ROLES);
 
 const projectParams = z.object({
   projectID: z.string().length(10),
@@ -27,6 +30,7 @@ export const UpdateAuthorshipAuthorSchema = z.object({
   params: projectParams,
   body: z.object({
     pageID: z.string().min(1),
+    role: roleSchema,
     authorKey: authorKeySchema,
   }),
 });
@@ -35,6 +39,7 @@ export const BulkUpdateAuthorshipAuthorSchema = z.object({
   params: projectParams,
   body: z.object({
     pageIDs: z.array(z.string().min(1)).min(1).max(5000),
+    role: roleSchema,
     authorKey: authorKeySchema,
   }),
 });

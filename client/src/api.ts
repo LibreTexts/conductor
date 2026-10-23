@@ -9,6 +9,7 @@ import {
   AuthorshipBulkJob,
   AuthorshipEntry,
   AuthorshipStatus,
+  CreditRole,
   CreateAuthorGroupPayload,
   SimilarAuthorMatch,
   Book,
@@ -3385,17 +3386,20 @@ class API {
     return res.data;
   }
 
-  /** Sets (or, with null, clears) the `author@` tag on one page. */
-  async updateAuthorshipAuthor(projectID: string, data: { pageID: string; authorKey: string | null }) {
+  /** Sets (or, with null, clears) one role's `<role>@` tag on one page. */
+  async updateAuthorshipAuthor(
+    projectID: string,
+    data: { pageID: string; role: CreditRole; authorKey: string | null },
+  ) {
     const res = await axios.patch<
-      { pageID: string; authorKey: string | null } & ConductorBaseResponse
+      { pageID: string; role: CreditRole; authorKey: string | null } & ConductorBaseResponse
     >(`/projects/${projectID}/authorship/author`, data);
     return res.data;
   }
 
   async bulkUpdateAuthorshipAuthor(
     projectID: string,
-    data: { pageIDs: string[]; authorKey: string | null },
+    data: { pageIDs: string[]; role: CreditRole; authorKey: string | null },
   ) {
     const res = await axios.patch<
       {
