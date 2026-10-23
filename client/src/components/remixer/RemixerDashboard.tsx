@@ -172,6 +172,8 @@ const RemixerDashboard: React.FC = () => {
 
   const [publishStatus, setPublishStatus] = useState<PublishJobStatus>("idle");
   const [publishMessages, setPublishMessages] = useState<string[]>([]);
+  /** Unchanged pages the job passed over without a per-page log line. */
+  const [publishSkippedPages, setPublishSkippedPages] = useState<number>(0);
   const [publishPolling, setPublishPolling] = useState<boolean>(false);
   const [publishPanelOpen, setPublishPanelOpen] = useState<boolean>(false);
   const [publishSuccessOpen, setPublishSuccessOpen] = useState<boolean>(false);
@@ -2247,6 +2249,7 @@ const RemixerDashboard: React.FC = () => {
     if (!id) return;
     setPublishStatus("pending");
     setPublishMessages(["Publish request accepted. Creating backend job..."]);
+    setPublishSkippedPages(0);
     publishMutation.mutate({
       book: remixerData.currentBook ?? [],
       settings: {
@@ -2287,6 +2290,7 @@ const RemixerDashboard: React.FC = () => {
     if (publishStatus === "success" || publishStatus === "error") {
       setPublishStatus("idle");
       setPublishMessages([]);
+      setPublishSkippedPages(0);
     }
     setPublishPanelOpen(true);
   };
@@ -2470,6 +2474,7 @@ const RemixerDashboard: React.FC = () => {
         ) {
           setPublishStatus(existingJob.status);
           setPublishMessages(existingJob.messages ?? []);
+          setPublishSkippedPages(existingJob.skippedPages ?? 0);
           setPublishPolling(true);
           openPublishModal();
         }
@@ -2780,6 +2785,7 @@ const RemixerDashboard: React.FC = () => {
         messages?: string[];
         errorMessage?: string;
         createdPages?: { draftID: string; pageID: string }[];
+        skippedPages?: number;
       } | null;
     },
     onSuccess: (job) => {
@@ -2789,6 +2795,7 @@ const RemixerDashboard: React.FC = () => {
       }
       setPublishStatus(job.status);
       setPublishMessages(job.messages ?? []);
+      setPublishSkippedPages(job.skippedPages ?? 0);
       if (job.status === "success") {
         setPublishPolling(false);
         setPublishSuccessOpen(true);
@@ -3068,6 +3075,7 @@ const RemixerDashboard: React.FC = () => {
         publishInProgress={publishPolling}
         publishStatus={publishStatus}
         publishMessages={publishMessages}
+        publishSkippedPages={publishSkippedPages}
       />
       <CorePageDeleteModal
         open={pendingCorePageDeleteId !== undefined}
