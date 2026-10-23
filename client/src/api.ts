@@ -3146,6 +3146,8 @@ class API {
           errorMessage?: string;
           /** Draft id → live id for every page the run created (see the job model). */
           createdPages?: { draftID: string; pageID: string }[];
+          /** Unchanged pages counted instead of logged one by one. */
+          skippedPages?: number;
           createdAt?: string;
           updatedAt?: string;
         } | null;

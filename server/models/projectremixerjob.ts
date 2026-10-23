@@ -21,6 +21,12 @@ export interface ProjectRemixerJobInterface extends Document {
    * them onto its draft instead of creating them again.
    */
   createdPages: { draftID: string; pageID: string }[];
+  /**
+   * Unchanged pages the run passes over without touching the library. They
+   * get no per-page log line (one DB write each made big books slow), so the
+   * client adds this to its progress count instead.
+   */
+  skippedPages: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +71,10 @@ const ProjectRemixerJobSchema = new Schema<ProjectRemixerJobInterface>(
             },
         ],
         default: [],
+    },
+    skippedPages: {
+        type: Number,
+        default: 0,
     },
     remixerID: {
         type: String,
