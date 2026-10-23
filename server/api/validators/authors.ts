@@ -7,6 +7,10 @@ export const NAME_KEY_REGEX = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
 export const NAME_KEY_LOOKUP_REGEX = /^[a-z0-9_-]{1,100}$/;
 
 const MAX_GROUP_MEMBERS = 20;
+
+// Author URLs are rendered as links, so only http(s) is accepted (z.url() alone also allows
+// schemes such as javascript: and data:).
+const httpUrl = () => z.url({ protocol: /^https?$/ });
 const MAX_LOOKUP_KEYS = 50;
 const MAX_SEARCH_RESULTS = 20;
 
@@ -24,9 +28,9 @@ const nameKeyLookupSchema = z.string().trim().min(1).max(100).regex(NAME_KEY_LOO
 // The affiliation a group membership may override for one member, in that group only.
 const memberOverrideSchema = z.object({
   campusName: z.string().trim().max(200).optional().or(z.literal("")),
-  campusURL: z.url().optional().or(z.literal("")),
+  campusURL: httpUrl().optional().or(z.literal("")),
   programName: z.string().trim().max(200).optional().or(z.literal("")),
-  programURL: z.url().optional().or(z.literal("")),
+  programURL: httpUrl().optional().or(z.literal("")),
 });
 
 // Members are existing authors, so their keys use the lookup format: keys inserted by a
@@ -38,15 +42,15 @@ const groupMemberSchema = memberOverrideSchema.extend({
 const _AuthorValidator = z.object({
   nameKey: nameKeySchema,
   name: z.string().trim().min(1).max(200),
-  nameURL: z.url().optional().or(z.literal("")),
+  nameURL: httpUrl().optional().or(z.literal("")),
   note: z.string().trim().max(1000).optional().or(z.literal("")),
-  noteURL: z.url().optional().or(z.literal("")),
+  noteURL: httpUrl().optional().or(z.literal("")),
   campusName: z.string().trim().max(200).optional().or(z.literal("")),
-  campusURL: z.url().optional().or(z.literal("")),
+  campusURL: httpUrl().optional().or(z.literal("")),
   pictureCircle: z.enum(["yes", "no"]).optional(),
-  pictureURL: z.url().optional().or(z.literal("")),
+  pictureURL: httpUrl().optional().or(z.literal("")),
   programName: z.string().trim().max(200).optional().or(z.literal("")),
-  programURL: z.url().optional().or(z.literal("")),
+  programURL: httpUrl().optional().or(z.literal("")),
   attributionPrefix: z.string().trim().max(100).optional().or(z.literal("")),
   userUUID: z.uuid().optional(),
   groupMembers: z.array(groupMemberSchema).max(MAX_GROUP_MEMBERS).optional(),
