@@ -5,17 +5,27 @@ import { randomUUID } from "node:crypto";
 import { conductor500Err } from "../util/errorutils.js";
 import Project, { ProjectInterface } from "../models/project.js";
 import Author from "../models/author.js";
-import Authorship, { AuthorshipAuthorRef, AuthorshipPage } from "../models/authorship.js";
+import Authorship, {
+  AUTHORSHIP_DOC_VERSION,
+  AuthorshipAuthorRef,
+  AuthorshipPage,
+} from "../models/authorship.js";
 import { ZodReqWithUser } from "../types/index.js";
 import * as AuthorshipValidators from "./validators/Authorship.js";
 import { NAME_KEY_LOOKUP_REGEX } from "./validators/authors.js";
 import projectsAPI from "./projects.js";
 import BookService from "./services/book-service.js";
-import AuthorshipService, { replaceAuthorTag } from "../util/Authorshiputil.js";
+import AuthorshipService from "../util/Authorshiputil.js";
+import {
+  CreditRole,
+  readAllCreditTags,
+  replaceRoleTag,
+  roleTagPrefix,
+} from "../util/author-tags.js";
 import { isAuthorGroup } from "../util/author-groups.js";
 
 const BUSY_MSG =
-  "Authorship data is being refreshed or another update is running. Try again when it finishes.";
+  "Credit data is being refreshed or another update is running. Try again when it finishes.";
 
 /** Max number of concurrent page-tag updates sent to the library during a bulk change. */
 const BULK_CONCURRENCY = 5;
@@ -83,10 +93,31 @@ const getAuthorshipToc = async (
     if (!doc) {
       doc = await Authorship.create({
         projectID,
+        version: AUTHORSHIP_DOC_VERSION,
         createdBy: req.user.decoded.uuid,
         updatedBy: req.user.decoded.uuid,
         pages: await buildPageList(project),
       });
+    } else if (!AuthorshipService.isLockActive(doc) && doc.version !== AUTHORSHIP_DOC_VERSION) {
+      // Stored in an older shape (before credits had roles): rescan every page.
+      await Authorship.updateOne(
+        { projectID: { $eq: projectID } },
+        { $set: { pages: await buildPageList(project), version: AUTHORSHIP_DOC_VERSION } },
+      );
+      doc = await Authorship.findOne({ projectID: { $eq: projectID } });
+    } else if (!AuthorshipService.isLockActive(doc)) {
+      // Pages added to the book since the last scan are queued here, so they get scanned and can
+      // be edited without a full refresh. Skipped while a run holds the lock: its next flush
+      // rewrites the page list, and the pages are picked up on the next load instead.
+      const known = new Set(doc.pages.map((p) => p.id));
+      const missing = (await buildPageList(project)).filter((p) => !known.has(p.id));
+      if (missing.length > 0) {
+        await Authorship.updateOne(
+          { projectID: { $eq: projectID } },
+          { $push: { pages: { $each: missing } } },
+        );
+        doc = await Authorship.findOne({ projectID: { $eq: projectID } });
+      }
     }
 
     const service = new AuthorshipService();
@@ -125,7 +156,13 @@ const reloadAuthorship = async (
     try {
       await Authorship.updateOne(
         { projectID: { $eq: projectID }, processingLockID: { $eq: lockID } },
-        { $set: { pages: await buildPageList(project), updatedBy: req.user.decoded.uuid } },
+        {
+          $set: {
+            pages: await buildPageList(project),
+            version: AUTHORSHIP_DOC_VERSION,
+            updatedBy: req.user.decoded.uuid,
+          },
+        },
       );
     } catch (err) {
       await AuthorshipService.releaseLock(projectID, lockID);
@@ -185,9 +222,9 @@ const getAuthorship = async (
     if (!doc) return res.status(404).send({ err: true, errMsg: "Authorship not found" });
 
     const allRefs = doc.pages.flatMap((p) => [
-      ...(p.pageAuthors ?? []),
-      ...(p.sourceAuthor ? [p.sourceAuthor] : []),
-      ...(p.contentAuthors ?? []),
+      ...(p.pageCredits ?? []),
+      ...(p.sourceCredits ?? []),
+      ...(p.contentCredits ?? []),
     ]);
     const authors = await resolveAuthorKeys(allRefs.map((r) => r.value));
     // An unresolved ref is shown as its raw text (e.g. an older `author@<Name>` tag).
@@ -201,9 +238,9 @@ const getAuthorship = async (
         title: p.title,
         url: p.url,
         status: p.status,
-        pageAuthors: (p.pageAuthors ?? []).map(resolve),
-        sourceAuthor: p.sourceAuthor ? resolve(p.sourceAuthor) : undefined,
-        contentAuthors: (p.contentAuthors ?? []).map(resolve),
+        pageCredits: (p.pageCredits ?? []).map(resolve),
+        sourceCredits: (p.sourceCredits ?? []).map(resolve),
+        contentCredits: (p.contentCredits ?? []).map(resolve),
       })),
     });
   } catch (err) {
@@ -256,37 +293,46 @@ async function checkAuthorKey(authorKey: string | null): Promise<string | null> 
   return exists ? null : `No author has the key "${authorKey}".`;
 }
 
-/** Writes the author tag on one library page, leaving every non-`author@` tag in place. */
-async function writePageAuthor(
+/**
+ * Writes one role's tag on one library page, leaving every other tag (other roles included) in
+ * place. Returns the page's credit tags as they now stand, for storing.
+ */
+async function writePageCredit(
   bookService: BookService,
   pageID: string,
+  role: CreditRole,
   authorKey: string | null,
-): Promise<void> {
+): Promise<AuthorshipAuthorRef[]> {
   const current = (await bookService.getPageTags(pageID)).map((t) => t["@value"]);
-  const [error, success] = await bookService.updatePageDetails(
-    pageID,
-    undefined,
-    replaceAuthorTag(current, authorKey),
-  );
-  if (error || !success) throw new Error(error ?? "Failed to update page tags");
+  const next = replaceRoleTag(current, role, authorKey);
+  // Written as-is: `updatePageDetails` keeps the page's existing system tags (credit tags among
+  // them), so clearing a credit through it would silently do nothing.
+  await bookService.setPageTags(pageID, next);
+  return readAllCreditTags(next);
 }
 
-/** Records the new author on the stored page entries, so the table reflects it without a rescan. */
-async function setStoredPageAuthor(projectID: string, pageIDs: string[], authorKey: string | null) {
-  if (pageIDs.length === 0) return;
-  const path = "pages.$[page].pageAuthors";
+/**
+ * Records a page's credit tags on its stored entry, so the table reflects the change without a
+ * rescan. Stores exactly what the page now carries (e.g. an `authorname:` tag left in place).
+ */
+async function setStoredPageCredits(
+  projectID: string,
+  pageID: string,
+  refs: AuthorshipAuthorRef[],
+) {
+  const path = "pages.$[page].pageCredits";
   await Authorship.updateOne(
     { projectID: { $eq: projectID } },
-    authorKey
-      ? { $set: { [path]: [{ tag: "author@", value: authorKey }] } }
-      : { $unset: { [path]: "" } },
-    { arrayFilters: [{ "page.id": { $in: pageIDs } }] },
+    refs.length ? { $set: { [path]: refs } } : { $unset: { [path]: "" } },
+    { arrayFilters: [{ "page.id": { $eq: pageID } }] },
   );
 }
 
-/** The page already carries exactly this author, so writing it would change nothing. */
-const isUnchanged = (page: AuthorshipPage, authorKey: string | null) => {
-  const ownTags = (page.pageAuthors ?? []).filter((r) => r.tag === "author@");
+/** The page already carries exactly this person in this role, so writing would change nothing. */
+const isUnchanged = (page: AuthorshipPage, role: CreditRole, authorKey: string | null) => {
+  const ownTags = (page.pageCredits ?? []).filter(
+    (r) => r.role === role && r.tag === roleTagPrefix(role),
+  );
   return authorKey === null
     ? ownTags.length === 0
     : ownTags.length === 1 && ownTags[0].value === authorKey;
@@ -300,7 +346,7 @@ const updateAuthorshipAuthor = async (
     const project = await loadProject(req, res);
     if (!project) return;
     const { projectID } = req.params;
-    const { pageID, authorKey } = req.body;
+    const { pageID, role, authorKey } = req.body;
 
     const doc = await Authorship.findOne({ projectID: { $eq: projectID } });
     if (!doc) return res.status(404).send({ err: true, errMsg: "Authorship not found" });
@@ -320,10 +366,10 @@ const updateAuthorshipAuthor = async (
       });
     }
 
-    await writePageAuthor(bookService, pageID, authorKey);
-    await setStoredPageAuthor(projectID, [pageID], authorKey);
+    const pageCredits = await writePageCredit(bookService, pageID, role, authorKey);
+    await setStoredPageCredits(projectID, pageID, pageCredits);
 
-    return res.send({ err: false, pageID, authorKey });
+    return res.send({ err: false, pageID, role, authorKey, pageCredits });
   } catch (err) {
     logger.error({ err, projectID: req.params.projectID }, "updateAuthorshipAuthor failed");
     return conductor500Err(res);
@@ -344,7 +390,7 @@ const bulkUpdateAuthorshipAuthor = async (
     const project = await loadProject(req, res);
     if (!project) return;
     const { projectID } = req.params;
-    const { pageIDs, authorKey } = req.body;
+    const { pageIDs, role, authorKey } = req.body;
 
     const doc = await Authorship.findOne({ projectID: { $eq: projectID } });
     if (!doc) return res.status(404).send({ err: true, errMsg: "Authorship not found" });
@@ -364,7 +410,7 @@ const bulkUpdateAuthorshipAuthor = async (
     for (const pageID of new Set(pageIDs)) {
       const page = pagesById.get(pageID);
       if (!page) skipped.push({ pageID, reason: "not-found" });
-      else if (isUnchanged(page, authorKey)) skipped.push({ pageID, reason: "unchanged" });
+      else if (isUnchanged(page, role, authorKey)) skipped.push({ pageID, reason: "unchanged" });
       else if (!bookPageIDs.has(pageID)) skipped.push({ pageID, reason: "no-access" });
       else toUpdate.push(pageID);
     }
@@ -400,7 +446,7 @@ const bulkUpdateAuthorshipAuthor = async (
     }
 
     AuthorshipService.withLock(projectID, lockID, () =>
-      runBulkJob({ projectID, jobID, bookService, pageIDs: toUpdate, authorKey }),
+      runBulkJob({ projectID, jobID, bookService, pageIDs: toUpdate, role, authorKey }),
     ).catch(async (err) => {
       logger.error({ err, projectID, jobID }, "Bulk authorship update job failed");
       await Authorship.updateOne(
@@ -423,9 +469,10 @@ async function runBulkJob(params: {
   jobID: string;
   bookService: BookService;
   pageIDs: string[];
+  role: CreditRole;
   authorKey: string | null;
 }) {
-  const { projectID, jobID, bookService, pageIDs, authorKey } = params;
+  const { projectID, jobID, bookService, pageIDs, role, authorKey } = params;
   const jobFilter = { projectID: { $eq: projectID }, "bulkJob.jobID": { $eq: jobID } };
   let updated = 0;
   let failed = 0;
@@ -433,11 +480,11 @@ async function runBulkJob(params: {
   const updatePage = async (pageID: string) => {
     let ok = false;
     try {
-      await writePageAuthor(bookService, pageID, authorKey);
-      await setStoredPageAuthor(projectID, [pageID], authorKey);
+      const pageCredits = await writePageCredit(bookService, pageID, role, authorKey);
+      await setStoredPageCredits(projectID, pageID, pageCredits);
       ok = true;
     } catch (err) {
-      logger.warn({ err, projectID, pageID }, "Bulk authorship update failed for page");
+      logger.warn({ err, projectID, pageID, role }, "Bulk credit update failed for page");
     }
     if (ok) updated += 1;
     else failed += 1;
@@ -464,7 +511,7 @@ async function runBulkJob(params: {
       "bulkJob.failed": failed,
     },
   });
-  logger.info({ projectID, updated, failed }, "Bulk authorship update finished");
+  logger.info({ projectID, role, updated, failed }, "Bulk credit update finished");
 }
 
 export default {

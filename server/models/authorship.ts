@@ -1,30 +1,32 @@
 import { Document, model, Schema } from "mongoose";
+import { CREDIT_ROLES, type CreditRole } from "../util/author-tags.js";
 
 /**
- * An author tag as it appears on a library page. `value` is the raw tag value: an author key
- * for tags written by the Authorship tool (`author@<key>`), or whatever an older tag holds
- * (`authorname:<key>`, or `author@<Name>` display text).
+ * A credit tag as it appears on a library page: its role (author, editor, …), the tag prefix it
+ * was read from, and its raw value. Tags written by the Attribution Manager hold an author key
+ * (`editor@<key>`); older ones may hold display text (`author@<Name>`) or be `authorname:<key>`.
  */
 export type AuthorshipAuthorRef = {
-  tag: "author@" | "authorname:";
+  role: CreditRole;
+  tag: string;
   value: string;
 };
 
 export type AuthorshipPageStatus = "pending" | "completed" | "failed";
 
+/** Bumped when the stored page shape changes; documents with an older version are rescanned. */
+export const AUTHORSHIP_DOC_VERSION = 2;
+
 export interface AuthorshipPage {
   id: string;
   title: string;
   url: string;
-  /**
-   * The page's own author tags: every `author@` tag, or failing that its `authorname:` tag.
-   * Older pages can carry several `author@` tags (one per name); the Authorship tool writes one.
-   */
-  pageAuthors?: AuthorshipAuthorRef[];
-  /** For a transcluded page, the author tag of the page it points at. */
-  sourceAuthor?: AuthorshipAuthorRef;
-  /** Author tags of the pages whose content is reused inside this page. */
-  contentAuthors?: AuthorshipAuthorRef[];
+  /** The page's own credit tags, every role. */
+  pageCredits?: AuthorshipAuthorRef[];
+  /** For a transcluded page, the credit tags of the page it points at. */
+  sourceCredits?: AuthorshipAuthorRef[];
+  /** Credit tags of the pages whose content is reused inside this page. */
+  contentCredits?: AuthorshipAuthorRef[];
   status: AuthorshipPageStatus;
 }
 
@@ -41,6 +43,7 @@ export interface AuthorshipBulkJob {
 
 export interface AuthorshipInterface extends Document {
   projectID: string;
+  version?: number;
   createdBy: string;
   updatedBy: string;
   pages: AuthorshipPage[];
@@ -54,7 +57,8 @@ export interface AuthorshipInterface extends Document {
 
 const AuthorRefSchema = new Schema<AuthorshipAuthorRef>(
   {
-    tag: { type: String, enum: ["author@", "authorname:"], required: true },
+    role: { type: String, enum: CREDIT_ROLES, required: true },
+    tag: { type: String, required: true },
     value: { type: String, required: true },
   },
   { _id: false },
@@ -65,9 +69,9 @@ const AuthorshipPageSchema = new Schema<AuthorshipPage>(
     id: { type: String, required: true },
     title: { type: String, required: true },
     url: { type: String, required: true },
-    pageAuthors: { type: [AuthorRefSchema], required: false, default: undefined },
-    sourceAuthor: { type: AuthorRefSchema, required: false },
-    contentAuthors: { type: [AuthorRefSchema], required: false, default: undefined },
+    pageCredits: { type: [AuthorRefSchema], required: false, default: undefined },
+    sourceCredits: { type: [AuthorRefSchema], required: false, default: undefined },
+    contentCredits: { type: [AuthorRefSchema], required: false, default: undefined },
     status: {
       type: String,
       enum: ["pending", "completed", "failed"],
@@ -81,6 +85,7 @@ const AuthorshipPageSchema = new Schema<AuthorshipPage>(
 const AuthorshipSchema = new Schema<AuthorshipInterface>(
   {
     projectID: { type: String, required: true, unique: true },
+    version: { type: Number, required: false },
     createdBy: { type: String, required: true },
     updatedBy: { type: String, required: true },
     pages: { type: [AuthorshipPageSchema], required: true },

@@ -7,12 +7,24 @@ export type AuthorshipAuthor = {
   isGroup: boolean;
 };
 
+/** Credit roles, as written in tags (`<role>@<authorKey>`). Keep in step with the server. */
+export type CreditRole =
+  | "author"
+  | "editor"
+  | "remixer"
+  | "translator"
+  | "contributor"
+  | "illustrator"
+  | "reviewedBy";
+
 /**
- * An author tag found on a library page. `author` is set when `value` is the key of an existing
+ * A credit tag found on a library page. `author` is set when `value` is the key of an existing
  * author; otherwise `value` is shown as written (e.g. an older `author@<Name>` tag).
  */
 export type AuthorshipAuthorRef = {
-  tag: "author@" | "authorname:";
+  role: CreditRole;
+  /** The tag prefix it was read from: `<role>@`, or `authorname:` for older author tags. */
+  tag: string;
   value: string;
   author?: AuthorshipAuthor;
 };
@@ -24,9 +36,12 @@ export type AuthorshipEntry = {
   title: string;
   url: string;
   status: AuthorshipStatus;
-  pageAuthors: AuthorshipAuthorRef[];
-  sourceAuthor?: AuthorshipAuthorRef;
-  contentAuthors: AuthorshipAuthorRef[];
+  /** The page's own credit tags, every role. */
+  pageCredits: AuthorshipAuthorRef[];
+  /** For a transcluded page, the credit tags of the page it points at. */
+  sourceCredits: AuthorshipAuthorRef[];
+  /** Credit tags of content reused inside the page. */
+  contentCredits: AuthorshipAuthorRef[];
 };
 
 export type AuthorshipBulkJob = {

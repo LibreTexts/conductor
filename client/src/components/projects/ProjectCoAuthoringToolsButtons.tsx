@@ -115,7 +115,7 @@ const ProjectCoAuthoringToolsButtons: React.FC<
                 color="blue"
                 size="small"
               >
-                Authorship
+                Attribution Manager
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
               {hasCommonsBook && (

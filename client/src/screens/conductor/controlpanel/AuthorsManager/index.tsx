@@ -108,7 +108,9 @@ const AuthorsManager = () => {
     } catch {
       return null;
     }
-    return parsedURL.hostname ? (
+    // Stored URLs are rendered as links, so only http(s) ones are linked.
+    const isHttp = parsedURL.protocol === "http:" || parsedURL.protocol === "https:";
+    return isHttp && parsedURL.hostname ? (
       <a
         href={parsedURL.toString()}
         target="_blank"

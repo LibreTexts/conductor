@@ -10,51 +10,9 @@ import { randomUUID } from "node:crypto";
 import { sleep } from "./helpers.js";
 import { libraryKeys } from "./libraries.js";
 import { detectTranscludeStub } from "./transclusion.js";
+import { distinctCreditRefs, readAllCreditTags } from "./author-tags.js";
 
 const authorshipLog = childLogger("authorship");
-
-export const AUTHOR_TAG_PREFIX = "author@";
-export const AUTHOR_NAME_TAG_PREFIX = "authorname:";
-
-/**
- * The author tags of a page: every `author@` tag, or failing that its `authorname:` tag. A page
- * written by the Authorship tool has exactly one `author@<key>`; older pages may have several
- * `author@<Name>` tags or only an `authorname:<key>`.
- */
-export function readAuthorTags(tagValues: string[]): AuthorshipAuthorRef[] {
-  const authorTags = tagValues
-    .filter((t) => t.startsWith(AUTHOR_TAG_PREFIX))
-    .map((t) => t.slice(AUTHOR_TAG_PREFIX.length).trim())
-    .filter(Boolean)
-    .map((value) => ({ tag: "author@" as const, value }));
-  if (authorTags.length > 0) return authorTags;
-
-  const nameTag = tagValues
-    .find((t) => t.startsWith(AUTHOR_NAME_TAG_PREFIX))
-    ?.slice(AUTHOR_NAME_TAG_PREFIX.length)
-    .trim();
-  return nameTag ? [{ tag: "authorname:", value: nameTag }] : [];
-}
-
-/**
- * A page's tags with its `author@` tags replaced by `author@<authorKey>` (or removed when
- * `authorKey` is null). Every other tag, `authorname:` included, is kept as it is.
- */
-export function replaceAuthorTag(tagValues: string[], authorKey: string | null): string[] {
-  const kept = tagValues.filter((t) => !t.startsWith(AUTHOR_TAG_PREFIX));
-  return authorKey ? [...kept, `${AUTHOR_TAG_PREFIX}${authorKey}`] : kept;
-}
-
-/** Distinct refs, in order of first appearance. */
-const distinctRefs = (refs: AuthorshipAuthorRef[]): AuthorshipAuthorRef[] => {
-  const seen = new Set<string>();
-  return refs.filter((r) => {
-    const id = `${r.tag}${r.value}`;
-    if (seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  });
-};
 
 /**
  * Scans a book's pages for their author tags, mirroring the License Restacker's design: a
@@ -183,14 +141,14 @@ class AuthorshipService {
       if (page.status !== "pending") return;
       try {
         const tags = await this.withRetry(() => this.getTags(library, page.id));
-        const own = readAuthorTags(tags.map((t) => t["@value"]));
-        page.pageAuthors = own.length ? own : undefined;
+        const own = readAllCreditTags(tags.map((t) => t["@value"]));
+        page.pageCredits = own.length ? own : undefined;
 
-        const { sourceAuthor, contentAuthors } = await this.withRetry(() =>
+        const { sourceCredits, contentCredits } = await this.withRetry(() =>
           this.scanContent(library, coverID, page.id),
         );
-        page.sourceAuthor = sourceAuthor;
-        page.contentAuthors = contentAuthors.length ? contentAuthors : undefined;
+        page.sourceCredits = sourceCredits.length ? sourceCredits : undefined;
+        page.contentCredits = contentCredits.length ? contentCredits : undefined;
         page.status = "completed";
       } catch (err) {
         authorshipLog.warn({ err, projectID, pageID: page.id }, "Authorship scan failed for page");
@@ -221,51 +179,68 @@ class AuthorshipService {
   }
 
   /**
-   * Source author: for a page that is wholly a transclusion stub, the author tags of the page it
-   * points at. Content authors: the author tags of every page referenced by `lt-<lib>-<id>`
-   * content inside this page.
+   * Source credits: for a page that is wholly a transclusion stub, the credit tags of the page it
+   * points at. Content credits: the credit tags of every page referenced by `lt-<lib>-<id>`
+   * content inside this page. Every role is collected.
    */
   private async scanContent(
     library: string,
     coverID: string,
     pageID: string,
-  ): Promise<{ sourceAuthor?: AuthorshipAuthorRef; contentAuthors: AuthorshipAuthorRef[] }> {
+  ): Promise<{ sourceCredits: AuthorshipAuthorRef[]; contentCredits: AuthorshipAuthorRef[] }> {
     const bookService = new BookService({ bookID: `${library}-${coverID}` });
 
-    let sourceAuthor: AuthorshipAuthorRef | undefined;
-    const raw = await bookService.getPageRawContent(pageID).catch(() => "");
+    // Read failures propagate, so the page is retried and then marked failed instead of being
+    // recorded as having no source or content authors.
+    let sourceCredits: AuthorshipAuthorRef[] = [];
+    const raw = await bookService.getPageRawContent(pageID);
     const stub = raw ? detectTranscludeStub(raw) : null;
     if (stub) {
       const sourceTags =
         stub.kind === "cross-library"
           ? await this.getTags(stub.subdomain, String(stub.pageID))
           : await this.getTags(library, stub.path);
-      sourceAuthor = readAuthorTags(sourceTags.map((t) => t["@value"]))[0];
+      sourceCredits = readAllCreditTags(sourceTags.map((t) => t["@value"]));
     }
 
-    const contentAuthors: AuthorshipAuthorRef[] = [];
-    const html = await bookService.getPageContent(pageID, "json").catch(() => null);
+    const contentCredits: AuthorshipAuthorRef[] = [];
+    const html = await bookService.getPageContent(pageID, "json");
     if (html) {
       const ltRegex = new RegExp(this.ltRegex.source, this.ltRegex.flags);
       const refs = new Set([...String(html).matchAll(ltRegex)].map((m) => m[0]));
       for (const ref of refs) {
         const [, refLibrary, refPageID] = ref.split("-");
-        const tags = await this.getTags(refLibrary, refPageID).catch(() => []);
-        contentAuthors.push(...readAuthorTags(tags.map((t) => t["@value"])));
+        // A referenced page can legitimately be unreadable (deleted, or private in another
+        // library); that shouldn't fail this page, so it is just left out.
+        const tags = await this.getTags(refLibrary, refPageID).catch((err) => {
+          authorshipLog.debug({ err, ref }, "Could not read tags of reused content");
+          return [] as PageTag[];
+        });
+        contentCredits.push(...readAllCreditTags(tags.map((t) => t["@value"])));
       }
     }
 
-    return { sourceAuthor, contentAuthors: distinctRefs(contentAuthors) };
+    return { sourceCredits, contentCredits: distinctCreditRefs(contentCredits) };
   }
 
-  /** A few short retries for flaky library calls; the scan moves on after that. */
+  /**
+   * Retries transient library failures (timeouts, dropped connections, 5xx) a couple of times.
+   * Anything else, such as a 403 or 404, fails the page straight away instead of waiting.
+   */
   private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
     const DELAYS_MS = [5_000, 15_000];
+    const isTransient = (err: unknown) => {
+      const msg = err instanceof Error ? err.message.toLowerCase() : "";
+      return (
+        /timeout|timed out|etimedout|econnreset|socket hang up|transient error/.test(msg) ||
+        /\b5\d\d\b/.test(msg)
+      );
+    };
     for (let attempt = 0; ; attempt += 1) {
       try {
         return await fn();
       } catch (err) {
-        if (attempt >= DELAYS_MS.length) throw err;
+        if (attempt >= DELAYS_MS.length || !isTransient(err)) throw err;
         await sleep(DELAYS_MS[attempt]);
       }
     }
