@@ -10,6 +10,13 @@ import { randomUUID } from "node:crypto";
 import BookService from "./services/book-service";
 import Restacker from "../models/restacker";
 import RestackerService, { type RestackerRefreshMode } from "../util/Restackerutil";
+import AuthorshipService from "../util/Authorshiputil.js";
+import {
+  acquireScanLocks,
+  ensureScanDocs,
+  resetScanPages,
+  runBookScan,
+} from "../util/book-scan.js";
 const LICENSES_WITHOUT_VERSION = new Set(["publicdomain", "arr", "ck12"]);
 
 type RestackerLicenseLike = { label: string; raw: string; version?: string };
@@ -387,16 +394,15 @@ const getRestackerToc = async (
     const restackerService = new RestackerService();
     const restackerStatus = await restackerService.getRestackerStatus(restacker);
 
-    // Start a fresh doc, or resume one whose run died mid-way (pending pages, stale
-    // lock). runRestacker takes the lock atomically, so concurrent calls can't double-run.
+    // Start a fresh doc, or resume one whose run died mid-way (pending pages, stale lock).
+    // The shared book scan fills the Restacker and the Attribution Manager together, and takes
+    // both locks atomically, so concurrent calls can't double-run.
     if (restackerStatus.statusCode === "pending" && !restackerStatus.processing) {
-      restackerService.runRestacker(
-        projectID,
-        project.libreLibrary,
-        project.libreCoverID,
-      ).catch((err) => {
-        logger.error({ err, projectID }, "Restacker run failed");
-      })
+      ensureScanDocs(project, req.user.decoded.uuid)
+        .then(() => runBookScan(project, "content"))
+        .catch((err) => {
+          logger.error({ err, projectID }, "Book scan failed");
+        });
     }
     return res.send({
       err: false,
@@ -408,27 +414,6 @@ const getRestackerToc = async (
     return conductor500Err(res);
   }
 };
-
-type RestackerPageSeed = {
-  id: string;
-  title: string;
-  url: string;
-};
-
-/** Flattens the book TOC into restacker page entries, book cover first. */
-function flattenTocForRestacker(
-  toc: Awaited<ReturnType<BookService["getBookTOCNew"]>>,
-): RestackerPageSeed[] {
-  const flattenPages = (pages: typeof toc.children): RestackerPageSeed[] =>
-    pages?.flatMap((page) => [
-      { id: page.id, title: page.title, url: page.url },
-      ...flattenPages(page.children ?? []),
-    ]) ?? [];
-  return [
-    { id: toc?.id, title: toc?.title, url: toc?.url },
-    ...flattenPages(toc?.children ?? []),
-  ];
-}
 
 const restackerReload = async (
   req: ZodReqWithUser<
@@ -483,13 +468,14 @@ const restackerReload = async (
     const bookService = new BookService({
       bookID: `${project.libreLibrary}-${project.libreCoverID}`,
     });
-    const toc = await bookService.getBookTOCNew({ includeRestricted: true });
-    const tocPages = flattenTocForRestacker(toc);
+    const toc = await bookService.getBookTOCNew();
 
-    // Take the lock before resetting pages, so a concurrent /toc request can't see an
-    // all-pending doc and start a second run.
-    const lockID = await RestackerService.acquireLock(projectID);
-    if (!lockID) {
+    // A refresh rescans the pages for the Restacker and the Attribution Manager together, so it
+    // takes both tools' locks before resetting pages: a concurrent /toc request can't see an
+    // all-pending doc and start a second run, and neither tool can be edited mid-scan.
+    await ensureScanDocs(project, req.user.decoded.uuid);
+    const locks = await acquireScanLocks(projectID);
+    if (!locks) {
       return res.status(400).send({
         err: true,
         errMsg: "Restacker is already processing",
@@ -497,55 +483,21 @@ const restackerReload = async (
     }
 
     try {
-      let restackerCurrentBook;
-      if (mode === "page") {
-        // Keep each page's content-level data (source/content licenses, quotation) and
-        // only re-queue it for a license-tag read. Pages new to the TOC have no content
-        // data yet, so the job gives them a full content scan.
-        const existing = await Restacker.findOne({ projectID: { $eq: projectID } });
-        const existingById = new Map(
-          (existing?.toObject().restackerCurrentBook ?? []).map((entry) => [
-            entry.id,
-            entry,
-          ]),
-        );
-        restackerCurrentBook = tocPages.map((page) => ({
-          ...existingById.get(page.id),
-          ...page,
-          status: "pending" as const,
-        }));
-      } else {
-        // Content level: drop all stored license data so every page is re-scanned.
-        restackerCurrentBook = tocPages.map((page) => ({
-          ...page,
-          status: "pending" as const,
-        }));
-      }
-      await Restacker.updateOne(
-        { projectID: { $eq: projectID }, processingLockID: { $eq: lockID } },
-        {
-          $set: {
-            restackerCurrentBook,
-            updatedBy: req.user.decoded.uuid,
-            ...(mode === "content" ? { message: [] } : {}),
-          },
-        },
-      );
+      // `page` keeps each page's content-level data (source/content licenses, quotation) and
+      // only re-reads tags; pages new to the TOC have no content data yet, so they get a full
+      // content scan. `content` drops all stored data so every page is re-scanned.
+      await resetScanPages(project, locks, mode, req.user.decoded.uuid);
     } catch (err) {
-      await RestackerService.releaseLock(projectID, lockID);
+      await Promise.all([
+        RestackerService.releaseLock(projectID, locks.restacker),
+        AuthorshipService.releaseLock(projectID, locks.authorship),
+      ]);
       throw err;
     }
 
-    // Kick off the reload job here (fire-and-forget) so the client doesn't have to make a
-    // follow-up /toc call to start it; the client polls /restacker/status for progress.
-    // Started right after the reset so nothing between them can strand the lock.
-    restackerService.runRestacker(
-      projectID,
-      project.libreLibrary,
-      project.libreCoverID,
-      mode,
-      lockID,
-    ).catch((err) => {
+    // Fire-and-forget so the client doesn't wait; it polls /restacker/status for progress.
+    // Started right after the reset so nothing between them can strand the locks.
+    runBookScan(project, mode, locks).catch((err) => {
       logger.error({ err, projectID, mode }, "Restacker reload failed");
     });
 

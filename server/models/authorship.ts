@@ -27,6 +27,8 @@ export interface AuthorshipPage {
   sourceCredits?: AuthorshipAuthorRef[];
   /** Credit tags of the pages whose content is reused inside this page. */
   contentCredits?: AuthorshipAuthorRef[];
+  /** Set once the page's body has been scanned; a tags-only refresh keeps the content fields. */
+  contentScanned?: boolean;
   status: AuthorshipPageStatus;
 }
 
@@ -72,6 +74,7 @@ const AuthorshipPageSchema = new Schema<AuthorshipPage>(
     pageCredits: { type: [AuthorRefSchema], required: false, default: undefined },
     sourceCredits: { type: [AuthorRefSchema], required: false, default: undefined },
     contentCredits: { type: [AuthorRefSchema], required: false, default: undefined },
+    contentScanned: { type: Boolean, required: false },
     status: {
       type: String,
       enum: ["pending", "completed", "failed"],
