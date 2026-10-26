@@ -16,6 +16,14 @@ import { NAME_KEY_LOOKUP_REGEX } from "./validators/authors.js";
 import projectsAPI from "./projects.js";
 import BookService from "./services/book-service.js";
 import AuthorshipService from "../util/Authorshiputil.js";
+import RestackerService from "../util/Restackerutil.js";
+import {
+  acquireScanLocks,
+  buildScanPageList,
+  ensureScanDocs,
+  resetScanPages,
+  runBookScan,
+} from "../util/book-scan.js";
 import {
   CreditRole,
   readAllCreditTags,
@@ -67,16 +75,7 @@ const bookServiceFor = (project: ProjectInterface) =>
 
 /** The book cover followed by every page in TOC order, each queued for a scan. */
 async function buildPageList(project: ProjectInterface): Promise<AuthorshipPage[]> {
-  const toc = await bookServiceFor(project).getBookTOCNew();
-  const flatten = (pages: typeof toc.children): AuthorshipPage[] =>
-    pages?.flatMap((page) => [
-      { id: page.id, title: page.title, url: page.url, status: "pending" as const },
-      ...flatten(page.children ?? []),
-    ]) ?? [];
-  return [
-    { id: toc.id, title: toc.title, url: toc.url, status: "pending" },
-    ...flatten(toc.children ?? []),
-  ];
+  return (await buildScanPageList(project)).map((p) => ({ ...p, status: "pending" as const }));
 }
 
 const getAuthorshipToc = async (
@@ -120,14 +119,14 @@ const getAuthorshipToc = async (
       }
     }
 
-    const service = new AuthorshipService();
-    const status = service.getStatus(doc);
-    // Start a fresh scan, or resume one whose run died (pending pages, stale lock). The run takes
-    // the lock atomically, so concurrent requests can't start two.
+    const status = new AuthorshipService().getStatus(doc);
+    // Start a fresh scan, or resume one whose run died (pending pages, stale lock). The shared
+    // book scan fills the Attribution Manager and the License Restacker together, and takes both
+    // locks atomically, so concurrent requests can't start two.
     if (status.statusCode === "pending" && !status.processing) {
-      service
-        .run(projectID, project.libreLibrary, project.libreCoverID)
-        .catch((err) => logger.error({ err, projectID }, "Authorship scan failed"));
+      ensureScanDocs(project, req.user.decoded.uuid)
+        .then(() => runBookScan(project, "content"))
+        .catch((err) => logger.error({ err, projectID }, "Book scan failed"));
     }
 
     return res.send({ err: false, toc, status: status.statusCode });
@@ -149,29 +148,26 @@ const reloadAuthorship = async (
     if (!(await Authorship.exists({ projectID: { $eq: projectID } }))) {
       return res.status(404).send({ err: true, errMsg: "Authorship not found" });
     }
-    // Take the lock before resetting pages so a concurrent /toc request can't start a second run.
-    const lockID = await AuthorshipService.acquireLock(projectID);
-    if (!lockID) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
+    // A refresh rescans the pages for the Attribution Manager and the License Restacker together,
+    // so it takes both tools' locks before resetting pages (a concurrent /toc request then can't
+    // start a second run, and neither tool can be edited mid-scan).
+    await ensureScanDocs(project, req.user.decoded.uuid);
+    const locks = await acquireScanLocks(projectID);
+    if (!locks) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
 
     try {
-      await Authorship.updateOne(
-        { projectID: { $eq: projectID }, processingLockID: { $eq: lockID } },
-        {
-          $set: {
-            pages: await buildPageList(project),
-            version: AUTHORSHIP_DOC_VERSION,
-            updatedBy: req.user.decoded.uuid,
-          },
-        },
-      );
+      await resetScanPages(project, locks, "content", req.user.decoded.uuid);
     } catch (err) {
-      await AuthorshipService.releaseLock(projectID, lockID);
+      await Promise.all([
+        RestackerService.releaseLock(projectID, locks.restacker),
+        AuthorshipService.releaseLock(projectID, locks.authorship),
+      ]);
       throw err;
     }
 
-    new AuthorshipService()
-      .run(projectID, project.libreLibrary, project.libreCoverID, lockID)
-      .catch((err) => logger.error({ err, projectID }, "Authorship rescan failed"));
+    runBookScan(project, "content", locks).catch((err) =>
+      logger.error({ err, projectID }, "Attribution rescan failed"),
+    );
 
     return res.send({ err: false, status: "pending" });
   } catch (err) {
