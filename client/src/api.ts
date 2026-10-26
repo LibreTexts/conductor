@@ -3692,9 +3692,14 @@ class API {
     return res.data;
   }
 
-  async reloadAuthorship(projectID: string) {
+  /**
+   * Rescans the book. "content" re-reads every page's body (slow); "page" only re-reads tags and
+   * keeps the source/content data. Also refreshes the License Restacker (one shared scan).
+   */
+  async reloadAuthorship(projectID: string, mode: "content" | "page" = "content") {
     const res = await axios.post<{ status: AuthorshipStatus } & ConductorBaseResponse>(
       `/projects/${projectID}/authorship/toc`,
+      { mode },
     );
     return res.data;
   }

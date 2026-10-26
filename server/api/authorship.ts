@@ -144,6 +144,7 @@ const reloadAuthorship = async (
     const project = await loadProject(req, res);
     if (!project) return;
     const { projectID } = req.params;
+    const mode = req.body?.mode ?? "content";
 
     if (!(await Authorship.exists({ projectID: { $eq: projectID } }))) {
       return res.status(404).send({ err: true, errMsg: "Authorship not found" });
@@ -156,7 +157,7 @@ const reloadAuthorship = async (
     if (!locks) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
 
     try {
-      await resetScanPages(project, locks, "content", req.user.decoded.uuid);
+      await resetScanPages(project, locks, mode, req.user.decoded.uuid);
     } catch (err) {
       await Promise.all([
         RestackerService.releaseLock(projectID, locks.restacker),
@@ -165,8 +166,8 @@ const reloadAuthorship = async (
       throw err;
     }
 
-    runBookScan(project, "content", locks).catch((err) =>
-      logger.error({ err, projectID }, "Attribution rescan failed"),
+    runBookScan(project, mode, locks).catch((err) =>
+      logger.error({ err, projectID, mode }, "Attribution rescan failed"),
     );
 
     return res.send({ err: false, status: "pending" });
