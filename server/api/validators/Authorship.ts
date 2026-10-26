@@ -24,6 +24,12 @@ export const GetAuthorshipSchema = z.object({
 
 export const AuthorshipReloadSchema = z.object({
   params: projectParams,
+  body: z
+    .object({
+      // "page" re-reads tags only and keeps the content data; "content" rescans everything.
+      mode: z.enum(["content", "page"]).optional(),
+    })
+    .optional(),
 });
 
 export const UpdateAuthorshipAuthorSchema = z.object({

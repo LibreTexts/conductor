@@ -38,6 +38,7 @@ import { useNotifications } from "../../../context/NotificationContext";
 import useProject from "../../../hooks/useProject";
 import { capitalizeFirstLetter, truncateString } from "../../util/HelperFunctions";
 import { expandWithDescendants } from "../Restacker/util";
+import RefreshModeModal, { type RefreshMode } from "../Restacker/RefreshModeModal";
 import AuthorPicker from "./AuthorPicker";
 import {
   CREDIT_ROLES,
@@ -329,8 +330,9 @@ const Authorship = () => {
     [rows],
   );
 
+  const [refreshOpen, setRefreshOpen] = useState(false);
   const { mutate: reload, isPending: reloadPending } = useMutation({
-    mutationFn: () => api.reloadAuthorship(projectID),
+    mutationFn: (mode: RefreshMode) => api.reloadAuthorship(projectID, mode),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["authorship-status", projectID] });
       await queryClient.invalidateQueries({ queryKey: ["authorship", projectID] });
@@ -733,7 +735,7 @@ const Authorship = () => {
                 icon={<IconRefresh size={16} />}
                 loading={reloadPending || isProcessing}
                 disabled={!projectID || bulkRunning}
-                onClick={() => reload()}
+                onClick={() => setRefreshOpen(true)}
               >
                 Refresh Credit Data
               </Button>
@@ -771,6 +773,20 @@ const Authorship = () => {
           </Stack>
         </Card.Body>
       </Card>
+
+      {refreshOpen && (
+        <RefreshModeModal
+          title="Refresh Credit Data"
+          intro="Choose how much data to reload from the library. License data in the License Restacker is refreshed at the same time."
+          pageDescription="Re-reads the credit tags of the book and every page. Keeps the existing Source and Content credits. Fast."
+          contentDescription="Reviews every page's content again for Source and Content credits (and licenses). Can take several minutes."
+          onCancel={() => setRefreshOpen(false)}
+          onConfirm={(mode) => {
+            setRefreshOpen(false);
+            reload(mode);
+          }}
+        />
+      )}
 
       {/* Switches only the role columns of the one table below. The table is never remounted,
           so you stay at the same place in the list while flipping between roles. */}
