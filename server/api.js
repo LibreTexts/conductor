@@ -24,6 +24,7 @@ import adoptionReportAPI from "./api/adoptionreports.js";
 import collectionsAPI from "./api/collections.js";
 import activitiesAPI from "./api/activities.js";
 import studioLegacyAPI from "./api/studio-legacy.js";
+import activityAuthoringAPI from "./api/activity-authoring.js";
 import booksAPI from "./api/books.js";
 import homeworkAPI from "./api/homework.js";
 import librariesAPI from "./api/libraries.js";
@@ -1134,6 +1135,68 @@ router
     activitiesAPI.getActivitiesByAuthor
   );
 // end
+
+// H5P authoring. Conductor decides who may edit what and signs capability
+// tokens for the H5P service, which owns the content. Owners and
+// collaborators edit; only owners delete. See H5P_AUTHORING_DESIGN.md.
+router
+  .route("/activities")
+  .post(
+    authAPI.verifyRequest,
+    middleware.validateZod(activityValidators.createActivitySchema),
+    activityAuthoringAPI.createActivity
+  );
+
+router
+  .route("/activities/subjects")
+  .get(authAPI.verifyRequest, activityAuthoringAPI.listActivitySubjects);
+
+router
+  .route("/activities/:activityID/authoring")
+  .get(
+    authAPI.verifyRequest,
+    middleware.validateZod(activityValidators.activityIDOnlySchema),
+    activityAuthoringAPI.getActivityForEditing
+  );
+
+router
+  .route("/activities/editor-token")
+  .post(authAPI.verifyRequest, activityAuthoringAPI.issueNewActivityEditorToken);
+
+// Daily, triggered externally like /alerts/processdaily.
+router
+  .route("/activities/automation/cleanup")
+  .put(middleware.checkLibreAPIKey, activityAuthoringAPI.cleanupAbandonedActivities);
+
+router
+  .route("/activities/:activityID")
+  .patch(
+    authAPI.verifyRequest,
+    middleware.validateZod(activityValidators.updateActivitySchema),
+    activityAuthoringAPI.updateActivity
+  )
+  .delete(
+    authAPI.verifyRequest,
+    middleware.validateZod(activityValidators.activityIDOnlySchema),
+    activityAuthoringAPI.deleteActivity
+  );
+
+router
+  .route("/activities/:activityID/editor-token")
+  .post(
+    authAPI.verifyRequest,
+    middleware.validateZod(activityValidators.activityIDOnlySchema),
+    activityAuthoringAPI.issueEditorToken
+  );
+
+// The signed-in user's own activities, for My H5P.
+router
+  .route("/activities/mine")
+  .get(
+    authAPI.verifyRequest,
+    middleware.validateZod(activityValidators.getMyActivitiesSchema),
+    activitiesAPI.getMyActivities
+  );
 
 router
   .route("/commons/activities/:activityID")

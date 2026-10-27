@@ -12,8 +12,9 @@ import {
   getActivitySchema,
   getAdaptFeedSchema,
   getCommonsActivitiesSchema,
+  getMyActivitiesSchema,
 } from "./validators/activities.js";
-import { ZodReqWithOptionalUser } from "../types";
+import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 
 const adaptLog = childLogger("adapt-feed");
 
@@ -276,6 +277,124 @@ async function getActivitiesByAuthor(
 }
 
 /**
+ * The UI's three visibility levels, derived from the stored fields. An
+ * activity with no `includeInLibrary` value counts as listed, matching the
+ * schema default and Studio's.
+ */
+const VISIBILITY_LEVEL_EXPR = {
+  $cond: [
+    { $eq: ["$visibility", "private"] },
+    "private",
+    { $cond: [{ $eq: ["$includeInLibrary", false] }, "unlisted", "public"] },
+  ],
+};
+
+const VISIBILITY_LEVEL_FILTERS: Record<string, FilterQuery<ActivityInterface>> = {
+  public: { visibility: "public", includeInLibrary: { $ne: false } },
+  unlisted: { visibility: "public", includeInLibrary: false },
+  private: { visibility: "private" },
+};
+
+const MY_ACTIVITIES_SORTS: Record<string, Record<string, 1 | -1>> = {
+  updated: { updatedAt: -1, _id: 1 },
+  created: { createdAt: -1, _id: 1 },
+  title: { title: 1, _id: 1 },
+};
+
+/**
+ * The signed-in user's activities for My H5P: those they own and those they
+ * collaborate on, each marked with the caller's role.
+ *
+ * One aggregation returns the page of results plus the counts the visibility
+ * filter shows. `counts` respects the search but not the visibility filter,
+ * so each option shows how many results choosing it would give.
+ * `overallTotal` ignores both, for the "search all N" message.
+ */
+async function getMyActivities(
+  req: ZodReqWithUser<z.infer<typeof getMyActivitiesSchema>>,
+  res: Response
+) {
+  try {
+    const userUUID = req.user.decoded.uuid;
+    const { query, visibility, sort } = req.query;
+    const page = parseInt(req.query.page.toString()) || 1;
+    const limit = parseInt(req.query.limit.toString()) || 24;
+    const offset = getPaginationOffset(page, limit);
+
+    const searchMatch: FilterQuery<ActivityInterface> = {};
+    if (query) {
+      const pattern = _escapeRegex(query);
+      searchMatch.$or = [
+        { title: { $regex: pattern, $options: "i" } },
+        { tags: { $regex: pattern, $options: "i" } },
+        { libraryTitle: { $regex: pattern, $options: "i" } },
+      ];
+    }
+    const visibilityMatch =
+      visibility === "all" ? {} : VISIBILITY_LEVEL_FILTERS[visibility];
+
+    const [result] = await Activity.aggregate([
+      {
+        $match: {
+          orgID: process.env.ORG_ID,
+          $or: [{ createdBy: userUUID }, { collaborators: userUUID }],
+        },
+      },
+      {
+        $facet: {
+          overall: [{ $count: "n" }],
+          counts: [
+            { $match: searchMatch },
+            { $group: { _id: VISIBILITY_LEVEL_EXPR, n: { $sum: 1 } } },
+          ],
+          items: [
+            { $match: searchMatch },
+            { $match: visibilityMatch },
+            { $sort: MY_ACTIVITIES_SORTS[sort] },
+            { $skip: offset },
+            { $limit: limit },
+            {
+              $project: {
+                _id: 0,
+                activityID: 1,
+                title: 1,
+                library: 1,
+                libraryTitle: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                visibility: VISIBILITY_LEVEL_EXPR,
+                role: {
+                  $cond: [{ $eq: ["$createdBy", userUUID] }, "owner", "collaborator"],
+                },
+              },
+            },
+          ],
+        },
+      },
+    ]).collation({ locale: "en", strength: 2 });
+
+    const counts = { all: 0, public: 0, unlisted: 0, private: 0 };
+    for (const c of result.counts as { _id: keyof typeof counts; n: number }[]) {
+      counts[c._id] = c.n;
+      counts.all += c.n;
+    }
+    const totalItems = visibility === "all" ? counts.all : counts[visibility];
+
+    return res.send({
+      err: false,
+      activities: result.items,
+      counts,
+      overallTotal: result.overall[0]?.n ?? 0,
+      total_items: totalItems,
+      cursor: totalItems > offset + limit ? offset + limit : undefined,
+    });
+  } catch (err) {
+    logger.error({ err }, "getMyActivities failed");
+    return conductor500Err(res);
+  }
+}
+
+/**
  * Escapes one CSV field per RFC 4180.
  */
 function _csvField(value: unknown): string {
@@ -369,5 +488,6 @@ export default {
   getActivity,
   getActivityByH5PID,
   getActivitiesByAuthor,
+  getMyActivities,
   getAdaptFeed,
 };

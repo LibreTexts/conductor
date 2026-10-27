@@ -99,6 +99,7 @@ const conductorErrors = {
   err90: "Cannot get embed code for non-public resource.",
   err91: "Sorry, you can't remove your own role(s). Please contact our Support Center for assistance.",
   err92: "Sorry, an internal error occurred as a result of internal misconfiguration. Please contact our Support Center for assistance.",
+  err93: "Sorry, creating and editing H5P activities is not available right now. Please try again later.",
 };
 
 export default conductorErrors;
