@@ -1,7 +1,14 @@
 import axios, { AxiosRequestConfig } from "axios";
 import {
   Announcement,
+  ActivityMetadataInput,
+  ActivityPerson,
   CommonsActivity,
+  EditableActivity,
+  EditorSavedContent,
+  EditorToken,
+  MyActivitiesParams,
+  MyActivitiesResult,
   AssetSearchParams,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
@@ -445,6 +452,56 @@ class API {
     const res = await axios.get<
       { activity: CommonsActivity } & ConductorBaseResponse
     >(`/commons/activities/${activityID}`);
+    return res;
+  }
+
+  /**
+   * The signed-in user's activities for My H5P: owned and collaborating.
+   */
+  async getMyActivities(params: MyActivitiesParams) {
+    const res = await axios.get<MyActivitiesResult & ConductorBaseResponse>(
+      "/activities/mine",
+      { params }
+    );
+    return res;
+  }
+
+  /** An activity with everything its edit screen needs. Owners and collaborators only. */
+  async getActivityForEditing(activityID: string) {
+    const res = await axios.get<
+      { activity: EditableActivity; role: "owner" | "collaborator"; people: ActivityPerson[] } & ConductorBaseResponse
+    >(`/activities/${activityID}/authoring`);
+    return res;
+  }
+
+  async getActivitySubjects() {
+    const res = await axios.get<{ subjects: string[] } & ConductorBaseResponse>("/activities/subjects");
+    return res;
+  }
+
+  /** A token for the H5P editor: `create` without an id, `edit` with one. */
+  async getActivityEditorToken(activityID?: string) {
+    const res = await axios.post<EditorToken & ConductorBaseResponse>(
+      activityID ? `/activities/${activityID}/editor-token` : "/activities/editor-token"
+    );
+    return res;
+  }
+
+  /** Allocates the H5P content id and creates the activity; returns an edit token for it. */
+  async createActivity(metadata: ActivityMetadataInput) {
+    const res = await axios.post<
+      { activity: { activityID: string; h5pContentID: number } } & EditorToken & ConductorBaseResponse
+    >("/activities", metadata);
+    return res;
+  }
+
+  async updateActivity(activityID: string, update: ActivityMetadataInput & { contentSaved?: EditorSavedContent }) {
+    const res = await axios.patch<ConductorBaseResponse>(`/activities/${activityID}`, update);
+    return res;
+  }
+
+  async deleteActivity(activityID: string) {
+    const res = await axios.delete<ConductorBaseResponse>(`/activities/${activityID}`);
     return res;
   }
 

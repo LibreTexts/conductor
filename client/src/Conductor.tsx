@@ -55,6 +55,8 @@ const ProjectsCompleted = lazyWithRetry(() => import('./screens/conductor/Projec
 const ProjectsFlagged = lazyWithRetry(() => import('./screens/conductor/Projects/ProjectsFlagged'));
 import ProjectTimeline from './components/projects/ProjectTimeline';
 const MyTasks = lazyWithRetry(() => import('./screens/conductor/Tasks'));
+const MyH5P = lazyWithRetry(() => import('./screens/conductor/H5P'));
+const EditH5P = lazyWithRetry(() => import('./screens/conductor/H5P/Edit'));
 import ProjectView from './components/projects/ProjectView';
 const Search = lazyWithRetry(() => import('./screens/conductor/Search'));
 const ShapeshiftConsole = lazyWithRetry(() => import('./screens/conductor/controlpanel/ShapeshiftConsole'));
@@ -132,6 +134,9 @@ const Conductor = () => {
           <PrivateRoute exact path='/search' component={Search} />
           <PrivateRoute exact path='/alerts' component={MyAlerts} />
           <PrivateRoute exact path='/tasks' component={MyTasks} />
+          <PrivateRoute exact path='/h5p' component={MyH5P} />
+          {/* One route for both, so a new activity's editor is not reloaded when its URL changes after the first save. */}
+          <PrivateRoute exact path={['/h5p/new', '/h5p/:activityID/edit']} component={EditH5P} />
           <PrivateRoute exact path='/projects/(create)?' component={MyProjects} />
           <PrivateRoute exact path='/projects/available' component={ProjectsAvailable} />       
           <PrivateRoute exact path='/projects/completed' component={ProjectsCompleted} />

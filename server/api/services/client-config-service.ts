@@ -10,6 +10,8 @@ export default class ClientConfigService {
             central_identity_base_url: process.env.CLIENT__CENTRAL_IDENTITY_BASE_URL || "",
             // Origin h5p-service serves embeds from, e.g. https://studio.libretexts.org.
             h5p_embed_origin: process.env.CLIENT__H5P_EMBED_ORIGIN || "",
+            // Opens H5P authoring in the client. Off unless set, per environment.
+            h5p_authoring_enabled: process.env.CLIENT__H5P_AUTHORING_ENABLED === "true",
         };
     }
 }
