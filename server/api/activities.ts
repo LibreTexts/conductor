@@ -15,6 +15,7 @@ import {
   getMyActivitiesSchema,
 } from "./validators/activities.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
+import { adaptDataFilter } from "../util/adapt-integration.js";
 
 const adaptLog = childLogger("adapt-feed");
 
@@ -432,7 +433,7 @@ async function getAdaptFeed(
 ) {
   try {
     const activities = await Activity.find(
-      { orgID: process.env.ORG_ID },
+      { orgID: process.env.ORG_ID, ...adaptDataFilter() },
       { _id: 0, h5pContentID: 1, adaptID: 1, authorCentralID: 1 }
     )
       .sort({ h5pContentID: 1 })

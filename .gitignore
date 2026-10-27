@@ -51,7 +51,7 @@ agents/
 .kiro/
 CLAUDE.md
 
-# Vendored copy of the legacy Studio Drupal install (contains live credentials)
+# Vendored copy of the legacy Studio Drupal install
 studio_main/
 
 # Output of server/migrations/StudioSurvey.ts
