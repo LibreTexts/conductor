@@ -22,7 +22,7 @@ import {
   Textarea,
   VisuallyHidden,
 } from "@libretexts/davis-react";
-import { IconAlertTriangle, IconLink, IconLock, IconTrash, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconDeviceFloppy, IconLink, IconLock, IconTrash, IconWorld } from "@tabler/icons-react";
 import api from "../../../api";
 import useClientConfig from "../../../hooks/useClientConfig";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
@@ -506,7 +506,7 @@ const EditH5P = () => {
         label="Description"
         rows={4}
         value={form.description}
-        helperText="Shown on the public page. Helps other educators decide whether to reuse it."
+        helperText="Set a helpful description for other educators. Shown publicly."
         onChange={(e) => setForm({ ...form, description: e.target.value })}
       />
       <Select
@@ -561,7 +561,7 @@ const EditH5P = () => {
           {authors.length ? ` · ${authors.join(", ")}` : ""}
         </Text>
         <Text as="p" size="sm" color="muted">
-          Set these in the editor with the Metadata button beside the title. They travel with the activity when it is reused.
+          Set these in the editor with the Metadata button beside the title. Save and reload the page to see the changes. These will follow the activity wherever it is reused.
         </Text>
       </div>
       <Input
@@ -603,7 +603,14 @@ const EditH5P = () => {
     ) : null;
 
   const saveButton = (size: "md" | "lg") => (
-    <Button variant="primary" size={size} onClick={handleSave} loading={saving} softDisabled={!bridge.loaded || saving}>
+    <Button
+      variant="primary"
+      size={size}
+      onClick={handleSave}
+      loading={saving}
+      softDisabled={!bridge.loaded || saving}
+      icon={<IconDeviceFloppy size={18} />}
+    >
       {isCreate ? "Create" : "Save"}
     </Button>
   );
@@ -627,15 +634,17 @@ const EditH5P = () => {
       <Dialog open={confirmDelete} onClose={() => !deleting && setConfirmDelete(false)} size="md">
         <Dialog.Header>
           <Dialog.Title>Delete this H5P activity?</Dialog.Title>
-          <Dialog.Description>
-            "{title}" will be deleted for good. Every page that embeds it, in textbooks or in ADAPT, will show it as unavailable.
-          </Dialog.Description>
         </Dialog.Header>
+        <div className="p-6">
+          <Text>
+            "{title}" will be deleted permanently. Any page that embeds it, in textbooks or in ADAPT, will show it as unavailable.
+          </Text>
+        </div>
         <Dialog.Footer>
           <Button variant="outline" onClick={() => setConfirmDelete(false)} softDisabled={deleting}>
             Keep it
           </Button>
-          <Button variant="destructive" onClick={handleDelete} loading={deleting}>
+          <Button variant="destructive" onClick={handleDelete} loading={deleting} icon={<IconTrash size={18} />}>
             Delete H5P
           </Button>
         </Dialog.Footer>
@@ -670,7 +679,7 @@ const EditH5P = () => {
             {loadingActivity ? (
               <Skeleton variant="text" width={420} height={44} />
             ) : (
-              <Heading level={1} className="truncate">{title}</Heading>
+              <Heading level={1} className="truncate mb-0!">{title}</Heading>
             )}
             {!loadingActivity && statusBadge}
           </div>
@@ -706,7 +715,7 @@ const EditH5P = () => {
                 </Accordion>
               </Card>
             )}
-            {deleteButton && <div>{deleteButton}</div>}
+            {deleteButton && <div className="flex justify-center">{deleteButton}</div>}
           </aside>
         </div>
         {dialogs}
@@ -779,7 +788,7 @@ const EditH5P = () => {
       </div>
       <div id="edit-panel-sharing" role="tabpanel" aria-labelledby="edit-tab-sharing" hidden={tab !== "sharing"} className="flex flex-col gap-4 px-4">
         <Card padding="sm">{sharingFields}</Card>
-        {deleteButton && <div>{deleteButton}</div>}
+        {deleteButton && <div className="flex justify-center">{deleteButton}</div>}
       </div>
       <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t border-neutral-200 bg-white px-4 py-3">
         <Text size="sm" color="muted" className="min-w-0 truncate">{saveStatus}</Text>
