@@ -252,11 +252,11 @@ const CreateActions = ({ stacked }: { stacked?: boolean }) => {
   const editingAvailable = useH5PAuthoringEnabled();
   return editingAvailable ? (
     <div className={stacked ? "flex w-full max-w-[260px] flex-col gap-2" : "flex flex-wrap justify-center gap-2"}>
-      <Button as={Link} to="/h5p/new" variant="primary" icon={<IconPlus size={16} />} fullWidth={stacked}>
-        New H5P
-      </Button>
       <Button as={Link} to="/h5p/new?upload=true" variant="outline" icon={<IconUpload size={16} />} fullWidth={stacked}>
         Upload .h5p file
+      </Button>
+      <Button as={Link} to="/h5p/new" variant="primary" className="bg-primary! text-white!" icon={<IconPlus size={18} />} fullWidth={stacked}>
+        New H5P
       </Button>
     </div>
   ) : null;
@@ -349,7 +349,7 @@ const MyH5P = () => {
           {!rows && <Text color="muted">Activities you created or collaborate on.</Text>}
         </div>
         {editingAvailable && !noActivitiesAtAll && (
-          <Button as={Link} to="/h5p/new" variant="primary" size={rows ? "lg" : "md"} icon={<IconPlus size={16} />}>
+          <Button as={Link} to="/h5p/new" variant="primary" className="bg-primary! text-white!" size={rows ? "lg" : "md"} icon={<IconPlus size={18} />}>
             New H5P
           </Button>
         )}
@@ -377,7 +377,7 @@ const MyH5P = () => {
               editingAvailable
                 ? rows
                   ? "Create an interactive activity, or upload an .h5p file you already have."
-                  : "Create an interactive activity, or upload an .h5p file you already have. Activities shared with you also appear here."
+                  : "Create an interactive activity, or upload an .h5p file you already have. Activities shared with you will also appear here."
                 : "Activities you create or that are shared with you appear here."
             }
             action={<CreateActions stacked={rows} />}

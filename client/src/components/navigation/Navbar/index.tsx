@@ -5,6 +5,7 @@ import { useTypedSelector } from "../../../state/hooks.js";
 import NavbarShell from "./NavbarShell.js";
 import EnvironmentBanner from "../EnvironmentBanner.js";
 import useClientConfig from "../../../hooks/useClientConfig.js";
+import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled.js";
 import { Button } from "@libretexts/davis-react";
 import { NavbarContext } from "../../../types/index.js";
 import {
@@ -51,60 +52,67 @@ const MobileActionRow: React.FC<{ children: React.ReactNode }> = ({ children }) 
 const ConductorNavItems: React.FC<ConductorNavItemsProps> = ({
   activeItem,
   setActiveItem,
-}) => (
-  <>
-    <li>
-      <Link
-        to="/home"
-        className={`${menuItemBase} ${activeItem === "home" ? menuItemActive : menuItemInactive}`}
-        aria-current={activeItem === "home" ? "page" : undefined}
-        onClick={() => setActiveItem("home")}
-      >
-        Home
-      </Link>
-    </li>
-    <li>
-      <Link
-        to="/projects"
-        className={`${menuItemBase} ${activeItem === "projects" ? menuItemActive : menuItemInactive}`}
-        aria-current={activeItem === "projects" ? "page" : undefined}
-        onClick={() => setActiveItem("projects")}
-      >
-        My Projects
-      </Link>
-    </li>
-    <li>
-      <Link
-        to="/h5p"
-        className={`${menuItemBase} ${activeItem === "h5p" ? menuItemActive : menuItemInactive}`}
-        aria-current={activeItem === "h5p" ? "page" : undefined}
-        onClick={() => setActiveItem("h5p")}
-      >
-        My H5P
-      </Link>
-    </li>
-    <li>
-      <Link
-        to="/tasks"
-        className={`${menuItemBase} ${activeItem === "tasks" ? menuItemActive : menuItemInactive}`}
-        aria-current={activeItem === "tasks" ? "page" : undefined}
-        onClick={() => setActiveItem("tasks")}
-      >
-        My Tasks
-      </Link>
-    </li>
-    <li>
-      <Link
-        to="/alerts"
-        className={`${menuItemBase} ${activeItem === "alerts" ? menuItemActive : menuItemInactive}`}
-        aria-current={activeItem === "alerts" ? "page" : undefined}
-        onClick={() => setActiveItem("alerts")}
-      >
-        My Alerts
-      </Link>
-    </li>
-  </>
-);
+}) => {
+  // My H5P stays hidden until authoring opens on this deployment, so
+  // production shows no empty list before the Studio import.
+  const h5pAuthoringEnabled = useH5PAuthoringEnabled();
+  return (
+    <>
+      <li>
+        <Link
+          to="/home"
+          className={`${menuItemBase} ${activeItem === "home" ? menuItemActive : menuItemInactive}`}
+          aria-current={activeItem === "home" ? "page" : undefined}
+          onClick={() => setActiveItem("home")}
+        >
+          Home
+        </Link>
+      </li>
+      <li>
+        <Link
+          to="/projects"
+          className={`${menuItemBase} ${activeItem === "projects" ? menuItemActive : menuItemInactive}`}
+          aria-current={activeItem === "projects" ? "page" : undefined}
+          onClick={() => setActiveItem("projects")}
+        >
+          My Projects
+        </Link>
+      </li>
+      {h5pAuthoringEnabled && (
+        <li>
+          <Link
+            to="/h5p"
+            className={`${menuItemBase} ${activeItem === "h5p" ? menuItemActive : menuItemInactive}`}
+            aria-current={activeItem === "h5p" ? "page" : undefined}
+            onClick={() => setActiveItem("h5p")}
+          >
+            My H5P
+          </Link>
+        </li>
+      )}
+      <li>
+        <Link
+          to="/tasks"
+          className={`${menuItemBase} ${activeItem === "tasks" ? menuItemActive : menuItemInactive}`}
+          aria-current={activeItem === "tasks" ? "page" : undefined}
+          onClick={() => setActiveItem("tasks")}
+        >
+          My Tasks
+        </Link>
+      </li>
+      <li>
+        <Link
+          to="/alerts"
+          className={`${menuItemBase} ${activeItem === "alerts" ? menuItemActive : menuItemInactive}`}
+          aria-current={activeItem === "alerts" ? "page" : undefined}
+          onClick={() => setActiveItem("alerts")}
+        >
+          My Alerts
+        </Link>
+      </li>
+    </>
+  );
+};
 
 /**
  * Single navbar orchestrator for all app contexts (conductor, commons, store, support).
