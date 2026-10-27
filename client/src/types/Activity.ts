@@ -120,6 +120,8 @@ export type ActivityMetadataInput = {
 export type EditorSavedContent = {
   title: string;
   library: string;
+  /** The library.json title, e.g. "Interactive Video". Absent if h5p-service couldn't read it. */
+  libraryTitle?: string;
   license?: string;
   licenseVersion?: string;
   authors?: { name: string; role?: string }[];
