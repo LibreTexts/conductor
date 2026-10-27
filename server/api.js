@@ -1183,6 +1183,11 @@ router
   .route("/activities/automation/cleanup")
   .put(middleware.checkLibreAPIKey, activityAuthoringAPI.cleanupAbandonedActivities);
 
+// Hourly, triggered externally. Production only, replaces Studio's ADAPT id cron.
+router
+  .route("/activities/automation/adapt-ids")
+  .put(middleware.checkLibreAPIKey, activityAuthoringAPI.syncAdaptIDsJob);
+
 router
   .route("/activities/:activityID")
   .patch(

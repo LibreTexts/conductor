@@ -23,6 +23,12 @@ import {
   updateActivitySchema,
 } from "./validators/activities.js";
 import { ZodReqWithUser } from "../types";
+import { isProductionEnvironment } from "../util/adapt-integration.js";
+import {
+  ADAPT_ID_SYNC_DEFAULT_LIMIT,
+  AdaptIdSyncNotConfiguredError,
+  syncAdaptIDs,
+} from "./services/adapt-id-sync-service.js";
 
 const log = childLogger("activity-authoring");
 
@@ -368,6 +374,28 @@ async function cleanupAbandonedActivities(_req: Request, res: Response) {
   }
 }
 
+/**
+ * Looks up ADAPT question ids for activities that lack one. Triggered
+ * externally, hourly, like the cleanup. `?limit=` caps the batch, 500 at most.
+ * Answers 404 outside production, the same as the other ADAPT endpoints.
+ */
+async function syncAdaptIDsJob(req: Request, res: Response) {
+  if (!isProductionEnvironment()) return conductor404Err(res);
+  try {
+    const requested = Number(req.query.limit);
+    const limit = Number.isInteger(requested) && requested > 0 ? Math.min(requested, 500) : ADAPT_ID_SYNC_DEFAULT_LIMIT;
+    const result = await syncAdaptIDs(limit);
+    return res.send({ err: false, ...result });
+  } catch (err) {
+    if (err instanceof AdaptIdSyncNotConfiguredError) {
+      log.error({ err }, "ADAPT id sync is not configured");
+      return conductorErr(res, 503, "err92");
+    }
+    log.error({ err }, "ADAPT id sync failed");
+    return conductor500Err(res);
+  }
+}
+
 export default {
   getActivityForEditing,
   listActivitySubjects,
@@ -377,4 +405,5 @@ export default {
   updateActivity,
   deleteActivity,
   cleanupAbandonedActivities,
+  syncAdaptIDsJob,
 };
