@@ -69,7 +69,7 @@ describe("My H5P", () => {
     renderPage();
 
     const link = await screen.findByRole("link", { name: "Regulations on Fintech" });
-    expect(link).toHaveAttribute("href", "/activity/AAAAAAA1");
+    expect(link).toHaveAttribute("href", "/interactive/AAAAAAA1");
     expect(screen.getByText("Interactive Video")).toBeInTheDocument();
     expect(screen.getByText("Question Set")).toBeInTheDocument();
     expect(screen.getByText("Collaborator")).toBeInTheDocument();

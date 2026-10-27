@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState } from "react";
-import { useLocation, Switch, Route, useHistory } from "react-router-dom";
+import { useLocation, Switch, Route, Redirect, useHistory } from "react-router-dom";
 import CommonsActivity from "./screens/commons/Activity";
 import CommonsAuthor from "./screens/commons/Author";
 import CommonsBook from "./screens/commons/Book";
@@ -7,6 +7,7 @@ import CommonsCatalog from "./components/commons/CommonsCatalog";
 import CommonsCollection from "./screens/commons/Collection";
 import Footer from "./components/navigation/Footer";
 import CommonsHomework from "./components/commons/CommonsHomework";
+import CommonsInteractives from "./screens/commons/Interactives";
 import CommonsJumbotron from "./components/commons/CommonsJumbotron";
 import CommonsMenu from "./components/commons/CommonsMenu";
 import Navbar from "./components/navigation/Navbar";
@@ -66,7 +67,10 @@ const Commons = () => {
     }
 
     const currentPath = location.pathname;
-    if (currentPath.includes("/collection")) {
+    // Checked before "/collection", which "/interactives-collections" also contains.
+    if (currentPath.startsWith("/interactive")) {
+      setActiveItem("interactives");
+    } else if (currentPath.includes("/collection")) {
       setActiveItem("collections");
     } else if (currentPath.includes("/homework")) {
       setActiveItem("homework");
@@ -103,8 +107,20 @@ const Commons = () => {
                 key="homework"
                 component={CommonsHomework}
               />,
+              <Route
+                exact
+                path="/interactives"
+                key="interactives"
+                component={CommonsInteractives}
+              />,
             ]}
-            <Route exact path="/activity/:activityID" component={CommonsActivity} />
+            <Route exact path="/interactive/:activityID" component={CommonsActivity} />
+            {/* The page's first path, kept so links shared from staging still open. */}
+            <Route
+              exact
+              path="/activity/:activityID"
+              render={({ match }) => <Redirect to={`/interactive/${match.params.activityID}`} />}
+            />
             <Route exact path="/author/:id" component={CommonsAuthor} />
             <Route exact path="/book/:id" component={CommonsBook} />
             <Route exact path="/commons-project/:id" component={CommonsProject} />

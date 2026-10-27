@@ -165,7 +165,7 @@ const ActivityCard = ({ activity }: { activity: MyActivity }) => {
             </Text>
           )}
           <Heading level={2} className="!text-lg break-words">
-            <Link to={`/activity/${activity.activityID}`} className="text-neutral-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
+            <Link to={`/interactive/${activity.activityID}`} className="text-neutral-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
               {activity.title}
             </Link>
           </Heading>
@@ -211,7 +211,7 @@ const ActivityRow = ({ activity }: { activity: MyActivity }) => {
         <ContentTypeIcon activity={activity} size={24} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <Link to={`/activity/${activity.activityID}`} className="break-words font-semibold text-neutral-900 hover:underline">
+        <Link to={`/interactive/${activity.activityID}`} className="break-words font-semibold text-neutral-900 hover:underline">
           {activity.title}
         </Link>
         {(typeName || updated) && (
@@ -229,12 +229,12 @@ const ActivityRow = ({ activity }: { activity: MyActivity }) => {
           <IconDotsVertical size={20} aria-hidden="true" />
         </Menu.Button>
         <Menu.Items align="right">
-          <Menu.Item icon={<IconExternalLink size={16} />} onClick={() => history.push(`/activity/${activity.activityID}`)}>
+          <Menu.Item icon={<IconExternalLink size={16} />} onClick={() => history.push(`/interactive/${activity.activityID}`)}>
             View public page
           </Menu.Item>
           <Menu.Item
             icon={<IconLink size={16} />}
-            onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/activity/${activity.activityID}`)}
+            onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/interactive/${activity.activityID}`)}
           >
             Copy link
           </Menu.Item>

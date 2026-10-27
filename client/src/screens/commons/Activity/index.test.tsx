@@ -47,8 +47,8 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/activity/AbCd1234"]}>
-        <Route path="/activity/:activityID" component={CommonsActivityPage} />
+      <MemoryRouter initialEntries={["/interactive/AbCd1234"]}>
+        <Route path="/interactive/:activityID" component={CommonsActivityPage} />
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -109,7 +109,7 @@ describe("CommonsActivityPage", () => {
     mockGetActivity.mockRejectedValue({ response: { status: 404 } });
     renderPage();
     expect(await screen.findByText("This activity isn't available")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Browse the catalog" })).toHaveAttribute("href", "/catalog");
+    expect(screen.getByRole("link", { name: "Browse interactives" })).toHaveAttribute("href", "/interactives");
   });
 
   it("offers a retry for server errors", async () => {

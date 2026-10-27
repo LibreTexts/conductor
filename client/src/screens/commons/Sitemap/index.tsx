@@ -32,6 +32,7 @@ const CommonsSitemap = () => {
   }
   if (isLibreTexts) {
     browseLinks.push({ to: "/homework", label: "Homework" });
+    browseLinks.push({ to: "/interactives", label: "Interactives" });
   }
 
   const aboutLinks: { href: string; label: string; external?: boolean }[] = [
