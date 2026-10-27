@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { useLocation, Switch, Route, useHistory } from "react-router-dom";
+import CommonsActivity from "./screens/commons/Activity";
 import CommonsAuthor from "./screens/commons/Author";
 import CommonsBook from "./screens/commons/Book";
 import CommonsCatalog from "./components/commons/CommonsCatalog";
@@ -103,6 +104,7 @@ const Commons = () => {
                 component={CommonsHomework}
               />,
             ]}
+            <Route exact path="/activity/:activityID" component={CommonsActivity} />
             <Route exact path="/author/:id" component={CommonsAuthor} />
             <Route exact path="/book/:id" component={CommonsBook} />
             <Route exact path="/commons-project/:id" component={CommonsProject} />

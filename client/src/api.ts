@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig } from "axios";
 import {
   Announcement,
+  CommonsActivity,
   AssetSearchParams,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
@@ -433,6 +434,17 @@ class API {
         },
       },
     );
+    return res;
+  }
+
+  /**
+   * The public page data for one H5P activity. A 404 means missing, removed
+   * or not visible to the caller, which the page deliberately treats alike.
+   */
+  async getCommonsActivity(activityID: string) {
+    const res = await axios.get<
+      { activity: CommonsActivity } & ConductorBaseResponse
+    >(`/commons/activities/${activityID}`);
     return res;
   }
 

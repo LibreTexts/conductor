@@ -3,4 +3,5 @@ export type ClientConfig = {
     main_commons_url: string;
     instructor_verification_url: string;
     central_identity_base_url: string;
+    h5p_embed_origin: string;
 };
