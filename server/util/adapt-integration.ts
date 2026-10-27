@@ -16,8 +16,8 @@ const log = childLogger("adapt-integration");
  * Applies to everything H5P-related Conductor exchanges with ADAPT:
  * - `/commons/activities-adapt-feed`, the reconciliation feed;
  * - `/studio/*`, the replacements for the Studio API ADAPT calls;
- * - the job that will replace Studio's id sync with ADAPT, once built: it
- *   must call `assertAdaptIntegrationAllowed()` before contacting ADAPT.
+ * - the ADAPT id sync (`services/adapt-id-sync-service.ts`), which calls
+ *   `assertAdaptIntegrationAllowed()` before contacting ADAPT.
  *
  * Two independent guards, because each alone has a hole:
  * - Environment: outside `APP_ENV=production` these endpoints answer 404,

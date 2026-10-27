@@ -20,6 +20,7 @@ export interface RawActivityInterface {
   h5pAuthors?: string;
   source?: string;
   adaptID?: string;
+  adaptIDCheckedAt?: Date;
   createdBy?: string;
   collaborators?: string[];
   publisher?: string;
@@ -121,6 +122,11 @@ const ActivitySchema = new Schema<ActivityInterface>(
       type: String,
       index: true,
     },
+    /**
+     * When the ADAPT id sync last asked ADAPT about this activity. The sync
+     * takes the least recently checked first. See `adapt-id-sync-service.ts`.
+     */
+    adaptIDCheckedAt: Date,
     /**
      * LibreOne UUID of the author. Authoritative.
      *
