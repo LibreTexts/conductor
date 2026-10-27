@@ -23,6 +23,7 @@ import alertsAPI from "./api/alerts.js";
 import adoptionReportAPI from "./api/adoptionreports.js";
 import collectionsAPI from "./api/collections.js";
 import activitiesAPI from "./api/activities.js";
+import studioLegacyAPI from "./api/studio-legacy.js";
 import booksAPI from "./api/books.js";
 import homeworkAPI from "./api/homework.js";
 import librariesAPI from "./api/libraries.js";
@@ -52,6 +53,7 @@ import * as storeValidators from "./api/validators/store.js";
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
 import * as collectionValidators from "./api/validators/collections.js";
 import * as activityValidators from "./api/validators/activities.js";
+import * as studioLegacyValidators from "./api/validators/studio-legacy.js";
 import * as kbValidators from "./api/validators/kb.js";
 import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
@@ -1149,6 +1151,17 @@ router
     middleware.checkLibreCommons,
     middleware.validateZod(activityValidators.getAdaptFeedSchema),
     activitiesAPI.getAdaptFeed
+  );
+
+// Old studio.libretexts.org page URLs, sent here by Cloudflare Single
+// Redirects after cutover. Always answers with a redirect. Anonymous, and
+// restricted to the LibreTexts instance, which is the only one Studio fed.
+router
+  .route("/commons/studio-legacy/:kind(h5p|node|collection)/:value")
+  .get(
+    middleware.checkLibreCommons,
+    middleware.validateZod(studioLegacyValidators.resolveStudioLegacyPathSchema),
+    studioLegacyAPI.resolveStudioLegacyPath
   );
 
 // Data export endpoint for 3rd-party content hosts
