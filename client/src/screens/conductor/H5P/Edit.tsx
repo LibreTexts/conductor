@@ -26,6 +26,7 @@ import { IconAlertTriangle, IconDeviceFloppy, IconLink, IconLock, IconTrash, Ico
 import api from "../../../api";
 import useClientConfig from "../../../hooks/useClientConfig";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
+import useCanCreateActivities from "../../../hooks/useCanCreateActivities";
 import {
   ActivityDisplayOptions,
   ActivityMetadataInput,
@@ -199,6 +200,7 @@ const EditH5P = () => {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const { clientConfig, loading: configLoading } = useClientConfig();
   const authoringEnabled = useH5PAuthoringEnabled();
+  const canCreate = useCanCreateActivities();
   const editorOrigin = clientConfig?.h5p_embed_origin ? clientConfig.h5p_embed_origin.replace(/\/+$/, "") : undefined;
 
   // Fixed for the life of the screen: the editor URL must not change under it.
@@ -411,6 +413,31 @@ const EditH5P = () => {
               <Button as={Link} to="/h5p" variant="primary">
                 Back to My H5P
               </Button>
+            }
+          />
+        </Card>
+      </div>
+    );
+  }
+  if (isCreate && !canCreate) {
+    return (
+      <div className="flex justify-center px-4 py-12">
+        <Card padding="md" className="w-full max-w-[640px]">
+          <EmptyState
+            icon={<IconLock size={32} />}
+            title="Creating H5P activities is open to verified instructors"
+            description="You can still edit activities other authors share with you. To create your own, request instructor verification."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                {clientConfig?.instructor_verification_url && (
+                  <Button as="a" href={clientConfig.instructor_verification_url} variant="primary">
+                    Request verification
+                  </Button>
+                )}
+                <Button as={Link} to="/h5p" variant="outline">
+                  Back to My H5P
+                </Button>
+              </div>
             }
           />
         </Card>
