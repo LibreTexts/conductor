@@ -15,7 +15,7 @@ const api = vi.hoisted(() => ({
   updateActivity: vi.fn(),
   deleteActivity: vi.fn(),
 }));
-const config = vi.hoisted(() => ({ authoring: true, origin: "https://studio.example.test" }));
+const config = vi.hoisted(() => ({ authoring: true, origin: "https://studio.example.test", verified: true }));
 
 vi.mock("../../../api", () => ({ default: api }));
 vi.mock("../../../hooks/useClientConfig", () => ({
@@ -24,6 +24,9 @@ vi.mock("../../../hooks/useClientConfig", () => ({
     loading: false,
     isProduction: true,
   }),
+}));
+vi.mock("../../../state/hooks", () => ({
+  useTypedSelector: (select: (state: any) => unknown) => select({ user: { verifiedInstructor: config.verified } }),
 }));
 vi.mock("usehooks-ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("usehooks-ts")>()),
@@ -64,6 +67,7 @@ beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   config.authoring = true;
   config.origin = EDITOR;
+  config.verified = true;
   api.getActivitySubjects.mockResolvedValue({ data: { subjects: ["Biology", "Chemistry"] } });
   api.getActivityEditorToken.mockResolvedValue({ data: { token: "create-token", expiresAt: "", ttlSeconds: 900 } });
   api.updateActivity.mockResolvedValue({ data: { err: false } });
@@ -129,6 +133,14 @@ describe("Create H5P", () => {
     expect(await screen.findByText("The H5P editor isn't available")).toBeInTheDocument();
     expect(screen.queryByTitle("H5P editor")).toBeNull();
   });
+
+  it("is open to verified instructors only, and asks for no token otherwise", async () => {
+    config.verified = false;
+    renderAt("/h5p/new");
+    expect(await screen.findByText("Creating H5P activities is open to verified instructors")).toBeInTheDocument();
+    expect(screen.queryByTitle("H5P editor")).toBeNull();
+    expect(api.getActivityEditorToken).not.toHaveBeenCalled();
+  });
 });
 
 describe("Edit H5P", () => {
@@ -157,6 +169,13 @@ describe("Edit H5P", () => {
     // The License section starts collapsed, as in the design.
     await userEvent.click(screen.getByRole("button", { name: /License and attribution/ }));
     expect(await screen.findByText(/Regulations on Fintech by Sophie K, is shared under a CC BY 4.0 license/)).toBeInTheDocument();
+  });
+
+  it("lets a collaborator who isn't a verified instructor edit", async () => {
+    config.verified = false;
+    api.getActivityForEditing.mockResolvedValue(editable("collaborator"));
+    renderAt("/h5p/AbCd1234/edit");
+    expect(await screen.findByTitle("H5P editor")).toBeInTheDocument();
   });
 
   it("does not offer delete to a collaborator", async () => {

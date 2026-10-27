@@ -48,6 +48,15 @@ function canEdit(activity: Pick<ActivityInterface, "createdBy" | "collaborators"
   return isOwner(activity, userUUID) || (activity.collaborators ?? []).includes(userUUID);
 }
 
+/**
+ * Only verified instructors create activities. Editing an existing one, as
+ * owner or collaborator, needs no verification.
+ */
+async function isVerifiedInstructor(userUUID: string): Promise<boolean> {
+  const user = await User.findOne({ uuid: userUUID }, { _id: 0, verifiedInstructor: 1 }).lean();
+  return user?.verifiedInstructor === true;
+}
+
 /** Answers for the two failures every authoring call can hit. */
 function authoringFailure(res: Response, err: unknown, what: string) {
   if (err instanceof AuthoringNotConfiguredError) {
@@ -144,6 +153,7 @@ async function listActivitySubjects(_req: Request, res: Response) {
  */
 async function issueNewActivityEditorToken(req: ZodReqWithUser<{}>, res: Response) {
   try {
+    if (!(await isVerifiedInstructor(req.user.decoded.uuid))) return conductorErr(res, 403, "err94");
     const { token, expiresAt } = await signCapabilityToken({
       subject: req.user.decoded.uuid,
       actions: ["create"],
@@ -196,7 +206,8 @@ async function issueEditorToken(
  * edit token for that id. The editor then saves its content into it, and the
  * screen reports that back with `updateActivity`'s `contentSaved`.
  *
- * New activities are private until the author chooses otherwise.
+ * New activities are private until the author chooses otherwise. Only
+ * verified instructors create them.
  */
 async function createActivity(
   req: ZodReqWithUser<z.infer<typeof createActivitySchema>>,
@@ -204,7 +215,8 @@ async function createActivity(
 ) {
   try {
     const userUUID = req.user.decoded.uuid;
-    const owner = await User.findOne({ uuid: userUUID }, { _id: 0, centralID: 1 }).lean();
+    const owner = await User.findOne({ uuid: userUUID }, { _id: 0, centralID: 1, verifiedInstructor: 1 }).lean();
+    if (owner?.verifiedInstructor !== true) return conductorErr(res, 403, "err94");
 
     const h5pContentID = await allocateH5PContentId();
 

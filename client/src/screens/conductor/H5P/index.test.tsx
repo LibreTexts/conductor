@@ -13,6 +13,9 @@ vi.mock("../../../api", () => ({
   default: { getMyActivities: mockGetMine },
 }));
 
+vi.mock("../../../state/hooks", () => ({
+  useTypedSelector: (select: (state: any) => unknown) => select({ user: { verifiedInstructor: true } }),
+}));
 vi.mock("usehooks-ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("usehooks-ts")>()),
   useMediaQuery: mockMediaQuery,
