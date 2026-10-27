@@ -25,6 +25,8 @@ import collectionsAPI from "./api/collections.js";
 import activitiesAPI from "./api/activities.js";
 import studioLegacyAPI from "./api/studio-legacy.js";
 import activityAuthoringAPI from "./api/activity-authoring.js";
+import studioCompatAPI from "./api/studio-compat.js";
+import { requireAdaptIntegration } from "./util/adapt-integration.js";
 import booksAPI from "./api/books.js";
 import homeworkAPI from "./api/homework.js";
 import librariesAPI from "./api/libraries.js";
@@ -1136,6 +1138,19 @@ router
   );
 // end
 
+// Replacements for the Studio API paths ADAPT calls, in Studio's exact
+// shapes. The studio.libretexts.org Worker forwards each path here once it
+// passes its diff against the captured production responses. Anonymous, as
+// Studio's were, except author lookups, which kept Studio's Basic auth.
+// Production only; see util/adapt-integration.ts.
+router.route("/studio/h5p/:idOrAll").get(middleware.checkLibreCommons, requireAdaptIntegration, studioCompatAPI.getStudioH5P);
+router
+  .route("/studio/author/:email")
+  .get(middleware.checkLibreCommons, requireAdaptIntegration, studioCompatAPI.requireStudioBasicAuth, studioCompatAPI.getStudioAuthorH5P);
+// "list" is declared before ":cid" so it is not read as a collection id.
+router.route("/studio/collections/list").get(middleware.checkLibreCommons, requireAdaptIntegration, studioCompatAPI.getStudioCollectionsList);
+router.route("/studio/collections/:cid").get(middleware.checkLibreCommons, requireAdaptIntegration, studioCompatAPI.getStudioCollection);
+
 // H5P authoring. Conductor decides who may edit what and signs capability
 // tokens for the H5P service, which owns the content. Owners and
 // collaborators edit; only owners delete. See H5P_AUTHORING_DESIGN.md.
@@ -1212,6 +1227,7 @@ router
   .route("/commons/activities-adapt-feed")
   .get(
     middleware.checkLibreCommons,
+    requireAdaptIntegration,
     middleware.validateZod(activityValidators.getAdaptFeedSchema),
     activitiesAPI.getAdaptFeed
   );
