@@ -8,6 +8,8 @@ export default class ClientConfigService {
             main_commons_url: process.env.CLIENT__MAIN_COMMONS_URL || "",
             instructor_verification_url: process.env.CLIENT__INSTRUCTOR_VERIFICATION_URL || "",
             central_identity_base_url: process.env.CLIENT__CENTRAL_IDENTITY_BASE_URL || "",
+            // Origin h5p-service serves embeds from, e.g. https://studio.libretexts.org.
+            h5p_embed_origin: process.env.CLIENT__H5P_EMBED_ORIGIN || "",
         };
     }
 }

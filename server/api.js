@@ -22,6 +22,7 @@ import orgsAPI from "./api/organizations.js";
 import alertsAPI from "./api/alerts.js";
 import adoptionReportAPI from "./api/adoptionreports.js";
 import collectionsAPI from "./api/collections.js";
+import activitiesAPI from "./api/activities.js";
 import booksAPI from "./api/books.js";
 import homeworkAPI from "./api/homework.js";
 import librariesAPI from "./api/libraries.js";
@@ -50,6 +51,7 @@ import * as publishAPI from "./api/publish.js";
 import * as storeValidators from "./api/validators/store.js";
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
 import * as collectionValidators from "./api/validators/collections.js";
+import * as activityValidators from "./api/validators/activities.js";
 import * as kbValidators from "./api/validators/kb.js";
 import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
@@ -1104,6 +1106,49 @@ router
     authAPI.checkHasRoleMiddleware(process.env.ORG_ID, "campusadmin"),
     middleware.validateZod(collectionValidators.deleteCollectionSchema),
     collectionsAPI.deleteCollection
+  );
+
+/* Commons Activities (H5P) */
+router
+  .route("/commons/activities")
+  .get(
+    middleware.validateZod(activityValidators.getCommonsActivitiesSchema),
+    activitiesAPI.getCommonsActivities
+  );
+
+// Declared before the :activityID route because of the nature in which route
+// params fall-through.
+router
+  .route("/commons/activities/h5p/:h5pContentID")
+  .get(
+    middleware.validateZod(activityValidators.getActivityByH5PIDSchema),
+    activitiesAPI.getActivityByH5PID
+  );
+
+router
+  .route("/commons/activities/author/:uuid")
+  .get(
+    middleware.validateZod(activityValidators.getActivitiesByAuthorSchema),
+    activitiesAPI.getActivitiesByAuthor
+  );
+// end
+
+router
+  .route("/commons/activities/:activityID")
+  .get(
+    middleware.validateZod(activityValidators.getActivitySchema),
+    activitiesAPI.getActivity
+  );
+
+// ADAPT question-bank reconciliation feed, replacing Studio's /api/v2/nodes.
+// Anonymous by design: Studio served it without authentication and ADAPT pulls
+// it unauthenticated today. Restricted to the LibreTexts instance.
+router
+  .route("/commons/activities-adapt-feed")
+  .get(
+    middleware.checkLibreCommons,
+    middleware.validateZod(activityValidators.getAdaptFeedSchema),
+    activitiesAPI.getAdaptFeed
   );
 
 // Data export endpoint for 3rd-party content hosts
