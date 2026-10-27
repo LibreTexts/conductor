@@ -31,6 +31,24 @@ export type CommonsActivity = {
   updatedAt?: string;
 };
 
+/**
+ * One row of the public listing. The server sends the stored document minus
+ * collaborators and migration bookkeeping, so only the fields the
+ * Interactives page reads are typed here.
+ */
+export type CommonsActivitySummary = Pick<
+  CommonsActivity,
+  "activityID" | "title" | "description" | "library" | "libraryTitle" | "subjects" | "updatedAt"
+>;
+
+export type CommonsActivitiesParams = {
+  query?: string;
+  sort: "updated" | "title" | "created";
+  sortDirection: "ascending" | "descending";
+  page: number;
+  limit: number;
+};
+
 /** The three visibility levels the UI shows. See `getMyActivities` on the server. */
 export type ActivityVisibilityLevel = "public" | "unlisted" | "private";
 

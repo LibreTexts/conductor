@@ -14,16 +14,18 @@ const log = childLogger("studio-legacy");
  * Where resolved links land.
  *
  * The collection page is not designed yet, so collection links go to the
- * catalog for now. When `/activity-collection/:collectionID` exists, set
- * `COLLECTION_PAGE_LIVE` to true.
+ * Interactives listing for now. When `/interactives-collections/:collectionID`
+ * exists, set `COLLECTION_PAGE_LIVE` to true. Unresolved links also go to
+ * `/interactives`, the same page Cloudflare's catch-all sends every other
+ * Studio URL to.
  */
 const COLLECTION_PAGE_LIVE = false;
 
 export const STUDIO_LEGACY_TARGETS = {
-  activity: (activityID: string) => `/activity/${activityID}`,
+  activity: (activityID: string) => `/interactive/${activityID}`,
   collection: (collectionID: string) =>
-    COLLECTION_PAGE_LIVE ? `/activity-collection/${collectionID}` : "/catalog",
-  fallback: "/catalog",
+    COLLECTION_PAGE_LIVE ? `/interactives-collections/${collectionID}` : "/interactives",
+  fallback: "/interactives",
 };
 
 /**
@@ -44,8 +46,8 @@ const NUMERIC = /^\d+$/;
  * a content id (see `models/studioLegacyNode.ts`). Without a match, the URL
  * is read the way Studio's current pathauto patterns built it.
  *
- * Always a redirect, never an error page: a dead Studio link lands on the
- * catalog. Visibility is left to the destination page, which already enforces
+ * Always a redirect, never an error page: a dead Studio link lands on
+ * `/interactives`. Visibility is left to the destination page, which already enforces
  * it, so a private activity's link reaches its page and that page decides.
  */
 async function resolveStudioLegacyPath(

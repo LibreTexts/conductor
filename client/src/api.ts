@@ -4,6 +4,8 @@ import {
   ActivityMetadataInput,
   ActivityPerson,
   CommonsActivity,
+  CommonsActivitiesParams,
+  CommonsActivitySummary,
   EditableActivity,
   EditorSavedContent,
   EditorToken,
@@ -441,6 +443,16 @@ class API {
         },
       },
     );
+    return res;
+  }
+
+  /**
+   * Activities listed in the public catalog, for the Interactives page.
+   */
+  async getCommonsActivities(params: CommonsActivitiesParams) {
+    const res = await axios.get<
+      { activities: CommonsActivitySummary[]; total_items: number } & ConductorBaseResponse
+    >("/commons/activities", { params });
     return res;
   }
 

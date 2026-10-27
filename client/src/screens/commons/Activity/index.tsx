@@ -356,7 +356,7 @@ const EmbedDialog = ({
 const PageBreadcrumb = ({ current }: { current: React.ReactNode }) => (
   <div className="border-b border-neutral-200 px-6 py-3">
     <Breadcrumb aria-label="Page navigation">
-      <Breadcrumb.Item href="/catalog">Catalog</Breadcrumb.Item>
+      <Breadcrumb.Item href="/interactives">Interactives</Breadcrumb.Item>
       <Breadcrumb.Item isCurrent>{current}</Breadcrumb.Item>
     </Breadcrumb>
   </div>
@@ -421,7 +421,7 @@ const MessageView = ({
 
 /**
  * The public page for one H5P activity in Commons, reached at
- * `/activity/:activityID` and by redirect from old Studio links.
+ * `/interactive/:activityID` and by redirect from old Studio links.
  *
  * Every detail row and every card other than the player renders only when its
  * data exists, so a migrated activity with nothing but a title and a content
@@ -457,8 +457,8 @@ const CommonsActivityPage = () => {
           title="This activity isn't available"
           description="It may be private, or removed by its author. If you were sent this link, ask the author to check its visibility."
           action={
-            <Button as={Link} to="/catalog" variant="primary">
-              Browse the catalog
+            <Button as={Link} to="/interactives" variant="primary">
+              Browse interactives
             </Button>
           }
         />
@@ -478,7 +478,7 @@ const CommonsActivityPage = () => {
     );
   }
 
-  const pageURL = `${window.location.origin}/activity/${activity.activityID}`;
+  const pageURL = `${window.location.origin}/interactive/${activity.activityID}`;
   const typeName = getContentTypeName(activity);
   const typeIcon = getContentTypeIcon(activity.library);
   const rows = buildDetailRows(activity);
