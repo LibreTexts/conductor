@@ -45,7 +45,7 @@ const DEFAULT_DISPLAY_OPTIONS: ActivityDisplayOptions = { frame: true, download:
 
 type FormState = {
   description: string;
-  subject: string;
+  subjects: string[];
   tags: string[];
   language: string;
   publisher: string;
@@ -54,7 +54,7 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   description: "",
-  subject: "",
+  subjects: [],
   tags: [],
   language: "en",
   publisher: "",
@@ -64,7 +64,9 @@ const EMPTY_FORM: FormState = {
 function formFrom(activity: EditableActivity): FormState {
   return {
     description: activity.description ?? "",
-    subject: activity.subjects?.[0] ?? "",
+    // Every subject, not only the first: migrated activities carry several,
+    // and each save sends the whole list back.
+    subjects: activity.subjects ?? [],
     tags: activity.tags ?? [],
     language: activity.language ?? "en",
     publisher: activity.publisher ?? "",
@@ -75,7 +77,7 @@ function formFrom(activity: EditableActivity): FormState {
 function metadataFrom(form: FormState): ActivityMetadataInput {
   return {
     description: form.description,
-    subjects: form.subject ? [form.subject] : [],
+    subjects: form.subjects,
     tags: form.tags,
     language: form.language,
     publisher: form.publisher,
@@ -143,6 +145,52 @@ const TagsField = ({ tags, onChange }: { tags: string[]; onChange: (tags: string
     </div>
   );
 };
+
+/**
+ * Subjects as a picker plus removable badges, like tags. Choosing a subject
+ * adds it and resets the picker, so an activity holds as many as it needs.
+ */
+const SubjectsField = ({
+  subjects,
+  options,
+  error,
+  onChange,
+}: {
+  subjects: string[];
+  options: { value: string; label: string }[];
+  error: boolean;
+  onChange: (subjects: string[]) => void;
+}) => (
+  <div className="flex flex-col gap-2">
+    <Select
+      name="activity-subject"
+      label="Subjects"
+      placeholder={subjects.length ? "Add another subject" : "Choose a subject"}
+      required
+      error={error}
+      errorMessage={error ? "Choose a subject." : undefined}
+      options={options.filter((o) => !subjects.includes(o.value))}
+      value=""
+      onChange={(e) => {
+        const subject = e.target.value;
+        if (subject && !subjects.includes(subject)) onChange([...subjects, subject]);
+      }}
+    />
+    {subjects.length > 0 && (
+      <ul className="m-0 flex list-none flex-wrap gap-2 p-0" aria-label="Subjects">
+        {subjects.map((subject) => (
+          <li key={subject}>
+            <Badge
+              label={subject}
+              onRemove={() => onChange(subjects.filter((s) => s !== subject))}
+              removeLabel={`Remove subject ${subject}`}
+            />
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+);
 
 /** Visibility as radio cards, frame 1a. Native radios keep keyboard behaviour. */
 const VisibilityField = ({ value, onChange }: { value: ActivityVisibilityLevel; onChange: (v: ActivityVisibilityLevel) => void }) => (
@@ -288,10 +336,12 @@ const EditH5P = () => {
   });
 
   const subjectOptions = useMemo(() => {
+    // Subjects outside the current list stay selectable, so a migrated
+    // activity's older classifications still render and save.
     const list = [...(subjects ?? [])];
-    if (form.subject && !list.includes(form.subject)) list.unshift(form.subject);
+    for (const s of form.subjects) if (!list.includes(s)) list.unshift(s);
     return list.map((s) => ({ value: s, label: s }));
-  }, [subjects, form.subject]);
+  }, [subjects, form.subjects]);
   const languageOptions = useMemo(() => languageCodes.map((l) => ({ value: l.code, label: l.name })), []);
 
   const saveStatus = saving
@@ -316,7 +366,7 @@ const EditH5P = () => {
 
   async function handleSave() {
     setSaveMessage(null);
-    if (!form.subject) {
+    if (form.subjects.length === 0) {
       setSubjectError(true);
       setTab("details");
       setSaveMessage({ tone: "error", text: "Choose a subject before saving." });
@@ -350,6 +400,7 @@ const EditH5P = () => {
         contentSaved: {
           title: saved.title,
           library: saved.library,
+          libraryTitle: saved.libraryTitle,
           license: saved.license,
           licenseVersion: saved.licenseVersion,
           authors: saved.authors,
@@ -536,17 +587,12 @@ const EditH5P = () => {
         helperText="Set a helpful description for other educators. Shown publicly."
         onChange={(e) => setForm({ ...form, description: e.target.value })}
       />
-      <Select
-        name="activity-subject"
-        label="Subject"
-        placeholder="Choose a subject"
-        required
-        error={subjectError}
-        errorMessage={subjectError ? "Choose a subject." : undefined}
+      <SubjectsField
+        subjects={form.subjects}
         options={subjectOptions}
-        value={form.subject}
-        onChange={(e) => {
-          setForm({ ...form, subject: e.target.value });
+        error={subjectError}
+        onChange={(subjects) => {
+          setForm({ ...form, subjects });
           setSubjectError(false);
         }}
       />
@@ -605,7 +651,7 @@ const EditH5P = () => {
   );
 
   const metadataSummary = {
-    details: [form.subject || "No subject", form.tags.length ? `${form.tags.length} tag${form.tags.length === 1 ? "" : "s"}` : null].filter(Boolean).join(" · "),
+    details: [form.subjects.length ? form.subjects.join(", ") : "No subject", form.tags.length ? `${form.tags.length} tag${form.tags.length === 1 ? "" : "s"}` : null].filter(Boolean).join(" · "),
     sharing: `${VISIBILITY_CHOICES.find((c) => c.value === form.visibility)?.label} · ${Math.max(people.length, 1)} ${Math.max(people.length, 1) === 1 ? "person" : "people"}`,
     license: [licenseInfo?.text ?? "Not set", authors[0]].filter(Boolean).join(" · "),
   };

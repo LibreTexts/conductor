@@ -221,7 +221,8 @@ async function getActivityByH5PID(
   try {
     const activity = await Activity.findOne(
       {
-        h5pContentID: req.params.h5pContentID,
+        // Number() so only a scalar reaches the query, whatever the validator lets through.
+        h5pContentID: Number(req.params.h5pContentID),
         orgID: process.env.ORG_ID,
         ...(_buildVisibilityFilter(req.user?.decoded?.uuid)),
       },

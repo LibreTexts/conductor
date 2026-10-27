@@ -213,6 +213,29 @@ describe("Edit H5P", () => {
     expect(api.updateActivity.mock.calls[1][1]).toEqual(expect.objectContaining({ contentSaved: expect.objectContaining({ library: "H5P.InteractiveVideo 1.27" }) }));
   });
 
+  it("keeps every subject of a migrated activity on save, and adds or removes them one at a time", async () => {
+    const multi = editable("owner");
+    multi.data.activity.subjects = ["Business", "Economics"];
+    api.getActivityForEditing.mockResolvedValue(multi);
+    renderAt("/h5p/AbCd1234/edit");
+    const iframe = (await screen.findByTitle("H5P editor")) as HTMLIFrameElement;
+    const posted = vi.spyOn(iframe.contentWindow!, "postMessage");
+    fromEditor(iframe, { type: "loaded", title: "Regulations on Fintech", displayOptions: { frame: true, download: true, embed: true, copyright: true } });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Remove subject Business" }));
+    await screen.findByRole("option", { name: "Biology" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /Subjects/ }), "Biology");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(sentOfType(posted, "save")).toHaveLength(1));
+    fromEditor(iframe, { type: "saved", requestId: sentOfType(posted, "save")[0].requestId, contentId: "101", title: "Regulations on Fintech", library: "H5P.InteractiveVideo 1.27", libraryTitle: "Interactive Video" });
+
+    await waitFor(() => expect(api.updateActivity).toHaveBeenCalled());
+    expect(api.updateActivity).toHaveBeenCalledWith("AbCd1234", expect.objectContaining({
+      subjects: ["Economics", "Biology"],
+      contentSaved: expect.objectContaining({ libraryTitle: "Interactive Video" }),
+    }));
+  });
+
   it("explains a validation failure from the editor", async () => {
     api.getActivityForEditing.mockResolvedValue(editable("owner"));
     renderAt("/h5p/AbCd1234/edit");

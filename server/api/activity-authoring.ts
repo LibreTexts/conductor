@@ -46,6 +46,27 @@ function visibilityFields(level: VisibilityLevel): Pick<ActivityInterface, "visi
   return { visibility: "public", includeInLibrary: level === "public" };
 }
 
+/**
+ * The content type title to store for a saved library, e.g. "Interactive
+ * Video". ADAPT reads it through the Studio compatibility API to recognise
+ * Interactive Video and Question Set, so the title Studio already gave that
+ * machine name wins: it is what ADAPT has always seen. The editor's reported
+ * library.json title covers content types no migrated activity uses.
+ */
+async function libraryTitleFor(library: string, reported?: string): Promise<string | undefined> {
+  const machineName = library.split(" ")[0];
+  const known = await Activity.findOne(
+    {
+      orgID: process.env.ORG_ID,
+      // The validator limits machine names to letters, digits, "_", "." and "-".
+      library: { $regex: `^${machineName.replace(/[.-]/g, "\\$&")} ` },
+      libraryTitle: { $nin: [null, ""] },
+    },
+    { _id: 0, libraryTitle: 1 }
+  ).lean();
+  return known?.libraryTitle || reported || undefined;
+}
+
 function isOwner(activity: Pick<ActivityInterface, "createdBy">, userUUID: string): boolean {
   return Boolean(activity.createdBy) && activity.createdBy === userUUID;
 }
@@ -99,7 +120,7 @@ async function getActivityForEditing(
   try {
     const userUUID = req.user.decoded.uuid;
     const activity = await Activity.findOne(
-      { activityID: req.params.activityID, orgID: process.env.ORG_ID },
+      { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
       {
         _id: 0, activityID: 1, h5pContentID: 1, title: 1, description: 1, library: 1, libraryTitle: 1,
         language: 1, h5pAuthors: 1, source: 1, publisher: 1, subjects: 1, tags: 1, visibility: 1,
@@ -182,7 +203,7 @@ async function issueEditorToken(
   try {
     const userUUID = req.user.decoded.uuid;
     const activity = await Activity.findOne(
-      { activityID: req.params.activityID, orgID: process.env.ORG_ID },
+      { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
       { _id: 0, h5pContentID: 1, createdBy: 1, collaborators: 1 }
     ).lean();
     if (!activity) return conductor404Err(res);
@@ -275,7 +296,7 @@ async function updateActivity(
   try {
     const userUUID = req.user.decoded.uuid;
     const activity = await Activity.findOne(
-      { activityID: req.params.activityID, orgID: process.env.ORG_ID },
+      { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
       { _id: 0, createdBy: 1, collaborators: 1 }
     ).lean();
     if (!activity) return conductor404Err(res);
@@ -289,6 +310,8 @@ async function updateActivity(
       // saved content's title wins over one sent alongside it.
       update.title = saved.title;
       update.library = saved.library;
+      const libraryTitle = await libraryTitleFor(saved.library, saved.libraryTitle);
+      if (libraryTitle) update.libraryTitle = libraryTitle;
       if (saved.license) {
         update.license = { name: saved.license, ...(saved.licenseVersion ? { version: saved.licenseVersion } : {}) };
       }
@@ -297,7 +320,7 @@ async function updateActivity(
     }
 
     const updated = await Activity.findOneAndUpdate(
-      { activityID: req.params.activityID, orgID: process.env.ORG_ID },
+      { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
       { $set: update, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
       { new: true, projection: { _id: 0, __v: 0, collaborators: 0 } }
     ).lean();
@@ -322,7 +345,7 @@ async function deleteActivity(
   try {
     const userUUID = req.user.decoded.uuid;
     const activity = await Activity.findOne(
-      { activityID: req.params.activityID, orgID: process.env.ORG_ID },
+      { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
       { _id: 0, activityID: 1, h5pContentID: 1, createdBy: 1 }
     ).lean();
     if (!activity) return conductor404Err(res);
@@ -338,11 +361,12 @@ async function deleteActivity(
 
 async function removeActivity(activityID: string, h5pContentID: number): Promise<void> {
   await deleteH5PContent(h5pContentID);
+  const contentID = Number(h5pContentID);
   await ActivityCollection.updateMany(
-    { "subCollections.h5pContentIDs": h5pContentID },
-    { $pull: { "subCollections.$[].h5pContentIDs": h5pContentID } }
+    { "subCollections.h5pContentIDs": contentID },
+    { $pull: { "subCollections.$[].h5pContentIDs": contentID } }
   );
-  await Activity.deleteOne({ activityID });
+  await Activity.deleteOne({ activityID: { $eq: activityID } });
 }
 
 /**

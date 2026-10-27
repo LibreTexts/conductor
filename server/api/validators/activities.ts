@@ -147,6 +147,7 @@ export const updateActivitySchema = z.object({
       .object({
         title: z.string().trim().min(1).max(255),
         library: z.string().regex(/^[A-Za-z][\w.-]* \d+\.\d+$/, { message: conductorErrors.err1 }),
+        libraryTitle: z.string().trim().min(1).max(255).optional(),
         license: z.string().max(32).optional(),
         licenseVersion: z.string().max(10).optional(),
         authors: z
