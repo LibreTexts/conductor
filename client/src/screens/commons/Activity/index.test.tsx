@@ -27,7 +27,7 @@ vi.mock("usehooks-ts", async (importOriginal) => ({
 }));
 
 const full: CommonsActivity = {
-  activityID: "AbCd1234",
+  activityID: "31483",
   h5pContentID: 31483,
   title: "Regulations on Fintech",
   description: "<p>An interactive walkthrough.</p><script>alert(1)</script>",
@@ -47,7 +47,7 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/interactive/AbCd1234"]}>
+      <MemoryRouter initialEntries={["/interactive/31483"]}>
         <Route path="/interactive/:activityID" component={CommonsActivityPage} />
       </MemoryRouter>
     </QueryClientProvider>
@@ -89,7 +89,7 @@ describe("CommonsActivityPage", () => {
     mockGetActivity.mockResolvedValue({
       data: {
         activity: {
-          activityID: "AbCd1234",
+          activityID: "7",
           h5pContentID: 7,
           title: "Bare",
           library: "H5P.MultiChoice 1.16",

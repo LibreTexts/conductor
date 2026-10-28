@@ -31,15 +31,21 @@ export type CommonsActivity = {
   updatedAt?: string;
 };
 
+/** What an activity card shows below its title. Each field is optional. */
+export type ActivityCardFields = Partial<
+  Pick<CommonsActivity, "description" | "authors" | "license" | "language" | "subjects" | "tags">
+>;
+
 /**
  * One row of the public listing. The server sends the stored document minus
- * collaborators and migration bookkeeping, so only the fields the
- * Interactives page reads are typed here.
+ * collaborators and migration bookkeeping, plus `authors`, so only the fields
+ * the Interactives page reads are typed here.
  */
 export type CommonsActivitySummary = Pick<
   CommonsActivity,
-  "activityID" | "title" | "description" | "library" | "libraryTitle" | "subjects" | "updatedAt"
->;
+  "activityID" | "title" | "library" | "libraryTitle" | "updatedAt"
+> &
+  ActivityCardFields;
 
 export type CommonsActivitiesParams = {
   query?: string;
@@ -53,7 +59,7 @@ export type CommonsActivitiesParams = {
 export type ActivityVisibilityLevel = "public" | "unlisted" | "private";
 
 /** One card on My H5P. */
-export type MyActivity = {
+export type MyActivity = ActivityCardFields & {
   activityID: string;
   title: string;
   library?: string;

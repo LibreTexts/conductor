@@ -42,14 +42,14 @@
  *   there is no node to build a catalog record from. 66 nodes point at missing
  *   content and are skipped, since there is nothing to serve.
  *
- * Idempotent: records are upserted on `h5pContentID`, and an existing
- * `activityID` is reused so reruns do not churn public identifiers.
+ * Idempotent: records are upserted on `h5pContentID`. The `activityID` is
+ * the content id as a string, so a rerun always writes the same one, and
+ * rewrites any record still carrying an older random id.
  */
 import fs from "node:fs";
 import path from "node:path";
 import mongoose from "mongoose";
 import mysql from "mysql2/promise";
-import b62 from "base62-random";
 import logger, { childLogger } from "../logger.js";
 import Activity from "../models/activity.js";
 import User from "../models/user.js";
@@ -562,8 +562,7 @@ export async function runMigration(): Promise<void> {
       );
     }
 
-    // Existing records keep their activityID so a rerun does not reissue
-    // public identifiers.
+    // Only for the created and updated counts in the report.
     const existing = new Map<number, string>();
     if (mongoose.connection.readyState === 1) {
       const rows = await Activity.find(
@@ -576,7 +575,6 @@ export async function runMigration(): Promise<void> {
 
     const ops: any[] = [];
     const createdAtOps: any[] = [];
-    const usedIDs = new Set<string>(existing.values());
 
     const syntheticUsers = new Map<
       string,
@@ -613,13 +611,7 @@ export async function runMigration(): Promise<void> {
         report.activitiesWithNoAuthor.push(contentID);
       }
 
-      let activityID = existing.get(contentID);
-      if (!activityID) {
-        do {
-          activityID = b62(8);
-        } while (usedIDs.has(activityID));
-        usedIDs.add(activityID);
-      }
+      const activityID = String(contentID);
 
       const collabUIDs = collaborators.get(winner.nid) ?? [];
 

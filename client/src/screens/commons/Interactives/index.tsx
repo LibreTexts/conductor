@@ -26,7 +26,8 @@ import {
 import api from "../../../api";
 import AccessibleDataTable from "../../../components/commons/AccessibleDataTable";
 import { CommonsActivitiesParams, CommonsActivitySummary } from "../../../types";
-import { getContentTypeIcon, getContentTypeName } from "../../../utils/activityHelpers";
+import { getContentTypeIcon, getContentTypeName, toPlainText } from "../../../utils/activityHelpers";
+import ActivityCardDetails from "../../../components/commons/ActivityCardDetails";
 import { truncateString } from "../../../components/util/HelperFunctions.js";
 
 const ITEMS_PER_LOAD = 24;
@@ -42,17 +43,6 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 /** Title reads A to Z. Dates read newest first. */
 function sortDirectionFor(sort: SortKey): CommonsActivitiesParams["sortDirection"] {
   return sort === "title" ? "ascending" : "descending";
-}
-
-/**
- * Migrated Studio descriptions are Drupal rich text. Cards show them as plain
- * text, so markup never reaches the grid. DOMParser builds an inert document
- * and runs no scripts.
- */
-function toPlainText(value?: string): string {
-  if (!value) return "";
-  if (!/<[a-z][\s\S]*>/i.test(value)) return value;
-  return new DOMParser().parseFromString(value, "text/html").body.textContent?.trim() ?? "";
 }
 
 export const interactivePath = (activityID: string) => `/interactive/${activityID}`;
@@ -126,8 +116,8 @@ const CommonsInteractives = () => {
     <Grid
       as="ul"
       role="list"
-      gap="lg"
-      className="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 list-none m-0 p-0"
+      gap="md"
+      className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1600px]:grid-cols-5 min-[1920px]:grid-cols-6 list-none m-0 p-0"
     >
       {activities.map((item) => {
         const TypeIcon = getContentTypeIcon(item.library);
@@ -137,16 +127,16 @@ const CommonsInteractives = () => {
           <li key={item.activityID} className="h-full">
             <Card variant="elevated" className="relative flex h-full flex-col">
               <div
-                className="flex h-24 items-center justify-center rounded-t-md bg-primary-50"
+                className="flex h-14 items-center justify-center rounded-t-md bg-primary-50"
                 aria-hidden="true"
               >
-                <TypeIcon size={40} className="text-primary-600" />
+                <TypeIcon size={28} className="text-primary-600" />
               </div>
-              <Card.Body className="flex flex-1 flex-col gap-1">
+              <Card.Body className="flex flex-1 flex-col gap-1.5 p-3!">
                 {typeName && (
                   <Text className="text-xs font-semibold uppercase text-neutral-600">{typeName}</Text>
                 )}
-                <Heading level={2} className="text-base! line-clamp-2 break-words">
+                <Heading level={2} className="text-base! mt-0! mb-0! line-clamp-2 break-words">
                   {/* The stretched link makes the whole card clickable while
                       keeping one link per card for screen readers. */}
                   <Link
@@ -157,6 +147,7 @@ const CommonsInteractives = () => {
                   </Link>
                 </Heading>
                 {description && <Text className="text-sm line-clamp-3">{description}</Text>}
+                <ActivityCardDetails activity={item} className="mt-auto pt-1" />
               </Card.Body>
             </Card>
           </li>

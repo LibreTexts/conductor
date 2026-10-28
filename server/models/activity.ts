@@ -45,7 +45,9 @@ export interface ActivityInterface extends RawActivityInterface, Document {}
 const ActivitySchema = new Schema<ActivityInterface>(
   {
     /**
-     * Unique Conductor-side identifier of the activity.
+     * Unique Conductor-side identifier of the activity: `h5pContentID` as a
+     * string. Studio users know activities by that number, so Conductor shows
+     * the same one in its URLs instead of a random id.
      */
     activityID: {
       type: String,

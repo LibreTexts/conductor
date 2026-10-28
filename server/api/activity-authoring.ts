@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import b62 from "base62-random";
 import { childLogger } from "../logger.js";
 import Activity, { ActivityInterface } from "../models/activity.js";
 import ActivityCollection from "../models/activityCollection.js";
@@ -247,8 +246,7 @@ async function createActivity(
 
     const h5pContentID = await allocateH5PContentId();
 
-    let activityID = b62(8);
-    while (await Activity.exists({ activityID })) activityID = b62(8);
+    const activityID = String(h5pContentID);
 
     const metadata = metadataUpdate(req.body);
     const activity = await Activity.create({
