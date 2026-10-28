@@ -303,6 +303,23 @@ app.get("/matomo-init.js", (req, res) => {
 const STATIC_FILE_EXT =
   /\.(js|mjs|cjs|css|map|json|webmanifest|png|jpe?g|gif|svg|ico|webp|avif|woff2?|ttf|otf|eot|txt|xml)$/i;
 
+// Old project tool paths → renamed URLs (preserve query string).
+app.get("/projects/:id/ai-co-author/batch", (req, res) => {
+  const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+  res.redirect(302, `/projects/${req.params.id}/metadata-editor/batch${query}`);
+});
+app.get("/projects/:id/ai-co-author", (req, res) => {
+  const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+  res.redirect(302, `/projects/${req.params.id}/metadata-editor${query}`);
+});
+app.get("/projects/:id/accessibility", (req, res) => {
+  const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+  res.redirect(
+    302,
+    `/projects/${req.params.id}/accessibility-remediation${query}`
+  );
+});
+
 let cliRouter = express.Router();
 cliRouter.route("*").get((req, res) => {
   // A static asset request that missed. Answering it with the app shell produces a

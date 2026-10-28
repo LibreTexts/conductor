@@ -15,7 +15,7 @@ const WelcomeToCoAuthorModal: React.FC<WelcomeToCoAuthorModalProps> = ({
 
   return (
     <Modal open={true} size="large" onClose={onClose}>
-      <Modal.Header>Welcome to LibreTexts' AI Co-Author Tools!</Modal.Header>
+      <Modal.Header>Metadata Editor</Modal.Header>
       <Modal.Content>
         <div className="flex flex-row justify-between items-start">
           <div className="flex flex-col items-start justify-start">

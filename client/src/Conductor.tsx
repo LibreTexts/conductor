@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import lazyWithRetry from "./utils/lazyWithRetry";
-import { Route, Switch, useLocation } from 'react-router-dom';
+import { Redirect, Route, Switch, useLocation } from 'react-router-dom';
 import { SkipLink } from '@libretexts/davis-react';
 
 import AnonRoute from './components/util/AnonRoute';
@@ -137,12 +137,39 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/completed' component={ProjectsCompleted} />
           <PrivateRoute exact path='/projects/flagged' component={ProjectsFlagged} />
           <PrivateRoute exact path='/projects/:id' component={ProjectView} />
-          <PrivateRoute exact path='/projects/:id/accessibility' component={ProjectAccessibility} />
+          <PrivateRoute exact path='/projects/:id/accessibility-remediation' component={ProjectAccessibility} />
+          <Route
+            exact
+            path='/projects/:id/accessibility'
+            render={({ match, location }) => (
+              <Redirect
+                to={`/projects/${match.params.id}/accessibility-remediation${location.search}`}
+              />
+            )}
+          />
           <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
           <PrivateRoute exact path='/projects/:id/submit-peer-review' component={ProjectPeerReviewSubmit} />
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
-          <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
-          <PrivateRoute exact path='/projects/:id/ai-co-author/batch' component={BatchRun} />
+          <PrivateRoute exact path='/projects/:id/metadata-editor' component={TextbookCuration} />
+          <PrivateRoute exact path='/projects/:id/metadata-editor/batch' component={BatchRun} />
+          <Route
+            exact
+            path='/projects/:id/ai-co-author'
+            render={({ match, location }) => (
+              <Redirect
+                to={`/projects/${match.params.id}/metadata-editor${location.search}`}
+              />
+            )}
+          />
+          <Route
+            exact
+            path='/projects/:id/ai-co-author/batch'
+            render={({ match, location }) => (
+              <Redirect
+                to={`/projects/${match.params.id}/metadata-editor/batch${location.search}`}
+              />
+            )}
+          />
           <PrivateRoute exact path='/projects/:id/remixer' component={RemixerDashboard} />
           <PrivateRoute exact path='/projects/:id/restacker' component={Restacker} />
           <PrivateRoute exact path='/projects/:id/references' component={ReferenceManager} />

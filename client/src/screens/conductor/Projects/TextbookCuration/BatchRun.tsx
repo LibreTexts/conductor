@@ -151,7 +151,7 @@ const BatchRun = () => {
     <Grid className="component-container">
       <Grid.Column>
         <Header as="h2" dividing className="component-header">
-          AI Co-Author: <span className="italic">{project?.title}</span>
+          Metadata Editor: <span className="italic">{project?.title}</span>
         </Header>
         <Segment.Group size="large" raised className="mb-4p">
           <Segment className="flex flex-row justify-between items-center">
@@ -166,9 +166,9 @@ const BatchRun = () => {
               <Breadcrumb.Divider icon="right chevron" />
               <Breadcrumb.Section
                 as={Link}
-                to={`/projects/${projectID}/ai-co-author`}
+                to={`/projects/${projectID}/metadata-editor`}
               >
-                AI Co-Author
+                Metadata Editor
               </Breadcrumb.Section>
               <Breadcrumb.Divider icon="right chevron" />
               <Breadcrumb.Section active>Batch Run</Breadcrumb.Section>

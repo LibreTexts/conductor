@@ -80,7 +80,10 @@ const ProjectCoAuthoringToolsButtons: React.FC<
               />
               <Button
                 onClick={() =>
-                  window.open(`/projects/${projectID}/accessibility`, "_blank")
+                  window.open(
+                    `/projects/${projectID}/accessibility-remediation`,
+                    "_blank"
+                  )
                 }
                 color="blue"
                 size="small"
@@ -119,7 +122,10 @@ const ProjectCoAuthoringToolsButtons: React.FC<
               )}
               <Button
                 onClick={() =>
-                  window.open(`/projects/${projectID}/ai-co-author`, "_blank")
+                  window.open(
+                    `/projects/${projectID}/metadata-editor`,
+                    "_blank"
+                  )
                 }
                 color="blue"
                 size="small"
