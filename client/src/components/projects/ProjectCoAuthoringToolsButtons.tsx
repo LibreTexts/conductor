@@ -127,7 +127,7 @@ const ProjectCoAuthoringToolsButtons: React.FC<
                 Metadata Editor
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
-              <Button
+              {/* <Button
               onClick={() =>
                 window.open(`/projects/${projectID}/references`, "_blank")
               }
@@ -136,7 +136,7 @@ const ProjectCoAuthoringToolsButtons: React.FC<
             >
               Reference Manager
               <Icon name="external alternate" className="!ml-2" />
-            </Button>
+            </Button> */}
             </>
           )}
       </div>
