@@ -742,7 +742,7 @@ const TextbookCuration = () => {
     <Grid className="component-container">
       <Grid.Column>
         <Header as="h2" dividing className="component-header">
-          AI Co-Author: <span className="italic">{projectData?.title}</span>
+          Metadata Editor: <span className="italic">{projectData?.title}</span>
         </Header>
         <Segment.Group size="large" raised className="mb-4p">
           <Segment className="flex flex-row justify-between items-center">
@@ -755,7 +755,7 @@ const TextbookCuration = () => {
                 {projectData?.title || "Loading..."}
               </Breadcrumb.Section>
               <Breadcrumb.Divider icon="right chevron" />
-              <Breadcrumb.Section active>AI Co-Author</Breadcrumb.Section>
+              <Breadcrumb.Section active>Metadata Editor</Breadcrumb.Section>
             </Breadcrumb>
             {isSuperAdmin && (
               <Checkbox
@@ -768,7 +768,7 @@ const TextbookCuration = () => {
           </Segment>
           <Segment className="flex flex-row items-center">
             <p className="font-semibold">
-              Welcome to LibreTexts' AI Co-Author tool. Here, you can curate
+              Welcome to LibreTexts' Metadata Editor. Here, you can curate
               AI-generated metadata for your textbook. You can generate and edit
               metadata for individual pages below, or use the bulk actions to
               generate metadata for all pages at once and return here to refine
@@ -838,7 +838,7 @@ const TextbookCuration = () => {
                         content="Generate AI Metadata"
                         onClick={() =>
                           history.push(
-                            `/projects/${projectID}/ai-co-author/batch`
+                            `/projects/${projectID}/metadata-editor/batch`
                           )
                         }
                         disabled={!!activeBatchJob}
