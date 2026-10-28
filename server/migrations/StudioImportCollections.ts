@@ -147,10 +147,7 @@ export async function runMigration(): Promise<void> {
   try {
     await conn.query("SET SESSION TRANSACTION READ ONLY");
 
-    const casCsvPath =
-      process.env.STUDIO_CAS_CSV ||
-      path.resolve("..", "studio_main", "scripts", "cas_users.csv");
-    const authorMap = await buildAuthorMap(conn, casCsvPath);
+    const authorMap = await buildAuthorMap(conn, process.env.STUDIO_CAS_CSV);
 
     const [collectionRows] = await conn.query(
       `SELECT nid, uid, status, title, created, changed

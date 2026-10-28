@@ -122,6 +122,30 @@ describe("CommonsActivityPage", () => {
     expect(await screen.findByRole("heading", { level: 1, name: full.title })).toBeInTheDocument();
   });
 
+  it("tells the author a private activity is visible only to them", async () => {
+    mockGetActivity.mockResolvedValue({
+      data: { activity: { ...full, visibility: "private", viewerRole: "owner" } },
+    });
+    renderPage();
+    expect(await screen.findByText("This activity is private")).toBeInTheDocument();
+    expect(screen.getByText(/because you're the author/)).toBeInTheDocument();
+  });
+
+  it("names the collaborator role on a private activity", async () => {
+    mockGetActivity.mockResolvedValue({
+      data: { activity: { ...full, visibility: "private", viewerRole: "collaborator" } },
+    });
+    renderPage();
+    expect(await screen.findByText(/because you're a collaborator/)).toBeInTheDocument();
+  });
+
+  it("shows no private notice on a public activity", async () => {
+    mockGetActivity.mockResolvedValue({ data: { activity: full } });
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: full.title });
+    expect(screen.queryByText("This activity is private")).toBeNull();
+  });
+
   it("opens the embed dialog with the embed code", async () => {
     mockGetActivity.mockResolvedValue({ data: { activity: full } });
     renderPage();

@@ -165,34 +165,59 @@ function _parseH5PAuthorNames(raw?: string): string[] {
   }
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Adds `authors`, the credit to display, to each activity: the H5P metadata
  * authors when the package names any, otherwise the owning Conductor user.
- * Owners are looked up in one query for the whole page.
+ *
+ * Studio's H5P editor prefilled the metadata author with the Drupal account
+ * name, which for LibreOne accounts is the central ID. A credited name shaped
+ * like a UUID is therefore resolved to that user's name, or dropped when no
+ * Conductor user holds it, so a bare identifier is never shown as a credit.
+ * Owners and central IDs are looked up in one query for the whole page.
  */
 async function _withAuthors<T extends { h5pAuthors?: string; createdBy?: string }>(
   activities: T[]
 ): Promise<(T & { authors: string[] })[]> {
-  const credited = activities.map((a) => _parseH5PAuthorNames(a.h5pAuthors));
+  const parsed = activities.map((a) => _parseH5PAuthorNames(a.h5pAuthors));
+  const centralIDs = [
+    ...new Set(parsed.flat().filter((n) => UUID_PATTERN.test(n))),
+  ];
   const ownerUUIDs = [
     ...new Set(
-      activities
-        .filter((a, i) => !credited[i].length && a.createdBy)
-        .map((a) => a.createdBy as string)
+      activities.map((a) => a.createdBy).filter((v): v is string => Boolean(v))
     ),
   ];
-  const owners = ownerUUIDs.length
-    ? await User.find(
-        { uuid: { $in: ownerUUIDs } },
-        { _id: 0, uuid: 1, firstName: 1, lastName: 1 }
-      ).lean()
-    : [];
-  const nameByUUID = new Map(
-    owners.map((u) => [u.uuid, [u.firstName, u.lastName].filter(Boolean).join(" ")])
+  const users =
+    centralIDs.length || ownerUUIDs.length
+      ? await User.find(
+          {
+            $or: [
+              ...(ownerUUIDs.length ? [{ uuid: { $in: ownerUUIDs } }] : []),
+              ...(centralIDs.length ? [{ centralID: { $in: centralIDs } }] : []),
+            ],
+          },
+          { _id: 0, uuid: 1, centralID: 1, firstName: 1, lastName: 1 }
+        ).lean()
+      : [];
+  const fullName = (u: { firstName?: string; lastName?: string }) =>
+    [u.firstName, u.lastName].filter(Boolean).join(" ");
+  const nameByUUID = new Map(users.map((u) => [u.uuid, fullName(u)]));
+  const nameByCentralID = new Map(
+    users.filter((u) => u.centralID).map((u) => [u.centralID.toLowerCase(), fullName(u)])
   );
   return activities.map((a, i) => {
+    const credited = [
+      ...new Set(
+        parsed[i]
+          .map((n) => (UUID_PATTERN.test(n) ? nameByCentralID.get(n.toLowerCase()) : n))
+          .filter((n): n is string => Boolean(n))
+      ),
+    ];
     const owner = a.createdBy ? nameByUUID.get(a.createdBy) : undefined;
-    return { ...a, authors: credited[i].length ? credited[i] : owner ? [owner] : [] };
+    return { ...a, authors: credited.length ? credited : owner ? [owner] : [] };
   });
 }
 
@@ -221,9 +246,22 @@ async function getActivity(
 
     if (!activity) return conductor404Err(res);
 
+    // A private activity only passes the visibility filter for its owner or a
+    // collaborator, so the page can tell them why they can see it.
+    const userUUID = req.user?.decoded?.uuid;
+    const viewerRole =
+      activity.visibility === "private" && userUUID
+        ? activity.createdBy === userUUID
+          ? "owner"
+          : "collaborator"
+        : undefined;
+
     const [credited] = await _withAuthors([activity]);
     const { h5pAuthors: _h5pAuthors, createdBy: _createdBy, ...rest } = credited;
-    return res.send({ err: false, activity: rest });
+    return res.send({
+      err: false,
+      activity: { ...rest, ...(viewerRole ? { viewerRole } : {}) },
+    });
   } catch (err) {
     logger.error({ err }, "getActivity failed");
     return conductor500Err(res);

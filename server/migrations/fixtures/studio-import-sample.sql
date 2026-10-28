@@ -50,6 +50,13 @@ CREATE TABLE users_field_data (
   PRIMARY KEY (uid, langcode)
 );
 
+-- externalauth's link table, where the cas module records CAS usernames.
+CREATE TABLE authmap (
+  uid INT UNSIGNED NOT NULL, provider VARCHAR(128) NOT NULL,
+  authname VARCHAR(128) NOT NULL, data LONGBLOB,
+  PRIMARY KEY (provider, authname)
+);
+
 CREATE TABLE node_field_data (
   nid INT UNSIGNED NOT NULL, vid INT UNSIGNED NOT NULL,
   type VARCHAR(32) NOT NULL, langcode VARCHAR(12) NOT NULL DEFAULT 'en',
@@ -151,7 +158,7 @@ INSERT INTO h5p_content (id,library_id,title,authors,source,license,license_vers
  (107,2,'Legacy author activity',NULL,NULL,'CC BY','4.0','en');
 
 -- tier 1: name is a LibreOne UUID present in Conductor
--- tier 2: legacy username resolved through cas_users.csv
+-- tier 2: legacy username resolved through its authmap CAS link
 -- tier 3: LibreOne UUID with no Conductor account
 -- tier 4: no UUID, no CSV entry, but the email matches a Conductor user
 -- tier 0: nothing matches
@@ -161,6 +168,15 @@ INSERT INTO users_field_data (uid,name,mail) VALUES
  (3,'cccccccc-3333-4333-8333-cccccccccccc','ghostuuid@example.edu'),
  (4,'emailonly','known@example.edu'),
  (5,'nobody','nobody@example.edu');
+
+-- uid 1's link repeats its username, as CAS logins create. uid 5's authname
+-- is not a UUID, so the importer drops it and uid 5 stays unresolvable. The
+-- 'ldap' row is another provider and is ignored.
+INSERT INTO authmap (uid,provider,authname) VALUES
+ (1,'cas','aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'),
+ (2,'cas','bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb'),
+ (4,'ldap','dddddddd-4444-4444-8444-dddddddddddd'),
+ (5,'cas','nobody');
 
 -- Content 101 is referenced twice. Node 1001 has the lower nid but is
 -- unpublished; node 1002 is published AND carries an ADAPT id, so it must win.

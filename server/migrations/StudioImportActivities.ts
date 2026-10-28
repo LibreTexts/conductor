@@ -112,6 +112,26 @@ export function resolveMode(): { anonymize: boolean; dataClass: "production" | "
     : { anonymize: true, dataClass: "synthetic" };
 }
 
+/**
+ * Studio's `auto_entitylabel` config overwrote every H5P node title with
+ * `H5P Resource ID #[content id]` (`preserve_titles: false`), so the node
+ * title carries no information. The title the author typed lives in
+ * `h5p_content.title`, which is also what Studio's API served to ADAPT.
+ */
+export const STUDIO_AUTO_TITLE = /^H5P Resource ID #?\d+$/;
+
+export function studioTitle(
+  contentTitle: string | null | undefined,
+  nodeTitle: string | null | undefined,
+  contentID: number
+): string {
+  const fromContent = contentTitle?.trim();
+  if (fromContent) return fromContent;
+  const fromNode = nodeTitle?.trim();
+  if (fromNode && !STUDIO_AUTO_TITLE.test(fromNode)) return fromNode;
+  return `H5P Content ${contentID}`;
+}
+
 /** Studio row shapes, as the queries below return them. */
 type StudioNode = {
   nid: number;
@@ -172,43 +192,106 @@ export async function loadFieldMap<T>(
   return map;
 }
 
+const isUUID = (v: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    v || ""
+  );
+
+/** The pre-CAS mapping file Studio shipped, used only when authmap fails. */
+const DEFAULT_CAS_CSV = path.resolve(
+  "..",
+  "studio_main",
+  "scripts",
+  "cas_users.csv"
+);
+
+/**
+ * Loads Studio's CAS links as Drupal uid to LibreOne UUID.
+ *
+ * The cas module records every link in externalauth's `authmap` table,
+ * including the rows cas_users.csv seeded through `drush cas:set-cas-username`,
+ * so the table is current and the file is a one-time snapshot. A CSV path
+ * reads that file instead (keyed by username, as Studio shipped it), and the
+ * default file is the fallback when authmap can't be read. Links whose
+ * authname is not a UUID are dropped: they would become a bogus centralID.
+ */
+async function loadCasLinks(
+  conn: mysql.Connection,
+  users: { uid: number; name: string }[],
+  casCsvPath?: string
+): Promise<Map<number, string>> {
+  const links = new Map<number, string>();
+  let skipped = 0;
+  const add = (uid: number, authname: string | undefined) => {
+    const value = authname?.trim() ?? "";
+    if (isUUID(value)) links.set(uid, value);
+    else if (value) skipped += 1;
+  };
+
+  if (!casCsvPath) {
+    try {
+      const [rows] = await conn.query(
+        `SELECT uid, authname FROM authmap WHERE provider = 'cas'`
+      );
+      for (const r of rows as { uid: number; authname: string }[]) {
+        add(Number(r.uid), r.authname);
+      }
+      log.info(
+        { entries: links.size, skipped },
+        "Loaded CAS links from authmap"
+      );
+      return links;
+    } catch (err) {
+      log.warn(
+        { err },
+        "authmap unreadable; falling back to the CAS username file"
+      );
+      casCsvPath = DEFAULT_CAS_CSV;
+    }
+  }
+
+  let raw: string;
+  try {
+    raw = fs.readFileSync(casCsvPath, "utf-8");
+  } catch {
+    log.warn({ casCsvPath }, "CAS username map not found; tier 2 unavailable");
+    return links;
+  }
+  const byName = new Map<string, string>();
+  for (const line of raw.split(/\r?\n/)) {
+    const [name, uuid] = line.split(",");
+    if (name?.trim() && uuid?.trim()) {
+      byName.set(name.trim().toLowerCase(), uuid);
+    }
+  }
+  for (const u of users) add(u.uid, byName.get((u.name || "").toLowerCase()));
+  log.info(
+    { entries: links.size, skipped, casCsvPath },
+    "Loaded CAS username map"
+  );
+  return links;
+}
+
 /**
  * Builds the Studio-uid to Conductor-identity map.
  *
  * Tier 1 is the LibreOne UUID stored as the Drupal username. Tier 2 recovers
- * pre-CAS accounts through the one-time mapping file Studio shipped. Tier 3 is
+ * pre-CAS accounts through Studio's CAS links (see `loadCasLinks`). Tier 3 is
  * a valid LibreOne identity with no Conductor account yet. Tier 4 falls back to
  * email. Tier 0 means unresolvable.
+ *
+ * `casCsvPath` reads the links from that file instead of `authmap`.
  */
 export async function buildAuthorMap(
   conn: mysql.Connection,
-  casCsvPath: string
+  casCsvPath?: string
 ): Promise<Map<number, AuthorResolution>> {
   const [userRows] = await conn.query(
     `SELECT uid, name, mail FROM users_field_data WHERE default_langcode = 1`
   );
   const users = userRows as { uid: number; name: string; mail: string }[];
 
-  const isUUID = (v: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      v || ""
-    );
-
-  // The pre-CAS username to LibreOne UUID mapping Studio shipped. Absent in
-  // most environments, which only costs tier 2.
-  const cas = new Map<string, string>();
-  try {
-    const raw = fs.readFileSync(casCsvPath, "utf-8");
-    for (const line of raw.split(/\r?\n/)) {
-      const [name, uuid] = line.split(",");
-      if (name?.trim() && uuid?.trim()) {
-        cas.set(name.trim().toLowerCase(), uuid.trim());
-      }
-    }
-    log.info({ entries: cas.size, casCsvPath }, "Loaded CAS username map");
-  } catch {
-    log.warn({ casCsvPath }, "CAS username map not found; tier 2 unavailable");
-  }
+  const cas = await loadCasLinks(conn, users, casCsvPath);
 
   // Candidate centralIDs, then one lookup against Conductor rather than
   // 784 round trips.
@@ -217,7 +300,7 @@ export async function buildAuthorMap(
   for (const u of users) {
     if (isUUID(u.name)) candidates.add(u.name);
     else {
-      const mapped = cas.get((u.name || "").toLowerCase());
+      const mapped = cas.get(u.uid);
       if (mapped) candidates.add(mapped);
     }
     if (u.mail) emails.add(u.mail.toLowerCase());
@@ -261,7 +344,7 @@ export async function buildAuthorMap(
       continue;
     }
 
-    const mapped = cas.get((u.name || "").toLowerCase());
+    const mapped = cas.get(u.uid);
     if (mapped) {
       const uuid = byCentralID.get(mapped);
       out.set(u.uid, uuid
@@ -437,10 +520,7 @@ export async function runMigration(): Promise<void> {
   try {
     await conn.query("SET SESSION TRANSACTION READ ONLY");
 
-    const casCsvPath =
-      process.env.STUDIO_CAS_CSV ||
-      path.resolve("..", "studio_main", "scripts", "cas_users.csv");
-    const authorMap = await buildAuthorMap(conn, casCsvPath);
+    const authorMap = await buildAuthorMap(conn, process.env.STUDIO_CAS_CSV);
 
     const [nodeRows] = await conn.query(
       `SELECT n.nid, n.uid, n.status, n.title, n.created, n.changed, nb.uuid,
@@ -677,7 +757,7 @@ export async function runMigration(): Promise<void> {
         activityID,
         h5pContentID: contentID,
         orgID,
-        title: winner.title || c.title || `H5P Content ${contentID}`,
+        title: studioTitle(c.title, winner.title, contentID),
         // Free text is scrubbed of addresses in anonymised mode; the H5P
         // metadata author list is replaced outright, since it holds real names
         // typed by content creators and has no safe partial redaction.

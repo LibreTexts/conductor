@@ -21,6 +21,11 @@ export type CommonsActivity = {
   tags?: string[];
   visibility: "public" | "private";
   includeInLibrary?: boolean;
+  /**
+   * Set only on a private activity, to say why the caller can see it. Anyone
+   * else gets a 404 for a private activity.
+   */
+  viewerRole?: "owner" | "collaborator";
   /** H5P license code, e.g. "CC BY", with a version such as "4.0". */
   license?: {
     name?: string;

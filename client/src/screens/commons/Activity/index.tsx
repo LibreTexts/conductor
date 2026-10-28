@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useHistory, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useDocumentTitle, useMediaQuery } from "usehooks-ts";
 import { format, parseISO } from "date-fns";
 import DOMPurify from "dompurify";
 import {
+  Alert,
   Badge,
   Breadcrumb,
   Button,
@@ -37,6 +38,7 @@ import {
 import api from "../../../api";
 import CopyButton from "../../../components/util/CopyButton";
 import useClientConfig from "../../../hooks/useClientConfig";
+import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
 import { CommonsActivity } from "../../../types";
 import { getLanguageName } from "../../../utils/languageCodes";
 import {
@@ -353,6 +355,34 @@ const EmbedDialog = ({
   </Dialog>
 );
 
+/**
+ * Shown to the owner or a collaborator viewing a private activity. Without it
+ * the page looks identical to a public one, and an author would assume anyone
+ * with the link can open it.
+ */
+const PrivateNotice = ({ activity }: { activity: CommonsActivity }) => {
+  const history = useHistory();
+  const authoringEnabled = useH5PAuthoringEnabled();
+  if (activity.visibility !== "private" || !activity.viewerRole) return null;
+  const why =
+    activity.viewerRole === "owner"
+      ? "You can see it because you're the author."
+      : "You can see it because you're a collaborator.";
+  return (
+    <Alert
+      variant="warning"
+      title="This activity is private"
+      asHeading="h2"
+      message={`It doesn't appear in the catalog, and only its author and collaborators can open this page. ${why} Anyone else who follows this link sees "This activity isn't available".`}
+      action={
+        authoringEnabled
+          ? { label: "Change visibility", onClick: () => history.push(`/h5p/${activity.activityID}/edit`) }
+          : undefined
+      }
+    />
+  );
+};
+
 const PageBreadcrumb = ({ current }: { current: React.ReactNode }) => (
   <div className="border-b border-neutral-200 px-6 py-3">
     <Breadcrumb aria-label="Page navigation">
@@ -505,6 +535,11 @@ const CommonsActivityPage = () => {
   return (
     <>
       <PageBreadcrumb current={activity.title} />
+      {activity.viewerRole && (
+        <div className={isDesktop ? "px-6 pt-6" : "px-4 pt-4"}>
+          <PrivateNotice activity={activity} />
+        </div>
+      )}
       {isDesktop ? (
         <div className="grid grid-cols-[400px_minmax(0,1fr)] gap-6 p-6">
           <Card padding="sm" className="self-start">
