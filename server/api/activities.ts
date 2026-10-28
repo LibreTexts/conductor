@@ -111,7 +111,7 @@ async function getCommonsActivities(
 
     return res.send({
       err: false,
-      activities,
+      activities: await _withAuthors(activities),
       cursor: total > offset + limit ? offset + limit : undefined,
       total_items: total,
     });
@@ -166,6 +166,37 @@ function _parseH5PAuthorNames(raw?: string): string[] {
 }
 
 /**
+ * Adds `authors`, the credit to display, to each activity: the H5P metadata
+ * authors when the package names any, otherwise the owning Conductor user.
+ * Owners are looked up in one query for the whole page.
+ */
+async function _withAuthors<T extends { h5pAuthors?: string; createdBy?: string }>(
+  activities: T[]
+): Promise<(T & { authors: string[] })[]> {
+  const credited = activities.map((a) => _parseH5PAuthorNames(a.h5pAuthors));
+  const ownerUUIDs = [
+    ...new Set(
+      activities
+        .filter((a, i) => !credited[i].length && a.createdBy)
+        .map((a) => a.createdBy as string)
+    ),
+  ];
+  const owners = ownerUUIDs.length
+    ? await User.find(
+        { uuid: { $in: ownerUUIDs } },
+        { _id: 0, uuid: 1, firstName: 1, lastName: 1 }
+      ).lean()
+    : [];
+  const nameByUUID = new Map(
+    owners.map((u) => [u.uuid, [u.firstName, u.lastName].filter(Boolean).join(" ")])
+  );
+  return activities.map((a, i) => {
+    const owner = a.createdBy ? nameByUUID.get(a.createdBy) : undefined;
+    return { ...a, authors: credited[i].length ? credited[i] : owner ? [owner] : [] };
+  });
+}
+
+/**
  * Returns a single activity by its Conductor identifier, shaped for the public
  * activity page.
  *
@@ -190,18 +221,9 @@ async function getActivity(
 
     if (!activity) return conductor404Err(res);
 
-    let authors = _parseH5PAuthorNames(activity.h5pAuthors);
-    if (!authors.length && activity.createdBy) {
-      const owner = await User.findOne(
-        { uuid: activity.createdBy },
-        { _id: 0, firstName: 1, lastName: 1 }
-      ).lean();
-      const name = [owner?.firstName, owner?.lastName].filter(Boolean).join(" ");
-      if (name) authors = [name];
-    }
-
-    const { h5pAuthors: _h5pAuthors, createdBy: _createdBy, ...rest } = activity;
-    return res.send({ err: false, activity: { ...rest, authors } });
+    const [credited] = await _withAuthors([activity]);
+    const { h5pAuthors: _h5pAuthors, createdBy: _createdBy, ...rest } = credited;
+    return res.send({ err: false, activity: rest });
   } catch (err) {
     logger.error({ err }, "getActivity failed");
     return conductor500Err(res);
@@ -297,6 +319,8 @@ const VISIBILITY_LEVEL_FILTERS: Record<string, FilterQuery<ActivityInterface>> =
   private: { visibility: "private" },
 };
 
+type MyActivityRow = Record<string, unknown> & { h5pAuthors?: string; createdBy?: string };
+
 const MY_ACTIVITIES_SORTS: Record<string, Record<string, 1 | -1>> = {
   updated: { updatedAt: -1, _id: 1 },
   created: { createdAt: -1, _id: 1 },
@@ -360,8 +384,15 @@ async function getMyActivities(
                 _id: 0,
                 activityID: 1,
                 title: 1,
+                description: 1,
                 library: 1,
                 libraryTitle: 1,
+                language: 1,
+                license: 1,
+                subjects: 1,
+                tags: 1,
+                h5pAuthors: 1,
+                createdBy: 1,
                 createdAt: 1,
                 updatedAt: 1,
                 visibility: VISIBILITY_LEVEL_EXPR,
@@ -382,9 +413,14 @@ async function getMyActivities(
     }
     const totalItems = visibility === "all" ? counts.all : counts[visibility];
 
+    // The card shows the credit, not the raw H5P metadata or the owner's id.
+    const activities = (await _withAuthors(result.items as MyActivityRow[])).map(
+      ({ h5pAuthors: _h5pAuthors, createdBy: _createdBy, ...rest }) => rest
+    );
+
     return res.send({
       err: false,
-      activities: result.items,
+      activities,
       counts,
       overallTotal: result.overall[0]?.n ?? 0,
       total_items: totalItems,

@@ -3,9 +3,10 @@ import conductorErrors from "../../conductor-errors.js";
 import { PaginationSchema, SortDirection } from "./misc.js";
 
 /**
- * Conductor-side activity identifier, as produced by `b62(8)`.
+ * Conductor-side activity identifier: the H5P content id as a string, the
+ * number authors already know from Studio and from embed URLs.
  */
-const activityIDSchema = z.string().length(8, { message: conductorErrors.err1 });
+const activityIDSchema = z.string().regex(/^[1-9][0-9]{0,9}$/, { message: conductorErrors.err1 });
 
 /**
  * The H5P content id.

@@ -24,16 +24,22 @@ vi.mock("usehooks-ts", async (importOriginal) => ({
 const twoActivities: MyActivitiesResult = {
   activities: [
     {
-      activityID: "AAAAAAA1",
+      activityID: "1001",
       title: "Regulations on Fintech",
       library: "H5P.InteractiveVideo 1.27",
       libraryTitle: "Interactive Video",
+      description: "<p>A short video on <em>fintech</em> rules.</p>",
+      authors: ["Sophie K"],
+      subjects: ["Business", "Economics"],
+      license: { name: "CC BY", version: "4.0" },
+      language: "en",
+      tags: ["fintech", "law", "banking", "policy", "regulation"],
       visibility: "public",
       role: "owner",
       updatedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
     },
     {
-      activityID: "AAAAAAA2",
+      activityID: "1002",
       title: "Shared Quiz",
       library: "H5P.QuestionSet 1.20",
       visibility: "unlisted",
@@ -69,7 +75,7 @@ describe("My H5P", () => {
     renderPage();
 
     const link = await screen.findByRole("link", { name: "Regulations on Fintech" });
-    expect(link).toHaveAttribute("href", "/interactive/AAAAAAA1");
+    expect(link).toHaveAttribute("href", "/interactive/1001");
     expect(screen.getByText("Interactive Video")).toBeInTheDocument();
     expect(screen.getByText("Question Set")).toBeInTheDocument();
     expect(screen.getByText("Collaborator")).toBeInTheDocument();
@@ -79,6 +85,26 @@ describe("My H5P", () => {
     expect(screen.getByText(/2 activities · Sorted by last updated/)).toBeInTheDocument();
     // Authoring has not shipped, so nothing links to the editor yet.
     expect(screen.queryByRole("link", { name: /New H5P|Edit/ })).toBeNull();
+  });
+
+  it("shows each card's description, author, subjects, license, language and tags, and leaves out what is unset", async () => {
+    mockGetMine.mockResolvedValue(reply(twoActivities));
+    renderPage();
+
+    const card = (await screen.findByRole("link", { name: "Regulations on Fintech" })).closest("article") as HTMLElement;
+    expect(within(card).getByText("A short video on fintech rules.")).toBeInTheDocument();
+    expect(within(card).getByText("Sophie K")).toBeInTheDocument();
+    expect(within(card).getByText("Business, Economics")).toBeInTheDocument();
+    expect(within(card).getByText("CC BY 4.0")).toBeInTheDocument();
+    expect(within(card).getByText("English")).toBeInTheDocument();
+    expect(within(card).getByText("Subjects")).toHaveClass("sr-only");
+    const tags = within(card).getByRole("list", { name: "Tags" });
+    expect(within(tags).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(tags).getByText("+2")).toBeInTheDocument();
+
+    const shared = screen.getByRole("link", { name: "Shared Quiz" }).closest("article") as HTMLElement;
+    expect(within(shared).queryByRole("term")).toBeNull();
+    expect(within(shared).queryByRole("list", { name: "Tags" })).toBeNull();
   });
 
   it("labels each visibility option with its count", async () => {

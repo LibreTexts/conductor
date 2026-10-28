@@ -22,11 +22,12 @@ import {
   Textarea,
   VisuallyHidden,
 } from "@libretexts/davis-react";
-import { IconAlertTriangle, IconDeviceFloppy, IconLink, IconLock, IconTrash, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconDeviceFloppy, IconExternalLink, IconLink, IconLock, IconTrash, IconWorld } from "@tabler/icons-react";
 import api from "../../../api";
 import useClientConfig from "../../../hooks/useClientConfig";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
 import useCanCreateActivities from "../../../hooks/useCanCreateActivities";
+import { useNotifications } from "../../../context/NotificationContext";
 import {
   ActivityDisplayOptions,
   ActivityMetadataInput,
@@ -245,6 +246,7 @@ const EditH5P = () => {
   const { activityID: routeActivityID } = useParams<{ activityID?: string }>();
   const history = useHistory();
   const queryClient = useQueryClient();
+  const { addNotification } = useNotifications();
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const { clientConfig, loading: configLoading } = useClientConfig();
   const authoringEnabled = useH5PAuthoringEnabled();
@@ -257,10 +259,13 @@ const EditH5P = () => {
   const [activityID, setActivityID] = useState<string | undefined>(routeActivityID);
   const isCreate = !activityID;
 
-  const { data, isLoading, error: loadError } = useQuery({
-    queryKey: ["activity-authoring", initialActivityID],
-    queryFn: async () => (await api.getActivityForEditing(initialActivityID!)).data,
-    enabled: Boolean(initialActivityID),
+  // Keyed on the current id, not the initial one, so a new activity's record
+  // loads after its first save and every save can refetch what the editor
+  // changed (license and authors).
+  const { data, isLoading, error: queryError } = useQuery({
+    queryKey: ["activity-authoring", activityID],
+    queryFn: async () => (await api.getActivityForEditing(activityID!)).data,
+    enabled: Boolean(activityID),
     refetchOnWindowFocus: false,
     retry: false,
   });
@@ -284,10 +289,22 @@ const EditH5P = () => {
   const [deleting, setDeleting] = useState(false);
   const [tab, setTab] = useState<"content" | "details" | "sharing">("content");
 
+  // Only a failed first load replaces the screen. A failed refetch after a
+  // save keeps the editor and the last good record.
+  const loadError = initialActivityID && !data ? queryError : null;
+
+  // The last committed values, read by the effect below. Compared there and
+  // not in a setForm updater: updaters run during render, and StrictMode's
+  // second render would already see these refs overwritten.
+  const formRef = useRef(form);
+  formRef.current = form;
+  const savedFormRef = useRef(savedForm);
+  savedFormRef.current = savedForm;
   useEffect(() => {
     if (!data) return;
     const f = formFrom(data.activity);
-    setForm(f);
+    // A refetch after a save must not discard edits made while it ran.
+    if (JSON.stringify(formRef.current) === JSON.stringify(savedFormRef.current)) setForm(f);
     setSavedForm(f);
     if (data.activity.updatedAt && !data.activity.pendingFirstSave) setLastSaved(parseISO(data.activity.updatedAt));
   }, [data]);
@@ -381,6 +398,10 @@ const EditH5P = () => {
         if (await saveMetadata(activityIDRef.current, { ...pendingMetadataRetry, ...metadata })) {
           setSavedForm(form);
           setLastSaved(new Date());
+          addNotification({ type: "success", message: "Activity saved." });
+          queryClient.invalidateQueries(["activity-authoring", activityIDRef.current]);
+        } else {
+          addNotification({ type: "error", message: "Your activity's details could not be saved." });
         }
         return;
       }
@@ -410,11 +431,16 @@ const EditH5P = () => {
       if (ok) {
         setSavedForm(form);
         setLastSaved(new Date());
+        addNotification({ type: "success", message: "Activity saved." });
+      } else {
+        addNotification({ type: "error", message: "Your activity was saved, but its details were not." });
       }
       queryClient.invalidateQueries(["my-activities"]);
+      queryClient.invalidateQueries(["activity-authoring", id]);
       if (!routeActivityID || routeActivityID !== id) history.replace(`/h5p/${id}/edit`);
     } catch (err) {
       const reason = err instanceof EditorSaveError ? err.reason : "server";
+      addNotification({ type: "error", message: "Your activity could not be saved." });
       setSaveMessage({
         tone: "error",
         text:
@@ -480,14 +506,14 @@ const EditH5P = () => {
             description="You can still edit activities other authors share with you. To create your own, request instructor verification."
             action={
               <div className="flex flex-wrap justify-center gap-2">
-                {clientConfig?.instructor_verification_url && (
-                  <Button as="a" href={clientConfig.instructor_verification_url} variant="primary">
-                    Request verification
-                  </Button>
-                )}
                 <Button as={Link} to="/h5p" variant="outline">
                   Back to My H5P
                 </Button>
+                {clientConfig?.instructor_verification_url && (
+                  <Button as="a" href={clientConfig.instructor_verification_url} variant="primary" className="bg-primary! text-white!" icon={<IconExternalLink size={18} />}>
+                    Request verification
+                  </Button>
+                )}
               </div>
             }
           />
@@ -524,8 +550,11 @@ const EditH5P = () => {
     );
 
   // ------------------------------------------------------------- parts
+  // H5P's editor stylesheet caps its own page at 960px. From 1600px the
+  // column is wider than that, so the frame is centred with padding around
+  // it and the spare width goes to the details sidebar instead.
   const editorPanel = (
-    <div className="relative overflow-hidden rounded-md border border-neutral-200 bg-white">
+    <div className="relative overflow-hidden rounded-md border border-neutral-200 bg-white min-[1600px]:p-6 min-[1920px]:p-8">
       {!bridge.loaded && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-100">
           <Spinner size="lg" text="Loading H5P editor" />
@@ -547,7 +576,7 @@ const EditH5P = () => {
           ref={iframeRef}
           src={editorSrc}
           title="H5P editor"
-          className="block w-full border-0"
+          className="block w-full border-0 min-[1600px]:mx-auto min-[1600px]:max-w-[1000px]"
           style={{ height: Math.max(bridge.height ?? 640, isDesktop ? 640 : 420) }}
           allow="fullscreen"
           allowFullScreen
@@ -634,7 +663,7 @@ const EditH5P = () => {
           {authors.length ? ` · ${authors.join(", ")}` : ""}
         </Text>
         <Text as="p" size="sm" color="muted">
-          Set these in the editor with the Metadata button beside the title. Save and reload the page to see the changes. These will follow the activity wherever it is reused.
+          Set these in the editor with the Metadata button beside the title. They update here when you save, and will follow the activity wherever it is reused.
         </Text>
       </div>
       <Input
@@ -763,7 +792,7 @@ const EditH5P = () => {
           </div>
         </header>
         <div className="mt-4">{messages}</div>
-        <div className="grid grid-cols-[minmax(0,1fr)_400px] gap-6">
+        <div className="grid grid-cols-[minmax(0,1fr)_400px] gap-6 min-[1600px]:grid-cols-[minmax(0,1fr)_480px] min-[1600px]:gap-8 min-[1920px]:grid-cols-[minmax(0,1fr)_560px]">
           <div className="flex min-w-0 flex-col gap-4">
             {loadingActivity ? (
               <div className="flex h-[640px] items-center justify-center rounded-md bg-neutral-100">

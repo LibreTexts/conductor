@@ -38,7 +38,9 @@ import { ActivityVisibilityLevel, MyActivitiesParams, MyActivity } from "../../.
 import {
   getContentTypeIcon,
   getContentTypeName,
+  toPlainText,
 } from "../../../utils/activityHelpers";
+import ActivityCardDetails from "../../../components/commons/ActivityCardDetails";
 
 const PAGE_SIZE = 24;
 
@@ -149,30 +151,33 @@ const ActivityBadges = ({ activity, size }: { activity: MyActivity; size?: "sm" 
 const ActivityCard = ({ activity }: { activity: MyActivity }) => {
   const editingAvailable = useH5PAuthoringEnabled();
   const typeName = getContentTypeName(activity);
+  const description = toPlainText(activity.description);
   const updated = updatedLabel(activity);
   return (
     <li className="flex">
       <article className="flex w-full flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white transition-shadow hover:shadow-md">
-        <div className="flex h-[120px] items-center justify-center bg-primary-50" aria-hidden="true">
-          <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-white">
-            <ContentTypeIcon activity={activity} size={28} />
+        <div className="flex h-16 items-center justify-center bg-primary-50" aria-hidden="true">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white">
+            <ContentTypeIcon activity={activity} size={22} />
           </div>
         </div>
-        <div className="flex flex-1 flex-col gap-2 p-4">
+        <div className="flex flex-1 flex-col gap-1.5 p-3">
           {typeName && (
             <Text size="sm" color="muted">
               {typeName}
             </Text>
           )}
-          <Heading level={2} className="!text-lg break-words">
+          <Heading level={2} className="!text-base !mt-0 !mb-0 break-words">
             <Link to={`/interactive/${activity.activityID}`} className="text-neutral-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
               {activity.title}
             </Link>
           </Heading>
+          {description && <Text size="sm" className="line-clamp-3">{description}</Text>}
           <ActivityBadges activity={activity} />
+          <ActivityCardDetails activity={activity} className="mt-auto pt-1" />
         </div>
         {(updated || editingAvailable) && (
-          <div className="flex items-center justify-between gap-2 border-t border-neutral-200 px-4 py-3">
+          <div className="flex items-center justify-between gap-2 border-t border-neutral-200 px-3 py-2">
             {updated && (
               <Text size="sm" color="muted">
                 {updated}
@@ -202,6 +207,7 @@ const ActivityRow = ({ activity }: { activity: MyActivity }) => {
   const history = useHistory();
   const editingAvailable = useH5PAuthoringEnabled();
   const typeName = getContentTypeName(activity);
+  const description = toPlainText(activity.description);
   const updated = activity.updatedAt
     ? formatDistanceToNow(parseISO(activity.updatedAt), { addSuffix: true })
     : undefined;
@@ -219,7 +225,9 @@ const ActivityRow = ({ activity }: { activity: MyActivity }) => {
             {[typeName, updated].filter(Boolean).join(" · ")}
           </Text>
         )}
+        {description && <Text size="sm" className="line-clamp-2">{description}</Text>}
         <ActivityBadges activity={activity} size="sm" />
+        <ActivityCardDetails activity={activity} className="pt-1" />
       </div>
       <Menu>
         <Menu.Button
@@ -277,11 +285,11 @@ const LoadingGrid = ({ rows }: { rows: boolean }) =>
       ))}
     </ul>
   ) : (
-    <ul className="m-0 grid list-none grid-cols-2 gap-4 p-0 lg:grid-cols-3 xl:grid-cols-4" aria-hidden="true">
+    <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 lg:grid-cols-3 xl:grid-cols-4 min-[1600px]:grid-cols-5" aria-hidden="true">
       {Array.from({ length: 8 }, (_, i) => (
         <li key={i} className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-          <Skeleton variant="rectangular" height={120} />
-          <div className="flex flex-col gap-2 p-4">
+          <Skeleton variant="rectangular" height={64} />
+          <div className="flex flex-col gap-1.5 p-3">
             <Skeleton variant="text" width="40%" />
             <Skeleton variant="text" lines={2} />
             <Skeleton variant="rounded" width={64} height={22} />
@@ -389,7 +397,7 @@ const MyH5P = () => {
         </Card>
       ) : (
         <>
-          <div className="mt-4 flex flex-wrap items-end gap-4">
+          <div className="mt-4 flex flex-wrap items-center gap-4">
             <div className={rows ? "w-full" : "w-full min-w-[320px] max-w-[520px] flex-1"}>
               <Input
                 name="my-h5p-search"
@@ -399,6 +407,7 @@ const MyH5P = () => {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={rows ? "Search my H5P" : "Search by title, tag, or content type"}
                 leftIcon={<IconSearch size={16} aria-hidden="true" />}
+                className="-mt-1.5!"
               />
             </div>
             {isLoading ? (
@@ -460,7 +469,7 @@ const MyH5P = () => {
                 {data?.activities.map((a) => <ActivityRow key={a.activityID} activity={a} />)}
               </ul>
             ) : (
-              <ul className="m-0 grid list-none grid-cols-2 gap-4 p-0 lg:grid-cols-3 xl:grid-cols-4">
+              <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 lg:grid-cols-3 xl:grid-cols-4 min-[1600px]:grid-cols-5">
                 {data?.activities.map((a) => <ActivityCard key={a.activityID} activity={a} />)}
               </ul>
             )}

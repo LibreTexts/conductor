@@ -84,6 +84,17 @@ export function getContentTypeName(
   return name ? name.replace(/([a-z])([A-Z])/g, "$1 $2") : undefined;
 }
 
+/**
+ * Migrated Studio descriptions are Drupal rich text. Cards show them as plain
+ * text, so markup never reaches a listing. DOMParser builds an inert document
+ * and runs no scripts.
+ */
+export function toPlainText(value?: string): string {
+  if (!value) return "";
+  if (!/<[a-z][\s\S]*>/i.test(value)) return value.trim();
+  return new DOMParser().parseFromString(value, "text/html").body.textContent?.trim() ?? "";
+}
+
 type LicenseInfo = { text: string; url?: string; publicDomain?: boolean };
 
 const CC_PATHS: Record<string, string> = {
