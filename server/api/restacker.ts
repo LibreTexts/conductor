@@ -468,7 +468,7 @@ const restackerReload = async (
     const bookService = new BookService({
       bookID: `${project.libreLibrary}-${project.libreCoverID}`,
     });
-    const toc = await bookService.getBookTOCNew();
+    const toc = await bookService.getBookTOCNew({ includeRestricted: true });
 
     // A refresh rescans the pages for the Restacker and the Attribution Manager together, so it
     // takes both tools' locks before resetting pages: a concurrent /toc request can't see an

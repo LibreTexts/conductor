@@ -246,7 +246,7 @@ export type ScanPageSeed = { id: string; title: string; url: string };
 export async function buildScanPageList(project: ProjectInterface): Promise<ScanPageSeed[]> {
   const toc = await new BookService({
     bookID: `${project.libreLibrary}-${project.libreCoverID}`,
-  }).getBookTOCNew();
+  }).getBookTOCNew({ includeRestricted: true });
   const flatten = (pages: typeof toc.children): ScanPageSeed[] =>
     pages?.flatMap((page) => [
       { id: page.id, title: page.title, url: page.url },
