@@ -52,8 +52,15 @@ export type WhatsNewEntryPayload = {
  * What the acknowledgment system stores under the `whats_new` key's `data`.
  * This is the seen-watermark: the newest entry the user has dismissed. One
  * permanent key therefore covers an unbounded stream of entries.
+ *
+ * "Remind me later" adds a snooze for one entry. The server replaces `data`
+ * whole on every write, so a snooze carries the existing watermark forward and
+ * a dismissal drops the snooze.
  */
 export type WhatsNewWatermark = {
-  lastEntryId: string;
-  lastPublishedAt: string;
+  lastEntryId?: string;
+  lastPublishedAt?: string;
+  snoozedEntryId?: string;
+  /** ISO timestamp. The snoozed entry stays hidden until then. */
+  snoozedUntil?: string;
 };

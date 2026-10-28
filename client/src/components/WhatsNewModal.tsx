@@ -1,5 +1,6 @@
 import { Button, Link, Modal } from "@libretexts/davis-react";
-import { IconCheck, IconExternalLink } from "@tabler/icons-react";
+import { IconCheck, IconClock, IconExternalLink } from "@tabler/icons-react";
+import { useEffect } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import { useLocation } from "react-router-dom";
 import useWhatsNew from "../hooks/useWhatsNew";
@@ -51,15 +52,28 @@ const MARKDOWN_COMPONENTS: Components = {
  * gate therefore decides by whether to MOUNT this at all.
  */
 const WhatsNewDialog: React.FC = () => {
-  const { entry, shouldShow, dismiss } = useWhatsNew();
+  const { entry, shouldShow, dismiss, remindLater } = useWhatsNew();
+  const open = shouldShow && !!entry;
 
-  if (!shouldShow || !entry) return null;
+  // The Davis Modal sends Escape and a backdrop click to the same `onClose`, so
+  // `onClose` ignores both and Escape is handled here instead. Escape picks the
+  // choice that loses nothing, and keyboard users keep the exit a dialog is
+  // expected to have.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") remindLater();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, remindLater]);
+
+  if (!open || !entry) return null;
 
   return (
-    <Modal open onClose={dismiss} size="lg">
+    <Modal open onClose={() => {}} size="lg">
       <Modal.Header>
         <Modal.Title className="!mt-1 !mb-0">What's New: {entry.title}</Modal.Title>
-        <Modal.Close aria-label="Dismiss What's New notice" />
       </Modal.Header>
       <Modal.Body className="max-h-[70vh] overflow-y-auto">
         <div className="prose prose-code:before:hidden prose-code:after:hidden max-w-none">
@@ -82,6 +96,9 @@ const WhatsNewDialog: React.FC = () => {
             {entry.ctaLabel}
           </Button>
         )}
+        <Button variant="tertiary" onClick={remindLater} icon={<IconClock size={18} />}>
+          Remind me later
+        </Button>
         <Button onClick={dismiss} icon={<IconCheck size={18} />}>Got it!</Button>
       </Modal.Footer>
     </Modal>
@@ -98,9 +115,9 @@ const WhatsNewDialog: React.FC = () => {
  * synchronous cookie read `PrivateRoute` uses, so it is correct on first paint
  * rather than waiting on a Redux dispatch.
  *
- * Dismissal is recorded by every exit route the Davis Modal offers (the close
- * button, Escape, and a backdrop click all reach `onClose`), so a user can never
- * close this in a way that leaves it un-acknowledged.
+ * The user has to choose: "Got it!" dismisses the entry for good and "Remind me
+ * later" (or Escape) snoozes it. There is no close button, and a backdrop click
+ * does nothing, so the modal never closes without one of the two recorded.
  */
 const WhatsNewModal: React.FC = () => {
   const location = useLocation();

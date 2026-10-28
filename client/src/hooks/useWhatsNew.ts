@@ -15,6 +15,9 @@ export const WHATS_NEW_QUERY_KEY = ["whats-new-active"] as const;
  */
 const SESSION_FLAG = "conductor_whats_new_shown";
 
+/** How long "Remind me later" hides an entry. */
+export const WHATS_NEW_REMIND_LATER_MS = 1000 * 60 * 60 * 24;
+
 function sessionAlreadyShown(entryId: string): boolean {
   try {
     return window.sessionStorage.getItem(SESSION_FLAG) === entryId;
@@ -82,6 +85,13 @@ const useWhatsNew = () => {
     if (!ackReady || query.isLoading || !query.isFetched) return false;
     if (!entry) return false;
     if (watermark?.lastEntryId === entry._id) return false;
+    if (
+      watermark?.snoozedEntryId === entry._id &&
+      watermark.snoozedUntil &&
+      new Date(watermark.snoozedUntil).getTime() > Date.now()
+    ) {
+      return false;
+    }
     if (sessionAlreadyShown(entry._id)) return false;
     return true;
   }, [ackReady, query.isLoading, query.isFetched, entry, watermark]);
@@ -96,7 +106,23 @@ const useWhatsNew = () => {
     } satisfies WhatsNewWatermark);
   }, [entry, acknowledge]);
 
-  return { entry, shouldShow, dismiss };
+  /**
+   * Hides the entry for WHATS_NEW_REMIND_LATER_MS without moving the watermark,
+   * so it comes back after that. Recorded as "seen", not "dismissed", to keep
+   * the dismissal count honest.
+   */
+  const remindLater = useCallback(() => {
+    if (!entry) return;
+    markSessionShown(entry._id);
+    acknowledge("seen", {
+      lastEntryId: watermark?.lastEntryId,
+      lastPublishedAt: watermark?.lastPublishedAt,
+      snoozedEntryId: entry._id,
+      snoozedUntil: new Date(Date.now() + WHATS_NEW_REMIND_LATER_MS).toISOString(),
+    } satisfies WhatsNewWatermark);
+  }, [entry, watermark, acknowledge]);
+
+  return { entry, shouldShow, dismiss, remindLater };
 };
 
 export default useWhatsNew;
