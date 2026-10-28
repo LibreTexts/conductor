@@ -87,7 +87,7 @@ const getAuthorshipToc = async (
     if (!project) return;
     const { projectID } = req.params;
 
-    const toc = await bookServiceFor(project).getBookTOCNew();
+    const toc = await bookServiceFor(project).getBookTOCNew({ includeRestricted: true });
     let doc = await Authorship.findOne({ projectID: { $eq: projectID } });
     if (!doc) {
       doc = await Authorship.create({
@@ -399,7 +399,7 @@ const bulkUpdateAuthorshipAuthor = async (
     if (authorError) return res.status(400).send({ err: true, errMsg: authorError });
 
     const bookService = bookServiceFor(project);
-    const bookPageIDs = new Set(await bookService.getBookPageIDs(false));
+    const bookPageIDs = new Set(await bookService.getBookPageIDs({ includeRestricted: true, cache: false }));
     const pagesById = new Map(doc.pages.map((p) => [p.id, p]));
 
     const skipped: { pageID: string; reason: BulkSkipReason }[] = [];
