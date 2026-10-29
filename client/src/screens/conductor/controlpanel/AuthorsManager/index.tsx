@@ -239,15 +239,6 @@ const AuthorsManager = () => {
         header: "Campus URL",
         cell: ({ row }) => renderURLCell(row.original.campusURL),
       },
-      {
-        accessorKey: "programName",
-        header: "Program Name",
-      },
-      {
-        id: "programURL",
-        header: "Program URL",
-        cell: ({ row }) => renderURLCell(row.original.programURL),
-      },
     ],
     [addNotification, setSearchString, setActiveSearch]
   );

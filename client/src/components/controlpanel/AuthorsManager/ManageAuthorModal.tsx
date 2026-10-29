@@ -49,6 +49,10 @@ type SharedFormValues = Omit<
   | "memberOfKeys"
   | "nameKey"
   | "orgID"
+  // Program fields are no longer edited here. Left out of the form, so saving never sends them
+  // and any stored values are kept as they are.
+  | "programName"
+  | "programURL"
 > & { pictureCircle: boolean };
 
 /** One person credited by the entry: just a name and a URL. */
@@ -75,15 +79,13 @@ const DEFAULT_VALUES: SharedFormValues = {
   campusURL: "",
   pictureCircle: false,
   pictureURL: "",
-  programName: "",
-  programURL: "",
   attributionPrefix: "",
 };
 
 /**
  * Adds or edits an author entry: the record a page is tagged with. An entry credits one
  * person (a single author) or several (a group); either way every person only has a name and
- * a URL, and the campus/program shown is shared by the entry.
+ * a URL, and the campus shown is shared by the entry.
  */
 const ManageAuthorModal = ({ show, onClose, authorID, onCreated }: ManageAuthorModalProps) => {
   const queryClient = useQueryClient();
@@ -200,8 +202,6 @@ const ManageAuthorModal = ({ show, onClose, authorID, onCreated }: ManageAuthorM
         campusName: author.campusName ?? "",
         campusURL: author.campusURL ?? "",
         pictureURL: author.pictureURL ?? "",
-        programName: author.programName ?? "",
-        programURL: author.programURL ?? "",
         attributionPrefix: author.attributionPrefix ?? "",
         pictureCircle: author.pictureCircle === "yes",
       });
@@ -657,7 +657,7 @@ const ManageAuthorModal = ({ show, onClose, authorID, onCreated }: ManageAuthorM
 
           <FormSection
             title="Affiliation"
-            description="Optional institution and program credited alongside the author(s)."
+            description="Optional institution credited alongside the author(s)."
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <CampusCombobox
@@ -674,17 +674,6 @@ const ManageAuthorModal = ({ show, onClose, authorID, onCreated }: ManageAuthorM
                 readOnly
                 placeholder="Filled in when a campus is selected"
                 {...register("campusURL")}
-              />
-              <Input
-                label="Program Name"
-                placeholder="OER for Good"
-                {...register("programName")}
-              />
-              <Input
-                label="Program URL"
-                type="url"
-                placeholder="https://oerforgood.example.com"
-                {...register("programURL")}
               />
             </div>
           </FormSection>
