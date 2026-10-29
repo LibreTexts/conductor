@@ -25,9 +25,26 @@ export type AuthorshipRow = {
   url: string;
   depth: number;
   entry?: AuthorshipEntry;
+  /** The book's main page, whose subpages are the whole book. */
+  isMainPage?: boolean;
 };
 
-/** The book's pages in TOC order (cover excluded), each with its depth and credit data. */
+/**
+ * Every row of the table: the book's main page first, then its pages in TOC order beneath it.
+ * The main page is edited like any page; its book-level credits are separate (`bookCredits`).
+ */
+export function bookRows(
+  toc: TableOfContents | undefined,
+  entries: Map<string, AuthorshipEntry>,
+): AuthorshipRow[] {
+  if (!toc) return [];
+  return [
+    { id: toc.id, title: toc.title, url: toc.url, depth: 0, entry: entries.get(toc.id), isMainPage: true },
+    ...flattenToc(toc.children ?? [], entries, 1),
+  ];
+}
+
+/** Pages in TOC order, each with its depth and credit data. */
 export function flattenToc(
   nodes: TableOfContents[],
   entries: Map<string, AuthorshipEntry>,
@@ -43,6 +60,10 @@ export function flattenToc(
 export function creditsFor(refs: AuthorshipAuthorRef[] | undefined, role: CreditRole) {
   return (refs ?? []).filter((r) => r.role === role);
 }
+
+/** One role's book-level credits, from the main page's entry. */
+export const bookCreditsFor = (entry: AuthorshipEntry | undefined, role: CreditRole) =>
+  creditsFor(entry?.bookCredits, role);
 
 /** The page's own `<role>@` tags (not the older `authorname:` fallback). */
 const ownRoleTags = (entry: AuthorshipEntry | undefined, role: CreditRole) =>

@@ -24,14 +24,18 @@ import {
   IconArrowDown,
   IconEdit,
   IconExternalLink,
+  IconListCheck,
+  IconPlus,
   IconRefresh,
   IconUsers,
+  IconX,
 } from "@tabler/icons-react";
 import api from "../../../api";
 import type {
   AuthorSearchResult,
   AuthorshipAuthorRef,
   AuthorshipEntry,
+  BookCreditAddition,
   CreditRole,
 } from "../../../types";
 import { useNotifications } from "../../../context/NotificationContext";
@@ -43,8 +47,9 @@ import AuthorPicker from "./AuthorPicker";
 import {
   CREDIT_ROLES,
   authorRefLabel,
+  bookCreditsFor,
+  bookRows,
   creditsFor,
-  flattenToc,
   isMissingAuthor,
   isUnchanged,
   roleInfo,
@@ -94,7 +99,7 @@ const CreditList = ({ refs }: { refs?: AuthorshipAuthorRef[] }) =>
     <Dash />
   );
 
-type EditTarget = { id: string; title: string; isBook: boolean };
+type EditTarget = { id: string; title: string };
 
 /** A person picked in a dialog but not yet applied; a null author clears the role. */
 type PendingChoice = { author: AuthorSearchResult | null };
@@ -184,6 +189,10 @@ const Authorship = () => {
   // Kept while switching roles, so several roles can be cascaded in one sitting.
   const [includeSubpages, setIncludeSubpages] = useState(false);
   const [bulkJobID, setBulkJobID] = useState<string | null>(null);
+  // The role whose "Add" dialog is open in the Book credits section, and the person picked there.
+  const [bookAddRole, setBookAddRole] = useState<CreditRole | null>(null);
+  const [pendingBookAuthor, setPendingBookAuthor] = useState<AuthorSearchResult | null>(null);
+  const [compileOpen, setCompileOpen] = useState(false);
 
   const {
     data: tocData,
@@ -254,10 +263,8 @@ const Authorship = () => {
   );
   const bookPageID = tocData?.toc?.id;
   const bookEntry: AuthorshipEntry | undefined = bookPageID ? entries.get(bookPageID) : undefined;
-  const rows = useMemo(
-    () => flattenToc(tocData?.toc?.children ?? [], entries),
-    [tocData, entries],
-  );
+  // The main page is the first row, edited like any page; the book's own credits are separate.
+  const rows = useMemo(() => bookRows(tocData?.toc, entries), [tocData, entries]);
 
   /** The table's own scroll container (the DataTable scrolls inside a fixed-height box). */
   const getTableScroller = useCallback((): HTMLElement | null => {
@@ -310,18 +317,16 @@ const Authorship = () => {
     };
   }, [authorship, editTarget, bulkOpen, getTableScroller]);
 
-  /** Pages (and the book) crediting each role, for the role switch. */
+  /** Pages crediting each role, for the role switch. */
   const counts = useMemo(
     () =>
       Object.fromEntries(
         CREDIT_ROLES.map((r) => [
           r.key,
-          [bookEntry, ...rows.map((row) => row.entry)].filter(
-            (e) => creditsFor(e?.pageCredits, r.key).length > 0,
-          ).length,
+          rows.filter((row) => creditsFor(row.entry?.pageCredits, r.key).length > 0).length,
         ]),
       ) as Record<CreditRole, number>,
-    [rows, bookEntry],
+    [rows],
   );
 
   /** Scanned pages with no author of their own; highlighted like non-compliant licenses. */
@@ -404,10 +409,81 @@ const Authorship = () => {
 
   const bulkRunning = bulkPending || bulkJobID !== null;
 
+  // Book credits are re-read from the server after each change, so they show resolved names.
+  const refetchAuthorship = () =>
+    queryClient.invalidateQueries({ queryKey: ["authorship", projectID] });
+
+  const {
+    mutate: updateBookCredit,
+    isPending: bookCreditPending,
+    variables: bookCreditVariables,
+  } = useMutation({
+    mutationFn: (data: { role: CreditRole; authorKey: string; action: "add" | "remove" }) =>
+      api.updateBookCredit(projectID, data),
+    onSuccess: refetchAuthorship,
+    onError: (err) =>
+      addNotification({ type: "error", message: errorMessage(err, "Error updating book credits.") }),
+  });
+
+  const {
+    mutate: previewCompile,
+    data: compilePreview,
+    isPending: compilePreviewPending,
+    reset: resetCompilePreview,
+  } = useMutation({
+    mutationFn: () => api.compileBookCredits(projectID, false),
+    onError: (err) => {
+      setCompileOpen(false);
+      addNotification({ type: "error", message: errorMessage(err, "Couldn't compile credits.") });
+    },
+  });
+
+  const { mutate: applyCompile, isPending: compileApplyPending } = useMutation({
+    mutationFn: () => api.compileBookCredits(projectID, true),
+    onSuccess: async (data) => {
+      setCompileOpen(false);
+      await refetchAuthorship();
+      addNotification({
+        type: "success",
+        message: data.additions.length
+          ? `Added ${data.additions.length} book credit(s).`
+          : "The book already credits everyone credited on its pages.",
+      });
+    },
+    onError: (err) =>
+      addNotification({ type: "error", message: errorMessage(err, "Couldn't add book credits.") }),
+  });
+
+  const openCompile = () => {
+    resetCompilePreview();
+    setCompileOpen(true);
+    previewCompile();
+  };
+
+  const closeBookAdd = () => {
+    setBookAddRole(null);
+    setPendingBookAuthor(null);
+  };
+
+  const submitBookAdd = () => {
+    if (!bookAddRole || !pendingBookAuthor) return;
+    updateBookCredit(
+      { role: bookAddRole, authorKey: pendingBookAuthor.nameKey, action: "add" },
+      { onSuccess: closeBookAdd },
+    );
+  };
+
+  /** The compile preview's additions, grouped by role in display order. */
+  const compileByRole = useMemo(() => {
+    const additions: BookCreditAddition[] = compilePreview?.additions ?? [];
+    return CREDIT_ROLES.map((r) => ({
+      role: r,
+      people: additions.filter((a) => a.role === r.key),
+    })).filter((g) => g.people.length > 0);
+  }, [compilePreview]);
+
   const subpagesOf = (target: EditTarget) => {
-    const ids = target.isBook
-      ? new Set(rows.map((r) => r.id))
-      : expandWithDescendants(rows, new Set([target.id]));
+    const ids = expandWithDescendants(rows, new Set([target.id]));
     ids.delete(target.id);
     return ids;
   };
@@ -500,10 +576,7 @@ const Authorship = () => {
   };
 
   const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
-  const bookRoleCredits = useMemo(
-    () => creditsFor(bookEntry?.pageCredits, roleKey),
-    [bookEntry, roleKey],
-  );
+  const bookRoleCredits = useMemo(() => bookCreditsFor(bookEntry, roleKey), [bookEntry, roleKey]);
 
   // The Page column never changes; only the role columns after it follow the selected role, so
   // switching roles keeps the table (and its scroll position) exactly where it is.
@@ -561,6 +634,7 @@ const Authorship = () => {
                 {row.original.title}
                 <IconExternalLink size={12} className="ml-1 inline" aria-hidden="true" />
               </Link>
+              {row.original.isMainPage && <Badge label="Main page" size="sm" variant="default" />}
             </div>
           );
         },
@@ -591,9 +665,7 @@ const Authorship = () => {
                   size="sm"
                   loading={updatePending && updateVariables?.pageID === row.original.id}
                   disabled={bulkRunning}
-                  onClick={() =>
-                    openEditor({ id: row.original.id, title: row.original.title, isBook: false })
-                  }
+                  onClick={() => openEditor({ id: row.original.id, title: row.original.title })}
                 />
               )}
             </div>
@@ -642,11 +714,9 @@ const Authorship = () => {
 
   const dialogRole = roleInfo(dialogRoleKey);
   const bulkRole = roleInfo(bulkRoleKey);
-  const dialogEntry = editTarget
-    ? editTarget.isBook
-      ? bookEntry
-      : entries.get(editTarget.id)
-    : undefined;
+  const dialogEntry = editTarget ? entries.get(editTarget.id) : undefined;
+  const bookAddInfo = bookAddRole ? roleInfo(bookAddRole) : null;
+  const bookEditsBlocked = !isCompleted || !bookPageID || bulkRunning || isProcessing;
 
   return (
     <Stack direction="vertical" gap="md" className="py-8 px-16">
@@ -681,39 +751,77 @@ const Authorship = () => {
               </Text>
               <Text size="sm">Status: {capitalizeFirstLetter(status ?? "")}</Text>
 
+              {/* The book's own credits: `book<role>@` tags on the main page, several people per
+                  role. The main page's page-level credits are edited in its table row. */}
               <div className="mt-2">
-                <Stack direction="horizontal" gap="xs" align="center">
+                <Stack direction="horizontal" gap="sm" align="center">
                   <Text size="sm" weight="semibold">
                     Book credits
                   </Text>
                   {isCompleted && bookPageID && (
-                    <IconButton
-                      icon={<IconEdit size={14} />}
-                      aria-label="Edit book credits"
-                      tooltip="Edit book credits"
-                      variant="ghost"
+                    <Button
+                      variant="outline"
                       size="sm"
-                      loading={updatePending && updateVariables?.pageID === bookPageID}
-                      disabled={bulkRunning}
-                      onClick={() =>
-                        openEditor({
-                          id: bookPageID,
-                          title: tocData?.toc?.title ?? "Book",
-                          isBook: true,
-                        })
-                      }
-                    />
+                      icon={<IconListCheck size={14} />}
+                      disabled={bookEditsBlocked || bookCreditPending}
+                      onClick={openCompile}
+                    >
+                      Compile from pages
+                    </Button>
                   )}
                 </Stack>
                 <dl className="mt-1 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
-                  {CREDIT_ROLES.map((r) => (
-                    <div key={r.key} className="contents">
-                      <dt className="text-gray-600">{r.label}</dt>
-                      <dd>
-                        <CreditList refs={creditsFor(bookEntry?.pageCredits, r.key)} />
-                      </dd>
-                    </div>
-                  ))}
+                  {CREDIT_ROLES.map((r) => {
+                    const credits = bookCreditsFor(bookEntry, r.key);
+                    return (
+                      <div key={r.key} className="contents">
+                        <dt className="text-gray-600">{r.label}</dt>
+                        <dd className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {credits.length === 0 && <Dash />}
+                          {credits.map((c) => {
+                            const removing =
+                              bookCreditPending &&
+                              bookCreditVariables?.action === "remove" &&
+                              bookCreditVariables.role === r.key &&
+                              bookCreditVariables.authorKey === c.value;
+                            return (
+                              <span key={c.value} className="inline-flex items-center">
+                                <CreditChip refValue={c} />
+                                {isCompleted && (
+                                  <IconButton
+                                    icon={<IconX size={12} />}
+                                    aria-label={`Remove ${authorRefLabel(c)} as book ${r.label.toLowerCase()}`}
+                                    tooltip="Remove"
+                                    variant="ghost"
+                                    size="sm"
+                                    loading={removing}
+                                    disabled={bookEditsBlocked || bookCreditPending}
+                                    onClick={() =>
+                                      updateBookCredit({ role: r.key, authorKey: c.value, action: "remove" })
+                                    }
+                                  />
+                                )}
+                              </span>
+                            );
+                          })}
+                          {isCompleted && (
+                            <IconButton
+                              icon={<IconPlus size={12} />}
+                              aria-label={`Add a book ${r.label.toLowerCase()}`}
+                              tooltip={`Add a book ${r.label.toLowerCase()}`}
+                              variant="ghost"
+                              size="sm"
+                              disabled={bookEditsBlocked || bookCreditPending}
+                              onClick={() => {
+                                setPendingBookAuthor(null);
+                                setBookAddRole(r.key);
+                              }}
+                            />
+                          )}
+                        </dd>
+                      </div>
+                    );
+                  })}
                 </dl>
               </div>
 
@@ -824,7 +932,7 @@ const Authorship = () => {
       <Modal open={editTarget !== null} onClose={() => setEditTarget(null)} size="lg">
         <Modal.Header>
           <Modal.Title>
-            {editTarget?.isBook ? "Book credits" : `Credits for “${editTarget?.title ?? ""}”`}
+            {`Credits for “${editTarget?.title ?? ""}”`}
           </Modal.Title>
           <Modal.Close />
         </Modal.Header>
@@ -884,11 +992,11 @@ const Authorship = () => {
                     options={[
                       {
                         value: "page",
-                        label: editTarget?.isBook ? "The book only" : "This page only",
+                        label: "This page only",
                       },
                       {
                         value: "subpages",
-                        label: `${editTarget?.isBook ? "The book" : "This page"} and its ${editSubpageCount} subpage${editSubpageCount !== 1 ? "s" : ""}`,
+                        label: `This page and its ${editSubpageCount} subpage${editSubpageCount !== 1 ? "s" : ""}`,
                       },
                     ]}
                   />
@@ -993,6 +1101,117 @@ const Authorship = () => {
               onClick={() => submitBulk(false)}
             >
               OK
+            </Button>
+          </div>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal open={bookAddRole !== null} onClose={closeBookAdd} size="md">
+        <Modal.Header>
+          <Modal.Title>Add a book {bookAddInfo?.label.toLowerCase()}</Modal.Title>
+          <Modal.Close />
+        </Modal.Header>
+        <Modal.Body className="min-h-[16rem]">
+          {bookAddInfo && (
+            <Stack direction="vertical" gap="md">
+              <Text size="sm" color="muted">
+                Book credits are written on the main page as{" "}
+                <span className="font-mono">book{bookAddInfo.key}@</span> tags. A book can credit
+                several people per role; the main page&apos;s own credits are not changed.
+              </Text>
+              <AuthorPicker
+                key={bookAddInfo.key}
+                label={bookAddInfo.label}
+                allowClear={false}
+                disabled={bookCreditPending}
+                onSelect={(author) => setPendingBookAuthor(author)}
+              />
+              {pendingBookAuthor && (
+                <Text size="sm">
+                  Will add <strong>{pendingBookAuthor.name}</strong>{" "}
+                  <span className="font-mono text-xs text-gray-500">({pendingBookAuthor.nameKey})</span>{" "}
+                  as book {bookAddInfo.label.toLowerCase()}.
+                </Text>
+              )}
+            </Stack>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="outline" onClick={closeBookAdd}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!pendingBookAuthor || bookEditsBlocked}
+              loading={bookCreditPending}
+              onClick={submitBookAdd}
+            >
+              Add
+            </Button>
+          </div>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal open={compileOpen} onClose={() => setCompileOpen(false)} size="lg">
+        <Modal.Header>
+          <Modal.Title>Compile book credits from pages</Modal.Title>
+          <Modal.Close />
+        </Modal.Header>
+        <Modal.Body className="min-h-[16rem]">
+          {compilePreviewPending || !compilePreview ? (
+            <Spinner />
+          ) : (
+            <Stack direction="vertical" gap="md">
+              <Text size="sm" color="muted">
+                Collects every page&apos;s own credits, the main page included, and adds the
+                people not yet credited on the book. Existing book credits are kept. Uses the
+                credit data from the last refresh; if pages were edited outside this tool, refresh
+                first.
+              </Text>
+              {compileByRole.length === 0 ? (
+                <Alert
+                  variant="info"
+                  title="Nothing to add"
+                  message="The book already credits everyone credited on its pages."
+                />
+              ) : (
+                <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 rounded border border-gray-200 p-3 text-sm">
+                  {compileByRole.map(({ role: r, people }) => (
+                    <div key={r.key} className="contents">
+                      <dt className="text-gray-600">{r.label}</dt>
+                      <dd>
+                        {people.map((p) => (
+                          <span key={p.key} className="mr-3 inline-block">
+                            {p.name} <span className="font-mono text-xs text-gray-500">({p.key})</span>
+                          </span>
+                        ))}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {compilePreview.unlinked > 0 && (
+                <Text size="sm" color="muted">
+                  {compilePreview.unlinked} page credit{compilePreview.unlinked !== 1 ? "s are" : " is"}{" "}
+                  not linked to an author record and can&apos;t be added.
+                </Text>
+              )}
+            </Stack>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="outline" onClick={() => setCompileOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!compilePreview?.additions.length || bookEditsBlocked}
+              loading={compileApplyPending}
+              onClick={() => applyCompile()}
+            >
+              Add to book
             </Button>
           </div>
         </Modal.Footer>

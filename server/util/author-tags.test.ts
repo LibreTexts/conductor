@@ -2,9 +2,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  addBookCredits,
   distinctCreditRefs,
   readAllCreditTags,
+  readBookCredits,
   readRoleTags,
+  removeBookCredit,
   replaceRoleTag,
 } from "./author-tags.js";
 
@@ -103,5 +106,56 @@ describe("distinctCreditRefs", () => {
         { role: "editor", tag: "editor@", value: "a" },
       ],
     );
+  });
+});
+
+describe("book credits", () => {
+  const COVER = [
+    "coverpage:yes",
+    "author@yashar-ghaemi",
+    "bookauthor@jane-doe",
+    "bookauthor@k3x9q2m7ab",
+    "bookeditor@ann-lee",
+  ];
+
+  it("reads several people per role, separate from page credits", () => {
+    assert.deepEqual(
+      readBookCredits(COVER).map((r) => `${r.role}:${r.value}`),
+      ["author:jane-doe", "author:k3x9q2m7ab", "editor:ann-lee"],
+    );
+    // Page-level reading is unaffected by book tags.
+    assert.deepEqual(
+      readRoleTags(COVER, "author").map((r) => r.value),
+      ["yashar-ghaemi"],
+    );
+  });
+
+  it("adds only missing book tags", () => {
+    assert.deepEqual(
+      addBookCredits(COVER, [
+        { role: "author", key: "jane-doe" },
+        { role: "author", key: "john-smith" },
+        { role: "remixer", key: "ann-lee" },
+      ]),
+      [...COVER, "bookauthor@john-smith", "bookremixer@ann-lee"],
+    );
+  });
+
+  it("removes one book tag and nothing else", () => {
+    assert.deepEqual(removeBookCredit(COVER, "author", "jane-doe"), [
+      "coverpage:yes",
+      "author@yashar-ghaemi",
+      "bookauthor@k3x9q2m7ab",
+      "bookeditor@ann-lee",
+    ]);
+  });
+
+  it("page edits leave book tags alone", () => {
+    assert.deepEqual(replaceRoleTag(COVER, "author", null), [
+      "coverpage:yes",
+      "bookauthor@jane-doe",
+      "bookauthor@k3x9q2m7ab",
+      "bookeditor@ann-lee",
+    ]);
   });
 });
