@@ -17,6 +17,7 @@ import {
   Author,
   AuthorSearchResult,
   AuthorshipBulkJob,
+  BookCreditAddition,
   AuthorshipEntry,
   AuthorshipStatus,
   CreditRole,
@@ -3749,6 +3750,33 @@ class API {
         skipped: { pageID: string; reason: string }[];
       } & ConductorBaseResponse
     >(`/projects/${projectID}/authorship/author/bulk`, data);
+    return res.data;
+  }
+
+  /** Adds or removes one `book<role>@<authorKey>` credit on the book's main page. */
+  async updateBookCredit(
+    projectID: string,
+    data: { role: CreditRole; authorKey: string; action: "add" | "remove" },
+  ) {
+    const res = await axios.patch<{ pageID: string } & ConductorBaseResponse>(
+      `/projects/${projectID}/authorship/book-credit`,
+      data,
+    );
+    return res.data;
+  }
+
+  /**
+   * Lists the people credited on pages but not yet on the book (and how many page credits aren't
+   * linked to an author). With `apply`, also adds them as book credits.
+   */
+  async compileBookCredits(projectID: string, apply: boolean) {
+    const res = await axios.post<
+      {
+        applied: boolean;
+        additions: BookCreditAddition[];
+        unlinked: number;
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/book-credits/compile`, { apply });
     return res.data;
   }
 }

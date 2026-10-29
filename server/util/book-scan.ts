@@ -13,7 +13,12 @@ import type { ProjectInterface } from "../models/project.js";
 import { sleep } from "./helpers.js";
 import { libraryKeys } from "./libraries.js";
 import { containsReuseMarkup, detectTranscludeStub } from "./transclusion.js";
-import { distinctCreditRefs, readAllCreditTags, type CreditTagRef } from "./author-tags.js";
+import {
+  distinctCreditRefs,
+  readAllCreditTags,
+  readBookCredits,
+  type CreditTagRef,
+} from "./author-tags.js";
 import RestackerService from "./Restackerutil.js";
 import AuthorshipService from "./Authorshiputil.js";
 
@@ -81,12 +86,15 @@ export function restackerFieldsFromScan(scan: PageScan): {
 /** The Attribution Manager's stored fields for one page. */
 export function authorshipFieldsFromScan(scan: PageScan): {
   pageCredits: CreditTagRef[];
+  bookCredits: CreditTagRef[];
   content?: { sourceCredits: CreditTagRef[]; contentCredits: CreditTagRef[] };
 } {
   const pageCredits = readAllCreditTags(scan.tags);
-  if (!scan.content) return { pageCredits };
+  const bookCredits = readBookCredits(scan.tags);
+  if (!scan.content) return { pageCredits, bookCredits };
   return {
     pageCredits,
+    bookCredits,
     content: {
       sourceCredits:
         scan.content.transcluded && scan.content.sourceTags
@@ -441,6 +449,7 @@ export async function runBookScan(
         if (a && aPending) {
           const fields = authorshipFieldsFromScan(scan);
           a.pageCredits = fields.pageCredits.length ? fields.pageCredits : undefined;
+          a.bookCredits = fields.bookCredits.length ? fields.bookCredits : undefined;
           if (fields.content) {
             a.sourceCredits = fields.content.sourceCredits.length ? fields.content.sourceCredits : undefined;
             a.contentCredits = fields.content.contentCredits.length ? fields.content.contentCredits : undefined;

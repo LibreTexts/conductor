@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { AuthorshipEntry, TableOfContents } from "../../../types";
 import {
   authorRefLabel,
+  bookCreditsFor,
+  bookRows,
   currentKey,
   flattenToc,
   isMissingAuthor,
@@ -116,5 +118,38 @@ describe("safeHref", () => {
     expect(safeHref("data:text/html,hi")).toBeUndefined();
     expect(safeHref("not a url")).toBeUndefined();
     expect(safeHref(undefined)).toBeUndefined();
+  });
+});
+
+describe("bookRows", () => {
+  it("puts the main page first, with the book's pages beneath it", () => {
+    const toc = {
+      id: "0",
+      title: "Book",
+      url: "u0",
+      children: [{ id: "1", title: "Chapter", url: "u1", children: [] }],
+    } as unknown as TableOfContents;
+    const rows = bookRows(toc, new Map([["0", entry([])]]));
+    expect(rows.map((r) => [r.id, r.depth, !!r.isMainPage])).toEqual([
+      ["0", 0, true],
+      ["1", 1, false],
+    ]);
+    expect(rows[0].entry).toBeDefined();
+    expect(bookRows(undefined, new Map())).toEqual([]);
+  });
+});
+
+describe("bookCreditsFor", () => {
+  it("reads book credits only, several per role", () => {
+    const main = {
+      ...entry([{ role: "author", tag: "author@", value: "own" }]),
+      bookCredits: [
+        { role: "author", tag: "bookauthor@", value: "a" },
+        { role: "author", tag: "bookauthor@", value: "b" },
+        { role: "editor", tag: "bookeditor@", value: "c" },
+      ],
+    } as AuthorshipEntry;
+    expect(bookCreditsFor(main, "author").map((r) => r.value)).toEqual(["a", "b"]);
+    expect(bookCreditsFor(entry([]), "author")).toEqual([]);
   });
 });

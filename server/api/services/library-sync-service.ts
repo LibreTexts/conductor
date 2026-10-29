@@ -384,6 +384,7 @@ function cleanLuluSegment(segment: string | undefined): string | undefined {
  *   override, also written with `|` or `,` as the delimiter.
  * - `authorname:<slug>` — a reference into an author directory.
  * - `author@<Name> (<Institution>)` — a display string.
+ * - `bookauthor@<key>` — a book-level author set by the Attribution Manager; several allowed.
  */
 function parsePublishingTags(tags: string[]): {
   luluTitle?: string;
@@ -391,6 +392,7 @@ function parsePublishingTags(tags: string[]): {
   luluAffiliation?: string;
   nameKey?: string;
   authorLiteral?: string;
+  bookAuthorKeys?: string[];
 } {
   const parsed: ReturnType<typeof parsePublishingTags> = {};
 
@@ -406,6 +408,12 @@ function parsePublishingTags(tags: string[]): {
       parsed.luluTitle = cleanLuluSegment(parts[1]) || parsed.luluTitle;
       parsed.luluAuthor = parts[2]?.trim() || parsed.luluAuthor;
       parsed.luluAffiliation = parts[3]?.trim() || parsed.luluAffiliation;
+      continue;
+    }
+
+    if (tag.startsWith("bookauthor@")) {
+      const key = tag.slice("bookauthor@".length).trim();
+      if (key) parsed.bookAuthorKeys = [...(parsed.bookAuthorKeys ?? []), key];
       continue;
     }
 
@@ -437,9 +445,52 @@ function splitAuthorLiteral(literal: string): {
 }
 
 /**
+ * Resolves the `bookauthor@` keys a book's main page carries. Each resolved author is one entry
+ * in the display name (a group shown as its members), campuses are listed once each, and the
+ * individual keys are kept with groups expanded. Returns undefined when no key resolves, so the
+ * book falls back to its older author tags.
+ */
+function resolveBookAuthors(
+  keys: string[],
+  index: AuthorIndex
+): { author: string; affiliation?: string; authorKeys: string[] } | undefined {
+  const names: string[] = [];
+  const campuses: string[] = [];
+  const authorKeys: string[] = [];
+  const addOnce = (list: string[], value?: string) => {
+    if (value && !list.includes(value)) list.push(value);
+  };
+
+  for (const key of keys) {
+    const match = index.byNameKey.get(key.toLowerCase());
+    if (!match) continue;
+    if (isAuthorGroup(match)) {
+      const members = expandGroupMembers(match, (k) => index.byNameKey.get(k.toLowerCase()));
+      if (members.length === 0) continue;
+      const view = describeGroup(match, members);
+      addOnce(names, view.name);
+      addOnce(campuses, view.campusName);
+      members.forEach((m) => addOnce(authorKeys, m.nameKey));
+    } else {
+      addOnce(names, match.name);
+      addOnce(campuses, match.campusName);
+      addOnce(authorKeys, match.nameKey);
+    }
+  }
+
+  if (names.length === 0) return undefined;
+  return {
+    author: names.join(", "),
+    affiliation: campuses.length ? campuses.join(", ") : undefined,
+    authorKeys,
+  };
+}
+
+/**
  * Resolves author and affiliation from tags.
  *
- * `lulu` wins because it is the explicit per-book override. Failing that, an
+ * `lulu` wins because it is the explicit per-book override. Next come the
+ * `bookauthor@` keys set by the Attribution Manager, when any resolve. Failing that, an
  * `authorname:`/`author@` tag is looked up in Conductor's own Authors
  * collection — the legacy resolver
  * (`api.libretexts.org/endpoint/getAuthors/{lib}`) now returns `{}`. If nothing
@@ -455,11 +506,14 @@ function resolveAuthor(
   authorKeys?: string[];
   authorGroupKey?: string;
 } {
-  const { luluAuthor, luluAffiliation, nameKey, authorLiteral } = parsed;
+  const { luluAuthor, luluAffiliation, nameKey, authorLiteral, bookAuthorKeys } = parsed;
 
   if (luluAuthor) {
     return { author: luluAuthor, affiliation: luluAffiliation };
   }
+
+  const bookAuthors = resolveBookAuthors(bookAuthorKeys ?? [], index);
+  if (bookAuthors) return bookAuthors;
 
   const literal = authorLiteral ? splitAuthorLiteral(authorLiteral) : undefined;
   // The Authorship tool writes `author@<key>`, so an `author@` value is tried as a key first.

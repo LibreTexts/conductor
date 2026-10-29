@@ -49,3 +49,22 @@ export const BulkUpdateAuthorshipAuthorSchema = z.object({
     authorKey: authorKeySchema,
   }),
 });
+
+export const UpdateBookCreditSchema = z.object({
+  params: projectParams,
+  body: z.object({
+    role: roleSchema,
+    authorKey: authorKeySchema.unwrap(),
+    action: z.enum(["add", "remove"]),
+  }),
+});
+
+export const CompileBookCreditsSchema = z.object({
+  params: projectParams,
+  body: z
+    .object({
+      // false (the default) only previews the additions.
+      apply: z.boolean().optional(),
+    })
+    .optional(),
+});

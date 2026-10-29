@@ -273,12 +273,10 @@ export const buildBookUpsertOp = (book: SyncedBook, syncedAt: Date) => ({
         title: book.title,
         author: book.author,
         affiliation: book.affiliation,
-        // Only books tagged with an author group carry these. Every other book is written
-        // exactly as before; the $unset below clears them if a book stops using a group.
-        ...(book.authorGroupKey && {
-          authorGroupKey: book.authorGroupKey,
-          authorKeys: book.authorKeys ?? [],
-        }),
+        // Only books credited by key (an author group, or `bookauthor@` tags) carry these.
+        // Every other book is written exactly as before; the $unset below clears them.
+        ...(book.authorGroupKey && { authorGroupKey: book.authorGroupKey }),
+        ...(book.authorKeys?.length && { authorKeys: book.authorKeys }),
         library: book.library,
         subject: book.subject,
         location: book.location,
@@ -303,7 +301,8 @@ export const buildBookUpsertOp = (book: SyncedBook, syncedAt: Date) => ({
       // The Book is present in its library again.
       $unset: {
         syncMissingSince: "",
-        ...(!book.authorGroupKey && { authorGroupKey: "", authorKeys: "" }),
+        ...(!book.authorGroupKey && { authorGroupKey: "" }),
+        ...(!book.authorKeys?.length && { authorKeys: "" }),
       },
     },
     upsert: true,

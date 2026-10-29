@@ -23,7 +23,10 @@ export type CreditRole =
  */
 export type AuthorshipAuthorRef = {
   role: CreditRole;
-  /** The tag prefix it was read from: `<role>@`, or `authorname:` for older author tags. */
+  /**
+   * The tag prefix it was read from: `<role>@`, `book<role>@` for book credits, or `authorname:`
+   * for older author tags.
+   */
   tag: string;
   value: string;
   author?: AuthorshipAuthor;
@@ -42,7 +45,12 @@ export type AuthorshipEntry = {
   sourceCredits: AuthorshipAuthorRef[];
   /** Credit tags of content reused inside the page. */
   contentCredits: AuthorshipAuthorRef[];
+  /** The book-level `book<role>@` credits; only the book's main page carries these. */
+  bookCredits?: AuthorshipAuthorRef[];
 };
+
+/** A person "Compile from pages" would add to the book's credits. */
+export type BookCreditAddition = { role: CreditRole; key: string; name: string };
 
 export type AuthorshipBulkJob = {
   jobID: string;

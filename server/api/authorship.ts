@@ -25,8 +25,11 @@ import {
   runBookScan,
 } from "../util/book-scan.js";
 import {
+  addBookCredits,
   CreditRole,
   readAllCreditTags,
+  readBookCredits,
+  removeBookCredit,
   replaceRoleTag,
   roleTagPrefix,
 } from "../util/author-tags.js";
@@ -222,6 +225,7 @@ const getAuthorship = async (
       ...(p.pageCredits ?? []),
       ...(p.sourceCredits ?? []),
       ...(p.contentCredits ?? []),
+      ...(p.bookCredits ?? []),
     ]);
     const authors = await resolveAuthorKeys(allRefs.map((r) => r.value));
     // An unresolved ref is shown as its raw text (e.g. an older `author@<Name>` tag).
@@ -238,6 +242,7 @@ const getAuthorship = async (
         pageCredits: (p.pageCredits ?? []).map(resolve),
         sourceCredits: (p.sourceCredits ?? []).map(resolve),
         contentCredits: (p.contentCredits ?? []).map(resolve),
+        bookCredits: (p.bookCredits ?? []).map(resolve),
       })),
     });
   } catch (err) {
@@ -511,6 +516,151 @@ async function runBulkJob(params: {
   logger.info({ projectID, role, updated, failed }, "Bulk credit update finished");
 }
 
+/**
+ * Rewrites the main page's tags through `transform` and stores its page and book credits as
+ * they now stand. Only `book<role>@` tags are meant to change; every other tag is written back.
+ */
+async function writeBookCredits(
+  project: BookProject,
+  transform: (tags: string[]) => string[],
+): Promise<{ pageCredits: AuthorshipAuthorRef[]; bookCredits: AuthorshipAuthorRef[] }> {
+  const coverID = project.libreCoverID;
+  const bookService = bookServiceFor(project);
+  const current = (await bookService.getPageTags(coverID)).map((t) => t["@value"]);
+  const next = transform(current);
+  await bookService.setPageTags(coverID, next);
+
+  const pageCredits = readAllCreditTags(next);
+  const bookCredits = readBookCredits(next);
+  const stored = { pageCredits, bookCredits };
+  const set: Record<string, AuthorshipAuthorRef[]> = {};
+  const unset: Record<string, ""> = {};
+  for (const [field, value] of Object.entries(stored)) {
+    if (value.length) set[`pages.$[page].${field}`] = value;
+    else unset[`pages.$[page].${field}`] = "";
+  }
+  await Authorship.updateOne(
+    { projectID: { $eq: project.projectID } },
+    { $set: set, $unset: unset },
+    { arrayFilters: [{ "page.id": { $eq: coverID } }] },
+  );
+  return { pageCredits, bookCredits };
+}
+
+/**
+ * Loads the project and its Authorship doc for a book-credit change, and checks nothing is
+ * running and the caller may edit the main page. Sends the error response and returns null
+ * when any of that fails.
+ */
+async function loadForBookCreditChange(
+  req: ProjectReq,
+  res: Response,
+): Promise<{ project: BookProject; pages: AuthorshipPage[] } | null> {
+  const project = await loadProject(req, res);
+  if (!project) return null;
+  const doc = await Authorship.findOne({ projectID: { $eq: req.params.projectID } }).lean();
+  if (!doc) {
+    res.status(404).send({ err: true, errMsg: "Authorship not found" });
+    return null;
+  }
+  // A running scan rewrites every page entry, which would undo this edit.
+  if (AuthorshipService.isLockActive(doc)) {
+    res.status(409).send({ err: true, errMsg: BUSY_MSG });
+    return null;
+  }
+  if (!(await bookServiceFor(project).canAccessPage(req.user.decoded.uuid, project.libreCoverID))) {
+    res.status(403).send({
+      err: true,
+      errMsg: "You do not have permission to update this book's main page",
+    });
+    return null;
+  }
+  return { project, pages: doc.pages };
+}
+
+/** Adds or removes one `book<role>@<key>` tag on the book's main page. */
+const updateBookCredit = async (
+  req: ZodReqWithUser<z.infer<typeof AuthorshipValidators.UpdateBookCreditSchema>>,
+  res: Response,
+) => {
+  try {
+    const { role, authorKey, action } = req.body;
+    if (action === "add") {
+      const authorError = await checkAuthorKey(authorKey);
+      if (authorError) return res.status(400).send({ err: true, errMsg: authorError });
+    }
+    const loaded = await loadForBookCreditChange(req, res);
+    if (!loaded) return;
+
+    const credits = await writeBookCredits(loaded.project, (tags) =>
+      action === "add"
+        ? addBookCredits(tags, [{ role, key: authorKey }])
+        : removeBookCredit(tags, role, authorKey),
+    );
+    return res.send({ err: false, pageID: loaded.project.libreCoverID, ...credits });
+  } catch (err) {
+    logger.error({ err, projectID: req.params.projectID }, "updateBookCredit failed");
+    return conductor500Err(res);
+  }
+};
+
+/**
+ * Collects every page's own credits (main page included) from the last scan and adds the people
+ * not yet credited on the book as `book<role>@` tags. Existing book credits are kept. Credits
+ * that aren't author keys (older `author@<Name>` text, `authorname:`) can't become book tags and
+ * are only counted. With `apply: false` it returns the preview without writing.
+ */
+const compileBookCredits = async (
+  req: ZodReqWithUser<z.infer<typeof AuthorshipValidators.CompileBookCreditsSchema>>,
+  res: Response,
+) => {
+  try {
+    const loaded = await loadForBookCreditChange(req, res);
+    if (!loaded) return;
+    const { project, pages } = loaded;
+
+    const refs = pages.flatMap((p) => p.pageCredits ?? []);
+    const authors = await resolveAuthorKeys(
+      refs.filter((r) => r.tag === roleTagPrefix(r.role)).map((r) => r.value),
+    );
+    const cover = pages.find((p) => p.id === project.libreCoverID);
+    const credited = new Set((cover?.bookCredits ?? []).map((r) => `${r.role}|${r.value}`));
+
+    const additions: { role: CreditRole; key: string; name: string }[] = [];
+    let unlinked = 0;
+    for (const ref of refs) {
+      // `authorname:` values and older `author@<Name>` text don't name an author by key.
+      const author = ref.tag === roleTagPrefix(ref.role) ? authors.get(ref.value) : undefined;
+      if (!author) {
+        unlinked += 1;
+        continue;
+      }
+      const id = `${ref.role}|${author.nameKey}`;
+      if (credited.has(id)) continue;
+      credited.add(id);
+      additions.push({ role: ref.role, key: author.nameKey, name: author.name });
+    }
+
+    if (!req.body?.apply || additions.length === 0) {
+      return res.send({ err: false, applied: false, additions, unlinked });
+    }
+
+    const credits = await writeBookCredits(project, (tags) => addBookCredits(tags, additions));
+    logger.info({ projectID: project.projectID, added: additions.length }, "Compiled book credits");
+    return res.send({
+      err: false,
+      applied: true,
+      additions,
+      unlinked,
+      pageID: project.libreCoverID,
+      ...credits,
+    });
+  } catch (err) {
+    logger.error({ err, projectID: req.params.projectID }, "compileBookCredits failed");
+    return conductor500Err(res);
+  }
+};
+
 export default {
   getAuthorshipToc,
   reloadAuthorship,
@@ -518,4 +668,6 @@ export default {
   getAuthorshipStatus,
   updateAuthorshipAuthor,
   bulkUpdateAuthorshipAuthor,
+  updateBookCredit,
+  compileBookCredits,
 };

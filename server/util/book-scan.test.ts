@@ -126,9 +126,21 @@ describe("authorshipFieldsFromScan", () => {
     assert.equal(authorshipFieldsFromScan({ tags: plain.tags }).content, undefined);
   });
 
+  it("reads book credits apart from the page's own credits", () => {
+    const fields = authorshipFieldsFromScan({
+      tags: ["author@jane-doe", "bookauthor@jane-doe", "bookauthor@ann-lee", "bookeditor@bo"],
+    });
+    assert.deepEqual(fields.pageCredits.map((r) => `${r.role}:${r.value}`), ["author:jane-doe"]);
+    assert.deepEqual(
+      fields.bookCredits.map((r) => `${r.tag}${r.value}`),
+      ["bookauthor@jane-doe", "bookauthor@ann-lee", "bookeditor@bo"],
+    );
+  });
+
   it("handles a page with no credits", () => {
     assert.deepEqual(authorshipFieldsFromScan(bare), {
       pageCredits: [],
+      bookCredits: [],
       content: { sourceCredits: [], contentCredits: [] },
     });
   });
