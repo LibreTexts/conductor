@@ -3108,6 +3108,16 @@ router
   );
 
 router
+  .route("/kb/page/:uuid/subpages")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "kbeditor"),
+    middleware.validateZod(kbValidators.GetKBPageSubpagesValidator),
+    kbAPI.getKBPageSubpages
+  );
+
+router
   .route("/kb/page/:uuid/files")
   .post(
     authAPI.verifyRequest,

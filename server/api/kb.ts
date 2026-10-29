@@ -9,6 +9,7 @@ import {
   DeleteKBFeaturedPageValidator,
   DeleteKBFeaturedVideoValidator,
   DeleteKBPageValidator,
+  GetKBPageSubpagesValidator,
   GetKBPageValidator,
   GetKBTreeValidator,
   GetOEmbedValidator,
@@ -114,6 +115,64 @@ async function getKBPage(
   }
 }
 
+/** Deepest level a KB page may sit at: 0 = root, 1 = child, 2 = grandchild. */
+const KB_MAX_PAGE_DEPTH = 2;
+
+type KBTreeNode = Pick<
+  KBPageInterface,
+  "uuid" | "title" | "slug" | "status" | "internalOnly"
+> & { children: KBTreeNode[] };
+
+/**
+ * Checks that `pageUUID` (with any subpages) can sit under `parentUUID` without
+ * exceeding KB_MAX_PAGE_DEPTH or creating a cycle.
+ * @returns An error message for the editor, or null if the placement is valid.
+ */
+async function _checkKBParentPlacement(
+  parentUUID: string | undefined,
+  pageUUID?: string
+): Promise<string | null> {
+  if (!parentUUID) return null;
+  if (parentUUID === pageUUID) return "A page cannot be its own parent.";
+
+  let current = await KBPage.findOne({ uuid: { $eq: parentUUID } })
+    .select("uuid parent")
+    .lean();
+  if (!current) return "The selected parent page does not exist.";
+
+  // Walk up from the proposed parent to find its depth. A missing ancestor
+  // ends the walk, matching how getKBTree surfaces orphans at the root.
+  let parentDepth = 0;
+  while (current?.parent && parentDepth <= KB_MAX_PAGE_DEPTH) {
+    if (current.parent === pageUUID) {
+      return "A page cannot be nested under one of its own subpages.";
+    }
+    current = await KBPage.findOne({ uuid: { $eq: current.parent } })
+      .select("uuid parent")
+      .lean();
+    if (current) parentDepth++;
+  }
+
+  // Count how many levels of subpages travel with the page being moved.
+  let subtreeHeight = 0;
+  if (pageUUID) {
+    let level = [pageUUID];
+    while (level.length > 0 && subtreeHeight <= KB_MAX_PAGE_DEPTH) {
+      const children = await KBPage.find({ parent: { $in: level } })
+        .select("uuid")
+        .lean();
+      if (children.length === 0) break;
+      subtreeHeight++;
+      level = children.map((c) => c.uuid);
+    }
+  }
+
+  if (parentDepth + 1 + subtreeHeight > KB_MAX_PAGE_DEPTH) {
+    return `Insight articles can be nested at most ${KB_MAX_PAGE_DEPTH} levels below a root page.`;
+  }
+  return null;
+}
+
 async function getKBTree(
   req: ZodReqWithOptionalUser<z.infer<typeof GetKBTreeValidator>>,
   res: Response
@@ -140,84 +199,50 @@ async function getKBTree(
     // Restrict the tree to only published pages if the user is not authorized,
     // and always exclude internal-only pages from users who can't view them.
     const matchObj: Record<string, any> = {};
-    const restriction: Record<string, any> = {};
     if (!isAuthorized) {
       matchObj.status = "published";
-      restriction.status = "published";
     }
     if (!canViewInternal) {
       matchObj.internalOnly = { $ne: true };
-      restriction.internalOnly = { $ne: true };
     }
 
-    const treeRes = await KBPage.aggregate([
-      {
-        $match: matchObj,
-      },
-      {
-        $graphLookup: {
-          from: "kbpages",
-          startWith: "$parent",
-          connectFromField: "parent",
-          connectToField: "uuid",
-          as: "parents",
-          restrictSearchWithMatch: restriction,
-        },
-      },
-    ]);
+    const pages = await KBPage.find(matchObj)
+      .select("uuid title slug status internalOnly parent")
+      .lean();
 
-    if (!treeRes || !Array.isArray(treeRes)) {
-      throw new Error("Failed to get tree");
-    }
-
-    const mapped = treeRes.map((p) => ({
-      uuid: p.uuid,
-      title: p.title,
-      slug: p.slug,
-      status: p.status,
-      internalOnly: p.internalOnly,
-      parent: p.parents && p.parents[0] ? p.parents[0].uuid : undefined,
-    }));
-
-    const fullTree = mapped
-      .sort((a, b) => {
-        if (!a.parent) {
-          return -1;
-        } else {
-          return 1;
-        }
-      })
-      .reduce((acc, cur) => {
-        if (acc[cur.parent]) {
-          // @ts-ignore
-          acc[cur.parent].children.push(cur);
-        } else {
-          // @ts-ignore
-          acc[cur.uuid] = {
-            ...cur,
-            children: [],
-          };
-        }
-        return acc;
-      }, {} as Record<string, KBPageInterface & { children: KBPageInterface[] }>);
-
-    // sort the fullTree by titles, and then sort the children of each node by titles
-    const sortedTree = Object.values(fullTree)
-      .sort((a, b) => {
-        return a.title.localeCompare(b.title);
-      })
-      .map((node) => {
-        return {
-          ...node,
-          children: node.children.sort((a, b) => {
-            return a.title.localeCompare(b.title);
-          }),
-        };
+    const nodes = new Map<string, KBTreeNode>();
+    for (const p of pages) {
+      nodes.set(p.uuid, {
+        uuid: p.uuid,
+        title: p.title,
+        slug: p.slug,
+        status: p.status,
+        internalOnly: p.internalOnly,
+        children: [],
       });
+    }
+
+    // A page whose parent isn't visible to this user surfaces at the root.
+    const roots: KBTreeNode[] = [];
+    for (const p of pages) {
+      const node = nodes.get(p.uuid)!;
+      const parentNode = p.parent ? nodes.get(p.parent) : undefined;
+      if (parentNode) {
+        parentNode.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+
+    const sortByTitle = (list: KBTreeNode[]): KBTreeNode[] => {
+      list.sort((a, b) => a.title.localeCompare(b.title));
+      list.forEach((node) => sortByTitle(node.children));
+      return list;
+    };
 
     return res.send({
       err: false,
-      tree: sortedTree,
+      tree: sortByTitle(roots),
     });
   } catch (err) {
     logger.error({ err }, "getKBTree failed");
@@ -233,6 +258,11 @@ async function createKBPage(
     const { title, description, body, slug, status, parent, internalOnly } =
       req.body;
     const { decoded } = req.user;
+
+    const placementErr = await _checkKBParentPlacement(parent);
+    if (placementErr) {
+      return res.status(400).send({ err: true, errMsg: placementErr });
+    }
 
     const editor = await User.findOne({ uuid: { $eq: decoded.uuid } }).orFail();
 
@@ -382,6 +412,15 @@ async function updateKBPage(
     const editor = await User.findOne({ uuid: { $eq: decoded.uuid } }).orFail();
     const kbPage = await KBPage.findOne({ uuid }).orFail();
 
+    // Only re-check placement on a move, so pages already deeper than the
+    // limit stay editable.
+    if (parent !== kbPage.parent) {
+      const placementErr = await _checkKBParentPlacement(parent, kbPage.uuid);
+      if (placementErr) {
+        return res.status(400).send({ err: true, errMsg: placementErr });
+      }
+    }
+
     kbPage.title = title;
     kbPage.description = description;
     kbPage.body = addHeadingIds(_sanitizeBodyContent(body));
@@ -430,26 +469,95 @@ async function updateKBPage(
   }
 }
 
+/**
+ * Collects the UUIDs of every page nested below `uuid`, at any depth.
+ */
+async function _getKBDescendantUUIDs(uuid: string): Promise<string[]> {
+  const seen = new Set<string>([uuid]);
+  const descendants: string[] = [];
+  let level = [uuid];
+  while (level.length > 0) {
+    const children = await KBPage.find({ parent: { $in: level } })
+      .select("uuid")
+      .lean();
+    // `seen` guards against a cycle in bad data looping forever.
+    level = children.map((c) => c.uuid).filter((id) => !seen.has(id));
+    for (const id of level) {
+      seen.add(id);
+      descendants.push(id);
+    }
+  }
+  return descendants;
+}
+
+async function getKBPageSubpages(
+  req: z.infer<typeof GetKBPageSubpagesValidator>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.params;
+    await KBPage.findOne({ uuid: { $eq: uuid } }).orFail();
+
+    const descendantUUIDs = await _getKBDescendantUUIDs(uuid);
+    const subpages = await KBPage.find({ uuid: { $in: descendantUUIDs } })
+      .select("uuid title slug parent")
+      .sort({ title: 1 })
+      .lean();
+
+    return res.send({
+      err: false,
+      subpages,
+    });
+  } catch (err: any) {
+    if (err.name === "DocumentNotFoundError") {
+      return conductor404Err(res);
+    }
+    logger.error({ err }, "getKBPageSubpages failed");
+    return conductor500Err(res);
+  }
+}
+
 async function deleteKBPage(
   req: z.infer<typeof DeleteKBPageValidator>,
   res: Response
 ) {
   try {
     const { uuid } = req.params;
+    const cascade = req.query?.cascade === "true";
 
     const page = await KBPage.findOne({ uuid }).orFail();
-    if (page.imgURLs && page.imgURLs.length > 0) {
-      const deleteImagesResult = await _deleteKBImagesFromStorage(page.imgURLs);
+
+    // Subpages are deleted with their parent, but only when the client has
+    // explicitly confirmed it.
+    const descendantUUIDs = await _getKBDescendantUUIDs(uuid);
+    if (descendantUUIDs.length > 0 && !cascade) {
+      return res.status(409).send({
+        err: true,
+        errMsg: `This page has ${descendantUUIDs.length} subpage(s). Confirm that they should be deleted too.`,
+      });
+    }
+
+    const uuids = [uuid, ...descendantUUIDs];
+    const pages = await KBPage.find({ uuid: { $in: uuids } })
+      .select("uuid imgURLs")
+      .lean();
+    const imgURLs = pages.flatMap((p) => p.imgURLs ?? []);
+    if (imgURLs.length > 0) {
+      const deleteImagesResult = await _deleteKBImagesFromStorage(imgURLs);
       if (!deleteImagesResult) {
         logger.error("Failed to delete one or more images from storage"); // Silently fail, but log
       }
     }
 
-    await KBPage.findOneAndDelete({ uuid }).orFail();
+    await KBPage.deleteMany({ uuid: { $in: uuids } });
+    await KBFeaturedPage.deleteMany({ page: { $in: uuids } });
+    logger.info({ uuid, deletedCount: uuids.length }, "Deleted KB page");
 
     try {
       await qdrantService.initializeCollection();
-      await qdrantService.deleteKBPage(uuid);
+      for (const id of uuids) {
+        await qdrantService.deleteKBPage(id);
+      }
     } catch (err) {
       logger.error({ err }, "deleteKBPage failed");
     }
@@ -457,6 +565,7 @@ async function deleteKBPage(
     return res.send({
       err: false,
       page,
+      deletedCount: uuids.length,
     });
   } catch (err) {
     logger.error({ err }, "deleteKBPage failed");
@@ -1149,6 +1258,7 @@ export default {
   imageUploadHandler,
   addKBImage,
   updateKBPage,
+  getKBPageSubpages,
   deleteKBPage,
   getOEmbed,
   searchKB,
