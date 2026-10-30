@@ -3727,10 +3727,18 @@ class API {
     return res.data;
   }
 
-  /** Sets (or, with null, clears) one role's `<role>@` tag on one page. */
+  /**
+   * Changes one role on one page: "set" replaces everyone in the role (null clears it), "add"
+   * adds one person and "remove" removes one tag value.
+   */
   async updateAuthorshipAuthor(
     projectID: string,
-    data: { pageID: string; role: CreditRole; authorKey: string | null },
+    data: {
+      pageID: string;
+      role: CreditRole;
+      action?: "set" | "add" | "remove";
+      authorKey: string | null;
+    },
   ) {
     const res = await axios.patch<
       { pageID: string; role: CreditRole; authorKey: string | null } & ConductorBaseResponse
@@ -3740,7 +3748,12 @@ class API {
 
   async bulkUpdateAuthorshipAuthor(
     projectID: string,
-    data: { pageIDs: string[]; role: CreditRole; authorKey: string | null },
+    data: {
+      pageIDs: string[];
+      role: CreditRole;
+      action?: "set" | "add" | "remove";
+      authorKey: string | null;
+    },
   ) {
     const res = await axios.patch<
       {

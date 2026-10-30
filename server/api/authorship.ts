@@ -26,12 +26,14 @@ import {
 } from "../util/book-scan.js";
 import {
   addBookCredits,
-  CreditRole,
+  applyRoleChange,
+  type CreditRole,
+  isRoleChangeNoop,
   readAllCreditTags,
   readBookCredits,
   removeBookCredit,
-  replaceRoleTag,
   roleTagPrefix,
+  type RoleChange,
 } from "../util/author-tags.js";
 import { isAuthorGroup } from "../util/author-groups.js";
 
@@ -295,8 +297,6 @@ async function checkAuthorKey(authorKey: string | null): Promise<string | null> 
   return exists ? null : `No author has the key "${authorKey}".`;
 }
 
-/** One role set (or, with null, cleared) on a page. */
-type CreditChange = { role: CreditRole; authorKey: string | null };
 
 /**
  * Writes one or more roles' tags on one library page, leaving every other tag (other roles included) in
@@ -305,13 +305,10 @@ type CreditChange = { role: CreditRole; authorKey: string | null };
 async function writePageCredit(
   bookService: BookService,
   pageID: string,
-  changes: CreditChange[],
+  changes: RoleChange[],
 ): Promise<AuthorshipAuthorRef[]> {
   const current = (await bookService.getPageTags(pageID)).map((t) => t["@value"]);
-  const next = changes.reduce(
-    (tags, { role, authorKey }) => replaceRoleTag(tags, role, authorKey),
-    current,
-  );
+  const next = changes.reduce(applyRoleChange, current);
   // Written as-is: `updatePageDetails` keeps the page's existing system tags (credit tags among
   // them), so clearing a credit through it would silently do nothing.
   await bookService.setPageTags(pageID, next);
@@ -335,15 +332,14 @@ async function setStoredPageCredits(
   );
 }
 
-/** The page already carries exactly this person in this role, so writing would change nothing. */
-const isUnchanged = (page: AuthorshipPage, role: CreditRole, authorKey: string | null) => {
-  const ownTags = (page.pageCredits ?? []).filter(
-    (r) => r.role === role && r.tag === roleTagPrefix(role),
+/** Applying the change to the page's stored tags would change nothing. */
+const isUnchanged = (page: AuthorshipPage, change: RoleChange) =>
+  isRoleChangeNoop(
+    (page.pageCredits ?? [])
+      .filter((r) => r.role === change.role && r.tag === roleTagPrefix(change.role))
+      .map((r) => r.value),
+    change,
   );
-  return authorKey === null
-    ? ownTags.length === 0
-    : ownTags.length === 1 && ownTags[0].value === authorKey;
-};
 
 const updateAuthorshipAuthor = async (
   req: ZodReqWithUser<z.infer<typeof AuthorshipValidators.UpdateAuthorshipAuthorSchema>>,
@@ -353,7 +349,7 @@ const updateAuthorshipAuthor = async (
     const project = await loadProject(req, res);
     if (!project) return;
     const { projectID } = req.params;
-    const { pageID, role, authorKey } = req.body;
+    const { pageID, role, action, authorKey } = req.body;
 
     const doc = await Authorship.findOne({ projectID: { $eq: projectID } });
     if (!doc) return res.status(404).send({ err: true, errMsg: "Authorship not found" });
@@ -362,7 +358,8 @@ const updateAuthorshipAuthor = async (
       return res.status(409).send({ err: true, errMsg: BUSY_MSG });
     }
 
-    const authorError = await checkAuthorKey(authorKey);
+    // Removing takes the tag value as written, which needn't be an author record.
+    const authorError = action === "remove" ? null : await checkAuthorKey(authorKey);
     if (authorError) return res.status(400).send({ err: true, errMsg: authorError });
 
     const bookService = bookServiceFor(project);
@@ -373,10 +370,10 @@ const updateAuthorshipAuthor = async (
       });
     }
 
-    const pageCredits = await writePageCredit(bookService, pageID, [{ role, authorKey }]);
+    const pageCredits = await writePageCredit(bookService, pageID, [{ role, action, authorKey }]);
     await setStoredPageCredits(projectID, pageID, pageCredits);
 
-    return res.send({ err: false, pageID, role, authorKey, pageCredits });
+    return res.send({ err: false, pageID, role, action, authorKey, pageCredits });
   } catch (err) {
     logger.error({ err, projectID: req.params.projectID }, "updateAuthorshipAuthor failed");
     return conductor500Err(res);
@@ -386,7 +383,7 @@ const updateAuthorshipAuthor = async (
 type BulkSkipReason = "not-found" | "unchanged" | "no-access";
 
 /**
- * Applies one author to many pages. Runs in the background (two library calls per page take
+ * Applies one change (set, add or remove one person in a role) to many pages. Runs in the background (two library calls per page take
  * minutes for a large book) while holding the scan lock, and the client polls /status.
  */
 const bulkUpdateAuthorshipAuthor = async (
@@ -397,7 +394,8 @@ const bulkUpdateAuthorshipAuthor = async (
     const project = await loadProject(req, res);
     if (!project) return;
     const { projectID } = req.params;
-    const { pageIDs, role, authorKey } = req.body;
+    const { pageIDs, role, action, authorKey } = req.body;
+    const change: RoleChange = { role, action, authorKey };
 
     const doc = await Authorship.findOne({ projectID: { $eq: projectID } });
     if (!doc) return res.status(404).send({ err: true, errMsg: "Authorship not found" });
@@ -405,7 +403,7 @@ const bulkUpdateAuthorshipAuthor = async (
       return res.status(409).send({ err: true, errMsg: BUSY_MSG });
     }
 
-    const authorError = await checkAuthorKey(authorKey);
+    const authorError = action === "remove" ? null : await checkAuthorKey(authorKey);
     if (authorError) return res.status(400).send({ err: true, errMsg: authorError });
 
     const bookService = bookServiceFor(project);
@@ -413,13 +411,13 @@ const bulkUpdateAuthorshipAuthor = async (
     const pagesById = new Map(doc.pages.map((p) => [p.id, p]));
 
     const skipped: { pageID: string; reason: BulkSkipReason }[] = [];
-    const updates = new Map<string, CreditChange[]>();
+    const updates = new Map<string, RoleChange[]>();
     for (const pageID of new Set(pageIDs)) {
       const page = pagesById.get(pageID);
       if (!page) skipped.push({ pageID, reason: "not-found" });
-      else if (isUnchanged(page, role, authorKey)) skipped.push({ pageID, reason: "unchanged" });
+      else if (isUnchanged(page, change)) skipped.push({ pageID, reason: "unchanged" });
       else if (!bookPageIDs.has(pageID)) skipped.push({ pageID, reason: "no-access" });
-      else updates.set(pageID, [{ role, authorKey }]);
+      else updates.set(pageID, [change]);
     }
 
     return await queueBulkJob(res, { projectID, bookService, updates, skipped });
@@ -430,9 +428,9 @@ const bulkUpdateAuthorshipAuthor = async (
 };
 
 /**
- * Sets a possibly different person per page and role in one background job, e.g. the Quick
- * Fix that fills missing roles from each page's parent or from the book's attribution. Pages
- * that already carry exactly the given person are skipped.
+ * Adds possibly different people per page and role in one background job, e.g. the Quick Fix
+ * that fills missing roles from each page's parent or from the book's attribution. People a
+ * page already has in that role are skipped.
  */
 const assignAuthorshipAuthors = async (
   req: ZodReqWithUser<z.infer<typeof AuthorshipValidators.AssignAuthorshipAuthorsSchema>>,
@@ -473,17 +471,15 @@ const assignAuthorshipAuthors = async (
     const pagesById = new Map(doc.pages.map((p) => [p.id, p]));
 
     const skipped: { pageID: string; reason: BulkSkipReason }[] = [];
-    const updates = new Map<string, CreditChange[]>();
+    const updates = new Map<string, RoleChange[]>();
     for (const { pageID, role, authorKey } of items) {
+      const change: RoleChange = { role, action: "add", authorKey };
       const page = pagesById.get(pageID);
       if (!page) skipped.push({ pageID, reason: "not-found" });
-      else if (isUnchanged(page, role, authorKey)) skipped.push({ pageID, reason: "unchanged" });
+      else if (isUnchanged(page, change)) skipped.push({ pageID, reason: "unchanged" });
       else if (!bookPageIDs.has(pageID)) skipped.push({ pageID, reason: "no-access" });
-      else {
-        // One change per role per page; a later item for the same role replaces the earlier one.
-        const changes = (updates.get(pageID) ?? []).filter((c) => c.role !== role);
-        updates.set(pageID, [...changes, { role, authorKey }]);
-      }
+      // All of a page's changes go in one tag write; adding twice is harmless.
+      else updates.set(pageID, [...(updates.get(pageID) ?? []), change]);
     }
 
     return await queueBulkJob(res, { projectID, bookService, updates, skipped });
@@ -502,7 +498,7 @@ async function queueBulkJob(
   params: {
     projectID: string;
     bookService: BookService;
-    updates: Map<string, CreditChange[]>;
+    updates: Map<string, RoleChange[]>;
     skipped: { pageID: string; reason: BulkSkipReason }[];
   },
 ) {
@@ -556,7 +552,7 @@ async function runBulkJob(params: {
   projectID: string;
   jobID: string;
   bookService: BookService;
-  updates: Map<string, CreditChange[]>;
+  updates: Map<string, RoleChange[]>;
 }) {
   const { projectID, jobID, bookService, updates } = params;
   const pageIDs = [...updates.keys()];

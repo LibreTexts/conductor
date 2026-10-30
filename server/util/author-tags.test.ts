@@ -9,6 +9,8 @@ import {
   readRoleTags,
   removeBookCredit,
   replaceRoleTag,
+  applyRoleChange,
+  isRoleChangeNoop,
 } from "./author-tags.js";
 
 const TAGS = [
@@ -157,5 +159,39 @@ describe("book credits", () => {
       "bookauthor@k3x9q2m7ab",
       "bookeditor@ann-lee",
     ]);
+  });
+});
+
+describe("applyRoleChange", () => {
+  const tags = ["article:topic", "author@ann", "author@Jane Doe (College)", "editor@bo"];
+
+  it("adds a person, keeping the role's others and skipping duplicates", () => {
+    assert.deepEqual(applyRoleChange(tags, { role: "author", action: "add", authorKey: "cy" }), [
+      ...tags,
+      "author@cy",
+    ]);
+    assert.deepEqual(applyRoleChange(tags, { role: "author", action: "add", authorKey: "ann" }), tags);
+  });
+
+  it("removes one person, plain text included, and nothing else", () => {
+    assert.deepEqual(
+      applyRoleChange(tags, { role: "author", action: "remove", authorKey: "Jane Doe (College)" }),
+      ["article:topic", "author@ann", "editor@bo"],
+    );
+  });
+
+  it("set replaces everyone in the role", () => {
+    assert.deepEqual(applyRoleChange(tags, { role: "author", action: "set", authorKey: "cy" }), [
+      "article:topic",
+      "editor@bo",
+      "author@cy",
+    ]);
+  });
+
+  it("knows when a change does nothing", () => {
+    assert.equal(isRoleChangeNoop(["ann", "cy"], { role: "author", action: "add", authorKey: "cy" }), true);
+    assert.equal(isRoleChangeNoop(["ann"], { role: "author", action: "remove", authorKey: "cy" }), true);
+    assert.equal(isRoleChangeNoop(["ann", "cy"], { role: "author", action: "set", authorKey: "cy" }), false);
+    assert.equal(isRoleChangeNoop([], { role: "author", action: "set", authorKey: null }), true);
   });
 });

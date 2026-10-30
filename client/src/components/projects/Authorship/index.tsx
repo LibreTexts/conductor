@@ -52,6 +52,7 @@ import {
   bookRows,
   creditsFor,
   isMissingAuthor,
+  applyChangeToCredits,
   isUnchanged,
   planQuickFix,
   roleInfo,
@@ -59,6 +60,7 @@ import {
   type AuthorshipRow,
   type QuickFixPerson,
   type QuickFixSource,
+  type RoleChange,
 } from "./util";
 
 const columnHelper = createColumnHelper<AuthorshipRow>();
@@ -105,44 +107,93 @@ const CreditList = ({ refs }: { refs?: AuthorshipAuthorRef[] }) =>
 
 type EditTarget = { id: string; title: string };
 
-/** A person picked in a dialog but not yet applied; a null author clears the role. */
-type PendingChoice = { author: AuthorSearchResult | null };
+/**
+ * What a dialog will do on Apply/OK: something done with a picked person (see `PersonMode`),
+ * clearing the role, or removing one value already on the page (which may be plain text).
+ */
+type PendingChoice =
+  | { kind: "person"; author: AuthorSearchResult }
+  | { kind: "clear" }
+  | { kind: "remove"; value: string; label: string };
+
+/** What a picked person does to the role: join the others, replace everyone, or be removed. */
+type PersonMode = "add" | "set" | "remove";
+
+const PERSON_MODE_OPTIONS: { value: PersonMode; label: string }[] = [
+  { value: "add", label: "Add to this role" },
+  { value: "set", label: "Replace everyone in this role" },
+  { value: "remove", label: "Remove from this role" },
+];
+
+const toChange = (role: CreditRole, pending: PendingChoice, mode: PersonMode): RoleChange => {
+  if (pending.kind === "clear") return { role, action: "set", authorKey: null };
+  if (pending.kind === "remove") return { role, action: "remove", authorKey: pending.value };
+  return { role, action: mode, authorKey: pending.author.nameKey };
+};
 
 /** Shows what Apply/OK will do with the picked choice. */
 const PendingSummary = ({
   pending,
+  mode,
   roleLabel,
   roleTag,
   pageCount,
 }: {
   pending: PendingChoice | null;
+  mode: PersonMode;
   roleLabel: string;
   roleTag: string;
   pageCount?: number;
 }) => {
   const where = pageCount !== undefined ? ` on ${pageCount} page(s)` : "";
+  const role = roleLabel.toLowerCase();
   if (!pending) {
     return (
       <Text size="sm" color="muted">
-        Pick a person or group, or use “Clear author” to remove this role.
+        Pick a person or group, or use “Clear author” to remove everyone in this role. A page can
+        have several people in each role.
       </Text>
     );
   }
-  if (!pending.author) {
+  if (pending.kind === "clear") {
     return (
       <Alert
         variant="warning"
-        title={`The ${roleLabel.toLowerCase()} will be removed${where}`}
+        title={`Everyone in the ${role} role will be removed${where}`}
         message={`Their ${roleTag} tags are removed. Other tags, including other roles, are not changed.`}
       />
     );
   }
+  const who =
+    pending.kind === "remove" ? (
+      <strong>{pending.label}</strong>
+    ) : (
+      <>
+        <strong>{pending.author.name}</strong>{" "}
+        <span className="font-mono text-xs text-gray-500">({pending.author.nameKey})</span>
+      </>
+    );
+  const action = pending.kind === "remove" ? "remove" : mode;
   return (
     <Text size="sm">
-      Will set <strong>{pending.author.name}</strong>{" "}
-      <span className="font-mono text-xs text-gray-500">({pending.author.nameKey})</span> as{" "}
-      {roleLabel.toLowerCase()}
-      {where}.
+      {action === "add" && (
+        <>
+          Will add {who} as {role}
+          {where}, keeping anyone already in this role.
+        </>
+      )}
+      {action === "set" && (
+        <>
+          Will make {who} the only {role}
+          {where}, replacing anyone else in this role.
+        </>
+      )}
+      {action === "remove" && (
+        <>
+          Will remove {who} as {role}
+          {where}.
+        </>
+      )}
     </Text>
   );
 };
@@ -189,6 +240,10 @@ const Authorship = () => {
   // Nothing is written until Apply (keeps the dialog open) or OK (applies and closes).
   const [pendingEdit, setPendingEdit] = useState<PendingChoice | null>(null);
   const [pendingBulk, setPendingBulk] = useState<PendingChoice | null>(null);
+  // What a picked person does in each dialog. Adding is the default: pages can credit several
+  // people per role.
+  const [editMode, setEditMode] = useState<PersonMode>("add");
+  const [bulkMode, setBulkMode] = useState<PersonMode>("add");
   // In the credits dialog of a page with subpages (or the book): also apply to the subpages.
   // Kept while switching roles, so several roles can be cascaded in one sitting.
   const [includeSubpages, setIncludeSubpages] = useState(false);
@@ -201,8 +256,6 @@ const Authorship = () => {
   const [quickFixOpen, setQuickFixOpen] = useState(false);
   const [quickFixRoles, setQuickFixRoles] = useState<CreditRole[]>(["author"]);
   const [quickFixSource, setQuickFixSource] = useState<QuickFixSource>("parent-then-book");
-  // The book person to use per role, when the book attributes several people in that role.
-  const [quickFixBookChoice, setQuickFixBookChoice] = useState<Partial<Record<CreditRole, string>>>({});
   const [quickFixSelectedOnly, setQuickFixSelectedOnly] = useState(false);
 
   const {
@@ -362,36 +415,22 @@ const Authorship = () => {
     isPending: updatePending,
     variables: updateVariables,
   } = useMutation({
-    mutationFn: (data: { pageID: string; role: CreditRole; author: AuthorSearchResult | null }) =>
-      api.updateAuthorshipAuthor(projectID, {
-        pageID: data.pageID,
-        role: data.role,
-        authorKey: data.author?.nameKey ?? null,
-      }),
-    onSuccess: (_res, { pageID, role: changedRole, author }) => {
-      // Reflect the change straight away, as the server stores it: the role's `<role>@` tags are
-      // replaced and everything else is kept. A page's author list only falls back to an older
-      // `authorname:` tag when it has no `author@` tag.
-      const tag = roleInfo(changedRole).tag;
+    mutationFn: (data: { pageID: string; change: RoleChange; author?: AuthorSearchResult }) =>
+      api.updateAuthorshipAuthor(projectID, { pageID: data.pageID, ...data.change }),
+    onSuccess: (_res, { pageID, change, author }) => {
+      // Reflect the change straight away, as the server stores it: only the role's `<role>@`
+      // tags change and everything else is kept.
       queryClient.setQueryData(
         ["authorship", projectID],
         (current: { pages?: AuthorshipEntry[] } | undefined) =>
           current?.pages
             ? {
                 ...current,
-                pages: current.pages.map((p) => {
-                  if (p.id !== pageID) return p;
-                  const others = p.pageCredits.filter((r) => r.role !== changedRole);
-                  const fallback = p.pageCredits.filter(
-                    (r) => r.role === changedRole && r.tag !== tag,
-                  );
-                  return {
-                    ...p,
-                    pageCredits: author
-                      ? [...others, { role: changedRole, tag, value: author.nameKey, author }]
-                      : [...others, ...fallback],
-                  };
-                }),
+                pages: current.pages.map((p) =>
+                  p.id === pageID
+                    ? { ...p, pageCredits: applyChangeToCredits(p.pageCredits, change, author) }
+                    : p,
+                ),
               }
             : current,
       );
@@ -401,7 +440,7 @@ const Authorship = () => {
   });
 
   const { mutate: updateBulk, isPending: bulkPending } = useMutation({
-    mutationFn: (data: { pageIDs: string[]; role: CreditRole; authorKey: string | null }) =>
+    mutationFn: (data: { pageIDs: string[] } & RoleChange) =>
       api.bulkUpdateAuthorshipAuthor(projectID, data),
     onSuccess: async (data) => {
       if (data.jobID) {
@@ -411,7 +450,7 @@ const Authorship = () => {
       }
       addNotification({
         type: "success",
-        message: `No pages changed; ${data.skipped.length} already had this attribution.`,
+        message: `No pages changed; ${data.skipped.length} already matched.`,
       });
     },
     onError: (err) =>
@@ -515,20 +554,14 @@ const Authorship = () => {
       planQuickFix(rows, CREDIT_ROLES.map((r) => r.key), "parent", {}, quickFixScope).missing,
     [rows, quickFixScope],
   );
-  const quickFixPlan = useMemo(() => {
-    const picks: Partial<Record<CreditRole, QuickFixPerson>> = {};
-    for (const r of quickFixRoles) {
-      const people = bookPeople[r];
-      picks[r] =
-        people.length === 1 ? people[0] : people.find((p) => p.key === quickFixBookChoice[r]);
-    }
-    return planQuickFix(rows, quickFixRoles, quickFixSource, picks, quickFixScope);
-  }, [rows, quickFixRoles, quickFixSource, quickFixBookChoice, bookPeople, quickFixScope]);
+  const quickFixPlan = useMemo(
+    () => planQuickFix(rows, quickFixRoles, quickFixSource, bookPeople, quickFixScope),
+    [rows, quickFixRoles, quickFixSource, bookPeople, quickFixScope],
+  );
   const quickFixUsesBook = quickFixSource !== "parent";
 
   const openQuickFix = () => {
     setQuickFixRoles([roleKey]);
-    setQuickFixBookChoice({});
     setQuickFixSelectedOnly(selectedIds.size > 0);
     setQuickFixOpen(true);
   };
@@ -537,7 +570,9 @@ const Authorship = () => {
     mutationFn: () =>
       api.assignAuthorshipAuthors(
         projectID,
-        quickFixPlan.items.map((i) => ({ pageID: i.pageID, role: i.role, authorKey: i.person.key })),
+        quickFixPlan.items.flatMap((i) =>
+          i.people.map((p) => ({ pageID: i.pageID, role: i.role, authorKey: p.key })),
+        ),
       ),
     onSuccess: async (data) => {
       setQuickFixOpen(false);
@@ -559,51 +594,51 @@ const Authorship = () => {
   };
 
   const editSubpageCount = editTarget ? subpagesOf(editTarget).size : 0;
+  const editChange = pendingEdit ? toChange(dialogRoleKey, pendingEdit, editMode) : null;
   // How many subpages applying the picked choice would actually change.
   const editSubpageChanges =
-    editTarget && pendingEdit
-      ? rows.filter(
-          (r) =>
-            subpagesOf(editTarget).has(r.id) &&
-            !isUnchanged(r.entry, dialogRoleKey, pendingEdit.author?.nameKey ?? null),
-        ).length
+    editTarget && editChange
+      ? rows.filter((r) => subpagesOf(editTarget).has(r.id) && !isUnchanged(r.entry, editChange))
+          .length
       : 0;
 
   /**
-   * Sets one role on the book or a page, and optionally on its subpages (skipping those that
-   * already have exactly this credit). The subpage choice is made inside the dialog, so applying
-   * never closes it: the same page and subpages can be given the next role straight away.
+   * Applies one change to a page, and optionally to its subpages (skipping those it wouldn't
+   * change). The subpage choice is made inside the dialog, so applying never closes it: the same
+   * page and subpages can be given the next change straight away.
    */
   const applyCredit = (
     target: EditTarget,
-    forRole: CreditRole,
-    author: AuthorSearchResult | null,
+    change: RoleChange,
+    author: AuthorSearchResult | undefined,
     withSubpages: boolean,
   ) => {
-    updateOne({ pageID: target.id, role: forRole, author });
+    if (!isUnchanged(entries.get(target.id), change)) {
+      updateOne({ pageID: target.id, change, author });
+    }
     if (!withSubpages) return;
-    const authorKey = author?.nameKey ?? null;
     const subpageIDs = subpagesOf(target);
     const toUpdate = rows
-      .filter((r) => subpageIDs.has(r.id) && !isUnchanged(r.entry, forRole, authorKey))
+      .filter((r) => subpageIDs.has(r.id) && !isUnchanged(r.entry, change))
       .map((r) => r.id);
-    if (toUpdate.length > 0) updateBulk({ pageIDs: toUpdate, role: forRole, authorKey });
+    if (toUpdate.length > 0) updateBulk({ pageIDs: toUpdate, ...change });
   };
 
   const openEditor = (target: EditTarget) => {
     setDialogRoleKey(roleKey);
     setPendingEdit(null);
+    setEditMode("add");
     setIncludeSubpages(false);
     setEditTarget(target);
   };
 
   // Apply keeps the dialog open for the next role; OK closes it.
   const submitEdit = (keepOpen: boolean) => {
-    if (!editTarget || !pendingEdit) return;
+    if (!editTarget || !pendingEdit || !editChange) return;
     applyCredit(
       editTarget,
-      dialogRoleKey,
-      pendingEdit.author,
+      editChange,
+      pendingEdit.kind === "person" ? pendingEdit.author : undefined,
       includeSubpages && editSubpageCount > 0,
     );
     setPendingEdit(null);
@@ -630,6 +665,7 @@ const Authorship = () => {
   const openBulk = () => {
     setBulkRoleKey(roleKey);
     setPendingBulk(null);
+    setBulkMode("add");
     setBulkOpen(true);
   };
 
@@ -637,10 +673,10 @@ const Authorship = () => {
   // way. Bulk updates run one at a time, so the next one waits until this one finishes.
   const submitBulk = (keepOpen: boolean) => {
     if (!pendingBulk) return;
-    const authorKey = pendingBulk.author?.nameKey ?? null;
+    const change = toChange(bulkRoleKey, pendingBulk, bulkMode);
     setPendingBulk(null);
     updateBulk(
-      { pageIDs: [...selectedIds], role: bulkRoleKey, authorKey },
+      { pageIDs: [...selectedIds], ...change },
       { onSuccess: () => !keepOpen && closeBulk() },
     );
   };
@@ -1033,7 +1069,32 @@ const Authorship = () => {
                       </button>
                     </dt>
                     <dd>
-                      <CreditList refs={creditsFor(dialogEntry?.pageCredits, r.key)} />
+                      {r.key === dialogRoleKey ? (
+                        // The role being edited: each own `<role>@` person can be removed.
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {creditsFor(dialogEntry?.pageCredits, r.key).length === 0 && <Dash />}
+                          {creditsFor(dialogEntry?.pageCredits, r.key).map((c, i) => (
+                            <span key={`${c.tag}${c.value}${i}`} className="inline-flex items-center">
+                              <CreditChip refValue={c} />
+                              {c.tag === r.tag && (
+                                <IconButton
+                                  icon={<IconX size={12} />}
+                                  aria-label={`Remove ${authorRefLabel(c)} as ${r.label.toLowerCase()}`}
+                                  tooltip="Remove"
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={updatePending}
+                                  onClick={() =>
+                                    setPendingEdit({ kind: "remove", value: c.value, label: authorRefLabel(c) })
+                                  }
+                                />
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <CreditList refs={creditsFor(dialogEntry?.pageCredits, r.key)} />
+                      )}
                     </dd>
                   </div>
                 ))}
@@ -1054,10 +1115,23 @@ const Authorship = () => {
                 key={dialogRoleKey}
                 label={dialogRole.label}
                 disabled={updatePending}
-                onSelect={(author) => setPendingEdit({ author })}
+                onSelect={(author) =>
+                  setPendingEdit(author ? { kind: "person", author } : { kind: "clear" })
+                }
               />
+              {pendingEdit?.kind === "person" && (
+                <RadioGroup
+                  name="dialog-mode"
+                  label="The picked person"
+                  orientation="horizontal"
+                  value={editMode}
+                  onChange={(value) => setEditMode(value as PersonMode)}
+                  options={PERSON_MODE_OPTIONS}
+                />
+              )}
               <PendingSummary
                 pending={pendingEdit}
+                mode={editMode}
                 roleLabel={dialogRole.label}
                 roleTag={dialogRole.tag}
               />
@@ -1084,7 +1158,7 @@ const Authorship = () => {
                     <Text size="sm" color="muted">
                       {editSubpageChanges} subpage{editSubpageChanges !== 1 ? "s" : ""} will change;{" "}
                       {editSubpageCount - editSubpageChanges} already{" "}
-                      {editSubpageCount - editSubpageChanges === 1 ? "has" : "have"} this attribution and
+                      {editSubpageCount - editSubpageChanges === 1 ? "is" : "are"} already like this and
                       will be skipped.
                     </Text>
                   )}
@@ -1147,10 +1221,23 @@ const Authorship = () => {
               key={bulkRoleKey}
               label={bulkRole.label}
               disabled={bulkPending}
-              onSelect={(author) => setPendingBulk({ author })}
+              onSelect={(author) =>
+                setPendingBulk(author ? { kind: "person", author } : { kind: "clear" })
+              }
             />
+            {pendingBulk?.kind === "person" && (
+              <RadioGroup
+                name="bulk-mode"
+                label="The picked person"
+                orientation="horizontal"
+                value={bulkMode}
+                onChange={(value) => setBulkMode(value as PersonMode)}
+                options={PERSON_MODE_OPTIONS}
+              />
+            )}
             <PendingSummary
               pending={pendingBulk}
+              mode={bulkMode}
               roleLabel={bulkRole.label}
               roleTag={bulkRole.tag}
               pageCount={selectedIds.size}
@@ -1194,8 +1281,8 @@ const Authorship = () => {
         <Modal.Body className="min-h-[24rem]">
           <Stack direction="vertical" gap="md">
             <Text size="sm" color="muted">
-              Fills in roles that pages have no attribution for. Pages that already have an
-              attribution for a role are never changed.
+              Fills in roles that pages have no attribution for, copying everyone the source has
+              in that role. Pages that already have an attribution for a role are never changed.
             </Text>
             <fieldset>
               <legend className="mb-1 text-sm font-semibold">Roles to fix</legend>
@@ -1253,19 +1340,7 @@ const Authorship = () => {
                     </Text>
                   );
                 }
-                if (people.length === 1) return null;
-                return (
-                  <RadioGroup
-                    key={roleKeyToFix}
-                    name={`quick-fix-book-${roleKeyToFix}`}
-                    label={`The book has several ${info.label.toLowerCase()}s. A page takes one; which one?`}
-                    value={quickFixBookChoice[roleKeyToFix] ?? ""}
-                    onChange={(value) =>
-                      setQuickFixBookChoice((prev) => ({ ...prev, [roleKeyToFix]: value }))
-                    }
-                    options={people.map((p) => ({ value: p.key, label: p.name }))}
-                  />
-                );
+                return null;
               })}
 
             {quickFixRoles.length > 0 && (
@@ -1288,7 +1363,7 @@ const Authorship = () => {
                   <ul className="mt-2 max-h-48 overflow-y-auto border-t border-gray-200 pt-2">
                     {quickFixPlan.items.slice(0, 200).map((i) => (
                       <li key={`${i.pageID}-${i.role}`}>
-                        {i.title} → <strong>{i.person.name}</strong>{" "}
+                        {i.title} → <strong>{i.people.map((p) => p.name).join(", ")}</strong>{" "}
                         <span className="text-gray-500">
                           ({roleInfo(i.role).label.toLowerCase()}, from {i.from === "parent" ? "parent" : "book"})
                         </span>

@@ -8,7 +8,7 @@ import {
 import conductorErrors from "../conductor-errors";
 import MindTouch from "./CXOne/index.js";
 import { License } from "../types";
-import Author, { AuthorInterface } from "../models/author";
+import Author, { AuthorInterface, DEFAULT_AUTHOR_PICTURE_URL } from "../models/author";
 import sanitizeHtml from "sanitize-html";
 import * as cheerio from "cheerio";
 import GlossaryService from "../api/services/glossary-service.js";
@@ -2503,8 +2503,7 @@ export class PressBookScraper {
     if (contributors.length === 0) return;
 
     // const orgID = "libretexts";
-    const PLACEHOLDER_PICTURE =
-      "https://biz.libretexts.org/@api/deki/files/5084/girl-160172__340.png";
+    const PLACEHOLDER_PICTURE = DEFAULT_AUTHOR_PICTURE_URL;
 
     // Whitespace-collapsed, lower-cased name comparison so trivial
     // formatting differences ("Jane Doe" vs "jane  doe") don't get

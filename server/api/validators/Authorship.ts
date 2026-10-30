@@ -32,25 +32,50 @@ export const AuthorshipReloadSchema = z.object({
     .optional(),
 });
 
+// "set" replaces everyone in the role (the default, as before), "add" adds one person, and
+// "remove" removes one tag value, which may be older plain text rather than a key.
+const roleActionSchema = z.enum(["set", "add", "remove"]).optional().default("set");
+
+// The value to remove can be any `<role>@` tag value, so it isn't held to the key format.
+const removableValueSchema = z.string().trim().min(1).max(300);
+
+const roleChangeBody = z
+  .object({
+    role: roleSchema,
+    action: roleActionSchema,
+    authorKey: removableValueSchema.nullable(),
+  })
+  .superRefine((body, ctx) => {
+    if (body.action === "remove") {
+      if (body.authorKey === null) {
+        ctx.addIssue({ code: "custom", path: ["authorKey"], message: "Pick the person to remove." });
+      }
+      return;
+    }
+    if (body.action === "add" && body.authorKey === null) {
+      ctx.addIssue({ code: "custom", path: ["authorKey"], message: "Pick the person to add." });
+      return;
+    }
+    if (body.authorKey !== null && !authorKeySchema.safeParse(body.authorKey).success) {
+      ctx.addIssue({ code: "custom", path: ["authorKey"], message: "Invalid author key." });
+    }
+  });
+
 export const UpdateAuthorshipAuthorSchema = z.object({
   params: projectParams,
-  body: z.object({
-    pageID: z.string().min(1),
-    role: roleSchema,
-    authorKey: authorKeySchema,
-  }),
+  body: z.intersection(z.object({ pageID: z.string().min(1) }), roleChangeBody),
 });
 
 export const BulkUpdateAuthorshipAuthorSchema = z.object({
   params: projectParams,
-  body: z.object({
-    pageIDs: z.array(z.string().min(1)).min(1).max(5000),
-    role: roleSchema,
-    authorKey: authorKeySchema,
-  }),
+  body: z.intersection(
+    z.object({ pageIDs: z.array(z.string().min(1)).min(1).max(5000) }),
+    roleChangeBody,
+  ),
 });
 
-// A person per page and role, e.g. from the Quick Fix. Clearing is not offered here.
+// People to add per page and role, e.g. from the Quick Fix. Each item adds one person; a page
+// and role can appear several times. Clearing and removing are not offered here.
 export const AssignAuthorshipAuthorsSchema = z.object({
   params: projectParams,
   body: z.object({

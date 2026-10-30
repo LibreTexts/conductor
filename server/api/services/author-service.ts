@@ -8,7 +8,7 @@ import {
     SearchAuthorsValidator,
 } from "../validators/authors.js";
 import { BaseConductorInfiniteScrollResponse } from "../../types";
-import Author, { AuthorInterface } from "../../models/author.js";
+import Author, { AuthorInterface, withDefaultPicture } from "../../models/author.js";
 import { escapeRegEx, getPaginationOffset } from "../../util/helpers.js";
 import { Types } from "mongoose";
 import { randomInt } from "node:crypto";
@@ -191,7 +191,8 @@ export default class AuthorService {
             ]);
 
             const author = aggRes.length > 0 ? aggRes[0] : null;
-            if (!isAuthorGroup(author)) return author;
+            if (!author) return null;
+            if (!isAuthorGroup(author)) return withDefaultPicture(author);
 
             // A group is presented as a single author (derived name and campus) so readers
             // that only understand single authors render it sensibly; `members` is the extra
@@ -317,7 +318,11 @@ export default class AuthorService {
             { orgID: process.env.ORG_ID, nameKey: { $in: nameKeys } },
             PUBLIC_AUTHOR_PROJECTION
         ).lean();
-        return new Map((docs as unknown as AuthorInterface[]).map((a) => [a.nameKey, a]));
+        // Public readers (Commons, LibreLens, reuse.js) get the default picture for an
+        // individual with none; the stored record is left as it is.
+        return new Map(
+            (docs as unknown as AuthorInterface[]).map((a) => [a.nameKey, withDefaultPicture(a)])
+        );
     }
 
     /** Drops blank overrides so a membership only stores what it actually changes. */
