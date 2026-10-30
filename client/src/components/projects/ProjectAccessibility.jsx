@@ -71,7 +71,7 @@ const ProjectAccessibility = (props) => {
      * Set page title and load Project information on initial load.
      */
     useEffect(() => {
-        document.title = "LibreTexts Conductor | Projects | Project View | Accessibility";
+        document.title = "LibreTexts Conductor | Projects | Project View | Accessibility Remediation";
         date.plugin(ordinal);
         date.plugin(day_of_week);
         getProject();
@@ -96,7 +96,7 @@ const ProjectAccessibility = (props) => {
      */
     useEffect(() => {
         if (project.title && project.title !== '') {
-            document.title = `LibreTexts Conductor | Projects | ${project.title} | Accessibility`;
+            document.title = `LibreTexts Conductor | Projects | ${project.title} | Accessibility Remediation`;
         }
     }, [project]);
 
@@ -280,7 +280,7 @@ const ProjectAccessibility = (props) => {
         <Grid className='component-container' divided='vertically'>
             <Grid.Row>
                 <Grid.Column width={16}>
-                    <Header className='component-header'>Accessibility: <em>{project.title || 'Loading...'}</em></Header>
+                    <Header className='component-header'>Accessibility Remediation: <em>{project.title || 'Loading...'}</em></Header>
                 </Grid.Column>
             </Grid.Row>
             <Grid.Row>
@@ -297,7 +297,7 @@ const ProjectAccessibility = (props) => {
                                 </Breadcrumb.Section>
                                 <Breadcrumb.Divider icon='right chevron' />
                                 <Breadcrumb.Section active>
-                                    Accessibility
+                                    Accessibility Remediation
                                 </Breadcrumb.Section>
                             </Breadcrumb>
                         </Segment>
