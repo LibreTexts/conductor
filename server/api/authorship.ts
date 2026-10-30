@@ -36,7 +36,7 @@ import {
 import { isAuthorGroup } from "../util/author-groups.js";
 
 const BUSY_MSG =
-  "Credit data is being refreshed or another update is running. Try again when it finishes.";
+  "Attribution data is being refreshed or another update is running. Try again when it finishes.";
 
 /** Max number of concurrent page-tag updates sent to the library during a bulk change. */
 const BULK_CONCURRENCY = 5;
@@ -295,18 +295,23 @@ async function checkAuthorKey(authorKey: string | null): Promise<string | null> 
   return exists ? null : `No author has the key "${authorKey}".`;
 }
 
+/** One role set (or, with null, cleared) on a page. */
+type CreditChange = { role: CreditRole; authorKey: string | null };
+
 /**
- * Writes one role's tag on one library page, leaving every other tag (other roles included) in
+ * Writes one or more roles' tags on one library page, leaving every other tag (other roles included) in
  * place. Returns the page's credit tags as they now stand, for storing.
  */
 async function writePageCredit(
   bookService: BookService,
   pageID: string,
-  role: CreditRole,
-  authorKey: string | null,
+  changes: CreditChange[],
 ): Promise<AuthorshipAuthorRef[]> {
   const current = (await bookService.getPageTags(pageID)).map((t) => t["@value"]);
-  const next = replaceRoleTag(current, role, authorKey);
+  const next = changes.reduce(
+    (tags, { role, authorKey }) => replaceRoleTag(tags, role, authorKey),
+    current,
+  );
   // Written as-is: `updatePageDetails` keeps the page's existing system tags (credit tags among
   // them), so clearing a credit through it would silently do nothing.
   await bookService.setPageTags(pageID, next);
@@ -368,7 +373,7 @@ const updateAuthorshipAuthor = async (
       });
     }
 
-    const pageCredits = await writePageCredit(bookService, pageID, role, authorKey);
+    const pageCredits = await writePageCredit(bookService, pageID, [{ role, authorKey }]);
     await setStoredPageCredits(projectID, pageID, pageCredits);
 
     return res.send({ err: false, pageID, role, authorKey, pageCredits });
@@ -408,73 +413,153 @@ const bulkUpdateAuthorshipAuthor = async (
     const pagesById = new Map(doc.pages.map((p) => [p.id, p]));
 
     const skipped: { pageID: string; reason: BulkSkipReason }[] = [];
-    const toUpdate: string[] = [];
+    const updates = new Map<string, CreditChange[]>();
     for (const pageID of new Set(pageIDs)) {
       const page = pagesById.get(pageID);
       if (!page) skipped.push({ pageID, reason: "not-found" });
       else if (isUnchanged(page, role, authorKey)) skipped.push({ pageID, reason: "unchanged" });
       else if (!bookPageIDs.has(pageID)) skipped.push({ pageID, reason: "no-access" });
-      else toUpdate.push(pageID);
+      else updates.set(pageID, [{ role, authorKey }]);
     }
 
-    if (toUpdate.length === 0) {
-      return res.send({ err: false, queued: 0, skipped });
-    }
-
-    const lockID = await AuthorshipService.acquireLock(projectID);
-    if (!lockID) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
-
-    const jobID = randomUUID();
-    try {
-      await Authorship.updateOne(
-        { projectID: { $eq: projectID } },
-        {
-          $set: {
-            bulkJob: {
-              jobID,
-              status: "running",
-              total: toUpdate.length,
-              processed: 0,
-              updated: 0,
-              failed: 0,
-              skipped: skipped.length,
-            },
-          },
-        },
-      );
-    } catch (err) {
-      await AuthorshipService.releaseLock(projectID, lockID);
-      throw err;
-    }
-
-    AuthorshipService.withLock(projectID, lockID, () =>
-      runBulkJob({ projectID, jobID, bookService, pageIDs: toUpdate, role, authorKey }),
-    ).catch(async (err) => {
-      logger.error({ err, projectID, jobID }, "Bulk authorship update job failed");
-      await Authorship.updateOne(
-        { projectID: { $eq: projectID }, "bulkJob.jobID": { $eq: jobID } },
-        { $set: { "bulkJob.status": "failed" } },
-      ).catch((updateErr) =>
-        logger.error({ err: updateErr, projectID, jobID }, "Failed to mark bulk job failed"),
-      );
-    });
-
-    return res.send({ err: false, jobID, queued: toUpdate.length, skipped });
+    return await queueBulkJob(res, { projectID, bookService, updates, skipped });
   } catch (err) {
     logger.error({ err, projectID: req.params.projectID }, "bulkUpdateAuthorshipAuthor failed");
     return conductor500Err(res);
   }
 };
 
+/**
+ * Sets a possibly different person per page and role in one background job, e.g. the Quick
+ * Fix that fills missing roles from each page's parent or from the book's attribution. Pages
+ * that already carry exactly the given person are skipped.
+ */
+const assignAuthorshipAuthors = async (
+  req: ZodReqWithUser<z.infer<typeof AuthorshipValidators.AssignAuthorshipAuthorsSchema>>,
+  res: Response,
+) => {
+  try {
+    const project = await loadProject(req, res);
+    if (!project) return;
+    const { projectID } = req.params;
+    const { items } = req.body;
+
+    const doc = await Authorship.findOne({ projectID: { $eq: projectID } });
+    if (!doc) return res.status(404).send({ err: true, errMsg: "Authorship not found" });
+    if (AuthorshipService.isLockActive(doc)) {
+      return res.status(409).send({ err: true, errMsg: BUSY_MSG });
+    }
+
+    const keys = [...new Set(items.map((i) => i.authorKey))];
+    const known = new Set(
+      (
+        await Author.find(
+          { orgID: process.env.ORG_ID, nameKey: { $in: keys } },
+          { _id: 0, nameKey: 1 },
+        ).lean()
+      ).map((a) => a.nameKey),
+    );
+    const unknown = keys.filter((k) => !known.has(k));
+    if (unknown.length) {
+      const more = unknown.length > 1 ? ` (and ${unknown.length - 1} more)` : "";
+      return res.status(400).send({
+        err: true,
+        errMsg: `No author has the key "${unknown[0]}"${more}.`,
+      });
+    }
+
+    const bookService = bookServiceFor(project);
+    const bookPageIDs = new Set(await bookService.getBookPageIDs({ includeRestricted: true, cache: false }));
+    const pagesById = new Map(doc.pages.map((p) => [p.id, p]));
+
+    const skipped: { pageID: string; reason: BulkSkipReason }[] = [];
+    const updates = new Map<string, CreditChange[]>();
+    for (const { pageID, role, authorKey } of items) {
+      const page = pagesById.get(pageID);
+      if (!page) skipped.push({ pageID, reason: "not-found" });
+      else if (isUnchanged(page, role, authorKey)) skipped.push({ pageID, reason: "unchanged" });
+      else if (!bookPageIDs.has(pageID)) skipped.push({ pageID, reason: "no-access" });
+      else {
+        // One change per role per page; a later item for the same role replaces the earlier one.
+        const changes = (updates.get(pageID) ?? []).filter((c) => c.role !== role);
+        updates.set(pageID, [...changes, { role, authorKey }]);
+      }
+    }
+
+    return await queueBulkJob(res, { projectID, bookService, updates, skipped });
+  } catch (err) {
+    logger.error({ err, projectID: req.params.projectID }, "assignAuthorshipAuthors failed");
+    return conductor500Err(res);
+  }
+};
+
+/**
+ * Takes the lock, records a running bulk job and starts it in the background; the client
+ * polls /status. Sends the response: the job and its counts, or why nothing was queued.
+ */
+async function queueBulkJob(
+  res: Response,
+  params: {
+    projectID: string;
+    bookService: BookService;
+    updates: Map<string, CreditChange[]>;
+    skipped: { pageID: string; reason: BulkSkipReason }[];
+  },
+) {
+  const { projectID, bookService, updates, skipped } = params;
+  if (updates.size === 0) {
+    return res.send({ err: false, queued: 0, skipped });
+  }
+
+  const lockID = await AuthorshipService.acquireLock(projectID);
+  if (!lockID) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
+
+  const jobID = randomUUID();
+  try {
+    await Authorship.updateOne(
+      { projectID: { $eq: projectID } },
+      {
+        $set: {
+          bulkJob: {
+            jobID,
+            status: "running",
+            total: updates.size,
+            processed: 0,
+            updated: 0,
+            failed: 0,
+            skipped: skipped.length,
+          },
+        },
+      },
+    );
+  } catch (err) {
+    await AuthorshipService.releaseLock(projectID, lockID);
+    throw err;
+  }
+
+  AuthorshipService.withLock(projectID, lockID, () =>
+    runBulkJob({ projectID, jobID, bookService, updates }),
+  ).catch(async (err) => {
+    logger.error({ err, projectID, jobID }, "Bulk authorship update job failed");
+    await Authorship.updateOne(
+      { projectID: { $eq: projectID }, "bulkJob.jobID": { $eq: jobID } },
+      { $set: { "bulkJob.status": "failed" } },
+    ).catch((updateErr) =>
+      logger.error({ err: updateErr, projectID, jobID }, "Failed to mark bulk job failed"),
+    );
+  });
+
+  return res.send({ err: false, jobID, queued: updates.size, skipped });
+}
+
 async function runBulkJob(params: {
   projectID: string;
   jobID: string;
   bookService: BookService;
-  pageIDs: string[];
-  role: CreditRole;
-  authorKey: string | null;
+  updates: Map<string, CreditChange[]>;
 }) {
-  const { projectID, jobID, bookService, pageIDs, role, authorKey } = params;
+  const { projectID, jobID, bookService, updates } = params;
+  const pageIDs = [...updates.keys()];
   const jobFilter = { projectID: { $eq: projectID }, "bulkJob.jobID": { $eq: jobID } };
   let updated = 0;
   let failed = 0;
@@ -482,11 +567,11 @@ async function runBulkJob(params: {
   const updatePage = async (pageID: string) => {
     let ok = false;
     try {
-      const pageCredits = await writePageCredit(bookService, pageID, role, authorKey);
+      const pageCredits = await writePageCredit(bookService, pageID, updates.get(pageID) ?? []);
       await setStoredPageCredits(projectID, pageID, pageCredits);
       ok = true;
     } catch (err) {
-      logger.warn({ err, projectID, pageID, role }, "Bulk credit update failed for page");
+      logger.warn({ err, projectID, pageID }, "Bulk credit update failed for page");
     }
     if (ok) updated += 1;
     else failed += 1;
@@ -513,7 +598,7 @@ async function runBulkJob(params: {
       "bulkJob.failed": failed,
     },
   });
-  logger.info({ projectID, role, updated, failed }, "Bulk credit update finished");
+  logger.info({ projectID, updated, failed }, "Bulk credit update finished");
 }
 
 /**
@@ -668,6 +753,7 @@ export default {
   getAuthorshipStatus,
   updateAuthorshipAuthor,
   bulkUpdateAuthorshipAuthor,
+  assignAuthorshipAuthors,
   updateBookCredit,
   compileBookCredits,
 };
