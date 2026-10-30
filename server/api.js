@@ -3883,6 +3883,13 @@ router.route('/projects/:projectID/authorship/author/bulk').patch(
   authorshipAPI.bulkUpdateAuthorshipAuthor
 );
 
+router.route('/projects/:projectID/authorship/author/assign').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.AssignAuthorshipAuthorsSchema),
+  authorshipAPI.assignAuthorshipAuthors
+);
+
 router.route('/projects/:projectID/authorship/book-credit').patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,

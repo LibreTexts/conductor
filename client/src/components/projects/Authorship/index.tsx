@@ -28,6 +28,7 @@ import {
   IconPlus,
   IconRefresh,
   IconUsers,
+  IconWand,
   IconX,
 } from "@tabler/icons-react";
 import api from "../../../api";
@@ -52,9 +53,12 @@ import {
   creditsFor,
   isMissingAuthor,
   isUnchanged,
+  planQuickFix,
   roleInfo,
   safeHref,
   type AuthorshipRow,
+  type QuickFixPerson,
+  type QuickFixSource,
 } from "./util";
 
 const columnHelper = createColumnHelper<AuthorshipRow>();
@@ -193,6 +197,13 @@ const Authorship = () => {
   const [bookAddRole, setBookAddRole] = useState<CreditRole | null>(null);
   const [pendingBookAuthor, setPendingBookAuthor] = useState<AuthorSearchResult | null>(null);
   const [compileOpen, setCompileOpen] = useState(false);
+  // Quick Fix: fill in missing roles from each page's parent or from the book attribution.
+  const [quickFixOpen, setQuickFixOpen] = useState(false);
+  const [quickFixRoles, setQuickFixRoles] = useState<CreditRole[]>(["author"]);
+  const [quickFixSource, setQuickFixSource] = useState<QuickFixSource>("parent-then-book");
+  // The book person to use per role, when the book attributes several people in that role.
+  const [quickFixBookChoice, setQuickFixBookChoice] = useState<Partial<Record<CreditRole, string>>>({});
+  const [quickFixSelectedOnly, setQuickFixSelectedOnly] = useState(false);
 
   const {
     data: tocData,
@@ -244,7 +255,7 @@ const Authorship = () => {
     if (finishedJob.status === "failed") {
       addNotification({
         type: "error",
-        message: `Credit update stopped after ${finishedJob.processed} of ${finishedJob.total} page(s). Refresh to see which pages changed.`,
+        message: `Attribution update stopped after ${finishedJob.processed} of ${finishedJob.total} page(s). Refresh to see which pages changed.`,
       });
       return;
     }
@@ -302,7 +313,7 @@ const Authorship = () => {
   // (an update, a finished bulk job). Repeated on the next frames because dialogs restore focus,
   // and with it scroll, a moment after they close.
   useLayoutEffect(() => {
-    if (editTarget || bulkOpen) return;
+    if (editTarget || bulkOpen || quickFixOpen) return;
     const restore = () => {
       window.scrollTo({ top: scrollPosition.current.window, left: 0, behavior: "instant" });
       const scroller = getTableScroller();
@@ -315,7 +326,7 @@ const Authorship = () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, [authorship, editTarget, bulkOpen, getTableScroller]);
+  }, [authorship, editTarget, bulkOpen, quickFixOpen, getTableScroller]);
 
   /** Pages crediting each role, for the role switch. */
   const counts = useMemo(
@@ -386,7 +397,7 @@ const Authorship = () => {
       );
     },
     onError: (err) =>
-      addNotification({ type: "error", message: errorMessage(err, "Error updating credit.") }),
+      addNotification({ type: "error", message: errorMessage(err, "Error updating attribution.") }),
   });
 
   const { mutate: updateBulk, isPending: bulkPending } = useMutation({
@@ -400,11 +411,11 @@ const Authorship = () => {
       }
       addNotification({
         type: "success",
-        message: `No pages changed; ${data.skipped.length} already had this credit.`,
+        message: `No pages changed; ${data.skipped.length} already had this attribution.`,
       });
     },
     onError: (err) =>
-      addNotification({ type: "error", message: errorMessage(err, "Failed to update credits.") }),
+      addNotification({ type: "error", message: errorMessage(err, "Failed to update attributions.") }),
   });
 
   const bulkRunning = bulkPending || bulkJobID !== null;
@@ -422,7 +433,7 @@ const Authorship = () => {
       api.updateBookCredit(projectID, data),
     onSuccess: refetchAuthorship,
     onError: (err) =>
-      addNotification({ type: "error", message: errorMessage(err, "Error updating book credits.") }),
+      addNotification({ type: "error", message: errorMessage(err, "Error updating book attributions.") }),
   });
 
   const {
@@ -434,7 +445,7 @@ const Authorship = () => {
     mutationFn: () => api.compileBookCredits(projectID, false),
     onError: (err) => {
       setCompileOpen(false);
-      addNotification({ type: "error", message: errorMessage(err, "Couldn't compile credits.") });
+      addNotification({ type: "error", message: errorMessage(err, "Couldn't compile attributions.") });
     },
   });
 
@@ -446,12 +457,12 @@ const Authorship = () => {
       addNotification({
         type: "success",
         message: data.additions.length
-          ? `Added ${data.additions.length} book credit(s).`
-          : "The book already credits everyone credited on its pages.",
+          ? `Added ${data.additions.length} book attribution(s).`
+          : "The book already attributes everyone attributed on its pages.",
       });
     },
     onError: (err) =>
-      addNotification({ type: "error", message: errorMessage(err, "Couldn't add book credits.") }),
+      addNotification({ type: "error", message: errorMessage(err, "Couldn't add book attributions.") }),
   });
 
   const openCompile = () => {
@@ -481,6 +492,65 @@ const Authorship = () => {
       people: additions.filter((a) => a.role === r.key),
     })).filter((g) => g.people.length > 0);
   }, [compilePreview]);
+
+  /** Per role, the book's attributed people that are author records (only those can be written). */
+  const bookPeople = useMemo(
+    () =>
+      Object.fromEntries(
+        CREDIT_ROLES.map((r) => [
+          r.key,
+          bookCreditsFor(bookEntry, r.key).flatMap((c) =>
+            c.author ? [{ key: c.author.nameKey, name: c.author.name }] : [],
+          ),
+        ]),
+      ) as Record<CreditRole, QuickFixPerson[]>,
+    [bookEntry],
+  );
+
+  const quickFixScope =
+    quickFixSelectedOnly && selectedIds.size > 0 ? selectedIds : undefined;
+  // How many pages miss each role, for the role choices; independent of the source.
+  const quickFixMissing = useMemo(
+    () =>
+      planQuickFix(rows, CREDIT_ROLES.map((r) => r.key), "parent", {}, quickFixScope).missing,
+    [rows, quickFixScope],
+  );
+  const quickFixPlan = useMemo(() => {
+    const picks: Partial<Record<CreditRole, QuickFixPerson>> = {};
+    for (const r of quickFixRoles) {
+      const people = bookPeople[r];
+      picks[r] =
+        people.length === 1 ? people[0] : people.find((p) => p.key === quickFixBookChoice[r]);
+    }
+    return planQuickFix(rows, quickFixRoles, quickFixSource, picks, quickFixScope);
+  }, [rows, quickFixRoles, quickFixSource, quickFixBookChoice, bookPeople, quickFixScope]);
+  const quickFixUsesBook = quickFixSource !== "parent";
+
+  const openQuickFix = () => {
+    setQuickFixRoles([roleKey]);
+    setQuickFixBookChoice({});
+    setQuickFixSelectedOnly(selectedIds.size > 0);
+    setQuickFixOpen(true);
+  };
+
+  const { mutate: assignAuthors, isPending: assignPending } = useMutation({
+    mutationFn: () =>
+      api.assignAuthorshipAuthors(
+        projectID,
+        quickFixPlan.items.map((i) => ({ pageID: i.pageID, role: i.role, authorKey: i.person.key })),
+      ),
+    onSuccess: async (data) => {
+      setQuickFixOpen(false);
+      if (data.jobID) {
+        setBulkJobID(data.jobID);
+        await queryClient.invalidateQueries({ queryKey: ["authorship-status", projectID] });
+        return;
+      }
+      addNotification({ type: "success", message: "No pages needed changing." });
+    },
+    onError: (err) =>
+      addNotification({ type: "error", message: errorMessage(err, "Quick Fix failed.") }),
+  });
 
   const subpagesOf = (target: EditTarget) => {
     const ids = expandWithDescendants(rows, new Set([target.id]));
@@ -659,8 +729,8 @@ const Authorship = () => {
               {isCompleted && row.original.entry && (
                 <IconButton
                   icon={<IconEdit size={14} />}
-                  aria-label={`Edit credits of ${row.original.title}`}
-                  tooltip="Edit credits"
+                  aria-label={`Edit attributions of ${row.original.title}`}
+                  tooltip="Edit attributions"
                   variant="ghost"
                   size="sm"
                   loading={updatePending && updateVariables?.pageID === row.original.id}
@@ -756,7 +826,7 @@ const Authorship = () => {
               <div className="mt-2">
                 <Stack direction="horizontal" gap="sm" align="center">
                   <Text size="sm" weight="semibold">
-                    Book credits
+                    Book attributions
                   </Text>
                   {isCompleted && bookPageID && (
                     <Button
@@ -830,8 +900,8 @@ const Authorship = () => {
                   <Spinner size="sm" />
                   <Text size="sm">
                     {progress && progress.total > 0
-                      ? `Loading credit data… processed ${progress.completed + progress.failed} of ${progress.total} pages. This page updates automatically when it's ready.`
-                      : "Loading credit data… this can take a few minutes."}
+                      ? `Loading attribution data… processed ${progress.completed + progress.failed} of ${progress.total} pages. This page updates automatically when it's ready.`
+                      : "Loading attribution data… this can take a few minutes."}
                   </Text>
                 </Stack>
               )}
@@ -845,7 +915,7 @@ const Authorship = () => {
                 disabled={!projectID || bulkRunning}
                 onClick={() => setRefreshOpen(true)}
               >
-                Refresh Credit Data
+                Refresh Attribution Data
               </Button>
               {missingAuthorIDs.size > 0 && (
                 <Button
@@ -862,14 +932,24 @@ const Authorship = () => {
               {isCompleted && (
                 <Button
                   variant="secondary"
+                  icon={<IconWand size={16} />}
+                  disabled={bulkRunning}
+                  onClick={openQuickFix}
+                >
+                  Quick Fix Missing…
+                </Button>
+              )}
+              {isCompleted && (
+                <Button
+                  variant="secondary"
                   icon={<IconUsers size={16} />}
                   disabled={selectedIds.size === 0 || bulkRunning}
                   loading={bulkRunning}
                   onClick={openBulk}
                 >
                   {selectedIds.size > 0
-                    ? `Set Credits (${selectedIds.size} selected)`
-                    : "Set Credits (select pages)"}
+                    ? `Set Attributions (${selectedIds.size} selected)`
+                    : "Set Attributions (select pages)"}
                 </Button>
               )}
               {selectedIds.size > 0 && (
@@ -884,10 +964,10 @@ const Authorship = () => {
 
       {refreshOpen && (
         <RefreshModeModal
-          title="Refresh Credit Data"
+          title="Refresh Attribution Data"
           intro="Choose how much data to reload from the library. License data in the License Restacker is refreshed at the same time."
-          pageDescription="Re-reads the credit tags of the book and every page. Keeps the existing Source and Content credits. Fast."
-          contentDescription="Reviews every page's content again for Source and Content credits (and licenses). Can take several minutes."
+          pageDescription="Re-reads the attribution tags of the book and every page. Keeps the existing Source and Content attributions. Fast."
+          contentDescription="Reviews every page's content again for Source and Content attributions (and licenses). Can take several minutes."
           onCancel={() => setRefreshOpen(false)}
           onConfirm={(mode) => {
             setRefreshOpen(false);
@@ -900,7 +980,7 @@ const Authorship = () => {
           so you stay at the same place in the list while flipping between roles. */}
       <RadioGroup
         name="attribution-role"
-        label="Show credits for"
+        label="Show attributions for"
         orientation="horizontal"
         value={roleKey}
         onChange={(value) => setRoleKey(value as CreditRole)}
@@ -932,7 +1012,7 @@ const Authorship = () => {
       <Modal open={editTarget !== null} onClose={() => setEditTarget(null)} size="lg">
         <Modal.Header>
           <Modal.Title>
-            {`Credits for “${editTarget?.title ?? ""}”`}
+            {`Attributions for “${editTarget?.title ?? ""}”`}
           </Modal.Title>
           <Modal.Close />
         </Modal.Header>
@@ -1004,7 +1084,7 @@ const Authorship = () => {
                     <Text size="sm" color="muted">
                       {editSubpageChanges} subpage{editSubpageChanges !== 1 ? "s" : ""} will change;{" "}
                       {editSubpageCount - editSubpageChanges} already{" "}
-                      {editSubpageCount - editSubpageChanges === 1 ? "has" : "have"} this credit and
+                      {editSubpageCount - editSubpageChanges === 1 ? "has" : "have"} this attribution and
                       will be skipped.
                     </Text>
                   )}
@@ -1045,7 +1125,7 @@ const Authorship = () => {
 
       <Modal open={bulkOpen} onClose={closeBulk} size="lg">
         <Modal.Header>
-          <Modal.Title>Set Credits for {selectedIds.size} Page(s)</Modal.Title>
+          <Modal.Title>Set Attributions for {selectedIds.size} Page(s)</Modal.Title>
           <Modal.Close />
         </Modal.Header>
         <Modal.Body className="min-h-[22rem]">
@@ -1106,6 +1186,145 @@ const Authorship = () => {
         </Modal.Footer>
       </Modal>
 
+      <Modal open={quickFixOpen} onClose={() => setQuickFixOpen(false)} size="lg">
+        <Modal.Header>
+          <Modal.Title>Quick Fix Missing Attributions</Modal.Title>
+          <Modal.Close />
+        </Modal.Header>
+        <Modal.Body className="min-h-[24rem]">
+          <Stack direction="vertical" gap="md">
+            <Text size="sm" color="muted">
+              Fills in roles that pages have no attribution for. Pages that already have an
+              attribution for a role are never changed.
+            </Text>
+            <fieldset>
+              <legend className="mb-1 text-sm font-semibold">Roles to fix</legend>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {CREDIT_ROLES.map((r) => (
+                  <Checkbox
+                    key={r.key}
+                    name={`quick-fix-role-${r.key}`}
+                    label={`${r.label} (${quickFixMissing[r.key] ?? 0} missing)`}
+                    checked={quickFixRoles.includes(r.key)}
+                    onChange={(checked) =>
+                      setQuickFixRoles((prev) =>
+                        checked
+                          ? CREDIT_ROLES.map((x) => x.key).filter(
+                              (k) => k === r.key || prev.includes(k),
+                            )
+                          : prev.filter((k) => k !== r.key),
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            </fieldset>
+            <RadioGroup
+              name="quick-fix-source"
+              label="Use"
+              value={quickFixSource}
+              onChange={(value) => setQuickFixSource(value as QuickFixSource)}
+              options={[
+                {
+                  value: "parent-then-book",
+                  label: "The nearest parent page's attribution, else the book attribution",
+                },
+                { value: "parent", label: "The nearest parent page's attribution only" },
+                { value: "book", label: "The book attribution only" },
+              ]}
+            />
+            {selectedIds.size > 0 && (
+              <Checkbox
+                name="quick-fix-selected-only"
+                label={`Only the ${selectedIds.size} selected page(s)`}
+                checked={quickFixSelectedOnly}
+                onChange={setQuickFixSelectedOnly}
+              />
+            )}
+            {quickFixUsesBook &&
+              quickFixRoles.map((roleKeyToFix) => {
+                const info = roleInfo(roleKeyToFix);
+                const people = bookPeople[roleKeyToFix];
+                if (people.length === 0) {
+                  return (
+                    <Text key={roleKeyToFix} size="sm" color="muted">
+                      The book has no {info.label.toLowerCase()} attribution linked to an author
+                      record, so only parent pages can fill this role.
+                    </Text>
+                  );
+                }
+                if (people.length === 1) return null;
+                return (
+                  <RadioGroup
+                    key={roleKeyToFix}
+                    name={`quick-fix-book-${roleKeyToFix}`}
+                    label={`The book has several ${info.label.toLowerCase()}s. A page takes one; which one?`}
+                    value={quickFixBookChoice[roleKeyToFix] ?? ""}
+                    onChange={(value) =>
+                      setQuickFixBookChoice((prev) => ({ ...prev, [roleKeyToFix]: value }))
+                    }
+                    options={people.map((p) => ({ value: p.key, label: p.name }))}
+                  />
+                );
+              })}
+
+            {quickFixRoles.length > 0 && (
+              <div className="rounded border border-gray-200 p-3 text-sm">
+                {quickFixRoles.map((roleKeyToFix) => {
+                  const info = roleInfo(roleKeyToFix);
+                  const forRole = quickFixPlan.items.filter((i) => i.role === roleKeyToFix);
+                  const fromParent = forRole.filter((i) => i.from === "parent").length;
+                  const unresolved = quickFixPlan.unresolved[roleKeyToFix] ?? 0;
+                  return (
+                    <p key={roleKeyToFix}>
+                      <strong>{info.label}:</strong> {forRole.length} page(s) will be filled
+                      {forRole.length > 0 &&
+                        ` (${fromParent} from a parent, ${forRole.length - fromParent} from the book)`}
+                      {unresolved > 0 && `; ${unresolved} have no source and stay missing`}.
+                    </p>
+                  );
+                })}
+                {quickFixPlan.items.length > 0 && (
+                  <ul className="mt-2 max-h-48 overflow-y-auto border-t border-gray-200 pt-2">
+                    {quickFixPlan.items.slice(0, 200).map((i) => (
+                      <li key={`${i.pageID}-${i.role}`}>
+                        {i.title} → <strong>{i.person.name}</strong>{" "}
+                        <span className="text-gray-500">
+                          ({roleInfo(i.role).label.toLowerCase()}, from {i.from === "parent" ? "parent" : "book"})
+                        </span>
+                      </li>
+                    ))}
+                    {quickFixPlan.items.length > 200 && (
+                      <li className="text-gray-500">…and {quickFixPlan.items.length - 200} more</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            )}
+            {bulkRunning && (
+              <Text size="sm" color="muted" role="status">
+                An update is running. The Quick Fix is available again when it finishes.
+              </Text>
+            )}
+          </Stack>
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="outline" onClick={() => setQuickFixOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={quickFixPlan.items.length === 0 || bulkRunning}
+              loading={assignPending}
+              onClick={() => assignAuthors()}
+            >
+              {`Fix ${quickFixPlan.items.length} attribution(s)`}
+            </Button>
+          </div>
+        </Modal.Footer>
+      </Modal>
+
       <Modal open={bookAddRole !== null} onClose={closeBookAdd} size="md">
         <Modal.Header>
           <Modal.Title>Add a book {bookAddInfo?.label.toLowerCase()}</Modal.Title>
@@ -1115,9 +1334,9 @@ const Authorship = () => {
           {bookAddInfo && (
             <Stack direction="vertical" gap="md">
               <Text size="sm" color="muted">
-                Book credits are written on the main page as{" "}
-                <span className="font-mono">book{bookAddInfo.key}@</span> tags. A book can credit
-                several people per role; the main page&apos;s own credits are not changed.
+                Book attributions are written on the main page as{" "}
+                <span className="font-mono">book{bookAddInfo.key}@</span> tags. A book can attribute
+                several people per role; the main page&apos;s own attributions are not changed.
               </Text>
               <AuthorPicker
                 key={bookAddInfo.key}
@@ -1155,7 +1374,7 @@ const Authorship = () => {
 
       <Modal open={compileOpen} onClose={() => setCompileOpen(false)} size="lg">
         <Modal.Header>
-          <Modal.Title>Compile book credits from pages</Modal.Title>
+          <Modal.Title>Compile book attributions from pages</Modal.Title>
           <Modal.Close />
         </Modal.Header>
         <Modal.Body className="min-h-[16rem]">
@@ -1164,16 +1383,16 @@ const Authorship = () => {
           ) : (
             <Stack direction="vertical" gap="md">
               <Text size="sm" color="muted">
-                Collects every page&apos;s own credits, the main page included, and adds the
-                people not yet credited on the book. Existing book credits are kept. Uses the
-                credit data from the last refresh; if pages were edited outside this tool, refresh
+                Collects every page&apos;s own attributions, the main page included, and adds the
+                people not yet attributed on the book. Existing book attributions are kept. Uses the
+                attribution data from the last refresh; if pages were edited outside this tool, refresh
                 first.
               </Text>
               {compileByRole.length === 0 ? (
                 <Alert
                   variant="info"
                   title="Nothing to add"
-                  message="The book already credits everyone credited on its pages."
+                  message="The book already attributes everyone attributed on its pages."
                 />
               ) : (
                 <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 rounded border border-gray-200 p-3 text-sm">
@@ -1193,7 +1412,7 @@ const Authorship = () => {
               )}
               {compilePreview.unlinked > 0 && (
                 <Text size="sm" color="muted">
-                  {compilePreview.unlinked} page credit{compilePreview.unlinked !== 1 ? "s are" : " is"}{" "}
+                  {compilePreview.unlinked} page attribution{compilePreview.unlinked !== 1 ? "s are" : " is"}{" "}
                   not linked to an author record and can&apos;t be added.
                 </Text>
               )}

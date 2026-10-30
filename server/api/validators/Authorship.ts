@@ -50,6 +50,23 @@ export const BulkUpdateAuthorshipAuthorSchema = z.object({
   }),
 });
 
+// A person per page and role, e.g. from the Quick Fix. Clearing is not offered here.
+export const AssignAuthorshipAuthorsSchema = z.object({
+  params: projectParams,
+  body: z.object({
+    items: z
+      .array(
+        z.object({
+          pageID: z.string().min(1),
+          role: roleSchema,
+          authorKey: authorKeySchema.unwrap(),
+        }),
+      )
+      .min(1)
+      .max(10000),
+  }),
+});
+
 export const UpdateBookCreditSchema = z.object({
   params: projectParams,
   body: z.object({

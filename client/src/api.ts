@@ -3753,6 +3753,22 @@ class API {
     return res.data;
   }
 
+  /** Sets a person per page and role in one background job (the Quick Fix). */
+  async assignAuthorshipAuthors(
+    projectID: string,
+    items: { pageID: string; role: CreditRole; authorKey: string }[],
+  ) {
+    const res = await axios.patch<
+      {
+        /** Set when pages were queued; poll getAuthorshipStatus for `bulkJob`. */
+        jobID?: string;
+        queued: number;
+        skipped: { pageID: string; reason: string }[];
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/author/assign`, { items });
+    return res.data;
+  }
+
   /** Adds or removes one `book<role>@<authorKey>` credit on the book's main page. */
   async updateBookCredit(
     projectID: string,
