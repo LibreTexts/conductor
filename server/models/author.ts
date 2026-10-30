@@ -1,5 +1,21 @@
 import { Schema, model, Document } from "mongoose";
 
+/**
+ * Shown for an individual author with no picture of their own. It is never stored on the
+ * record, so an admin can tell "no picture" apart and replace it at any time. Groups get no
+ * default: one person's silhouette would misrepresent several people.
+ */
+export const DEFAULT_AUTHOR_PICTURE_URL =
+  "https://biz.libretexts.org/@api/deki/files/5084/girl-160172__340.png";
+
+/** The author with the default picture filled in when an individual has none. */
+export function withDefaultPicture<T extends { pictureURL?: string; groupMembers?: unknown[] }>(
+  author: T,
+): T {
+  if (author.pictureURL || author.groupMembers?.length) return author;
+  return { ...author, pictureURL: DEFAULT_AUTHOR_PICTURE_URL };
+}
+
 export interface AuthorGroupMember {
   nameKey: string;
   campusName?: string;

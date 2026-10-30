@@ -4,7 +4,7 @@ import {
   authorRefLabel,
   bookCreditsFor,
   bookRows,
-  currentKey,
+  applyChangeToCredits,
   flattenToc,
   isMissingAuthor,
   isUnchanged,
@@ -46,38 +46,54 @@ describe("flattenToc", () => {
   });
 });
 
-describe("currentKey / isUnchanged", () => {
+describe("isUnchanged", () => {
   const e = entry([
     { role: "author", tag: "author@", value: "jane-doe" },
+    { role: "author", tag: "author@", value: "Jane Doe (College)" },
     { role: "editor", tag: "editor@", value: "ann-lee" },
   ]);
 
-  it("reads one role's key without mixing roles", () => {
-    expect(currentKey(e, "author")).toBe("jane-doe");
-    expect(currentKey(e, "editor")).toBe("ann-lee");
-    expect(currentKey(e, "remixer")).toBeNull();
-  });
-
-  it("compares per role", () => {
-    expect(isUnchanged(e, "author", "jane-doe")).toBe(true);
-    expect(isUnchanged(e, "editor", "jane-doe")).toBe(false);
-    expect(isUnchanged(e, "remixer", null)).toBe(true);
-    expect(isUnchanged(e, "author", null)).toBe(false);
-  });
-
-  it("treats several tags of a role as needing a write", () => {
-    const several = entry([
-      { role: "author", tag: "author@", value: "Jane Doe" },
-      { role: "author", tag: "author@", value: "John Smith" },
-    ]);
-    expect(currentKey(several, "author")).toBeNull();
-    expect(isUnchanged(several, "author", "jane-doe")).toBe(false);
+  it("compares per role and action", () => {
+    expect(isUnchanged(e, { role: "author", action: "add", authorKey: "jane-doe" })).toBe(true);
+    expect(isUnchanged(e, { role: "author", action: "add", authorKey: "bo" })).toBe(false);
+    expect(isUnchanged(e, { role: "author", action: "remove", authorKey: "bo" })).toBe(true);
+    expect(isUnchanged(e, { role: "author", action: "remove", authorKey: "Jane Doe (College)" })).toBe(false);
+    expect(isUnchanged(e, { role: "editor", action: "set", authorKey: "ann-lee" })).toBe(true);
+    // Several people: setting one of them still removes the rest.
+    expect(isUnchanged(e, { role: "author", action: "set", authorKey: "jane-doe" })).toBe(false);
+    expect(isUnchanged(e, { role: "remixer", action: "set", authorKey: null })).toBe(true);
   });
 
   it("ignores authorname: tags, which the tool never touches", () => {
     const legacy = entry([{ role: "author", tag: "authorname:", value: "jane-doe" }]);
-    expect(currentKey(legacy, "author")).toBeNull();
-    expect(isUnchanged(legacy, "author", null)).toBe(true);
+    expect(isUnchanged(legacy, { role: "author", action: "set", authorKey: null })).toBe(true);
+  });
+});
+
+describe("applyChangeToCredits", () => {
+  const ann = { nameKey: "ann", name: "Ann", isGroup: false };
+  const credits = [
+    { role: "author" as const, tag: "author@", value: "jane-doe" },
+    { role: "editor" as const, tag: "editor@", value: "bo" },
+  ];
+
+  it("adds, removes and replaces within one role only", () => {
+    const added = applyChangeToCredits(credits, { role: "author", action: "add", authorKey: "ann" }, ann);
+    expect(added.filter((r) => r.role === "author").map((r) => r.value)).toEqual(["jane-doe", "ann"]);
+    const removed = applyChangeToCredits(added, { role: "author", action: "remove", authorKey: "jane-doe" });
+    expect(removed.filter((r) => r.role === "author").map((r) => r.value)).toEqual(["ann"]);
+    const set = applyChangeToCredits(added, { role: "author", action: "set", authorKey: "ann" }, ann);
+    expect(set.filter((r) => r.role === "author").map((r) => r.value)).toEqual(["ann"]);
+    expect(set.find((r) => r.role === "editor")?.value).toBe("bo");
+  });
+
+  it("shows the authorname: fallback again once the last author@ is gone", () => {
+    const legacy = [
+      { role: "author" as const, tag: "authorname:", value: "old" },
+      { role: "author" as const, tag: "author@", value: "ann" },
+    ];
+    const next = applyChangeToCredits(legacy, { role: "author", action: "remove", authorKey: "ann" });
+    expect(next.map((r) => r.tag + r.value)).toEqual(["authorname:old"]);
   });
 });
 
@@ -180,7 +196,7 @@ describe("planQuickFix", () => {
 
   it("fills from the nearest parent, passing new values down", () => {
     const plan = planQuickFix(rows, ["author"], "parent", {});
-    expect(plan.items.map((i) => `${i.pageID}:${i.person.key}`)).toEqual([
+    expect(plan.items.map((i) => `${i.pageID}:${i.people.map((p) => p.key)}`)).toEqual([
       "ch1:ann",
       "s1:ann",
       "s3:bo",
@@ -192,8 +208,8 @@ describe("planQuickFix", () => {
 
   it("falls back to the book, but not past a plain-text parent", () => {
     const noMain = rows.map((r) => (r.id === "main" ? row("main", 0, []) : r));
-    const plan = planQuickFix(noMain, ["author"], "parent-then-book", { author: { key: "bk", name: "BK" } });
-    expect(plan.items.map((i) => `${i.pageID}:${i.person.key}:${i.from}`)).toEqual([
+    const plan = planQuickFix(noMain, ["author"], "parent-then-book", { author: [{ key: "bk", name: "BK" }] });
+    expect(plan.items.map((i) => `${i.pageID}:${i.people.map((p) => p.key)}:${i.from}`)).toEqual([
       "main:bk:book",
       "ch1:bk:parent",
       "s1:bk:parent",
@@ -203,15 +219,37 @@ describe("planQuickFix", () => {
   });
 
   it("uses only the book when asked, and respects the page scope", () => {
-    const plan = planQuickFix(rows, ["author"], "book", { author: { key: "bk", name: "BK" } }, new Set(["s1", "s3"]));
-    expect(plan.items.map((i) => `${i.pageID}:${i.person.key}`)).toEqual(["s1:bk", "s3:bk"]);
+    const plan = planQuickFix(rows, ["author"], "book", { author: [{ key: "bk", name: "BK" }] }, new Set(["s1", "s3"]));
+    expect(plan.items.map((i) => `${i.pageID}:${i.people.map((p) => p.key)}`)).toEqual(["s1:bk", "s3:bk"]);
     expect(plan.missing.author).toBe(2);
   });
 
   it("ignores plain-text parents when filling from the book only", () => {
-    const plan = planQuickFix(rows, ["author"], "book", { author: { key: "bk", name: "BK" } });
+    const plan = planQuickFix(rows, ["author"], "book", { author: [{ key: "bk", name: "BK" }] });
     expect(plan.items.map((i) => i.pageID)).toEqual(["ch1", "s1", "s2", "s3"]);
     expect(plan.unresolved.author).toBe(0);
+  });
+
+  it("copies every person of a parent, and every book person", () => {
+    const multi = [row("main", 0, [linked("ann"), linked("cy")]), row("ch1", 1, [])];
+    expect(planQuickFix(multi, ["author"], "parent", {}).items[0].people.map((p) => p.key)).toEqual([
+      "ann",
+      "cy",
+    ]);
+    const book = planQuickFix([row("ch1", 1, [])], ["author"], "book", {
+      author: [{ key: "a", name: "A" }, { key: "b", name: "B" }],
+    });
+    expect(book.items[0].people.map((p) => p.key)).toEqual(["a", "b"]);
+  });
+
+  it("treats a parent with any plain-text person as blocking", () => {
+    const mixed = [
+      row("main", 0, [linked("ann"), { role: "author", tag: "author@", value: "Jane Doe" }]),
+      row("ch1", 1, []),
+    ];
+    const plan = planQuickFix(mixed, ["author"], "parent-then-book", { author: [{ key: "bk", name: "BK" }] });
+    expect(plan.items).toEqual([]);
+    expect(plan.unresolved.author).toBe(1);
   });
 
   it("leaves roles without a source unresolved", () => {

@@ -392,6 +392,8 @@ function parsePublishingTags(tags: string[]): {
   luluAffiliation?: string;
   nameKey?: string;
   authorLiteral?: string;
+  /** Every `author@` value, in tag order; a page can credit several authors. */
+  authorValues?: string[];
   bookAuthorKeys?: string[];
 } {
   const parsed: ReturnType<typeof parsePublishingTags> = {};
@@ -423,8 +425,9 @@ function parsePublishingTags(tags: string[]): {
     }
 
     if (tag.startsWith("author@")) {
-      parsed.authorLiteral =
-        tag.slice("author@".length).trim() || parsed.authorLiteral;
+      const value = tag.slice("author@".length).trim();
+      if (value) parsed.authorValues = [...(parsed.authorValues ?? []), value];
+      parsed.authorLiteral = value || parsed.authorLiteral;
     }
   }
 
@@ -506,7 +509,8 @@ function resolveAuthor(
   authorKeys?: string[];
   authorGroupKey?: string;
 } {
-  const { luluAuthor, luluAffiliation, nameKey, authorLiteral, bookAuthorKeys } = parsed;
+  const { luluAuthor, luluAffiliation, nameKey, authorLiteral, authorValues, bookAuthorKeys } =
+    parsed;
 
   if (luluAuthor) {
     return { author: luluAuthor, affiliation: luluAffiliation };
@@ -514,6 +518,18 @@ function resolveAuthor(
 
   const bookAuthors = resolveBookAuthors(bookAuthorKeys ?? [], index);
   if (bookAuthors) return bookAuthors;
+
+  // Several `author@<key>` tags (the Attribution Manager allows more than one per role) are
+  // credited together, but only when every value is a key: a mix with older display text
+  // resolves as it always has.
+  if (
+    authorValues &&
+    authorValues.length > 1 &&
+    authorValues.every((v) => index.byNameKey.has(v.toLowerCase()))
+  ) {
+    const pageAuthors = resolveBookAuthors(authorValues, index);
+    if (pageAuthors) return pageAuthors;
+  }
 
   const literal = authorLiteral ? splitAuthorLiteral(authorLiteral) : undefined;
   // The Authorship tool writes `author@<key>`, so an `author@` value is tried as a key first.
