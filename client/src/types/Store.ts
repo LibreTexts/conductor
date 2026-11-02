@@ -52,6 +52,29 @@ export type StoreCheckoutSessionItem = {
     quantity: number;
 }
 
+// Mirrors StoreCartReconciliation in server/types/Store.ts
+export type StoreCartReconciliation = {
+    updated: {
+        product_id: string;
+        old_price_id: string;
+        product: StoreProduct;
+        price: StoreProductPrice;
+    }[];
+    removed: {
+        product_id: string;
+        price_id: string;
+    }[];
+}
+
+export type StoreCartNotice = {
+    changed: {
+        label: string;
+        old_amount: number | null;
+        new_amount: number | null;
+    }[];
+    removed: string[];
+}
+
 export type StoreCheckoutForm = {
     first_name: string;
     last_name: string;

@@ -4,6 +4,8 @@ import { Controller, useForm } from "react-hook-form";
 import { useCart } from "../../../context/CartContext";
 import {
   StoreAddressFields,
+  StoreCartNotice,
+  StoreCartReconciliation,
   StoreCheckoutForm,
   StoreDigitalDeliveryOption,
   StoreGetShippingOptionsRes,
@@ -14,14 +16,18 @@ import AlternateLayout from "../../../components/navigation/AlternateLayout";
 import ShippingOptions from "../../../components/store/ShippingOptions";
 import Input from "../../../components/NextGenInputs/Input";
 import Select from "../../../components/NextGenInputs/Select";
-import { formatPrice } from "../../../utils/storeHelpers";
+import {
+  buildCartNotice,
+  formatCartNotice,
+  formatPrice,
+} from "../../../utils/storeHelpers";
 import { Icon } from "semantic-ui-react";
 import { useTypedSelector } from "../../../state/hooks";
 import { useModals } from "../../../context/ModalContext";
 import ConfirmOrderModal from "../../../components/store/ConfirmOrderModal";
 import AddressSuggestionModal from "../../../components/store/AddressSuggestionModal";
 import ShippingTimeline from "../../../components/store/ShippingTimeline";
-import { Button, Link, Stack, Text } from "@libretexts/davis-react";
+import { Alert, Button, Link, Stack, Text } from "@libretexts/davis-react";
 import { IconArrowRight, IconTruckDelivery } from "@tabler/icons-react";
 
 const STATE_CODES = [
@@ -330,11 +336,12 @@ const REQUIRED_ADDRESS_FORM_FIELDS: (keyof StoreCheckoutForm)[] = [
 ];
 
 export default function ShippingPage() {
-  const { cart, hasDigitalProducts, hasPhysicalProducts } = useCart();
+  const { cart, hasDigitalProducts, hasPhysicalProducts, reconcileCart } = useCart();
   const { openModal, closeAllModals } = useModals();
   const user = useTypedSelector((state) => state.user);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cartNotice, setCartNotice] = useState<StoreCartNotice | null>(null);
   const shippingCalculated = useRef(false);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [validatingAddress, setValidatingAddress] = useState(false);
@@ -509,6 +516,24 @@ export default function ShippingPage() {
     }
   }
 
+  function applyReconciliation(reconciliation?: StoreCartReconciliation) {
+    if (!reconciliation) return;
+
+    // Build the notice first: it needs the old amounts and names from the cart being replaced.
+    // A later fetch with no changes must not clear a notice the customer may not have read yet.
+    const notice = buildCartNotice(cart?.items ?? [], reconciliation);
+    if (notice) setCartNotice(notice);
+
+    // Any quote on screen was priced against the old cart, so the customer must fetch a new one.
+    // A successful fetch sets these again after this returns.
+    if (reconciliation.updated.length > 0 || reconciliation.removed.length > 0) {
+      shippingCalculated.current = false;
+      setSelectedShippingOption(null);
+    }
+
+    reconcileCart(reconciliation);
+  }
+
   async function updateShippingOptions() {
     try {
       if (!cart || cart.items.length === 0) {
@@ -541,6 +566,7 @@ export default function ShippingPage() {
         return;
       }
 
+      applyReconciliation(response.data.cart_reconciliation);
       setShippingOptions(response.data.options);
       shippingCalculated.current = true;
 
@@ -554,6 +580,7 @@ export default function ShippingPage() {
       }
     } catch (error: any) {
       console.error("Error updating shipping options:", error);
+      applyReconciliation(error?.response?.data?.cart_reconciliation);
       const serverMessage = error?.response?.data?.errMsg;
       setError(
         serverMessage ||
@@ -613,6 +640,7 @@ export default function ShippingPage() {
       window.location.href = response.data.checkout_url;
     } catch (error: any) {
       console.error("Error confirming order:", error);
+      applyReconciliation(error?.response?.data?.cart_reconciliation);
       const serverMessage = error?.response?.data?.errMsg;
       setError(
         serverMessage ||
@@ -897,6 +925,15 @@ export default function ShippingPage() {
 
           {/* Order summary */}
           <div className="mt-10 lg:mt-0">
+            {cartNotice && (
+              <Alert
+                variant="warning"
+                title="Your cart was updated"
+                asHeading="p"
+                message={formatCartNotice(cartNotice)}
+                className="mb-4 whitespace-pre-line"
+              />
+            )}
             <h2 className="text-lg font-medium text-gray-900">Order summary</h2>
             <div className="mt-4 rounded-lg border border-gray-200 bg-white shadow-sm">
               <h3 className="sr-only">Items in your cart</h3>
