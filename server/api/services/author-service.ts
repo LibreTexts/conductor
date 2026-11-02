@@ -61,6 +61,7 @@ export type AuthorSearchResult = {
 };
 
 type GroupMemberInput = z.infer<typeof CreateAuthorGroupValidator>["body"]["members"][number];
+type CreateAuthorBody = z.infer<typeof CreateAuthorValidator>["body"];
 
 export default class AuthorService {
     public async getAuthors(params: z.infer<typeof GetAuthorsValidator>['query']): Promise<BaseConductorInfiniteScrollResponse<AuthorInterface>> {
@@ -490,6 +491,21 @@ export default class AuthorService {
     }
 
     public async updateAuthor(id: string, data: z.infer<typeof UpdateAuthorValidator>['body']): Promise<AuthorInterface> {
+        // `members` may list new people: create them, then update the group with their keys.
+        // If anything after that fails, the people created here are removed again, so a failed
+        // save never leaves stray authors behind.
+        if (data.members) {
+            const { members, ...rest } = data;
+            const createdIDs: Types.ObjectId[] = [];
+            try {
+                const groupMembers = await this.resolveGroupMembers(members, createdIDs);
+                return await this.updateAuthor(id, { ...rest, groupMembers });
+            } catch (err) {
+                await this.removeCreated(createdIDs);
+                throw err;
+            }
+        }
+
         const toSet: Record<string, unknown> = {};
         const toUnset: Record<string, 1> = {};
 
@@ -626,21 +642,7 @@ export default class AuthorService {
     ): Promise<AuthorInterface> {
         const createdIDs: Types.ObjectId[] = [];
         try {
-            const members: GroupMemberRef[] = [];
-            for (const m of data.members as GroupMemberInput[]) {
-                const overrides = Object.fromEntries(
-                    MEMBER_OVERRIDE_FIELDS.map((f) => [f, m[f]])
-                );
-                if (m.new) {
-                    const created = await this.createAuthor(
-                        m.new as z.infer<typeof CreateAuthorValidator>["body"]
-                    );
-                    createdIDs.push(created._id as Types.ObjectId);
-                    members.push({ ...overrides, nameKey: created.nameKey });
-                } else {
-                    members.push({ ...overrides, nameKey: m.nameKey as string });
-                }
-            }
+            const members = await this.resolveGroupMembers(data.members, createdIDs);
 
             const customName = data.name || undefined;
             const name = customName ?? (await this.joinedMemberNames(members));
@@ -653,11 +655,38 @@ export default class AuthorService {
                 autoName: !customName,
             } as z.infer<typeof CreateAuthorValidator>["body"]);
         } catch (err) {
-            if (createdIDs.length > 0) {
-                await Author.deleteMany({ _id: { $in: createdIDs }, orgID: process.env.ORG_ID });
-            }
+            await this.removeCreated(createdIDs);
             throw err;
         }
+    }
+
+    /**
+     * Turns member inputs into membership refs, creating the new people first (each gets its own
+     * generated key). Every record created is pushed onto `createdIDs` as soon as it exists, so
+     * the caller can remove them all if a later step fails.
+     */
+    private async resolveGroupMembers(
+        inputs: GroupMemberInput[],
+        createdIDs: Types.ObjectId[]
+    ): Promise<GroupMemberRef[]> {
+        const members: GroupMemberRef[] = [];
+        for (const m of inputs) {
+            const overrides = Object.fromEntries(MEMBER_OVERRIDE_FIELDS.map((f) => [f, m[f]]));
+            if (m.new) {
+                const created = await this.createAuthor(m.new as CreateAuthorBody);
+                createdIDs.push(created._id as Types.ObjectId);
+                members.push({ ...overrides, nameKey: created.nameKey });
+            } else {
+                members.push({ ...overrides, nameKey: m.nameKey as string });
+            }
+        }
+        return members;
+    }
+
+    /** Removes authors created earlier in a call that then failed. */
+    private async removeCreated(createdIDs: Types.ObjectId[]): Promise<void> {
+        if (createdIDs.length === 0) return;
+        await Author.deleteMany({ _id: { $in: createdIDs }, orgID: process.env.ORG_ID });
     }
 
     private sanitizeAuthorData(data: Partial<z.infer<typeof CreateAuthorValidator>['body']>): Record<string, unknown> {

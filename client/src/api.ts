@@ -584,7 +584,16 @@ class API {
     return res;
   }
 
-  async updateAuthor(id: string, data: Partial<Author>) {
+  /**
+   * `members` (a group's people, existing by key or new) replaces the member list in one call:
+   * the server creates the new people and removes them again if the update fails.
+   */
+  async updateAuthor(
+    id: string,
+    data: Partial<Omit<Author, "members">> & {
+      members?: CreateAuthorGroupPayload["members"];
+    },
+  ) {
     const res = await axios.patch<
       {
         author: Author;
