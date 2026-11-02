@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+/**
+ * Distinct lines one cart may hold. Each line costs a Stripe lookup before checkout, and a Stripe
+ * Checkout session takes at most 100 line items, one of which is shipping.
+ */
+export const MAX_CART_LINES = 50;
+
 const _ProductPriceQuantity = z.object({
     product_id: z.string().min(1, "Product ID is required"),
     price_id: z.string().min(1, "Price ID is required"),
@@ -53,7 +59,8 @@ export const SyncSingleBookToStripeSchema = z.object({
 export const CreateCheckoutSessionSchema = z.object({
     body: z.object({
         items: z.array(_ProductPriceQuantity)
-            .min(1, "At least one item is required"),
+            .min(1, "At least one item is required")
+            .max(MAX_CART_LINES, `A cart can hold at most ${MAX_CART_LINES} different items`),
         shipping_option_id: z.number().or(z.literal("digital_delivery_only")),
         shipping_address: _FullShippingAddress,
         digital_delivery_option: z.enum(["apply_to_account", "email_access_codes"]).optional()
@@ -70,7 +77,8 @@ export const UpdateCheckoutSessionSchema = z.object({
     body: z.object({
         checkout_session_id: z.string().min(1, "Checkout session ID is required"),
         items: z.array(_ProductPriceQuantity)
-            .min(1, "At least one item is required"),
+            .min(1, "At least one item is required")
+            .max(MAX_CART_LINES, `A cart can hold at most ${MAX_CART_LINES} different items`),
         shipping_address: _FullShippingAddress
     })
 })
@@ -78,7 +86,8 @@ export const UpdateCheckoutSessionSchema = z.object({
 export const GetShippingOptionsSchema = z.object({
     body: z.object({
         items: z.array(_ProductPriceQuantity)
-            .min(1, "At least one item is required"),
+            .min(1, "At least one item is required")
+            .max(MAX_CART_LINES, `A cart can hold at most ${MAX_CART_LINES} different items`),
         shipping_address: _BasicShippingAddress
     })
 })

@@ -18,9 +18,16 @@ import SupportTicketService from "./support-ticket-service";
 import SearchService from "./search-service.js";
 import { upsertStoreOrderToSearchIndex } from "./store-order-search-service.js";
 import { FilterObject } from "../../types/Search.js";
-import { StoreOrderListItem } from "../../types/Store.js";
+import { StoreCartReconciliation, StoreOrderListItem } from "../../types/Store.js";
 import { AUTO_HEAL_TRIGGER_STATUSES, getAutoHealTimeoutMs, shouldAutoHeal } from "./store-auto-heal-config.js";
+import { mapWithConcurrency } from "../../util/concurrency.js";
 const storeLog = childLogger("store");
+
+/** Upper bound on active prices read for one product. Stripe's own cap for `autoPagingToArray`. */
+const MAX_PRODUCT_PRICES = 10000;
+
+/** Product lookups one cart reconciliation may have in flight against Stripe at once. */
+const CART_RECONCILE_CONCURRENCY = 5;
 
 const BASE_COST = 1.80;
 const PAGE_MULTIPLIER = 0.032;
@@ -134,27 +141,31 @@ class StoreService {
 
             const isBookId = checkBookIDFormat(product_id);
 
-            let prices: Stripe.ApiSearchResult<Stripe.Price> | Stripe.ApiList<Stripe.Price> | null = null;
-
-            if (isBookId) {
-                prices = await stripe.prices.search({
+            // Every page, not just the first. Cart reconciliation reads a price missing from this
+            // list as archived, so a truncated list would drop lines that are still for sale.
+            const prices = isBookId
+                ? await stripe.prices.search({
                     query: `metadata["book_id"]:"${product_id}" AND active:"true"`,
+                    limit: 100,
                     expand: ['data.product'],
-                });
-            } else {
-                prices = await stripe.prices.list({
+                }).autoPagingToArray({ limit: MAX_PRODUCT_PRICES })
+                : await stripe.prices.list({
                     product: product_id,
                     active: true,
+                    limit: 100,
                     expand: ['data.product'],
-                });
+                }).autoPagingToArray({ limit: MAX_PRODUCT_PRICES });
+
+            if (prices.length === MAX_PRODUCT_PRICES) {
+                logger.warn({ product_id, limit: MAX_PRODUCT_PRICES }, "Product price list hit the fetch limit and may be truncated");
             }
 
-            if (prices.data.length === 0) {
+            if (prices.length === 0) {
                 logger.info(`No product found with ID: ${product_id}`);
                 return null;
             }
 
-            const products = this._groupByProduct(prices.data);
+            const products = this._groupByProduct(prices);
             if (products.length === 0) {
                 logger.info(`No products found for ID: ${product_id}`);
                 return null;
@@ -539,6 +550,119 @@ class StoreService {
             logger.error({ err: error }, "Error upserting customer");
             throw new Error("Failed to upsert customer");
         }
+    }
+
+    /**
+     * Brings cart items in line with the current Stripe catalog.
+     *
+     * Carts live in the browser for days, while the book sync archives a price whenever a book's
+     * amount changes. `stripe.prices.retrieve` still returns archived prices, so a stale cart only
+     * fails at `checkout.sessions.create`. This is the check that catches it first.
+     *
+     * Items resolving to the same product and price are merged, which happens when a variant was
+     * added both before and after a sync.
+     *
+     * @returns The reconciled items, and what changed for the client to apply to its cart.
+     */
+    public async reconcileCartItems(
+        items: z.infer<typeof GetShippingOptionsSchema>['body']['items']
+    ): Promise<{
+        items: z.infer<typeof GetShippingOptionsSchema>['body']['items'];
+        reconciliation: StoreCartReconciliation;
+    }> {
+        const uniqueProductIds = [...new Set(items.map(item => item.product_id))];
+        // Bounded so one large cart can't take up the Stripe rate limit other checkouts share.
+        const products = new Map(await mapWithConcurrency(
+            uniqueProductIds,
+            CART_RECONCILE_CONCURRENCY,
+            async (id) => [id, await this.searchStoreProduct(id)] as const
+        ));
+
+        const reconciliation: StoreCartReconciliation = { updated: [], removed: [] };
+        const reconciledItems = new Map<string, typeof items[number]>();
+
+        for (const item of items) {
+            const product = products.get(item.product_id);
+            let price_id = item.price_id;
+
+            if (!product?.active) {
+                reconciliation.removed.push({ product_id: item.product_id, price_id: item.price_id });
+                continue;
+            }
+
+            if (!product.prices.some(price => price.id === item.price_id)) {
+                const replacement = await this._findReplacementPrice(item.price_id, product);
+                if (!replacement) {
+                    reconciliation.removed.push({ product_id: item.product_id, price_id: item.price_id });
+                    continue;
+                }
+
+                price_id = replacement.id;
+                reconciliation.updated.push({
+                    product_id: item.product_id,
+                    old_price_id: item.price_id,
+                    product,
+                    price: replacement,
+                });
+            }
+
+            const key = `${item.product_id}:${price_id}`;
+            const existing = reconciledItems.get(key);
+            reconciledItems.set(key, {
+                ...item,
+                price_id,
+                quantity: (existing?.quantity ?? 0) + item.quantity,
+            });
+        }
+
+        if (reconciliation.updated.length > 0 || reconciliation.removed.length > 0) {
+            storeLog.info(
+                { updated: reconciliation.updated.length, removed: reconciliation.removed.length },
+                "Reconciled stale cart items"
+            );
+        }
+
+        return { items: [...reconciledItems.values()], reconciliation };
+    }
+
+    /**
+     * Finds the active price of the same hardcover/color variant as an archived book price.
+     *
+     * Only books qualify. Digital prices are tied to the license they deliver, so a different
+     * price is a different entitlement rather than a newer copy of the same one.
+     */
+    private async _findReplacementPrice(
+        price_id: string,
+        product: StoreProduct
+    ): Promise<Stripe.Price | null> {
+        if (product.metadata['store_category'] !== 'books') {
+            return null;
+        }
+
+        const stripe = this.stripeService.getInstance();
+
+        let archivedPrice: Stripe.Price;
+        try {
+            archivedPrice = await stripe.prices.retrieve(price_id);
+        } catch (error) {
+            if (error instanceof Stripe.errors.StripeInvalidRequestError && error.code === 'resource_missing') {
+                return null;
+            }
+            throw error;
+        }
+
+        if (archivedPrice.product !== product.id) {
+            return null;
+        }
+
+        const [replacement] = product.prices
+            .filter(price =>
+                price.metadata['hardcover'] === archivedPrice.metadata['hardcover'] &&
+                price.metadata['color'] === archivedPrice.metadata['color']
+            )
+            .sort((a, b) => b.created - a.created);
+
+        return replacement ?? null;
     }
 
     public async getShippingOptions({

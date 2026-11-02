@@ -62,6 +62,7 @@ import {
   Note,
   StoreProduct,
   StoreCheckoutSessionItem,
+  StoreCartReconciliation,
   ClientConfig,
   StoreGetShippingOptionsRes,
   StoreCheckoutForm,
@@ -878,7 +879,10 @@ class API {
     >;
   }) {
     const res = await axios.post<
-      { options: StoreGetShippingOptionsRes } & ConductorBaseResponse
+      {
+        options: StoreGetShippingOptionsRes;
+        cart_reconciliation?: StoreCartReconciliation;
+      } & ConductorBaseResponse
     >("/store/checkout/shipping-options", {
       items,
       shipping_address,

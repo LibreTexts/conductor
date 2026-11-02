@@ -5,7 +5,8 @@ import AddressValidationService from "./services/address-validation-service";
 import { z } from "zod";
 import { CreateCheckoutSessionSchema, GetStoreProductSchema, GetStoreProductsSchema, GetShippingOptionsSchema, UpdateCheckoutSessionSchema, GetMostPopularStoreProductsSchema, AdminGetStoreOrdersSchema, AdminGetStoreOrderSchema, AdminResubmitPrintJobSchema, AdminGetPrintJobPayloadSchema, AdminSubmitManualPrintJobSchema, ValidateAddressSchema, SyncSingleBookToStripeSchema } from "./validators/store";
 import { conductor400Err, conductor404Err, conductor500Err } from "../util/errorutils";
-import { LuluWebhookData, StoreShippingOption, ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
+import conductorErrors from "../conductor-errors.js";
+import { LuluWebhookData, StoreCartReconciliation, StoreShippingOption, ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import StripeService from "./services/stripe-service";
 import User from "../models/user";
 import { syncAllBooksToStripe, syncBookToStripe } from "./services/store-book-sync-service";
@@ -87,6 +88,16 @@ export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<
     const { items, shipping_option_id, shipping_address, digital_delivery_option } = req.body;
     const userId = req.user?.decoded.uuid;
 
+    // Never swap a price here: the customer has not seen the new amount, so send them back to review it.
+    const { reconciliation } = await storeService.reconcileCartItems(items);
+    if (reconciliation.updated.length > 0 || reconciliation.removed.length > 0) {
+      return res.status(409).send({
+        err: true,
+        errMsg: 'Your cart changed. Please review it, then click "Get Shipping Options" again.',
+        cart_reconciliation: reconciliation,
+      });
+    }
+
     const quantityCheck = await storeService.validateItemQuantities({
       items,
       userId,
@@ -156,9 +167,15 @@ export async function createCheckoutSession(req: ZodReqWithOptionalUser<z.infer<
 }
 
 export async function getShippingOptions(req: ZodReqWithOptionalUser<z.infer<typeof GetShippingOptionsSchema>>, res: Response) {
+  // Hoisted so a later failure (e.g. Lulu returns no options) still lets the client heal its cart.
+  let reconciliation: StoreCartReconciliation | undefined;
   try {
+    const reconciled = await storeService.reconcileCartItems(req.body.items);
+    const { items } = reconciled;
+    reconciliation = reconciled.reconciliation;
+
     const quantityCheck = await storeService.validateItemQuantities({
-      items: req.body.items,
+      items,
       userId: req.user?.decoded.uuid,
     });
     if (!quantityCheck.ok) {
@@ -166,20 +183,32 @@ export async function getShippingOptions(req: ZodReqWithOptionalUser<z.infer<typ
         err: true,
         errMsg: quantityCheck.message,
         maxQuantity: quantityCheck.maxQuantity,
+        cart_reconciliation: reconciliation,
       });
     }
 
-    const options = await storeService.getShippingOptions({
-      items: req.body.items,
-      shipping_address: req.body.shipping_address,
-    });
+    // Every item may have been removed, in which case there is nothing to ship.
+    const options = items.length > 0
+      ? await storeService.getShippingOptions({
+        items,
+        shipping_address: req.body.shipping_address,
+      })
+      : [];
     return res.status(200).send({
       err: false,
       message: "Shipping options fetched successfully.",
       options,
+      cart_reconciliation: reconciliation,
     });
   } catch (error) {
     logger.error({ err: error }, "getShippingOptions failed");
+    if (reconciliation) {
+      return res.status(500).send({
+        err: true,
+        errMsg: conductorErrors.err6,
+        cart_reconciliation: reconciliation,
+      });
+    }
     return conductor500Err(res);
   }
 }

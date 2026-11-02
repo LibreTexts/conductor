@@ -7,8 +7,14 @@ import React, {
   useState,
 } from "react";
 import { useLocation } from "react-router-dom";
-import { StoreProduct, StoreProductPrice, Cart } from "../types";
+import {
+  StoreCartReconciliation,
+  StoreProduct,
+  StoreProductPrice,
+  Cart,
+} from "../types";
 import { useNotifications } from "../context/NotificationContext";
+import { applyCartReconciliation } from "../utils/storeHelpers";
 
 const CART_STORAGE_KEY = "libretexts_store_cart";
 const CART_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -209,6 +215,18 @@ const CartProvider = ({ children }: { children: React.ReactNode }) => {
     [removeFromCart]
   );
 
+  const reconcileCart = useCallback(
+    (reconciliation: StoreCartReconciliation) => {
+      setCart((prevCart) => {
+        if (!prevCart) return prevCart;
+        const updatedItems = applyCartReconciliation(prevCart.items, reconciliation);
+        const updatedSubtotal = calculateSubtotal(updatedItems);
+        return { ...prevCart, items: updatedItems, subtotal: updatedSubtotal };
+      });
+    },
+    []
+  );
+
   const productCount = useMemo(() => {
     if (!cart || !cart.items) return 0;
     return cart.items.reduce((acc, item) => acc + item.quantity, 0);
@@ -246,6 +264,7 @@ const CartProvider = ({ children }: { children: React.ReactNode }) => {
         addToCart,
         removeFromCart,
         updateQuantity,
+        reconcileCart,
         loading,
       }}
     >
