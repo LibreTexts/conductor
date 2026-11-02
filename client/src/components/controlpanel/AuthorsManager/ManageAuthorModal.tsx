@@ -30,6 +30,7 @@ import CampusCombobox from "./CampusCombobox";
 import SimilarAuthorsModal, { SimilarPrompt, candidateChoice } from "./SimilarAuthorsModal";
 import CopyButton from "../../util/CopyButton";
 import { useNotifications } from "../../../context/NotificationContext";
+import { DEFAULT_AUTHOR_PICTURE_URL } from "../../../utils/authorPicture";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -693,6 +694,18 @@ const ManageAuthorModal = ({ show, onClose, authorID, onCreated }: ManageAuthorM
                         pictureCircle ? "rounded-full" : "rounded-md"
                       }`}
                     />
+                  ) : !isGroup && people.length <= 1 ? (
+                    // Shown, not saved: readers fall back to it while there is no picture.
+                    <>
+                      <img
+                        src={DEFAULT_AUTHOR_PICTURE_URL}
+                        alt="Default author picture"
+                        className={`h-24 w-24 object-cover border border-dashed border-gray-300 opacity-70 ${
+                          pictureCircle ? "rounded-full" : "rounded-md"
+                        }`}
+                      />
+                      <span className="text-xs text-gray-500">Default picture</span>
+                    </>
                   ) : (
                     <div
                       className={`h-24 w-24 flex items-center justify-center bg-gray-50 border border-dashed border-gray-300 text-xs text-gray-400 text-center px-2 ${

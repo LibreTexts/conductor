@@ -11,6 +11,7 @@ import { Breadcrumb, Card, Heading, IconButton, Spinner, Stack, Link } from "@li
 import { truncateString } from "../../../components/util/HelperFunctions";
 import { IconArrowDown, IconLayoutGrid, IconLink, IconList, IconRefresh } from "@tabler/icons-react";
 import { useJumpToBottom } from "../../../hooks/useJumpToBottom";
+import { authorPictureURL } from "../../../utils/authorPicture";
 
 const ASSETS_LIMIT = 10;
 
@@ -119,11 +120,11 @@ const CommonsAuthor = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 p-6">
           <Card padding="sm">
             <Stack direction="vertical" gap="md">
-              {author?.pictureURL && (
+              {authorPictureURL(author) && (
                 <img
-                  src={author.pictureURL}
-                  alt={author.name}
-                  className={`w-24 h-24 object-cover mb-3 ${author.pictureCircle === "no" ? "rounded-md" : "rounded-full"}`}
+                  src={authorPictureURL(author)}
+                  alt={author?.name}
+                  className={`w-24 h-24 object-cover mb-3 ${author?.pictureCircle === "no" ? "rounded-md" : "rounded-full"}`}
                 />
               )}
               <Heading level={1} className="!mb-2 !ml-0.5">
