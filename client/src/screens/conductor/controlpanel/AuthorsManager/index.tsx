@@ -30,6 +30,7 @@ import { useNotifications } from "../../../../context/NotificationContext";
 import { truncateString } from "../../../../components/util/HelperFunctions";
 import CopyButton from "../../../../components/util/CopyButton";
 import ManageAuthorModal from "../../../../components/controlpanel/AuthorsManager/ManageAuthorModal";
+import { authorPictureURL } from "../../../../utils/authorPicture";
 
 const LIMIT = 25;
 
@@ -168,10 +169,10 @@ const AuthorsManager = () => {
         accessorKey: "name",
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            {row.original.pictureURL && (
+            {authorPictureURL(row.original) && (
               <img
                 alt={row.original.name}
-                src={row.original.pictureURL}
+                src={authorPictureURL(row.original)}
                 className="inline-block size-7 rounded-full outline -outline-offset-1 outline-black/5"
               />
             )}
