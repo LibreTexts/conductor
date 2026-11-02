@@ -390,23 +390,15 @@ const ManageAuthorModal = ({ show, onClose, authorID, onCreated }: ManageAuthorM
         created = res.data.author;
       }
     } else if (authorID && isGroup) {
-      // New people are created first so the group can reference their keys.
-      const memberKeys: string[] = [];
-      for (const p of rows) {
-        if (p.nameKey) {
-          memberKeys.push(p.nameKey);
-          continue;
-        }
-        const created = await api.createAuthor({
-          name: p.name.trim(),
-          nameURL: p.nameURL,
-        });
-        if (created.data.err) throw new Error(created.data.errMsg);
-        memberKeys.push(created.data.author.nameKey);
-      }
+      // One request: the server creates any new people and updates the group, and removes the
+      // new people again if the update fails, so a failed save leaves nothing behind.
       const res = await api.updateAuthor(authorID, {
         ...shared,
-        groupMembers: memberKeys.map((nameKey) => ({ nameKey })),
+        members: rows.map((p) =>
+          p.nameKey
+            ? { nameKey: p.nameKey }
+            : { new: { name: p.name.trim(), nameURL: p.nameURL } }
+        ),
       });
       if (res.data.err) throw new Error(res.data.errMsg);
     } else if (authorID) {

@@ -84,8 +84,23 @@ export const GetAuthorByNameKeyValidator = z.object({
   }).optional().default({ includeProjects: false }),
 });
 
-// Creates a group in one call. Each member is either an existing author (by key) or a new
-// individual to create first; both may carry affiliation overrides for this group.
+// A group member given either as an existing author (by key) or as a new individual to create
+// first; both may carry affiliation overrides for this group.
+const groupMemberInputsSchema = z
+  .array(
+    memberOverrideSchema
+      .extend({
+        nameKey: nameKeyLookupSchema.optional(),
+        new: _AuthorValidator.omit({ groupMembers: true, autoName: true, nameKey: true }).optional(),
+      })
+      .refine((m) => !!m.nameKey !== !!m.new, {
+        message: "Each member needs either an existing author key or a new author.",
+      })
+  )
+  .min(1)
+  .max(MAX_GROUP_MEMBERS);
+
+// Creates a group in one call.
 export const CreateAuthorGroupValidator = z.object({
   body: _AuthorValidator
     .pick({
@@ -102,21 +117,7 @@ export const CreateAuthorGroupValidator = z.object({
     .extend({
     // A custom display name. When omitted the name is derived from the members.
     name: z.string().trim().max(200).optional().or(z.literal("")),
-    members: z
-      .array(
-        memberOverrideSchema
-          .extend({
-            nameKey: nameKeyLookupSchema.optional(),
-            new: _AuthorValidator
-              .omit({ groupMembers: true, autoName: true, nameKey: true })
-              .optional(),
-          })
-          .refine((m) => !!m.nameKey !== !!m.new, {
-            message: "Each member needs either an existing author key or a new author.",
-          })
-      )
-      .min(1)
-      .max(MAX_GROUP_MEMBERS),
+    members: groupMemberInputsSchema,
   }),
 });
 
@@ -165,7 +166,17 @@ export const CreateAuthorValidator = z.object({
 });
 
 export const UpdateAuthorValidator = z.object({
-  body: _AuthorValidator.omit({ nameKey: true }).partial(),
+  body: _AuthorValidator
+    .omit({ nameKey: true })
+    .partial()
+    .extend({
+      // Replaces a group's members like `groupMembers`, but may also list new people: they are
+      // created and the group updated in one call, and removed again if the update fails.
+      members: groupMemberInputsSchema.optional(),
+    })
+    .refine((b) => !(b.members && b.groupMembers), {
+      message: "Send either members or groupMembers, not both.",
+    }),
   params: AuthorIDParams.shape.params,
 });
 
