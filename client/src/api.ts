@@ -15,6 +15,14 @@ import {
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
   Author,
+  AuthorSearchResult,
+  AuthorshipBulkJob,
+  BookCreditAddition,
+  AuthorshipEntry,
+  AuthorshipStatus,
+  CreditRole,
+  CreateAuthorGroupPayload,
+  SimilarAuthorMatch,
   Book,
   BookSearchParams,
   CentralIdentityApp,
@@ -541,7 +549,7 @@ class API {
     return res;
   }
 
-  async createAuthor(author: Omit<Author, "_id">) {
+  async createAuthor(author: Omit<Author, "_id" | "orgID" | "nameKey">) {
     const res = await axios.post<
       {
         author: Author;
@@ -550,7 +558,42 @@ class API {
     return res;
   }
 
-  async updateAuthor(id: string, data: Author) {
+  /** Public search by name or key (no login needed). */
+  async searchAuthors(q: string, limit = 10) {
+    const res = await axios.get<
+      { authors: AuthorSearchResult[] } & ConductorBaseResponse
+    >("/authors/search", { params: { q, limit } });
+    return res.data;
+  }
+
+  async findSimilarAuthors(names: string[], excludeKeys?: string[], excludeIDs?: string[]) {
+    const res = await axios.post<
+      {
+        matches: SimilarAuthorMatch[];
+      } & ConductorBaseResponse
+    >("/authors/similar", { names, excludeKeys, excludeIDs });
+    return res;
+  }
+
+  async createAuthorGroup(payload: CreateAuthorGroupPayload) {
+    const res = await axios.post<
+      {
+        author: Author;
+      } & ConductorBaseResponse
+    >("/authors/groups", payload);
+    return res;
+  }
+
+  /**
+   * `members` (a group's people, existing by key or new) replaces the member list in one call:
+   * the server creates the new people and removes them again if the update fails.
+   */
+  async updateAuthor(
+    id: string,
+    data: Partial<Omit<Author, "members">> & {
+      members?: CreateAuthorGroupPayload["members"];
+    },
+  ) {
     const res = await axios.patch<
       {
         author: Author;
@@ -3648,6 +3691,130 @@ class API {
         data: { status: boolean; };
       } & ConductorBaseResponse
     >(`/reference/projects/${projectID}/populate`);
+    return res.data;
+  }
+
+  // Authorship
+  async getAuthorshipToc(projectID: string) {
+    const res = await axios.get<
+      { toc: TableOfContents; status: AuthorshipStatus } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/toc`);
+    return res.data;
+  }
+
+  /**
+   * Rescans the book. "content" re-reads every page's body (slow); "page" only re-reads tags and
+   * keeps the source/content data. Also refreshes the License Restacker (one shared scan).
+   */
+  async reloadAuthorship(projectID: string, mode: "content" | "page" = "content") {
+    const res = await axios.post<{ status: AuthorshipStatus } & ConductorBaseResponse>(
+      `/projects/${projectID}/authorship/toc`,
+      { mode },
+    );
+    return res.data;
+  }
+
+  async getAuthorship(projectID: string) {
+    const res = await axios.get<
+      { bookPageID: string; pages: AuthorshipEntry[] } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship`);
+    return res.data;
+  }
+
+  async getAuthorshipStatus(projectID: string) {
+    const res = await axios.get<
+      {
+        status: AuthorshipStatus | "notfound";
+        processing: boolean;
+        total: number;
+        completed: number;
+        failed: number;
+        pending: number;
+        bulkJob?: AuthorshipBulkJob;
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/status`);
+    return res.data;
+  }
+
+  /**
+   * Changes one role on one page: "set" replaces everyone in the role (null clears it), "add"
+   * adds one person and "remove" removes one tag value.
+   */
+  async updateAuthorshipAuthor(
+    projectID: string,
+    data: {
+      pageID: string;
+      role: CreditRole;
+      action?: "set" | "add" | "remove";
+      authorKey: string | null;
+    },
+  ) {
+    const res = await axios.patch<
+      { pageID: string; role: CreditRole; authorKey: string | null } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/author`, data);
+    return res.data;
+  }
+
+  async bulkUpdateAuthorshipAuthor(
+    projectID: string,
+    data: {
+      pageIDs: string[];
+      role: CreditRole;
+      action?: "set" | "add" | "remove";
+      authorKey: string | null;
+    },
+  ) {
+    const res = await axios.patch<
+      {
+        /** Set when pages were queued; poll getAuthorshipStatus for `bulkJob`. */
+        jobID?: string;
+        queued: number;
+        skipped: { pageID: string; reason: string }[];
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/author/bulk`, data);
+    return res.data;
+  }
+
+  /** Sets a person per page and role in one background job (the Quick Fix). */
+  async assignAuthorshipAuthors(
+    projectID: string,
+    items: { pageID: string; role: CreditRole; authorKey: string }[],
+  ) {
+    const res = await axios.patch<
+      {
+        /** Set when pages were queued; poll getAuthorshipStatus for `bulkJob`. */
+        jobID?: string;
+        queued: number;
+        skipped: { pageID: string; reason: string }[];
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/author/assign`, { items });
+    return res.data;
+  }
+
+  /** Adds or removes one `book<role>@<authorKey>` credit on the book's main page. */
+  async updateBookCredit(
+    projectID: string,
+    data: { role: CreditRole; authorKey: string; action: "add" | "remove" },
+  ) {
+    const res = await axios.patch<{ pageID: string } & ConductorBaseResponse>(
+      `/projects/${projectID}/authorship/book-credit`,
+      data,
+    );
+    return res.data;
+  }
+
+  /**
+   * Lists the people credited on pages but not yet on the book (and how many page credits aren't
+   * linked to an author). With `apply`, also adds them as book credits.
+   */
+  async compileBookCredits(projectID: string, apply: boolean) {
+    const res = await axios.post<
+      {
+        applied: boolean;
+        additions: BookCreditAddition[];
+        unlinked: number;
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/authorship/book-credits/compile`, { apply });
     return res.data;
   }
 }

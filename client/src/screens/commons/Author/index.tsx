@@ -119,11 +119,12 @@ const CommonsAuthor = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 p-6">
           <Card padding="sm">
             <Stack direction="vertical" gap="md">
+              {/* The server fills in the default picture for an individual without one. */}
               {author?.pictureURL && (
                 <img
                   src={author.pictureURL}
-                  alt={author.name}
-                  className={`w-24 h-24 object-cover mb-3 ${author.pictureCircle === "no" ? "rounded-md" : "rounded-full"}`}
+                  alt={author?.name}
+                  className={`w-24 h-24 object-cover mb-3 ${author?.pictureCircle === "no" ? "rounded-md" : "rounded-full"}`}
                 />
               )}
               <Heading level={1} className="!mb-2 !ml-0.5">

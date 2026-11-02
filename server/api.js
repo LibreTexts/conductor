@@ -82,6 +82,8 @@ import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
 import * as ReferenceValidators from "./api/validators/Reference.js";
 import referenceAPI from "./api/reference.js";
+import * as AuthorshipValidators from "./api/validators/Authorship.js";
+import authorshipAPI from "./api/authorship.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -153,6 +155,10 @@ router.use((req, res, next) => {
   if (rawBodyPaths.includes(pathname)) return next();
   // Remixer writes are parsed after auth with a 2mb limit (see the /remixer route defs).
   if (pathname.startsWith("/remixer/") && (req.method === "POST" || req.method === "PUT")) {
+    return next();
+  }
+  // Quick Fix assignments can list thousands of pages; parsed after auth with a 2mb limit.
+  if (req.method === "PATCH" && /^\/projects\/[^/]+\/authorship\/author\/assign$/.test(pathname)) {
     return next();
   }
   return globalJsonParser(req, res, next);
@@ -819,6 +825,42 @@ router
     authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
     middleware.validateZod(AuthorsValidators.CreateAuthorValidator),
     authorsAPI.createAuthor
+  );
+
+// Declared before /authors/:id, which would otherwise capture "groups"/"keys" as an id.
+router
+  .route("/authors/groups")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(AuthorsValidators.CreateAuthorGroupValidator),
+    authorsAPI.createAuthorGroup
+  );
+
+router
+  .route("/authors/similar")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+    middleware.validateZod(AuthorsValidators.FindSimilarAuthorsValidator),
+    authorsAPI.findSimilarAuthors
+  );
+
+// Public: no login or role. Lightweight search by name or key, e.g. for autocomplete.
+router
+  .route("/authors/search")
+  .get(
+    middleware.validateZod(AuthorsValidators.SearchAuthorsValidator),
+    authorsAPI.searchAuthors
+  );
+
+router
+  .route("/authors/keys")
+  .get(
+    middleware.validateZod(AuthorsValidators.GetAuthorsByNameKeysValidator),
+    authorsAPI.getAuthorsByNameKeys
   );
 
 router
@@ -3811,6 +3853,71 @@ router.route('/projects/:projectID/restacker/license/bulk').patch(
   authAPI.getUserAttributes ,
   middleware.validateZod(RestackerValidators.BulkUpdateRestackerLicenseSchema),
   restackerAPI.bulkUpdateRestackerLicense
+);
+
+/* Authorship */
+router.route('/projects/:projectID/authorship/toc').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.GetAuthorshipSchema),
+  authorshipAPI.getAuthorshipToc
+)
+.post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.AuthorshipReloadSchema),
+  authorshipAPI.reloadAuthorship
+);
+
+router.route('/projects/:projectID/authorship').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.GetAuthorshipSchema),
+  authorshipAPI.getAuthorship
+);
+
+router.route('/projects/:projectID/authorship/status').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.GetAuthorshipSchema),
+  authorshipAPI.getAuthorshipStatus
+);
+
+router.route('/projects/:projectID/authorship/author').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.UpdateAuthorshipAuthorSchema),
+  authorshipAPI.updateAuthorshipAuthor
+);
+
+router.route('/projects/:projectID/authorship/author/bulk').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.BulkUpdateAuthorshipAuthorSchema),
+  authorshipAPI.bulkUpdateAuthorshipAuthor
+);
+
+router.route('/projects/:projectID/authorship/author/assign').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  // Excluded from the global parser (see above): up to 10,000 items exceed its 100kb limit.
+  express.json({ limit: "2mb" }),
+  middleware.validateZod(AuthorshipValidators.AssignAuthorshipAuthorsSchema),
+  authorshipAPI.assignAuthorshipAuthors
+);
+
+router.route('/projects/:projectID/authorship/book-credit').patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.UpdateBookCreditSchema),
+  authorshipAPI.updateBookCredit
+);
+
+router.route('/projects/:projectID/authorship/book-credits/compile').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(AuthorshipValidators.CompileBookCreditsSchema),
+  authorshipAPI.compileBookCredits
 );
 
 router.route('/projects/:projectID/reference')

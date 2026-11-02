@@ -6,6 +6,14 @@ import { PaginationSchema, isMongoIDValidator } from "./misc.js";
 export const NAME_KEY_REGEX = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
 export const NAME_KEY_LOOKUP_REGEX = /^[a-z0-9_-]{1,100}$/;
 
+const MAX_GROUP_MEMBERS = 20;
+
+// Author URLs are rendered as links, so only http(s) is accepted (z.url() alone also allows
+// schemes such as javascript: and data:).
+const httpUrl = () => z.url({ protocol: /^https?$/ });
+const MAX_LOOKUP_KEYS = 50;
+const MAX_SEARCH_RESULTS = 20;
+
 const NAME_KEY_MESSAGE =
   "Name Key must be lowercase letters, numbers, hyphens, and underscores only.";
 
@@ -17,20 +25,36 @@ const nameKeyLookupSchema = z.string().trim().min(1).max(100).regex(NAME_KEY_LOO
   message: NAME_KEY_MESSAGE,
 });
 
+// The affiliation a group membership may override for one member, in that group only.
+const memberOverrideSchema = z.object({
+  campusName: z.string().trim().max(200).optional().or(z.literal("")),
+  campusURL: httpUrl().optional().or(z.literal("")),
+  programName: z.string().trim().max(200).optional().or(z.literal("")),
+  programURL: httpUrl().optional().or(z.literal("")),
+});
+
+// Members are existing authors, so their keys use the lookup format: keys inserted by a
+// migration may not match the stricter write format, and must still be usable here.
+const groupMemberSchema = memberOverrideSchema.extend({
+  nameKey: nameKeyLookupSchema,
+});
+
 const _AuthorValidator = z.object({
   nameKey: nameKeySchema,
   name: z.string().trim().min(1).max(200),
-  nameURL: z.url().optional().or(z.literal("")),
+  nameURL: httpUrl().optional().or(z.literal("")),
   note: z.string().trim().max(1000).optional().or(z.literal("")),
-  noteURL: z.url().optional().or(z.literal("")),
+  noteURL: httpUrl().optional().or(z.literal("")),
   campusName: z.string().trim().max(200).optional().or(z.literal("")),
-  campusURL: z.url().optional().or(z.literal("")),
+  campusURL: httpUrl().optional().or(z.literal("")),
   pictureCircle: z.enum(["yes", "no"]).optional(),
-  pictureURL: z.url().optional().or(z.literal("")),
+  pictureURL: httpUrl().optional().or(z.literal("")),
   programName: z.string().trim().max(200).optional().or(z.literal("")),
-  programURL: z.url().optional().or(z.literal("")),
+  programURL: httpUrl().optional().or(z.literal("")),
   attributionPrefix: z.string().trim().max(100).optional().or(z.literal("")),
   userUUID: z.uuid().optional(),
+  groupMembers: z.array(groupMemberSchema).max(MAX_GROUP_MEMBERS).optional(),
+  autoName: z.boolean().optional(),
 });
 
 const AuthorIDParams = z.object({
@@ -60,6 +84,74 @@ export const GetAuthorByNameKeyValidator = z.object({
   }).optional().default({ includeProjects: false }),
 });
 
+// A group member given either as an existing author (by key) or as a new individual to create
+// first; both may carry affiliation overrides for this group.
+const groupMemberInputsSchema = z
+  .array(
+    memberOverrideSchema
+      .extend({
+        nameKey: nameKeyLookupSchema.optional(),
+        new: _AuthorValidator.omit({ groupMembers: true, autoName: true, nameKey: true }).optional(),
+      })
+      .refine((m) => !!m.nameKey !== !!m.new, {
+        message: "Each member needs either an existing author key or a new author.",
+      })
+  )
+  .min(1)
+  .max(MAX_GROUP_MEMBERS);
+
+// Creates a group in one call.
+export const CreateAuthorGroupValidator = z.object({
+  body: _AuthorValidator
+    .pick({
+      campusName: true,
+      campusURL: true,
+      programName: true,
+      programURL: true,
+      pictureURL: true,
+      pictureCircle: true,
+      attributionPrefix: true,
+      note: true,
+      noteURL: true,
+    })
+    .extend({
+    // A custom display name. When omitted the name is derived from the members.
+    name: z.string().trim().max(200).optional().or(z.literal("")),
+    members: groupMemberInputsSchema,
+  }),
+});
+
+// Asks which existing authors a typed name could be, before a duplicate is created.
+export const FindSimilarAuthorsValidator = z.object({
+  body: z.object({
+    names: z.array(z.string().trim().min(1).max(200)).min(1).max(MAX_GROUP_MEMBERS),
+    excludeKeys: z.array(nameKeyLookupSchema).max(100).optional(),
+    // Records to leave out by id, for authors that have no key to exclude them by.
+    excludeIDs: z
+      .array(z.string().refine((val: string) => isMongoIDValidator(val)))
+      .max(100)
+      .optional(),
+  }),
+});
+
+// Anonymous, lightweight author search by name or key (e.g. for autocomplete).
+export const SearchAuthorsValidator = z.object({
+  query: z.object({
+    q: z.string().trim().min(2).max(100),
+    limit: z.coerce.number().int().min(1).max(MAX_SEARCH_RESULTS).optional().default(10),
+  }),
+});
+
+export const GetAuthorsByNameKeysValidator = z.object({
+  query: z.object({
+    // Comma-separated nameKeys, e.g. `?keys=jane-doe,john-smith`
+    keys: z
+      .string()
+      .transform((val) => val.split(",").map((k) => k.trim()).filter(Boolean))
+      .pipe(z.array(nameKeyLookupSchema).min(1).max(MAX_LOOKUP_KEYS)),
+  }),
+});
+
 export const GetAuthorAssetsValidator = z.object({
   params: z.object({
     id: z.string().refine((val: string) => isMongoIDValidator(val)),
@@ -67,12 +159,24 @@ export const GetAuthorAssetsValidator = z.object({
   query: PaginationSchema,
 });
 
+// Keys are generated by the server (AuthorService.generateUniqueNameKey) and never accepted
+// from a client. Zod strips unknown properties, so a `nameKey` in a request body is ignored.
 export const CreateAuthorValidator = z.object({
-  body: _AuthorValidator,
+  body: _AuthorValidator.omit({ nameKey: true }),
 });
 
 export const UpdateAuthorValidator = z.object({
-  body: _AuthorValidator.partial(),
+  body: _AuthorValidator
+    .omit({ nameKey: true })
+    .partial()
+    .extend({
+      // Replaces a group's members like `groupMembers`, but may also list new people: they are
+      // created and the group updated in one call, and removed again if the update fails.
+      members: groupMemberInputsSchema.optional(),
+    })
+    .refine((b) => !(b.members && b.groupMembers), {
+      message: "Send either members or groupMembers, not both.",
+    }),
   params: AuthorIDParams.shape.params,
 });
 

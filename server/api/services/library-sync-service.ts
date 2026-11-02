@@ -14,6 +14,11 @@ import {
   UNLISTED_RESTRICTIONS,
 } from "../../util/CXOne/page-restriction.js";
 import AuthorService from "./author-service.js";
+import {
+  describeGroup,
+  expandGroupMembers,
+  isAuthorGroup,
+} from "../../util/author-groups.js";
 import CXOnePageProperties from "../../util/CXOne/CXOnePageProperties.js";
 import { sanitizeOptionalLibraryText } from "../../util/sanitize-text.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
@@ -185,6 +190,10 @@ export type LibraryCoverpage = {
   tags: string[];
   dateModified?: string;
   author?: string;
+  /** Set only when the page is tagged with an author group: its members' keys, in order... */
+  authorKeys?: string[];
+  /** ...and the group's own key. Absent for every other book. */
+  authorGroupKey?: string;
   affiliation?: string;
   summary?: string;
 };
@@ -375,6 +384,7 @@ function cleanLuluSegment(segment: string | undefined): string | undefined {
  *   override, also written with `|` or `,` as the delimiter.
  * - `authorname:<slug>` — a reference into an author directory.
  * - `author@<Name> (<Institution>)` — a display string.
+ * - `bookauthor@<key>` — a book-level author set by the Attribution Manager; several allowed.
  */
 function parsePublishingTags(tags: string[]): {
   luluTitle?: string;
@@ -382,6 +392,9 @@ function parsePublishingTags(tags: string[]): {
   luluAffiliation?: string;
   nameKey?: string;
   authorLiteral?: string;
+  /** Every `author@` value, in tag order; a page can credit several authors. */
+  authorValues?: string[];
+  bookAuthorKeys?: string[];
 } {
   const parsed: ReturnType<typeof parsePublishingTags> = {};
 
@@ -400,14 +413,21 @@ function parsePublishingTags(tags: string[]): {
       continue;
     }
 
+    if (tag.startsWith("bookauthor@")) {
+      const key = tag.slice("bookauthor@".length).trim();
+      if (key) parsed.bookAuthorKeys = [...(parsed.bookAuthorKeys ?? []), key];
+      continue;
+    }
+
     if (tag.startsWith("authorname:")) {
       parsed.nameKey = tag.slice("authorname:".length).trim() || parsed.nameKey;
       continue;
     }
 
     if (tag.startsWith("author@")) {
-      parsed.authorLiteral =
-        tag.slice("author@".length).trim() || parsed.authorLiteral;
+      const value = tag.slice("author@".length).trim();
+      if (value) parsed.authorValues = [...(parsed.authorValues ?? []), value];
+      parsed.authorLiteral = value || parsed.authorLiteral;
     }
   }
 
@@ -428,9 +448,52 @@ function splitAuthorLiteral(literal: string): {
 }
 
 /**
+ * Resolves the `bookauthor@` keys a book's main page carries. Each resolved author is one entry
+ * in the display name (a group shown as its members), campuses are listed once each, and the
+ * individual keys are kept with groups expanded. Returns undefined when no key resolves, so the
+ * book falls back to its older author tags.
+ */
+function resolveBookAuthors(
+  keys: string[],
+  index: AuthorIndex
+): { author: string; affiliation?: string; authorKeys: string[] } | undefined {
+  const names: string[] = [];
+  const campuses: string[] = [];
+  const authorKeys: string[] = [];
+  const addOnce = (list: string[], value?: string) => {
+    if (value && !list.includes(value)) list.push(value);
+  };
+
+  for (const key of keys) {
+    const match = index.byNameKey.get(key.toLowerCase());
+    if (!match) continue;
+    if (isAuthorGroup(match)) {
+      const members = expandGroupMembers(match, (k) => index.byNameKey.get(k.toLowerCase()));
+      if (members.length === 0) continue;
+      const view = describeGroup(match, members);
+      addOnce(names, view.name);
+      addOnce(campuses, view.campusName);
+      members.forEach((m) => addOnce(authorKeys, m.nameKey));
+    } else {
+      addOnce(names, match.name);
+      addOnce(campuses, match.campusName);
+      addOnce(authorKeys, match.nameKey);
+    }
+  }
+
+  if (names.length === 0) return undefined;
+  return {
+    author: names.join(", "),
+    affiliation: campuses.length ? campuses.join(", ") : undefined,
+    authorKeys,
+  };
+}
+
+/**
  * Resolves author and affiliation from tags.
  *
- * `lulu` wins because it is the explicit per-book override. Failing that, an
+ * `lulu` wins because it is the explicit per-book override. Next come the
+ * `bookauthor@` keys set by the Attribution Manager, when any resolve. Failing that, an
  * `authorname:`/`author@` tag is looked up in Conductor's own Authors
  * collection — the legacy resolver
  * (`api.libretexts.org/endpoint/getAuthors/{lib}`) now returns `{}`. If nothing
@@ -440,19 +503,61 @@ function splitAuthorLiteral(literal: string): {
 function resolveAuthor(
   parsed: ReturnType<typeof parsePublishingTags>,
   index: AuthorIndex
-): { author?: string; affiliation?: string } {
-  const { luluAuthor, luluAffiliation, nameKey, authorLiteral } = parsed;
+): {
+  author?: string;
+  affiliation?: string;
+  authorKeys?: string[];
+  authorGroupKey?: string;
+} {
+  const { luluAuthor, luluAffiliation, nameKey, authorLiteral, authorValues, bookAuthorKeys } =
+    parsed;
 
   if (luluAuthor) {
     return { author: luluAuthor, affiliation: luluAffiliation };
   }
 
+  const bookAuthors = resolveBookAuthors(bookAuthorKeys ?? [], index);
+  if (bookAuthors) return bookAuthors;
+
+  // Several `author@<key>` tags (the Attribution Manager allows more than one per role) are
+  // credited together, but only when every value is a key: a mix with older display text
+  // resolves as it always has.
+  if (
+    authorValues &&
+    authorValues.length > 1 &&
+    authorValues.every((v) => index.byNameKey.has(v.toLowerCase()))
+  ) {
+    const pageAuthors = resolveBookAuthors(authorValues, index);
+    if (pageAuthors) return pageAuthors;
+  }
+
   const literal = authorLiteral ? splitAuthorLiteral(authorLiteral) : undefined;
+  // The Authorship tool writes `author@<key>`, so an `author@` value is tried as a key first.
+  // Display text such as "Jane Doe (Some College)" never looks like a key, so older tags still
+  // fall through to the lookups below exactly as before.
   const match =
+    (authorLiteral ? index.byNameKey.get(authorLiteral.trim().toLowerCase()) : undefined) ??
     (nameKey ? index.byNameKey.get(nameKey.toLowerCase()) : undefined) ??
     (literal ? index.byName.get(literal.author.toLowerCase()) : undefined);
 
   if (match) {
+    // A group stands for several individual authors. Only this branch is new: anything that
+    // isn't a group resolves exactly as it always has.
+    if (isAuthorGroup(match)) {
+      const members = expandGroupMembers(match, (key) =>
+        index.byNameKey.get(key.toLowerCase())
+      );
+      if (members.length > 0) {
+        const view = describeGroup(match, members);
+        return {
+          author: view.name,
+          affiliation: view.campusName || literal?.affiliation,
+          authorKeys: members.map((m) => m.nameKey),
+          authorGroupKey: match.nameKey,
+        };
+      }
+    }
+
     return {
       author: match.name,
       affiliation: match.campusName || literal?.affiliation,
@@ -683,7 +788,7 @@ export default class LibrarySyncService {
     // `authorname:` slugs are structure, not display text. Only the values it
     // produces are sanitized.
     const parsed = parsePublishingTags(tags);
-    const { author, affiliation } = resolveAuthor(parsed, index);
+    const { author, affiliation, authorKeys, authorGroupKey } = resolveAuthor(parsed, index);
     return {
       id,
       // A `lulu` tag is the explicit per-book override, so its title wins over
@@ -696,6 +801,8 @@ export default class LibrarySyncService {
       tags,
       dateModified: page["date.modified"],
       author: sanitizeOptionalLibraryText(author),
+      authorKeys,
+      authorGroupKey,
       affiliation: sanitizeOptionalLibraryText(affiliation),
     };
   }

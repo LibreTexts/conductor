@@ -38,6 +38,7 @@ import {
   pageRestriction,
 } from "../../util/CXOne/page-restriction.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
+import { mergeSystemTags } from "../../util/page-tags.js";
 import LibraryService from "./library-service";
 
 export interface BookServiceParams {
@@ -234,6 +235,21 @@ export default class BookService {
     "stage:",
     "lulu@",
     "author@",
+    // Credit roles managed by the Attribution Manager (author@ is above).
+    "editor@",
+    "remixer@",
+    "translator@",
+    "contributor@",
+    "illustrator@",
+    "reviewedBy@",
+    // Book-level credits on the main page (book<role>@).
+    "bookauthor@",
+    "bookeditor@",
+    "bookremixer@",
+    "booktranslator@",
+    "bookcontributor@",
+    "bookillustrator@",
+    "bookreviewedBy@",
     "printoptions:",
     "showtoc:",
     "coverpage:",
@@ -1286,6 +1302,32 @@ export default class BookService {
     }
   }
 
+  /**
+   * Replaces a page's tags with exactly `tags`. Unlike `updatePageDetails`, which always carries
+   * the page's existing system tags over (so it can't remove one, e.g. clear an `author@` tag),
+   * this writes the list as given. Callers should start from the page's current tags and change
+   * only what they mean to.
+   */
+  async setPageTags(pageID: string, tags: string[]): Promise<void> {
+    const body = `<tags>${[...new Set(tags)]
+      .map((tag) => `<tag value="${encodeXML(tag)}" />`)
+      .join("")}</tags>`;
+    const res = await CXOneFetch({
+      scope: "page",
+      path: parseInt(pageID),
+      api: MindTouch.API.Page.PUT_Page_Tags,
+      subdomain: this._library,
+      options: {
+        method: "PUT",
+        headers: { "Content-Type": "application/xml" },
+        body,
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to update page tags: ${res.status} ${res.statusText}`);
+    }
+  }
+
   async updatePageDetails(
     pageID: string,
     summary?: string,
@@ -1327,49 +1369,16 @@ export default class BookService {
       if (tags && tags.length) {
         const currentPageTags = await this.getPageTags(pageID.toString());
 
-        // Book functionality tags that should not be removed
-        const systemTags = currentPageTags.filter((tag) =>
-          this.DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
-            tag["@value"].startsWith(prefix)
-          )
+        // Book functionality tags (licenses, credits, …) the caller didn't send are kept; for a
+        // prefix it did send, its tags replace the page's. Every tag of a prefix is kept, so a
+        // page crediting several authors keeps them all.
+        const newTagsSet = new Set<string>(
+          mergeSystemTags(
+            currentPageTags.map((tag) => tag["@value"]),
+            tags,
+            this.DISABLED_PAGE_TAG_PREFIXES,
+          ),
         );
-        const systemTagValues = Array.from(
-          new Set<string>([...systemTags.map((tag) => tag["@value"])])
-        );
-
-        const withNewTags = [...systemTagValues, ...tags];
-
-        // Prefer new system tags over old ones
-        // For each item in this.DISABLED_PAGE_TAG_PREFIXES, check if there are multiple tags with the same prefix
-        // If so, keep the one from the new tags, and remove the old one (from toKeepValues)
-        // If not, keep the old one
-        const withNewSystemTagsPreferred = withNewTags.reduce((acc, tag) => {
-          // If it's not a system tag, keep it
-          if (
-            !this.DISABLED_PAGE_TAG_PREFIXES.some((prefix) =>
-              tag.startsWith(prefix)
-            )
-          ) {
-            return [...acc, tag];
-          }
-
-          const prefix = this.DISABLED_PAGE_TAG_PREFIXES.find((prefix) =>
-            tag.startsWith(prefix)
-          );
-          if (!prefix) {
-            return [...acc, tag];
-          }
-
-          const oldTag = systemTagValues.find((t) => t.startsWith(prefix));
-          const newTag = tags.find((t) => t.startsWith(prefix));
-          if (oldTag && newTag) {
-            return [...acc, newTag];
-          }
-          return [...acc, tag];
-        }, [] as string[]);
-
-        // Ensure no duplicates
-        const newTagsSet = new Set<string>([...withNewSystemTagsPreferred]);
 
         // Update the page tags
         const updatedTagsRes = await CXOneFetch({
