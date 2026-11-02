@@ -297,6 +297,65 @@ export async function acquireScanLocks(projectID: string): Promise<ScanLocks | n
   return { restacker, authorship };
 }
 
+export async function releaseScanLocks(projectID: string, locks: ScanLocks) {
+  await Promise.all([
+    RestackerService.releaseLock(projectID, locks.restacker),
+    AuthorshipService.releaseLock(projectID, locks.authorship),
+  ]);
+}
+
+/**
+ * Runs a short edit (one page's tags read, changed and written back, then stored) under both
+ * locks, so a scan can't start in the middle and flush an older copy of the page over it, and a
+ * job in the other tool can't rewrite the same tags. Returns `{ ran: false }` when either lock is
+ * held, for the caller to answer "busy".
+ */
+export async function tryWithScanLocks<T>(
+  projectID: string,
+  fn: () => Promise<T>,
+): Promise<{ ran: true; value: T } | { ran: false }> {
+  const locks = await acquireScanLocks(projectID);
+  if (!locks) return { ran: false };
+  try {
+    return { ran: true, value: await fn() };
+  } finally {
+    await releaseScanLocks(projectID, locks);
+  }
+}
+
+const SCAN_LOCK_HEARTBEAT_MS = 60_000;
+
+/**
+ * Runs `fn` while keeping both locks alive, then releases them. Anything that rewrites page tags
+ * in the background holds both: the License Restacker and the Attribution Manager each read a
+ * page's tags and write them all back, so two jobs on the same page would undo each other.
+ */
+export async function withScanLocks<T>(
+  projectID: string,
+  locks: ScanLocks,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const heartbeat = setInterval(() => {
+    const now = new Date();
+    Promise.all([
+      Restacker.updateOne(
+        { projectID: { $eq: projectID }, processingLockID: { $eq: locks.restacker } },
+        { $set: { processingHeartbeatAt: now } },
+      ),
+      Authorship.updateOne(
+        { projectID: { $eq: projectID }, processingLockID: { $eq: locks.authorship } },
+        { $set: { processingHeartbeatAt: now } },
+      ),
+    ]).catch((err) => scanLog.warn({ err, projectID }, "Failed to refresh scan lock heartbeats"));
+  }, SCAN_LOCK_HEARTBEAT_MS);
+  try {
+    return await fn();
+  } finally {
+    clearInterval(heartbeat);
+    await releaseScanLocks(projectID, locks);
+  }
+}
+
 /**
  * Re-queues every page of both tools for the next scan, under the locks just taken. `content`
  * drops the stored data so everything is re-read; `page` keeps each page's content data and only
@@ -377,21 +436,7 @@ export async function runBookScan(
     return false;
   }
 
-  const heartbeat = setInterval(() => {
-    const now = new Date();
-    Promise.all([
-      Restacker.updateOne(
-        { projectID: { $eq: projectID }, processingLockID: { $eq: locks.restacker } },
-        { $set: { processingHeartbeatAt: now } },
-      ),
-      Authorship.updateOne(
-        { projectID: { $eq: projectID }, processingLockID: { $eq: locks.authorship } },
-        { $set: { processingHeartbeatAt: now } },
-      ),
-    ]).catch((err) => scanLog.warn({ err, projectID }, "Failed to refresh scan lock heartbeats"));
-  }, 60_000);
-
-  try {
+  return withScanLocks(projectID, locks, async () => {
     const [restackerDoc, authorshipDoc] = await Promise.all([
       Restacker.findOne({ projectID: { $eq: projectID } }),
       Authorship.findOne({ projectID: { $eq: projectID } }),
@@ -477,11 +522,5 @@ export async function runBookScan(
     }
     await flush();
     return true;
-  } finally {
-    clearInterval(heartbeat);
-    await Promise.all([
-      RestackerService.releaseLock(projectID, locks.restacker),
-      AuthorshipService.releaseLock(projectID, locks.authorship),
-    ]);
-  }
+  });
 }

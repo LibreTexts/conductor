@@ -11,6 +11,11 @@ export type Author = {
     campusURL?: string;
     pictureCircle?: string; // i.e. "yes" or "no"
     pictureURL?: string;
+    /**
+     * Read-only, from the single-author lookup by id: the picture readers show while the record
+     * has none. Never saved.
+     */
+    defaultPictureURL?: string;
     programName?: string;
     programURL?: string;
     attributionPrefix?: string;

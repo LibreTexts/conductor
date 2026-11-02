@@ -14,8 +14,11 @@ import AuthorshipService from "../util/Authorshiputil.js";
 import {
   acquireScanLocks,
   ensureScanDocs,
+  releaseScanLocks,
   resetScanPages,
   runBookScan,
+  tryWithScanLocks,
+  withScanLocks,
 } from "../util/book-scan.js";
 const LICENSES_WITHOUT_VERSION = new Set(["publicdomain", "arr", "ck12"]);
 
@@ -673,31 +676,43 @@ const updateRestackerLicense = async (
       });
     }
 
-    const currentTags = await bookService.getPageTags(pageID);
-    const preservedTags = currentTags
-      .map((tag) => tag["@value"])
-      .filter(
-        (tag) =>
-          !tag.startsWith("license:") && !tag.startsWith("licenseversion:"),
+    const updatedLicense = toRestackerLicense(license, version);
+    // Under both locks: a scan starting mid-edit would flush an older copy of the page over it,
+    // and an Attribution Manager job could rewrite the same page's tags at the same time.
+    const result = await tryWithScanLocks(projectID, async () => {
+      const currentTags = await bookService.getPageTags(pageID);
+      const preservedTags = currentTags
+        .map((tag) => tag["@value"])
+        .filter(
+          (tag) =>
+            !tag.startsWith("license:") && !tag.startsWith("licenseversion:"),
+        );
+      const licenseTags = buildLicenseTags(license, version);
+      const tags = [...preservedTags, ...licenseTags];
+
+      const [error, success] = await bookService.updatePageDetails(
+        pageID,
+        undefined,
+        tags,
       );
-    const licenseTags = buildLicenseTags(license, version);
-    const tags = [...preservedTags, ...licenseTags];
+      if (error || !success) return false;
 
-    const [error, success] = await bookService.updatePageDetails(
-      pageID,
-      undefined,
-      tags,
-    );
+      await setStoredPageLicenses(projectID, [pageID], updatedLicense);
+      return true;
+    });
 
-    if (error || !success) {
+    if (!result.ran) {
+      return res.status(409).send({
+        err: true,
+        errMsg: LICENSE_BUSY_MSG,
+      });
+    }
+    if (!result.value) {
       return res.status(500).send({
         err: true,
         errMsg: "Failed to update page license",
       });
     }
-
-    const updatedLicense = toRestackerLicense(license, version);
-    await setStoredPageLicenses(projectID, [pageID], updatedLicense);
 
     return res.send({
       err: false,
@@ -870,10 +885,11 @@ const bulkUpdateRestackerLicense = async (
       return res.send({ err: false, license: responseLicense, queued: 0, skipped });
     }
 
-    // Hold the restacker lock for the whole job: a refresh flushes the entire page
-    // list and would otherwise overwrite licenses written here.
-    const lockID = await RestackerService.acquireLock(projectID);
-    if (!lockID) {
+    // Hold both tools' locks for the whole job: a refresh flushes the entire page list and
+    // would otherwise overwrite licenses written here, and an Attribution Manager job rewrites
+    // the same pages' tags, so the two would undo each other's edits.
+    const locks = await acquireScanLocks(projectID);
+    if (!locks) {
       return res.status(409).send({
         err: true,
         errMsg: LICENSE_BUSY_MSG,
@@ -899,14 +915,14 @@ const bulkUpdateRestackerLicense = async (
         },
       );
     } catch (err) {
-      await RestackerService.releaseLock(projectID, lockID);
+      await releaseScanLocks(projectID, locks);
       throw err;
     }
 
     // Updating hundreds of pages takes minutes (two library calls per page), well past
     // proxy timeouts, so the work runs in the background and the client polls
     // /restacker/status for `bulkJob`.
-    RestackerService.withLock(projectID, lockID, () =>
+    withScanLocks(projectID, locks, () =>
       runBulkLicenseJob({
         projectID,
         jobID,

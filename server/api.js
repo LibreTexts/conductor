@@ -157,6 +157,10 @@ router.use((req, res, next) => {
   if (pathname.startsWith("/remixer/") && (req.method === "POST" || req.method === "PUT")) {
     return next();
   }
+  // Quick Fix assignments can list thousands of pages; parsed after auth with a 2mb limit.
+  if (req.method === "PATCH" && /^\/projects\/[^/]+\/authorship\/author\/assign$/.test(pathname)) {
+    return next();
+  }
   return globalJsonParser(req, res, next);
 });
 router.use(express.urlencoded({ extended: false }));
@@ -3886,6 +3890,8 @@ router.route('/projects/:projectID/authorship/author/bulk').patch(
 router.route('/projects/:projectID/authorship/author/assign').patch(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
+  // Excluded from the global parser (see above): up to 10,000 items exceed its 100kb limit.
+  express.json({ limit: "2mb" }),
   middleware.validateZod(AuthorshipValidators.AssignAuthorshipAuthorsSchema),
   authorshipAPI.assignAuthorshipAuthors
 );

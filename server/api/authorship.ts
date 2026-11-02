@@ -21,8 +21,11 @@ import {
   acquireScanLocks,
   buildScanPageList,
   ensureScanDocs,
+  releaseScanLocks,
   resetScanPages,
   runBookScan,
+  tryWithScanLocks,
+  withScanLocks,
 } from "../util/book-scan.js";
 import {
   addBookCredits,
@@ -370,10 +373,14 @@ const updateAuthorshipAuthor = async (
       });
     }
 
-    const pageCredits = await writePageCredit(bookService, pageID, [{ role, action, authorKey }]);
-    await setStoredPageCredits(projectID, pageID, pageCredits);
+    const result = await tryWithScanLocks(projectID, async () => {
+      const credits = await writePageCredit(bookService, pageID, [{ role, action, authorKey }]);
+      await setStoredPageCredits(projectID, pageID, credits);
+      return credits;
+    });
+    if (!result.ran) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
 
-    return res.send({ err: false, pageID, role, action, authorKey, pageCredits });
+    return res.send({ err: false, pageID, role, action, authorKey, pageCredits: result.value });
   } catch (err) {
     logger.error({ err, projectID: req.params.projectID }, "updateAuthorshipAuthor failed");
     return conductor500Err(res);
@@ -490,8 +497,10 @@ const assignAuthorshipAuthors = async (
 };
 
 /**
- * Takes the lock, records a running bulk job and starts it in the background; the client
- * polls /status. Sends the response: the job and its counts, or why nothing was queued.
+ * Takes both tools' locks, records a running bulk job and starts it in the background; the
+ * client polls /status. Sends the response: the job and its counts, or why nothing was queued.
+ * The License Restacker's lock is held too, so its license edits can't interleave with these
+ * tag writes on the same pages.
  */
 async function queueBulkJob(
   res: Response,
@@ -507,8 +516,8 @@ async function queueBulkJob(
     return res.send({ err: false, queued: 0, skipped });
   }
 
-  const lockID = await AuthorshipService.acquireLock(projectID);
-  if (!lockID) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
+  const locks = await acquireScanLocks(projectID);
+  if (!locks) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
 
   const jobID = randomUUID();
   try {
@@ -529,11 +538,11 @@ async function queueBulkJob(
       },
     );
   } catch (err) {
-    await AuthorshipService.releaseLock(projectID, lockID);
+    await releaseScanLocks(projectID, locks);
     throw err;
   }
 
-  AuthorshipService.withLock(projectID, lockID, () =>
+  withScanLocks(projectID, locks, () =>
     runBulkJob({ projectID, jobID, bookService, updates }),
   ).catch(async (err) => {
     logger.error({ err, projectID, jobID }, "Bulk authorship update job failed");
@@ -673,12 +682,15 @@ const updateBookCredit = async (
     const loaded = await loadForBookCreditChange(req, res);
     if (!loaded) return;
 
-    const credits = await writeBookCredits(loaded.project, (tags) =>
-      action === "add"
-        ? addBookCredits(tags, [{ role, key: authorKey }])
-        : removeBookCredit(tags, role, authorKey),
+    const result = await tryWithScanLocks(loaded.project.projectID, () =>
+      writeBookCredits(loaded.project, (tags) =>
+        action === "add"
+          ? addBookCredits(tags, [{ role, key: authorKey }])
+          : removeBookCredit(tags, role, authorKey),
+      ),
     );
-    return res.send({ err: false, pageID: loaded.project.libreCoverID, ...credits });
+    if (!result.ran) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
+    return res.send({ err: false, pageID: loaded.project.libreCoverID, ...result.value });
   } catch (err) {
     logger.error({ err, projectID: req.params.projectID }, "updateBookCredit failed");
     return conductor500Err(res);
@@ -726,7 +738,11 @@ const compileBookCredits = async (
       return res.send({ err: false, applied: false, additions, unlinked });
     }
 
-    const credits = await writeBookCredits(project, (tags) => addBookCredits(tags, additions));
+    const result = await tryWithScanLocks(project.projectID, () =>
+      writeBookCredits(project, (tags) => addBookCredits(tags, additions)),
+    );
+    if (!result.ran) return res.status(409).send({ err: true, errMsg: BUSY_MSG });
+    const credits = result.value;
     logger.info({ projectID: project.projectID, added: additions.length }, "Compiled book credits");
     return res.send({
       err: false,

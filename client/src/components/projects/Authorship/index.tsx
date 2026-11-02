@@ -605,7 +605,9 @@ const Authorship = () => {
   /**
    * Applies one change to a page, and optionally to its subpages (skipping those it wouldn't
    * change). The subpage choice is made inside the dialog, so applying never closes it: the same
-   * page and subpages can be given the next change straight away.
+   * page and subpages can be given the next change straight away. With subpages, the page goes
+   * in the same bulk job: every tag write holds the edit locks, so a separate single update
+   * running alongside would make the job report "busy".
    */
   const applyCredit = (
     target: EditTarget,
@@ -613,13 +615,15 @@ const Authorship = () => {
     author: AuthorSearchResult | undefined,
     withSubpages: boolean,
   ) => {
-    if (!isUnchanged(entries.get(target.id), change)) {
-      updateOne({ pageID: target.id, change, author });
+    if (!withSubpages) {
+      if (!isUnchanged(entries.get(target.id), change)) {
+        updateOne({ pageID: target.id, change, author });
+      }
+      return;
     }
-    if (!withSubpages) return;
-    const subpageIDs = subpagesOf(target);
+    const pageIDs = new Set([target.id, ...subpagesOf(target)]);
     const toUpdate = rows
-      .filter((r) => subpageIDs.has(r.id) && !isUnchanged(r.entry, change))
+      .filter((r) => pageIDs.has(r.id) && !isUnchanged(r.entry, change))
       .map((r) => r.id);
     if (toUpdate.length > 0) updateBulk({ pageIDs: toUpdate, ...change });
   };
