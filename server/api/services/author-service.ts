@@ -8,7 +8,11 @@ import {
     SearchAuthorsValidator,
 } from "../validators/authors.js";
 import { BaseConductorInfiniteScrollResponse } from "../../types";
-import Author, { AuthorInterface, withDefaultPicture } from "../../models/author.js";
+import Author, {
+    AuthorInterface,
+    DEFAULT_AUTHOR_PICTURE_URL,
+    withDefaultPicture,
+} from "../../models/author.js";
 import { escapeRegEx, getPaginationOffset } from "../../util/helpers.js";
 import { Types } from "mongoose";
 import { randomInt } from "node:crypto";
@@ -69,7 +73,11 @@ export default class AuthorService {
 
         const offset = getPaginationOffset(params.page, params.limit);
 
-        const authors = await Author.find(filter).sort({ [params.sort]: 1 }).skip(offset).limit(params.limit).lean();
+        // The admin table shows the default picture too; it only displays these rows (the
+        // editor loads the record itself by id, so the stored value stays empty).
+        const authors = (
+            await Author.find(filter).sort({ [params.sort]: 1 }).skip(offset).limit(params.limit).lean()
+        ).map(withDefaultPicture);
         const total = await Author.countDocuments(filter);
 
         const has_more = offset + params.limit < total;
@@ -129,6 +137,11 @@ export default class AuthorService {
             ...author,
             ...(groups?.length && { memberOfKeys: groups }),
             ...(members && { members }),
+            // What readers show while the record has no picture. Not part of the record, so the
+            // editor can preview it without saving it.
+            ...(!author.pictureURL && !isAuthorGroup(author) && {
+                defaultPictureURL: DEFAULT_AUTHOR_PICTURE_URL,
+            }),
         };
     }
 

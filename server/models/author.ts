@@ -3,7 +3,8 @@ import { Schema, model, Document } from "mongoose";
 /**
  * Shown for an individual author with no picture of their own. It is never stored on the
  * record, so an admin can tell "no picture" apart and replace it at any time. Groups get no
- * default: one person's silhouette would misrepresent several people.
+ * default: one person's silhouette would misrepresent several people. This is the only copy:
+ * the client gets it from API responses (public lookups, the admin list, `defaultPictureURL`).
  */
 export const DEFAULT_AUTHOR_PICTURE_URL =
   "https://biz.libretexts.org/@api/deki/files/5084/girl-160172__340.png";
