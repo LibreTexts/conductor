@@ -78,7 +78,7 @@
     "util": "0.12.5",
     "uuid": "11.1.1",
     "world-countries": "5.1.0",
-    "zod": "4.4.1",
+    "zod": "4.6.7",
     "zod-form-data": "2.0.8"
   },
   "author": "LibreTexts <info@libretexts.org>",
