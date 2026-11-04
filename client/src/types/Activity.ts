@@ -5,6 +5,8 @@
 export type CommonsActivity = {
   activityID: string;
   h5pContentID: number;
+  /** ADAPT question id, once the ADAPT id sync has found one. */
+  adaptID?: string;
   title: string;
   description?: string;
   /** H5P machine name and version, e.g. "H5P.InteractiveVideo 1.27". */
@@ -102,6 +104,7 @@ export type MyActivitiesResult = {
 export type EditableActivity = {
   activityID: string;
   h5pContentID: number;
+  adaptID?: string;
   title: string;
   description?: string;
   library?: string;

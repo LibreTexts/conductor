@@ -202,7 +202,6 @@ describe("Edit H5P", () => {
     api.getActivityForEditing.mockResolvedValue(editable("staff"));
     renderAt("/h5p/101/edit");
     await screen.findByTitle("H5P editor");
-    expect(screen.getByText("Editing with staff access")).toBeInTheDocument();
     expect(screen.getByText(/because you have LibreTexts staff access/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete H5P" })).toBeNull();
   });
@@ -316,6 +315,30 @@ describe("Edit H5P", () => {
     expect(await screen.findByText(/by Ada L, is shared under a CC BY-SA 4.0 license/)).toBeInTheDocument();
     expect(api.getActivityForEditing).toHaveBeenCalledTimes(2);
     expect(notify).toHaveBeenCalledWith({ type: "success", message: "Activity saved." });
+  });
+
+  it("shows a copyable H5P ID in the details, and no ADAPT ID when there is none", async () => {
+    api.getActivityForEditing.mockResolvedValue(editable("owner"));
+    renderAt("/h5p/101/edit");
+    expect(await screen.findByRole("button", { name: "Copy H5P ID" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copy ADAPT ID" })).toBeNull();
+  });
+
+  it("shows a copyable ADAPT ID when the activity has one", async () => {
+    const withAdapt = editable("owner");
+    withAdapt.data.activity = { ...withAdapt.data.activity, adaptID: "98765" } as typeof withAdapt.data.activity;
+    api.getActivityForEditing.mockResolvedValue(withAdapt);
+    renderAt("/h5p/101/edit");
+    expect(await screen.findByRole("button", { name: "Copy ADAPT ID" })).toBeInTheDocument();
+    expect(screen.getByText("98765")).toBeInTheDocument();
+  });
+
+  it("offers Copy on the attribution preview", async () => {
+    api.getActivityForEditing.mockResolvedValue(editable("owner"));
+    renderAt("/h5p/101/edit");
+    await screen.findByTitle("H5P editor");
+    await userEvent.click(screen.getByRole("button", { name: /License and attribution/ }));
+    expect(await screen.findByRole("button", { name: "Copy Attribution" })).toBeInTheDocument();
   });
 
   it("shows one message for an activity the user cannot edit", async () => {

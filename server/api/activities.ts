@@ -124,14 +124,15 @@ async function getCommonsActivities(
 }
 
 /**
- * Fields the public activity page reads. Collaborators, migration bookkeeping
- * and the ADAPT id stay server-side: the page is public and Studio's own
- * public page did not show them either.
+ * Fields the public activity page reads. Collaborators and migration
+ * bookkeeping stay server-side. The ADAPT id is included so instructors can
+ * copy it into ADAPT.
  */
 const ACTIVITY_PAGE_PROJECTION = {
   _id: 0,
   activityID: 1,
   h5pContentID: 1,
+  adaptID: 1,
   title: 1,
   description: 1,
   library: 1,

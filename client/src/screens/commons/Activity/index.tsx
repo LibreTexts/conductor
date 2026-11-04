@@ -38,6 +38,7 @@ import {
 } from "@tabler/icons-react";
 import api from "../../../api";
 import CopyButton from "../../../components/util/CopyButton";
+import CopyFieldButton from "../../../components/util/CopyFieldButton";
 import useClientConfig from "../../../hooks/useClientConfig";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
 import { ActivityEditorRole, CommonsActivity } from "../../../types";
@@ -270,9 +271,9 @@ const Summary = ({ description }: { description?: string }) => {
       <Stack direction="vertical" gap="sm">
         <Heading level={2}>Summary</Heading>
         {html ? (
-          <div className="prose max-w-[80ch]" dangerouslySetInnerHTML={{ __html: html }} />
+          <div className="prose max-w-[95ch]" dangerouslySetInnerHTML={{ __html: html }} />
         ) : (
-          <Text as="p" className="max-w-[80ch] whitespace-pre-line">
+          <Text as="p" className="max-w-[95ch] whitespace-pre-line">
             {description}
           </Text>
         )}
@@ -281,35 +282,56 @@ const Summary = ({ description }: { description?: string }) => {
   );
 };
 
-const Attribution = ({ activity, size }: { activity: CommonsActivity; size: "sm" | "md" }) => {
-  const text = buildActivityAttribution(activity);
-  return (
-    <Card padding="sm">
-      <Stack direction="vertical" gap="sm">
-        <Stack direction="horizontal" gap="sm" align="center" justify="between">
-          <Heading level={2}>Attribution</Heading>
-          <CopyButton val={text} timeout={2000}>
-            {({ copied, copy }) => (
-              <>
-                <Button
-                  variant="ghost"
-                  size={size}
-                  icon={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                  onClick={() => copy()}
-                  aria-label={copied ? "Attribution copied" : "Copy attribution"}
-                >
-                  {copied ? "Copied" : "Copy"}
-                </Button>
-                <CopiedAnnouncement copied={copied} what="Attribution" />
-              </>
-            )}
-          </CopyButton>
-        </Stack>
-        <Text as="p">{text}</Text>
+/** A titled value in the details card, set off by a divider, with its own Copy button. */
+const CopySection = ({
+  title,
+  value,
+  headingLevel,
+  size,
+  mono = false,
+}: {
+  title: string;
+  value: string;
+  headingLevel: 2 | 3;
+  size: "sm" | "md";
+  mono?: boolean;
+}) => (
+  <section className="border-t border-neutral-200 pt-4">
+    <Stack direction="vertical" gap="xs">
+      <Stack direction="horizontal" gap="sm" align="center" justify="between">
+        <Heading level={headingLevel} className="text-base! mb-0!">{title}</Heading>
+        <CopyFieldButton value={value} label={title} size={size} />
       </Stack>
-    </Card>
-  );
-};
+      <Text as="p" className={mono ? "font-mono break-all" : "break-words"}>
+        {value}
+      </Text>
+    </Stack>
+  </section>
+);
+
+/** H5P ID, ADAPT ID when the sync has found one, and attribution. */
+const CopySections = ({
+  activity,
+  headingLevel,
+  size,
+}: {
+  activity: CommonsActivity;
+  headingLevel: 2 | 3;
+  size: "sm" | "md";
+}) => (
+  <>
+    <CopySection title="H5P ID" value={String(activity.h5pContentID)} headingLevel={headingLevel} size={size} mono />
+    {activity.adaptID && (
+      <CopySection title="ADAPT ID" value={activity.adaptID} headingLevel={headingLevel} size={size} mono />
+    )}
+    <CopySection
+      title="Attribution"
+      value={buildActivityAttribution(activity)}
+      headingLevel={headingLevel}
+      size={size}
+    />
+  </>
+);
 
 const EmbedDialog = ({
   open,
@@ -448,12 +470,12 @@ const LoadingView = ({ isDesktop }: { isDesktop: boolean }) => (
       </Card>
       <Stack direction="vertical" gap="md">
         <Card padding="sm">
+          <Skeleton variant="text" lines={3} />
+        </Card>
+        <Card padding="sm">
           <div className="flex aspect-video items-center justify-center rounded-md bg-neutral-100">
             <Spinner size="lg" text="Loading activity" />
           </div>
-        </Card>
-        <Card padding="sm">
-          <Skeleton variant="text" lines={3} />
         </Card>
       </Stack>
     </div>
@@ -579,18 +601,17 @@ const CommonsActivityPage = () => {
               </Heading>
               {rows.length > 0 && <DetailsList rows={rows} />}
               <Tags tags={activity.tags} />
+              <CopySections activity={activity} headingLevel={2} size="sm" />
               <div className="border-t border-neutral-200 pt-4">{actions("md")}</div>
             </Stack>
           </Card>
           <Stack direction="vertical" gap="md">
-            {playerCard}
             <Summary description={activity.description} />
-            <Attribution activity={activity} size="sm" />
+            {playerCard}
           </Stack>
         </div>
       ) : (
-        // Mobile order from the design: title, player, actions, details,
-        // summary, attribution.
+        // Mobile order: title, summary, player, actions, details.
         <Stack direction="vertical" gap="md" className="p-4">
           <Stack direction="vertical" gap="xs">
             {typeName && (
@@ -602,19 +623,17 @@ const CommonsActivityPage = () => {
               {activity.title}
             </Heading>
           </Stack>
+          <Summary description={activity.description} />
           {playerCard}
           {actions("lg")}
-          {(rows.length > 0 || activity.tags?.length) && (
-            <Card padding="sm">
-              <Stack direction="vertical" gap="md">
-                <Heading level={2}>Details</Heading>
-                {rows.length > 0 && <DetailsList rows={rows} />}
-                <Tags tags={activity.tags} />
-              </Stack>
-            </Card>
-          )}
-          <Summary description={activity.description} />
-          <Attribution activity={activity} size="md" />
+          <Card padding="sm">
+            <Stack direction="vertical" gap="md">
+              <Heading level={2}>Details</Heading>
+              {rows.length > 0 && <DetailsList rows={rows} />}
+              <Tags tags={activity.tags} />
+              <CopySections activity={activity} headingLevel={3} size="md" />
+            </Stack>
+          </Card>
         </Stack>
       )}
       {embedOrigin && (

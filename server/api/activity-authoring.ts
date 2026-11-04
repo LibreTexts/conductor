@@ -113,7 +113,7 @@ async function getActivityForEditing(
     const activity = await Activity.findOne(
       { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
       {
-        _id: 0, activityID: 1, h5pContentID: 1, title: 1, description: 1, library: 1, libraryTitle: 1,
+        _id: 0, activityID: 1, h5pContentID: 1, adaptID: 1, title: 1, description: 1, library: 1, libraryTitle: 1,
         language: 1, h5pAuthors: 1, source: 1, publisher: 1, subjects: 1, tags: 1, visibility: 1,
         includeInLibrary: 1, license: 1, createdBy: 1, collaborators: 1, pendingFirstSave: 1,
         createdAt: 1, updatedAt: 1,

@@ -24,6 +24,7 @@ import {
 } from "@libretexts/davis-react";
 import { IconAlertTriangle, IconDeviceFloppy, IconExternalLink, IconLink, IconLock, IconTrash, IconWorld } from "@tabler/icons-react";
 import api from "../../../api";
+import CopyFieldButton from "../../../components/util/CopyFieldButton";
 import useClientConfig from "../../../hooks/useClientConfig";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
 import useCanCreateActivities from "../../../hooks/useCanCreateActivities";
@@ -190,6 +191,19 @@ const SubjectsField = ({
         ))}
       </ul>
     )}
+  </div>
+);
+
+/** A read-only ID with a Copy button, set off from the fields above by a divider. */
+const CopyIDField = ({ label, value }: { label: string; value: string }) => (
+  <div className="border-t border-neutral-200 pt-4">
+    <div className="flex items-center justify-between gap-2">
+      <Text weight="medium">{label}</Text>
+      <CopyFieldButton value={value} label={label} />
+    </div>
+    <Text as="p" size="sm" className="font-mono break-all">
+      {value}
+    </Text>
   </div>
 );
 
@@ -634,6 +648,9 @@ const EditH5P = () => {
         value={form.language}
         onChange={(e) => setForm({ ...form, language: e.target.value })}
       />
+      {/* A new activity has no record to show until its first save. */}
+      {data && <CopyIDField label="H5P ID" value={String(data.activity.h5pContentID)} />}
+      {data?.activity.adaptID && <CopyIDField label="ADAPT ID" value={data.activity.adaptID} />}
     </div>
   );
 
@@ -679,7 +696,10 @@ const EditH5P = () => {
         onChange={(e) => setForm({ ...form, publisher: e.target.value })}
       />
       <div>
-        <Text weight="medium">Attribution preview</Text>
+        <div className="flex items-center justify-between gap-2">
+          <Text weight="medium">Attribution preview</Text>
+          <CopyFieldButton value={attribution} label="Attribution" />
+        </div>
         <Text as="p" size="sm">{attribution}</Text>
       </div>
     </div>

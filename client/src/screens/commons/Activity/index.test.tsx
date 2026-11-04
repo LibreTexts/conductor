@@ -200,15 +200,43 @@ describe("CommonsActivityPage", () => {
     );
   });
 
-  it("orders the mobile layout title, player, actions, details", async () => {
+  it("shows copyable H5P ID and attribution, and no ADAPT ID when there is none", async () => {
+    mockGetActivity.mockResolvedValue({ data: { activity: full } });
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: full.title });
+    expect(screen.getByRole("heading", { level: 2, name: "H5P ID" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy H5P ID" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Attribution" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "ADAPT ID" })).toBeNull();
+  });
+
+  it("shows a copyable ADAPT ID when the activity has one", async () => {
+    mockGetActivity.mockResolvedValue({ data: { activity: { ...full, adaptID: "98765" } } });
+    renderPage();
+    expect(await screen.findByRole("heading", { level: 2, name: "ADAPT ID" })).toBeInTheDocument();
+    expect(screen.getByText("98765")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy ADAPT ID" })).toBeInTheDocument();
+  });
+
+  it("puts the summary above the player on desktop", async () => {
+    mockGetActivity.mockResolvedValue({ data: { activity: full } });
+    renderPage();
+    const summary = await screen.findByRole("heading", { name: "Summary" });
+    const player = screen.getByTitle(/interactive activity/);
+    expect(summary.compareDocumentPosition(player) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("orders the mobile layout title, summary, player, actions, details", async () => {
     mockMediaQuery.mockReturnValue(false);
     mockGetActivity.mockResolvedValue({ data: { activity: full } });
     renderPage();
     const title = await screen.findByRole("heading", { level: 1 });
+    const summary = screen.getByRole("heading", { name: "Summary" });
     const player = screen.getByTitle(/interactive activity/);
     const copyLink = screen.getByRole("button", { name: "Copy link" });
     const details = screen.getByRole("heading", { name: "Details" });
-    const order = [title, player, copyLink, details].map((el) =>
+    const h5pID = screen.getByRole("heading", { level: 3, name: "H5P ID" });
+    const order = [title, summary, player, copyLink, details, h5pID].map((el) =>
       Array.from(document.querySelectorAll("*")).indexOf(el)
     );
     expect([...order].sort((a, b) => a - b)).toEqual(order);
