@@ -23,6 +23,7 @@ import {
 } from "./validators/activities.js";
 import { ZodReqWithUser } from "../types";
 import { isProductionEnvironment } from "../util/adapt-integration.js";
+import { activityViewerRole, isActivityOwner } from "../util/activity-permissions.js";
 import {
   ADAPT_ID_SYNC_DEFAULT_LIMIT,
   AdaptIdSyncNotConfiguredError,
@@ -66,17 +67,9 @@ async function libraryTitleFor(library: string, reported?: string): Promise<stri
   return known?.libraryTitle || reported || undefined;
 }
 
-function isOwner(activity: Pick<ActivityInterface, "createdBy">, userUUID: string): boolean {
-  return Boolean(activity.createdBy) && activity.createdBy === userUUID;
-}
-
-function canEdit(activity: Pick<ActivityInterface, "createdBy" | "collaborators">, userUUID: string): boolean {
-  return isOwner(activity, userUUID) || (activity.collaborators ?? []).includes(userUUID);
-}
-
 /**
  * Only verified instructors create activities. Editing an existing one, as
- * owner or collaborator, needs no verification.
+ * owner, collaborator or staff, needs no verification.
  */
 async function isVerifiedInstructor(userUUID: string): Promise<boolean> {
   const user = await User.findOne({ uuid: userUUID }, { _id: 0, verifiedInstructor: 1 }).lean();
@@ -109,15 +102,14 @@ function metadataUpdate(body: z.infer<typeof createActivitySchema>["body"]): Par
 
 /**
  * An activity as its create/edit screen needs it: every field an author
- * edits, the caller's role, and the collaborators by name. Owners and
- * collaborators only.
+ * edits, the caller's role, and the collaborators by name. Owners,
+ * collaborators and LibreTexts staff only.
  */
 async function getActivityForEditing(
   req: ZodReqWithUser<z.infer<typeof activityIDOnlySchema>>,
   res: Response
 ) {
   try {
-    const userUUID = req.user.decoded.uuid;
     const activity = await Activity.findOne(
       { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
       {
@@ -128,7 +120,8 @@ async function getActivityForEditing(
       }
     ).lean();
     if (!activity) return conductor404Err(res);
-    if (!canEdit(activity, userUUID)) return conductorErr(res, 403, "err8");
+    const role = activityViewerRole(activity, req.user);
+    if (!role) return conductorErr(res, 403, "err8");
 
     const people = await User.find(
       { uuid: { $in: [activity.createdBy, ...(activity.collaborators ?? [])].filter(Boolean) } },
@@ -145,7 +138,7 @@ async function getActivityForEditing(
     return res.send({
       err: false,
       activity: { ...rest, visibilityLevel: level },
-      role: isOwner(activity, userUUID) ? "owner" : "collaborator",
+      role,
       people: [
         ...(createdBy ? [{ uuid: createdBy, name: nameOf(createdBy), role: "owner" }] : []),
         ...(collaborators ?? []).map((uuid) => ({ uuid, name: nameOf(uuid), role: "collaborator" })),
@@ -191,8 +184,8 @@ async function issueNewActivityEditorToken(req: ZodReqWithUser<{}>, res: Respons
 }
 
 /**
- * Editor token for an existing activity, scoped to its H5P content. Owners and
- * collaborators get one. Delete is never in an editor token: it goes through
+ * Editor token for an existing activity, scoped to its H5P content. Owners,
+ * collaborators and LibreTexts staff get one. Delete is never in an editor token: it goes through
  * `deleteActivity`, which Conductor performs server to server.
  */
 async function issueEditorToken(
@@ -206,7 +199,11 @@ async function issueEditorToken(
       { _id: 0, h5pContentID: 1, createdBy: 1, collaborators: 1 }
     ).lean();
     if (!activity) return conductor404Err(res);
-    if (!canEdit(activity, userUUID)) return conductorErr(res, 403, "err8");
+    const role = activityViewerRole(activity, req.user);
+    if (!role) return conductorErr(res, 403, "err8");
+    if (role === "staff") {
+      log.info({ activityID: req.params.activityID, actingAs: role }, "Staff opened activity editor");
+    }
 
     const { token, expiresAt } = await signCapabilityToken({
       subject: userUUID,
@@ -282,7 +279,7 @@ async function createActivity(
 
 /**
  * Updates an activity's metadata, and, with `contentSaved`, records what the
- * H5P editor just saved. Owners and collaborators may update.
+ * H5P editor just saved. Owners, collaborators and LibreTexts staff may update.
  *
  * Saving moves `updatedAt`, which is what ADAPT's `changed` poll reads, so
  * an edit reaches ADAPT without anything else.
@@ -292,13 +289,13 @@ async function updateActivity(
   res: Response
 ) {
   try {
-    const userUUID = req.user.decoded.uuid;
     const activity = await Activity.findOne(
       { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
       { _id: 0, createdBy: 1, collaborators: 1 }
     ).lean();
     if (!activity) return conductor404Err(res);
-    if (!canEdit(activity, userUUID)) return conductorErr(res, 403, "err8");
+    const role = activityViewerRole(activity, req.user);
+    if (!role) return conductorErr(res, 403, "err8");
 
     const update: Record<string, unknown> = metadataUpdate(req.body);
     const unset: Record<string, 1> = {};
@@ -322,6 +319,12 @@ async function updateActivity(
       { $set: update, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
       { new: true, projection: { _id: 0, __v: 0, collaborators: 0 } }
     ).lean();
+    if (role === "staff") {
+      log.info(
+        { activityID: req.params.activityID, actingAs: role, contentSaved: Boolean(saved) },
+        "Staff edited activity"
+      );
+    }
     return res.send({ err: false, activity: updated });
   } catch (err) {
     log.error({ err }, "updateActivity failed");
@@ -347,7 +350,7 @@ async function deleteActivity(
       { _id: 0, activityID: 1, h5pContentID: 1, createdBy: 1 }
     ).lean();
     if (!activity) return conductor404Err(res);
-    if (!isOwner(activity, userUUID)) return conductorErr(res, 403, "err8");
+    if (!isActivityOwner(activity, userUUID)) return conductorErr(res, 403, "err8");
 
     await removeActivity(activity.activityID, activity.h5pContentID);
     log.info({ activityID: activity.activityID, h5pContentID: activity.h5pContentID }, "Activity deleted");

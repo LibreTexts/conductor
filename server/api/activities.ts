@@ -13,9 +13,11 @@ import {
   getAdaptFeedSchema,
   getCommonsActivitiesSchema,
   getMyActivitiesSchema,
+  getUserActivitiesAdminSchema,
 } from "./validators/activities.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types";
 import { adaptDataFilter } from "../util/adapt-integration.js";
+import { activityViewerRole, isActivityStaff } from "../util/activity-permissions.js";
 
 const adaptLog = childLogger("adapt-feed");
 
@@ -228,7 +230,10 @@ async function _withAuthors<T extends { h5pAuthors?: string; createdBy?: string 
  * `authors` is the credit to display: the H5P metadata authors when the
  * package names any, otherwise the owning Conductor user. A private activity
  * the caller cannot see is a plain 404, the same as a missing one, so the page
- * never reveals that it exists.
+ * never reveals that it exists. LibreTexts staff see every activity.
+ *
+ * `viewerRole` is set whenever the caller may edit, on any visibility, so the
+ * page can offer Edit and say why.
  */
 async function getActivity(
   req: ZodReqWithOptionalUser<z.infer<typeof getActivitySchema>>,
@@ -239,25 +244,22 @@ async function getActivity(
       {
         activityID: req.params.activityID,
         orgID: process.env.ORG_ID,
-        ...(_buildVisibilityFilter(req.user?.decoded?.uuid)),
+        ...(isActivityStaff(req.user) ? {} : _buildVisibilityFilter(req.user?.decoded?.uuid)),
       },
-      ACTIVITY_PAGE_PROJECTION
+      { ...ACTIVITY_PAGE_PROJECTION, collaborators: 1 }
     ).lean();
 
     if (!activity) return conductor404Err(res);
 
-    // A private activity only passes the visibility filter for its owner or a
-    // collaborator, so the page can tell them why they can see it.
-    const userUUID = req.user?.decoded?.uuid;
-    const viewerRole =
-      activity.visibility === "private" && userUUID
-        ? activity.createdBy === userUUID
-          ? "owner"
-          : "collaborator"
-        : undefined;
+    const viewerRole = activityViewerRole(activity, req.user);
 
     const [credited] = await _withAuthors([activity]);
-    const { h5pAuthors: _h5pAuthors, createdBy: _createdBy, ...rest } = credited;
+    const {
+      h5pAuthors: _h5pAuthors,
+      createdBy: _createdBy,
+      collaborators: _collaborators,
+      ...rest
+    } = credited;
     return res.send({
       err: false,
       activity: { ...rest, ...(viewerRole ? { viewerRole } : {}) },
@@ -471,6 +473,63 @@ async function getMyActivities(
 }
 
 /**
+ * Another user's activities, owned or collaborating, for LibreTexts staff on
+ * the LibreOne user page. `role` is the target user's, not the caller's.
+ */
+async function getUserActivitiesAdmin(
+  req: ZodReqWithUser<z.infer<typeof getUserActivitiesAdminSchema>>,
+  res: Response
+) {
+  try {
+    const { uuid } = req.query;
+    const page = parseInt(req.query.page.toString()) || 1;
+    const limit = parseInt(req.query.limit.toString()) || 10;
+    const offset = getPaginationOffset(page, limit);
+
+    const [result] = await Activity.aggregate([
+      {
+        $match: {
+          orgID: process.env.ORG_ID,
+          $or: [{ createdBy: uuid }, { collaborators: uuid }],
+        },
+      },
+      { $sort: { updatedAt: -1, _id: 1 } },
+      {
+        $facet: {
+          items: [
+            { $skip: offset },
+            { $limit: limit },
+            {
+              $project: {
+                _id: 0,
+                activityID: 1,
+                title: 1,
+                libraryTitle: 1,
+                updatedAt: 1,
+                visibility: VISIBILITY_LEVEL_EXPR,
+                role: { $cond: [{ $eq: ["$createdBy", uuid] }, "owner", "collaborator"] },
+              },
+            },
+          ],
+          total: [{ $count: "n" }],
+        },
+      },
+    ]);
+
+    const total = result?.total?.[0]?.n ?? 0;
+    return res.send({
+      err: false,
+      activities: result?.items ?? [],
+      total_items: total,
+      has_more: total > offset + limit,
+    });
+  } catch (err) {
+    logger.error({ err }, "getUserActivitiesAdmin failed");
+    return conductor500Err(res);
+  }
+}
+
+/**
  * Escapes one CSV field per RFC 4180.
  */
 function _csvField(value: unknown): string {
@@ -565,5 +624,6 @@ export default {
   getActivityByH5PID,
   getActivitiesByAuthor,
   getMyActivities,
+  getUserActivitiesAdmin,
   getAdaptFeed,
 };

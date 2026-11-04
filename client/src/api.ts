@@ -2,6 +2,7 @@ import axios, { AxiosRequestConfig } from "axios";
 import {
   Announcement,
   ActivityMetadataInput,
+  ActivityEditorRole,
   ActivityPerson,
   CommonsActivity,
   CommonsActivitiesParams,
@@ -11,6 +12,7 @@ import {
   EditorToken,
   MyActivitiesParams,
   MyActivitiesResult,
+  UserActivityAdminRow,
   AssetSearchParams,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
@@ -478,10 +480,21 @@ class API {
     return res;
   }
 
-  /** An activity with everything its edit screen needs. Owners and collaborators only. */
+  /**
+   * Another user's activities, owned or collaborating, by Conductor-local
+   * UUID. LibreTexts staff only.
+   */
+  async getUserActivitiesAdmin(params: { uuid: string; page: number; limit: number }) {
+    const res = await axios.get<
+      { activities: UserActivityAdminRow[]; total_items: number; has_more: boolean } & ConductorBaseResponse
+    >("/user/activities", { params });
+    return res;
+  }
+
+  /** An activity with everything its edit screen needs. Owners, collaborators and staff only. */
   async getActivityForEditing(activityID: string) {
     const res = await axios.get<
-      { activity: EditableActivity; role: "owner" | "collaborator"; people: ActivityPerson[] } & ConductorBaseResponse
+      { activity: EditableActivity; role: ActivityEditorRole; people: ActivityPerson[] } & ConductorBaseResponse
     >(`/activities/${activityID}/authoring`);
     return res;
   }

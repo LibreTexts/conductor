@@ -163,3 +163,18 @@ export const updateActivitySchema = z.object({
 export const activityIDOnlySchema = z.object({
   params: activityIDParamsSchema,
 });
+
+/**
+ * Another user's activities, for LibreTexts staff on the LibreOne user page.
+ * `uuid` is the Conductor-local UUID, which ownership keys off.
+ */
+export const getUserActivitiesAdminSchema = z.object({
+  query: z.intersection(
+    z.object({
+      uuid: z.uuid({ version: "v4" })
+    }),
+    PaginationSchema.extend({
+      limit: z.coerce.number().int().min(1).max(50).default(10),
+    })
+  ),
+});

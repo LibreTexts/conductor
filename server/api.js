@@ -1152,8 +1152,9 @@ router.route("/studio/collections/list").get(middleware.checkLibreCommons, requi
 router.route("/studio/collections/:cid").get(middleware.checkLibreCommons, requireAdaptIntegration, studioCompatAPI.getStudioCollection);
 
 // H5P authoring. Conductor decides who may edit what and signs capability
-// tokens for the H5P service, which owns the content. Owners and
-// collaborators edit; only owners delete. See H5P_AUTHORING_DESIGN.md.
+// tokens for the H5P service, which owns the content. Owners, collaborators
+// and LibreTexts staff (support, superadmin) edit; only owners delete. Routes
+// that admit staff load roles with getUserAttributes. See H5P_AUTHORING_DESIGN.md.
 router
   .route("/activities")
   .post(
@@ -1170,6 +1171,7 @@ router
   .route("/activities/:activityID/authoring")
   .get(
     authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     middleware.validateZod(activityValidators.activityIDOnlySchema),
     activityAuthoringAPI.getActivityForEditing
   );
@@ -1192,6 +1194,7 @@ router
   .route("/activities/:activityID")
   .patch(
     authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     middleware.validateZod(activityValidators.updateActivitySchema),
     activityAuthoringAPI.updateActivity
   )
@@ -1205,6 +1208,7 @@ router
   .route("/activities/:activityID/editor-token")
   .post(
     authAPI.verifyRequest,
+    authAPI.getUserAttributes,
     middleware.validateZod(activityValidators.activityIDOnlySchema),
     activityAuthoringAPI.issueEditorToken
   );
@@ -1221,6 +1225,8 @@ router
 router
   .route("/commons/activities/:activityID")
   .get(
+    // Roles, when signed in, so staff can open private activities.
+    authAPI.optionalGetUserAttributes,
     middleware.validateZod(activityValidators.getActivitySchema),
     activitiesAPI.getActivity
   );
@@ -1862,6 +1868,17 @@ router
     projectsAPI.validate("getUserProjectsAdmin"),
     middleware.checkValidationErrors,
     projectsAPI.getUserProjectsAdmin
+  );
+
+// A user's H5P activities, owned or collaborating, for the LibreOne user page.
+router
+  .route("/user/activities")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    middleware.validateZod(activityValidators.getUserActivitiesAdminSchema),
+    activitiesAPI.getUserActivitiesAdmin
   );
 
 router

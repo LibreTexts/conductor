@@ -34,8 +34,9 @@ import {
 import api from "../../../api";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
 import useCanCreateActivities from "../../../hooks/useCanCreateActivities";
-import { ActivityVisibilityLevel, MyActivitiesParams, MyActivity } from "../../../types";
+import { MyActivitiesParams, MyActivity } from "../../../types";
 import {
+  VISIBILITY_BADGES,
   getContentTypeIcon,
   getContentTypeName,
   toPlainText,
@@ -55,12 +56,6 @@ const VISIBILITY_OPTIONS: { value: VisibilityFilter; label: string }[] = [
   { value: "unlisted", label: "Unlisted" },
   { value: "private", label: "Private" },
 ];
-
-const VISIBILITY_BADGES: Record<ActivityVisibilityLevel, { label: string; variant: "success" | "warning" | "default" }> = {
-  public: { label: "Public", variant: "success" },
-  unlisted: { label: "Unlisted", variant: "warning" },
-  private: { label: "Private", variant: "default" },
-};
 
 const SORT_OPTIONS = [
   { value: "updated", label: "Last updated" },

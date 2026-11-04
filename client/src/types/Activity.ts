@@ -22,10 +22,10 @@ export type CommonsActivity = {
   visibility: "public" | "private";
   includeInLibrary?: boolean;
   /**
-   * Set only on a private activity, to say why the caller can see it. Anyone
-   * else gets a 404 for a private activity.
+   * Set whenever the caller may edit, on any visibility, so the page can offer
+   * Edit and say why. Anyone without a role gets a 404 for a private activity.
    */
-  viewerRole?: "owner" | "collaborator";
+  viewerRole?: ActivityEditorRole;
   /** H5P license code, e.g. "CC BY", with a version such as "4.0". */
   license?: {
     name?: string;
@@ -60,6 +60,12 @@ export type CommonsActivitiesParams = {
   limit: number;
 };
 
+/**
+ * Why the caller may edit an activity. `staff` is LibreTexts support or
+ * superadmin access to an activity they neither own nor collaborate on.
+ */
+export type ActivityEditorRole = "owner" | "collaborator" | "staff";
+
 /** The three visibility levels the UI shows. See `getMyActivities` on the server. */
 export type ActivityVisibilityLevel = "public" | "unlisted" | "private";
 
@@ -92,7 +98,7 @@ export type MyActivitiesResult = {
   total_items: number;
 };
 
-/** An activity as its create/edit screen loads it. Owners and collaborators only. */
+/** An activity as its create/edit screen loads it. Owners, collaborators and staff only. */
 export type EditableActivity = {
   activityID: string;
   h5pContentID: number;
@@ -115,6 +121,17 @@ export type EditableActivity = {
 };
 
 export type ActivityPerson = { uuid: string; name: string; role: "owner" | "collaborator" };
+
+/** One row of another user's activities, for staff on the LibreOne user page. */
+export type UserActivityAdminRow = {
+  activityID: string;
+  title: string;
+  libraryTitle?: string;
+  visibility: ActivityVisibilityLevel;
+  /** The listed user's role, not the caller's. */
+  role: "owner" | "collaborator";
+  updatedAt?: string;
+};
 
 /** Metadata the create/edit screen sends. Every field optional on update. */
 export type ActivityMetadataInput = {

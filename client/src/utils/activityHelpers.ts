@@ -25,7 +25,17 @@ import {
   IconVolume,
   IconWriting,
 } from "@tabler/icons-react";
-import { CommonsActivity } from "../types";
+import { ActivityVisibilityLevel, CommonsActivity } from "../types";
+
+/** Badge label and color for each visibility level the UI shows. */
+export const VISIBILITY_BADGES: Record<
+  ActivityVisibilityLevel,
+  { label: string; variant: "success" | "warning" | "default" }
+> = {
+  public: { label: "Public", variant: "success" },
+  unlisted: { label: "Unlisted", variant: "warning" },
+  private: { label: "Private", variant: "default" },
+};
 
 /**
  * Tabler icon per H5P content type, keyed by library machine name because

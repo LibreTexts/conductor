@@ -643,12 +643,18 @@ const EditH5P = () => {
       <div>
         <Text weight="medium">Collaborators</Text>
         <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
-          {(people.length ? people : [{ uuid: "me", name: "You", role: "owner" as const }]).map((p) => (
+          {/* "You" only while creating: an existing activity with no owner on record is an orphaned migration. */}
+          {(people.length ? people : isCreate ? [{ uuid: "me", name: "You", role: "owner" as const }] : []).map((p) => (
             <li key={p.uuid} className="flex items-center justify-between gap-2">
               <Text>{p.name}</Text>
               <Text size="sm" color="muted">{p.role === "owner" ? "Owner" : "Can edit"}</Text>
             </li>
           ))}
+          {!isCreate && !people.length && (
+            <li>
+              <Text color="muted">No owner on record</Text>
+            </li>
+          )}
         </ul>
       </div>
     </div>
@@ -724,6 +730,14 @@ const EditH5P = () => {
 
   const messages = (
     <>
+      {!isCreate && role === "staff" && (
+        <Alert
+          variant="info"
+          className="mb-4"
+          title=""
+          message="You can edit this activity because you have LibreTexts staff access. Your changes will save to the owner's activity."
+        />
+      )}
       {saveMessage && (
         <Alert variant={saveMessage.tone === "error" ? "error" : "warning"} className="mb-4" message={saveMessage.text} />
       )}

@@ -8,6 +8,7 @@ import { CommonsActivity } from "../../../types";
 
 const mockGetActivity = vi.hoisted(() => vi.fn());
 const mockMediaQuery = vi.hoisted(() => vi.fn(() => true));
+const mockAuthoringEnabled = vi.hoisted(() => vi.fn(() => true));
 
 vi.mock("../../../api", () => ({
   default: { getCommonsActivity: mockGetActivity },
@@ -19,6 +20,10 @@ vi.mock("../../../hooks/useClientConfig", () => ({
     loading: false,
     isProduction: true,
   }),
+}));
+
+vi.mock("../../../hooks/useH5PAuthoringEnabled", () => ({
+  default: mockAuthoringEnabled,
 }));
 
 vi.mock("usehooks-ts", async (importOriginal) => ({
@@ -58,6 +63,7 @@ describe("CommonsActivityPage", () => {
   beforeEach(() => {
     mockGetActivity.mockReset();
     mockMediaQuery.mockReturnValue(true);
+    mockAuthoringEnabled.mockReturnValue(true);
   });
 
   it("renders the details, player, embed URL and attribution", async () => {
@@ -129,6 +135,40 @@ describe("CommonsActivityPage", () => {
     renderPage();
     expect(await screen.findByText("This activity is private")).toBeInTheDocument();
     expect(screen.getByText(/because you're the author/)).toBeInTheDocument();
+    expect(screen.getByText(/only its author and collaborators can open this page/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/h5p/31483/edit");
+  });
+
+  it("tells staff a private activity is visible because of their access", async () => {
+    mockGetActivity.mockResolvedValue({
+      data: { activity: { ...full, visibility: "private", viewerRole: "staff" } },
+    });
+    renderPage();
+    expect(await screen.findByText("This activity is private")).toBeInTheDocument();
+    expect(screen.getByText(/because you have LibreTexts staff access/)).toBeInTheDocument();
+    expect(screen.getByText(/author, collaborators and LibreTexts staff can open this page/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/h5p/31483/edit");
+  });
+
+  it("offers the author Edit on a public activity and says why", async () => {
+    mockGetActivity.mockResolvedValue({
+      data: { activity: { ...full, viewerRole: "owner" } },
+    });
+    renderPage();
+    expect(await screen.findByText("You can edit this activity")).toBeInTheDocument();
+    expect(screen.getByText(/because you're the author.*Visitors without edit access/)).toBeInTheDocument();
+    expect(screen.queryByText("This activity is private")).toBeNull();
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/h5p/31483/edit");
+  });
+
+  it("hides Edit when authoring is off but still says why", async () => {
+    mockAuthoringEnabled.mockReturnValue(false);
+    mockGetActivity.mockResolvedValue({
+      data: { activity: { ...full, viewerRole: "staff" } },
+    });
+    renderPage();
+    expect(await screen.findByText("You can edit this activity")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
   });
 
   it("names the collaborator role on a private activity", async () => {
@@ -144,6 +184,8 @@ describe("CommonsActivityPage", () => {
     renderPage();
     await screen.findByRole("heading", { level: 1, name: full.title });
     expect(screen.queryByText("This activity is private")).toBeNull();
+    expect(screen.queryByText("You can edit this activity")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
   });
 
   it("opens the embed dialog with the embed code", async () => {

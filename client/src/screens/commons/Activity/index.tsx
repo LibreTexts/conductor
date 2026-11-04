@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useHistory, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useDocumentTitle, useMediaQuery } from "usehooks-ts";
 import { format, parseISO } from "date-fns";
@@ -29,6 +29,7 @@ import {
   IconClock,
   IconCode,
   IconCopy,
+  IconEdit,
   IconLanguage,
   IconLicense,
   IconLink,
@@ -39,7 +40,7 @@ import api from "../../../api";
 import CopyButton from "../../../components/util/CopyButton";
 import useClientConfig from "../../../hooks/useClientConfig";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
-import { CommonsActivity } from "../../../types";
+import { ActivityEditorRole, CommonsActivity } from "../../../types";
 import { getLanguageName } from "../../../utils/languageCodes";
 import {
   buildActivityAttribution,
@@ -355,31 +356,59 @@ const EmbedDialog = ({
   </Dialog>
 );
 
+const VIEWER_REASON: Record<ActivityEditorRole, string> = {
+  owner: "You're seeing this because you're the author of this activity.",
+  collaborator: "You're seeing this because you're a collaborator on this activity.",
+  staff: "You're seeing this because you have LibreTexts staff access. The author and other visitors don't see this notice.",
+};
+
 /**
- * Shown to the owner or a collaborator viewing a private activity. Without it
- * the page looks identical to a public one, and an author would assume anyone
- * with the link can open it.
+ * Shown to anyone who may edit the activity: its owner, a collaborator, or
+ * LibreTexts staff. It offers Edit and always says why the viewer has it, so
+ * nobody mistakes privileged access for what every visitor sees. On a private
+ * activity it also warns that the page is not public, since otherwise it looks
+ * identical to a public one.
  */
-const PrivateNotice = ({ activity }: { activity: CommonsActivity }) => {
-  const history = useHistory();
+const ViewerAccessNotice = ({ activity }: { activity: CommonsActivity }) => {
   const authoringEnabled = useH5PAuthoringEnabled();
-  if (activity.visibility !== "private" || !activity.viewerRole) return null;
-  const why =
-    activity.viewerRole === "owner"
-      ? "You can see it because you're the author."
-      : "You can see it because you're a collaborator.";
+  if (!activity.viewerRole) return null;
+  const why = VIEWER_REASON[activity.viewerRole];
+
+  const whoCanOpen =
+    activity.viewerRole === "staff"
+      ? "only its author, collaborators and LibreTexts staff can open this page"
+      : "only its author and collaborators can open this page";
+  const alert =
+    activity.visibility === "private" ? (
+      <Alert
+        variant="warning"
+        title="This activity is private"
+        asHeading="h2"
+        message={`It doesn't appear in the catalog, and ${whoCanOpen}. ${why} Anyone else who follows this link sees "This activity isn't available".`}
+      />
+    ) : (
+      <Alert
+        variant="info"
+        title="You can edit this activity"
+        asHeading="h2"
+        message={`${why} Visitors without edit access don't see this option.`}
+      />
+    );
+
+  if (!authoringEnabled) return alert;
   return (
-    <Alert
-      variant="warning"
-      title="This activity is private"
-      asHeading="h2"
-      message={`It doesn't appear in the catalog, and only its author and collaborators can open this page. ${why} Anyone else who follows this link sees "This activity isn't available".`}
-      action={
-        authoringEnabled
-          ? { label: "Change visibility", onClick: () => history.push(`/h5p/${activity.activityID}/edit`) }
-          : undefined
-      }
-    />
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="min-w-0 flex-1">{alert}</div>
+      <Button
+        as={Link}
+        to={`/h5p/${activity.activityID}/edit`}
+        variant="primary"
+        icon={<IconEdit size={18} />}
+        className="bg-primary! text-white! shrink-0 sm:self-center"
+      >
+        Edit
+      </Button>
+    </div>
   );
 };
 
@@ -537,7 +566,7 @@ const CommonsActivityPage = () => {
       <PageBreadcrumb current={activity.title} />
       {activity.viewerRole && (
         <div className={isDesktop ? "px-6 pt-6" : "px-4 pt-4"}>
-          <PrivateNotice activity={activity} />
+          <ViewerAccessNotice activity={activity} />
         </div>
       )}
       {isDesktop ? (

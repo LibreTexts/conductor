@@ -156,7 +156,7 @@ describe("Create H5P", () => {
 });
 
 describe("Edit H5P", () => {
-  const editable = (role: "owner" | "collaborator") => ({
+  const editable = (role: "owner" | "collaborator" | "staff") => ({
     data: {
       activity: {
         activityID: "101", h5pContentID: 101, title: "Regulations on Fintech", subjects: ["Business"], tags: ["fintech"],
@@ -195,6 +195,33 @@ describe("Edit H5P", () => {
     renderAt("/h5p/101/edit");
     await screen.findByTitle("H5P editor");
     expect(screen.queryByRole("button", { name: "Delete H5P" })).toBeNull();
+  });
+
+  it("tells staff they edit with staff access and offers no delete", async () => {
+    config.verified = false;
+    api.getActivityForEditing.mockResolvedValue(editable("staff"));
+    renderAt("/h5p/101/edit");
+    await screen.findByTitle("H5P editor");
+    expect(screen.getByText("Editing with staff access")).toBeInTheDocument();
+    expect(screen.getByText(/because you have LibreTexts staff access/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete H5P" })).toBeNull();
+  });
+
+  it("shows no staff notice to the owner", async () => {
+    api.getActivityForEditing.mockResolvedValue(editable("owner"));
+    renderAt("/h5p/101/edit");
+    await screen.findByTitle("H5P editor");
+    expect(screen.queryByText("Editing with staff access")).toBeNull();
+  });
+
+  it("does not list the viewer as owner of an activity with no owner on record", async () => {
+    const orphaned = editable("staff");
+    orphaned.data.people = [];
+    api.getActivityForEditing.mockResolvedValue(orphaned);
+    renderAt("/h5p/101/edit");
+    await screen.findByTitle("H5P editor");
+    expect(screen.getAllByText("No owner on record").length).toBeGreaterThan(0);
+    expect(screen.queryByText("You")).toBeNull();
   });
 
   it("refreshes the token when the editor says it is expiring", async () => {
