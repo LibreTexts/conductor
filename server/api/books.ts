@@ -3118,6 +3118,7 @@ async function getBookGlossary(
       coverID: coverID.toString(),
       library,
     });
+    console.log("REQ USER:", JSON.stringify(req.user));
     const access = checkGlossaryProjectAccess(project, req.user);
     if (access.err) {
       return res.status(access.status).send({ err: true, errMsg: access.errMsg });

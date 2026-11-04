@@ -1408,6 +1408,7 @@ router
 router.route("/commons/book/:library/:coverID/glossary")
   // get glossary of a book
   .get(
+    authAPI.optionalGetUserAttributes,
     middleware.validateZod(BookValidators.getWithCoverIDParamSchema),
     booksAPI.getBookGlossary
   )

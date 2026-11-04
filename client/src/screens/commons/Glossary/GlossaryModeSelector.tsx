@@ -61,7 +61,7 @@ const GlossaryModeSelector = ({
         }))}
       />
       {selected && (
-        <p className="mt-2 text-sm text-neutral-600">{selected.description}</p>
+        <p className="mt-2! text-sm text-neutral-600">{selected.description}</p>
       )}
     </div>
   );

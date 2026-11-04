@@ -7,6 +7,7 @@ import {
   Modal,
   Select,
   Tabs,
+  Text,
   Textarea,
 } from "@libretexts/davis-react";
 import { IconPhoto, IconX } from "@tabler/icons-react";
@@ -327,7 +328,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
               <Tabs.Tab>Attribution</Tabs.Tab>
               <Tabs.Tab>Image</Tabs.Tab>
             </Tabs.List>
-            <Tabs.Panel>
+            <Tabs.Panel className="mt-4">
               <GlossaryTermAutocomplete
                 control={control}
                 name="term"
@@ -498,9 +499,9 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
             </Tabs.Panel>
             <Tabs.Panel>
               <div className="mt-4">
-                <p className="mb-1 text-sm font-medium text-neutral-700">
+                <Text>
                   Image
-                </p>
+                </Text>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -510,7 +511,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                   onChange={handleFileChange}
                 />
                 {imagePreview ? (
-                  <div className="relative inline-block">
+                  <div className="relative inline-block mt-2">
                     <img
                       src={imagePreview}
                       alt="Preview"
@@ -531,7 +532,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 ) : (
                   <label
                     htmlFor="glossary-image-upload"
-                    className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border border-dashed border-neutral-300 px-6 py-5 text-sm text-neutral-500 hover:border-neutral-400 hover:bg-neutral-50"
+                    className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border border-dashed border-neutral-300 mt-2 px-6 py-5 text-sm text-neutral-500 hover:border-neutral-400 hover:bg-neutral-50"
                   >
                     <IconPhoto size={24} className="text-neutral-400" />
                     <span>Click to upload an image</span>
@@ -607,10 +608,10 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         </form>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="ghost" onClick={() => handleClose(false)}>
+        <Button variant="outline" onClick={() => handleClose(false)}>
           Cancel
         </Button>
-        <Button variant="ghost" onClick={handleClearAll}>
+        <Button variant="outline" onClick={handleClearAll}>
           Clear All
         </Button>
 

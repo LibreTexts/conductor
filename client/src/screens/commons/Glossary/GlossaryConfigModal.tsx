@@ -698,14 +698,14 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
       </Modal.Body>
       <Modal.Footer>
         <Button
-          variant="ghost"
+          variant="outline"
           onClick={() => resetSavedMutation.mutate()}
           loading={resetSavedMutation.isLoading}
           disabled={isLoading || busy}
         >
           Reset Saved Scope
         </Button>
-        <Button variant="ghost" onClick={handleClose} disabled={busy}>
+        <Button variant="outline" onClick={handleClose} disabled={busy}>
           Cancel
         </Button>
         <Button
