@@ -323,12 +323,12 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
             <Alert message="Glossary page not found." variant="warning" />
           )}
           <Tabs selectedIndex={selectedTab} onChange={setSelectedTab}>
-            <Tabs.List>
+            <Tabs.List className="mb-4">
               <Tabs.Tab>Term</Tabs.Tab>
               <Tabs.Tab>Attribution</Tabs.Tab>
               <Tabs.Tab>Image</Tabs.Tab>
             </Tabs.List>
-            <Tabs.Panel className="mt-4">
+            <Tabs.Panel className="px-2">
               <GlossaryTermAutocomplete
                 control={control}
                 name="term"
@@ -434,7 +434,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 rows={10}
               />
             </Tabs.Panel>
-            <Tabs.Panel>
+            <Tabs.Panel className="px-2">
               <Input
                 label="Link"
                 placeholder="https://..."
@@ -497,7 +497,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 {...register("author")}
               />
             </Tabs.Panel>
-            <Tabs.Panel>
+            <Tabs.Panel className="px-2">
               <div className="mt-4">
                 <Text>
                   Image
@@ -608,11 +608,11 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         </form>
       </Modal.Body>
       <Modal.Footer>
+        <Button variant="ghost" onClick={handleClearAll}>
+          Clear All
+        </Button>
         <Button variant="outline" onClick={() => handleClose(false)}>
           Cancel
-        </Button>
-        <Button variant="outline" onClick={handleClearAll}>
-          Clear All
         </Button>
 
         <Button

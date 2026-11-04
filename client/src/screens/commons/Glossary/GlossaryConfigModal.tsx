@@ -698,7 +698,7 @@ const GlossaryConfigModal: React.FC<GlossaryConfigModalProps> = ({
       </Modal.Body>
       <Modal.Footer>
         <Button
-          variant="outline"
+          variant="ghost"
           onClick={() => resetSavedMutation.mutate()}
           loading={resetSavedMutation.isLoading}
           disabled={isLoading || busy}

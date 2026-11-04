@@ -209,13 +209,12 @@ const AddContent: React.FC<AddContentProps> = ({
         </Modal.Header>
         <Modal.Body>
           <Tabs selectedIndex={selectedTab} onChange={setSelectedTab}>
-            <Tabs.List>
-
+            <Tabs.List className="mb-4">
               <Tabs.Tab>Search and Import</Tabs.Tab>
               <Tabs.Tab>New Reference</Tabs.Tab>
               <Tabs.Tab>Internal References</Tabs.Tab>
             </Tabs.List>
-            <Tabs.Panel>
+            <Tabs.Panel className="px-2">
               <Stack direction="vertical" gap="md">
                 <Input
                   name="query"
@@ -293,7 +292,7 @@ const AddContent: React.FC<AddContentProps> = ({
                 )}
               </Stack>
             </Tabs.Panel>
-            <Tabs.Panel>
+            <Tabs.Panel className="px-2">
               <Stack direction="vertical" gap="md">
                 <ReferenceFormFields
                   form={form}
@@ -312,7 +311,7 @@ const AddContent: React.FC<AddContentProps> = ({
                 />
               </Stack>
             </Tabs.Panel>
-            <Tabs.Panel>
+            <Tabs.Panel className="px-2">
               <BookDashboard
                 onAddBookPageAsReference={onAddBookPageAsReference}
                 books={catalogBooks}
@@ -323,8 +322,11 @@ const AddContent: React.FC<AddContentProps> = ({
           </Tabs>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="outline" onClick={handleClear}>
+          <Button variant="ghost" onClick={handleClear}>
             Clear
+          </Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
           </Button>
           <Button
             variant="primary"
