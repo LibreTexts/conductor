@@ -12,6 +12,7 @@ export default class ClientConfigService {
             h5p_embed_origin: process.env.CLIENT__H5P_EMBED_ORIGIN || "",
             // Opens H5P authoring in the client. Off unless set, per environment.
             h5p_authoring_enabled: process.env.CLIENT__H5P_AUTHORING_ENABLED === "true",
+            reference_manager_enabled: process.env.CLIENT__REFERENCE_MANAGER_ENABLED === "true"
         };
     }
 }

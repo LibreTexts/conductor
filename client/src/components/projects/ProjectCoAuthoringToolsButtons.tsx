@@ -4,6 +4,7 @@ import {
   buildRemixerURL,
 } from "../../utils/projectHelpers";
 import { ProjectClassification } from "../../types";
+import useClientConfig from "../../hooks/useClientConfig";
 
 interface ProjectCoAuthoringToolsButtonsProps {
   className?: string;
@@ -28,20 +29,22 @@ const ProjectCoAuthoringToolsButtons: React.FC<
   projectClassification,
   projectID,
 }) => {
-  const validBook = libreCoverID && libreLibrary;
-  if (projectClassification === ProjectClassification.MINI_REPO) return null;
-  if (!validBook && !hasCommonsBook) return null;
-  if (!isProjectMemberOrAdmin) return null;
+    const { clientConfig } = useClientConfig();
 
-  return (
-    <div className={className}>
-      <Header as="span" sub>
-        Co-Authoring Tools:{" "}
-      </Header>
-      <div className="flex flex-row flex-wrap gap-2 mt-2">
-        {(validBook || hasCommonsBook) &&
-          libreCoverID &&
-          libreLibrary && (<>
+    const validBook = libreCoverID && libreLibrary;
+    if (projectClassification === ProjectClassification.MINI_REPO) return null;
+    if (!validBook && !hasCommonsBook) return null;
+    if (!isProjectMemberOrAdmin) return null;
+
+    return (
+      <div className={className}>
+        <Header as="span" sub>
+          Co-Authoring Tools:{" "}
+        </Header>
+        <div className="flex flex-row flex-wrap gap-2 mt-2">
+          {(validBook || hasCommonsBook) &&
+            libreCoverID &&
+            libreLibrary && (<>
               <Popup
                 content="This link will open the book in the LibreTexts OER Remixer."
                 trigger={
@@ -127,21 +130,24 @@ const ProjectCoAuthoringToolsButtons: React.FC<
                 Metadata Editor
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
-              <Button
-              onClick={() =>
-                window.open(`/projects/${projectID}/references`, "_blank")
-              }
-              color="blue"
-              size="small"
-            >
-              Reference Manager
-              <Icon name="external alternate" className="!ml-2" />
-            </Button>
+              {
+                clientConfig?.reference_manager_enabled && (
+                  <Button
+                    onClick={() =>
+                      window.open(`/projects/${projectID}/references`, "_blank")
+                    }
+                    color="blue"
+                    size="small"
+                  >
+                    Reference Manager
+                    <Icon name="external alternate" className="!ml-2" />
+                  </Button>
+                )}
             </>
-          )}
+            )}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 export default ProjectCoAuthoringToolsButtons;

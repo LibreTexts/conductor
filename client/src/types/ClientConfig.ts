@@ -5,4 +5,5 @@ export type ClientConfig = {
     central_identity_base_url: string;
     h5p_embed_origin: string;
     h5p_authoring_enabled?: boolean;
+    reference_manager_enabled?: boolean;
 };

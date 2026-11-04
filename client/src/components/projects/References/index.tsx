@@ -51,6 +51,7 @@ import { useRowsMaxHeight } from "./useRowsMaxHeight";
 import ReferenceWarningsModal, {
   type ReferenceWarning,
 } from "./ReferenceWarningsModal";
+import useClientConfig from "../../../hooks/useClientConfig";
 
 const columnHelper = createColumnHelper<ReferenceEntry>();
 const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
@@ -123,6 +124,7 @@ const ReferenceManager: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const { addNotification } = useNotifications();
+  const { clientConfig } = useClientConfig();
   const [showAddContentModal, setShowAddContentModal] = useState(false);
   const [showConfigureModal, setShowConfigureModal] = useState(false);
   const [showPopulateModal, setShowPopulateModal] = useState(false);
@@ -194,6 +196,17 @@ const ReferenceManager: React.FC = () => {
       });
     },
   });
+
+  /**
+   * Redirect to the home page if the reference manager is not enabled in the client configuration.
+   */
+  useEffect(() => {
+    if (!clientConfig) return;
+    if (!clientConfig.reference_manager_enabled) {
+      console.warn(`Reference manager is not enabled. Redirecting to home page.`);
+      window.location.href = "/home";
+    }
+  }, [clientConfig])
 
 
   const referenceFormat = bookReferencesDetails?.data?.format;
