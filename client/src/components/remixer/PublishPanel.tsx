@@ -12,6 +12,8 @@ interface PublishPanelProps {
   publishInProgress?: boolean;
   publishStatus?: "idle" | "pending" | "running" | "success" | "error";
   publishMessages?: string[];
+  /** Unchanged pages the job counted instead of logging one by one. */
+  publishSkippedPages?: number;
 }
 
 interface SummarySection {
@@ -32,6 +34,7 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
   publishInProgress = false,
   publishStatus = "idle",
   publishMessages = [],
+  publishSkippedPages = 0,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -66,9 +69,13 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
     if (publishStatus === "idle") return null;
     const total = currentBook.length;
     
-    const processed = publishMessages.filter(
-      (m) => m.endsWith("- skipped") || m.includes("- processed, status:")
-    ).length;
+    const processed = Math.min(
+      total,
+      publishSkippedPages +
+        publishMessages.filter(
+          (m) => m.endsWith("- skipped") || m.includes("- processed, status:")
+        ).length,
+    );
     
     let percent: number;
     if (publishStatus === "success") {
@@ -80,7 +87,7 @@ const PublishPanel: React.FC<PublishPanelProps> = ({
     }
     
     return { percent, total, processed };
-  }, [publishStatus, publishMessages, currentBook]);
+  }, [publishStatus, publishMessages, publishSkippedPages, currentBook]);
 
   const sections = useMemo<SummarySection[]>(() => {
     const deleted = currentBook.filter((page) => page.deletedItem);

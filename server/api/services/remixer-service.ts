@@ -562,22 +562,32 @@ const compareSiblingOrderKeys = (a: string, b: string): number =>
  * Places a newly created/imported page right after its nearest preceding
  * sibling (by {@link siblingOrderKey}) using the MindTouch page-order API.
  * Non-fatal: logs a warning if the call fails so the rest of the job continues.
+ *
+ * Pass `group` (the page's parent and its child list) when the caller already
+ * has it indexed; otherwise both are found by scanning `pages`, which is
+ * O(N) per call and adds up on big books.
  */
 const orderPageAfterPreviousSibling = async (
   newPageId: string,
   page: RemixerSubPageState,
   pages: RemixerSubPageState[],
   subdomain: string,
+  group?: {
+    parent: RemixerSubPageState | undefined;
+    children: RemixerSubPageState[];
+  },
 ): Promise<void> => {
   const newPid = parseInt(newPageId, 10);
   if (Number.isNaN(newPid)) return;
 
   const parentId = page.parentID ?? "-1";
-  const parent = pages.find((p) => p["@id"] === parentId);
+  const parent = group
+    ? group.parent
+    : pages.find((p) => p["@id"] === parentId);
   const currentPath = siblingOrderKey(page, parent);
 
   // Siblings with a real, resolved numeric ID (excludes still-pending new- pages)
-  const siblings = pages.filter((p) => {
+  const siblings = (group?.children ?? pages).filter((p) => {
     if (p["@id"] === newPageId) return false;
     if ((p.parentID ?? "-1") !== parentId) return false;
     return !Number.isNaN(parseInt(p["@id"], 10));
@@ -606,12 +616,20 @@ const orderPageAfterPreviousSibling = async (
   if (Number.isNaN(prevSiblingPid)) return;
 
   try {
-    const response = await CXOneFetch({
-      scope: "page",
-      path: newPid,
-      api: CXOnePageAPIEndpoints.ORDER_PAGES(String(prevSiblingPid)),
-      subdomain,
-      options: { method: "PUT" },
+    // Retried because a dropped order call leaves the page misplaced while
+    // the job still reports success; nothing else re-applies it.
+    const response = await withRetryOnTransient(async () => {
+      const res = await CXOneFetch({
+        scope: "page",
+        path: newPid,
+        api: CXOnePageAPIEndpoints.ORDER_PAGES(String(prevSiblingPid)),
+        subdomain,
+        options: { method: "PUT" },
+      });
+      if (isTransientStatus(res.status)) {
+        throwForMindTouchResponse(res, "Error ordering page");
+      }
+      return res;
     });
     if (!response.ok) {
       remixerLog.warn(
@@ -1292,13 +1310,6 @@ const resolveTranscludeSource = async ({
   });
 };
 
-const hasSubpages = (
-  page: RemixerSubPageState,
-  book: RemixerSubPageState[],
-): boolean => {
-  return book.some((p) => p.parentID === page["@id"] && p.deletedItem !== true);
-};
-
 const PAGE_THUMBNAIL_FILENAME = "mindtouch.page#thumbnail";
 
 type RemixerFileMigration = {
@@ -1926,7 +1937,8 @@ const normalizeArticle = (value: unknown): RemixerSubPageState["article"] => {
 const toFinalBookEntry = (
   page: RemixerSubPageState,
   subdomain: string,
-  book: RemixerSubPageState[],
+  /** Precomputed by the caller; scanning the whole book per page is O(N²). */
+  pageHasSubpages: boolean,
   displayTitle?: string,
 ): RemixerSubPageState => {
   const plain = remixerSubPageToPlain(page);
@@ -1957,7 +1969,7 @@ const toFinalBookEntry = (
     "@id": String(plain["@id"] ?? ""),
     "@title": displayTitle ?? title,
     "@href": href,
-    "@subpages": hasSubpages(page, book),
+    "@subpages": pageHasSubpages,
     article: normalizeArticle(plain.article),
     title,
     parentID: typeof plain.parentID === "string" ? plain.parentID : undefined,
@@ -2054,6 +2066,30 @@ const runRemixerJob = async ({
     await job.save();
     throw new Error("Remixer state not found");
   }
+
+  // Every job.save() is a Mongo round trip, and a big publish logs a line per
+  // changed page. Batch them: the client polls every 2s, so a ~1s flush window
+  // is invisible to it. `force` is for writes that must land right away.
+  const JOB_FLUSH_INTERVAL_MS = 1000;
+  const JOB_FLUSH_MAX_PENDING = 25;
+  let lastJobFlushAt = 0;
+  let pendingJobMessages = 0;
+  const logJob = (message: string) => {
+    job.messages.push(message);
+    pendingJobMessages++;
+  };
+  const flushJob = async ({ force = false }: { force?: boolean } = {}) => {
+    if (
+      !force &&
+      pendingJobMessages < JOB_FLUSH_MAX_PENDING &&
+      Date.now() - lastJobFlushAt < JOB_FLUSH_INTERVAL_MS
+    ) {
+      return;
+    }
+    await job.save();
+    pendingJobMessages = 0;
+    lastJobFlushAt = Date.now();
+  };
 
   try {
     if (job.status === "pending") {
@@ -2194,6 +2230,37 @@ const runRemixerJob = async ({
 
     const autoNumbering = remixerState.autoNumbering === true;
 
+    // Unchanged pages need no library call, so they are counted once here
+    // instead of each getting its own log line and job write.
+    job.skippedPages = ordered.filter(
+      (entry) => getPageStatus(entry.page) === "unchanged",
+    ).length;
+    if (job.skippedPages > 0) {
+      logJob(`${job.skippedPages} unchanged page(s) skipped.`);
+    }
+    await flushJob({ force: true });
+
+    /** `@subpages` for the final snapshot, ignoring children being deleted. */
+    const hasLiveSubpages = (page: RemixerSubPageState): boolean =>
+      (childrenByParent.get(page["@id"]) ?? []).some(
+        (child) => child.deletedItem !== true,
+      );
+    const snapshotPage = (page: RemixerSubPageState, displayTitle?: string) =>
+      toFinalBookEntry(page, subdomain, hasLiveSubpages(page), displayTitle);
+    const siblingGroupOf = (page: RemixerSubPageState) => {
+      const parentId = page.parentID ?? "-1";
+      return {
+        parent: byId.get(parentId),
+        children: childrenByParent.get(parentId) ?? [],
+      };
+    };
+
+    /**
+     * Pages this run created, imported or moved. Their sibling groups get
+     * reordered in the final pass even below the book's first layer.
+     */
+    const placedPages = new Set<RemixerSubPageState>();
+
     type PlaceholderRename = {
       page: RemixerSubPageState;
       intendedTitle: string;
@@ -2217,19 +2284,18 @@ const runRemixerJob = async ({
       // Persist right away: if the run dies later, this is the only record
       // that the draft's `oldPageId` page now exists live as `pageID`.
       job.createdPages.push({ draftID: oldPageId, pageID });
-      await job.save();
+      await flushJob({ force: true });
       page["@id"] = pageID;
       setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
       page["@href"] = pageURI || page["@href"];
       byId.delete(oldPageId);
       byId.set(pageID, page);
-      pages.forEach((candidate) => {
-        if (candidate.parentID === oldPageId) {
-          candidate.parentID = pageID;
-        }
-      });
+      // childrenByParent holds exactly the pages whose parentID is oldPageId.
       const kids = childrenByParent.get(oldPageId);
       if (kids) {
+        kids.forEach((child) => {
+          child.parentID = pageID;
+        });
         childrenByParent.delete(oldPageId);
         childrenByParent.set(pageID, kids);
       }
@@ -2255,6 +2321,21 @@ const runRemixerJob = async ({
       const status = getPageStatus(page);
       const shouldSkip = shouldSkipPage(page, status);
 
+      // Include everything that still exists in the book in the final
+      // snapshot. Deleted pages — by status, propagated deletion branch, or
+      // direct flags — are dropped.
+      const isDeletedPage =
+        status === "deleted" ||
+        inDeletedBranch ||
+        page.isDeleted === true ||
+        page.deletedItem === true;
+
+      // Nothing to do upstream, and already counted in job.skippedPages.
+      if (status === "unchanged") {
+        if (!isDeletedPage) finalBook.push(snapshotPage(page, title));
+        return "success";
+      }
+
       let message = shouldSkip
         ? `${title} - skipped`
         : `${title} - processed, status: ${status}`;
@@ -2263,10 +2344,10 @@ const runRemixerJob = async ({
       // rate limits, network blips). Non-transient errors propagate.
       const logRetry = async (attempt: number, error: unknown) => {
         const msg = error instanceof Error ? error.message : String(error);
-        job.messages.push(
+        logJob(
           `${title} - transient failure on attempt ${attempt}; retrying (${msg})`,
         );
-        await job.save();
+        await flushJob();
       };
 
       try {
@@ -2296,12 +2377,19 @@ const runRemixerJob = async ({
                 { onRetry: logRetry },
               );
               await adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+              placedPages.add(page);
               if (placeholder && occupant) {
                 pendingFinalRenames.push({ page, intendedTitle: title });
                 message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
               }
 
-              await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+              await orderPageAfterPreviousSibling(
+                pageID,
+                page,
+                pages,
+                subdomain,
+                siblingGroupOf(page),
+              );
             }
           }
         } else if (status === "imported") {
@@ -2325,7 +2413,7 @@ const runRemixerJob = async ({
                     title,
                     subdomain,
                     copyModeState,
-                    hasSubpages(page, pages),
+                    hasLiveSubpages(page),
                     coverId,
                     createOptions,
                     importGlossaryTerms,
@@ -2335,17 +2423,24 @@ const runRemixerJob = async ({
                 { onRetry: logRetry },
               );
               await adoptCreatedPageId(oldPageId, page, pageID, pageURI);
+              placedPages.add(page);
               // The page itself imported fine; these are per-file degradations
               // that would otherwise only exist in the server log.
               for (const warning of warnings) {
-                job.messages.push(`${title} - ${warning}`);
+                logJob(`${title} - ${warning}`);
               }
               if (placeholder && occupant) {
                 pendingFinalRenames.push({ page, intendedTitle: title });
                 message = `${title} - created at a temporary path because "${occupant.title || occupant["@title"]}" still occupies the target`;
               }
 
-              await orderPageAfterPreviousSibling(pageID, page, pages, subdomain);
+              await orderPageAfterPreviousSibling(
+                pageID,
+                page,
+                pages,
+                subdomain,
+                siblingGroupOf(page),
+              );
             }
           }
         } else if (status === "modified") {
@@ -2356,6 +2451,10 @@ const runRemixerJob = async ({
             () => handleModifiedPage(page, parent, title, subdomain, coverId),
             { onRetry: logRetry },
           );
+          // The move itself doesn't set sibling order; the final pass does.
+          if (page.movedItem === true || page.isPlacementChanged === true) {
+            placedPages.add(page);
+          }
           const pid = parseInt(page["@id"], 10);
           if (!Number.isNaN(pid)) {
             const info = await getPage(pid, subdomain);
@@ -2411,34 +2510,23 @@ const runRemixerJob = async ({
           entry.lastConflictReason = parentNotReady
             ? "parent-not-ready"
             : "title";
-          job.messages.push(
+          logJob(
             parentNotReady
               ? `${title} - its new parent page has not been created yet; deferring for reprocessing.`
               : `${title} - title/URL already in use; deferring for reprocessing.`,
           );
-          await job.save();
+          await flushJob();
           return "conflict";
         }
         throw error;
       }
 
-      // Include everything that still exists in the book in the final
-      // snapshot. Deleted pages — by status, propagated deletion branch, or
-      // direct flags — are dropped.
-      const isDeletedPage =
-        status === "deleted" ||
-        inDeletedBranch ||
-        page.isDeleted === true ||
-        page.deletedItem === true;
       if (!isDeletedPage) {
-        finalBook.push(toFinalBookEntry(page, subdomain, pages, title));
+        finalBook.push(snapshotPage(page, title));
       }
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, shouldSkip ? 100 : 100),
-      );
-      job.messages.push(message);
-      await job.save();
+      logJob(message);
+      await flushJob();
       return "success";
     };
 
@@ -2488,6 +2576,8 @@ const runRemixerJob = async ({
         deferredStack.push(entry);
       }
     }
+    // Phase boundary: don't leave throttled lines waiting on the next message.
+    await flushJob({ force: true });
 
     // Placeholder parents were created under a unique path so children could
     // move onto them without colliding with the deleted occupant. Now that
@@ -2503,19 +2593,19 @@ const runRemixerJob = async ({
         );
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
-        job.messages.push(
+        logJob(
           `${pending.intendedTitle} - still at its temporary path; rename FAILED (${detail}). Resolve the page holding that title/URL and publish again.`,
         );
-        await job.save();
+        await flushJob();
         continue;
       }
 
       const pid = parseInt(pending.page["@id"], 10);
       if (Number.isNaN(pid)) {
-        job.messages.push(
+        logJob(
           `${pending.intendedTitle} - renamed from its temporary path, but its id could not be resolved to refresh the saved URL.`,
         );
-        await job.save();
+        await flushJob();
         continue;
       }
 
@@ -2543,20 +2633,23 @@ const runRemixerJob = async ({
         pending.page,
         ...collectDescendants(childrenByParent, pending.page["@id"]),
       ];
+      const finalIndexById = new Map(
+        finalBook.map((p, i) => [p["@id"], i] as const),
+      );
       for (const node of toResnapshot) {
-        const idx = finalBook.findIndex((p) => p["@id"] === node["@id"]);
-        if (idx < 0) continue;
+        const idx = finalIndexById.get(node["@id"]);
+        if (idx === undefined) continue;
         const displayTitle =
           node === pending.page
             ? pending.intendedTitle
             : finalBook[idx]["@title"];
-        finalBook[idx] = toFinalBookEntry(node, subdomain, pages, displayTitle);
+        finalBook[idx] = snapshotPage(node, displayTitle);
       }
 
-      job.messages.push(
+      logJob(
         `${pending.intendedTitle} - renamed from temporary path to intended title.`,
       );
-      await job.save();
+      await flushJob();
     }
 
     const maxRetryPasses = pages.length + 10;
@@ -2630,10 +2723,10 @@ const runRemixerJob = async ({
           relocatable.inDeletedBranch,
           autoNumbering,
         );
-        job.messages.push(
+        logJob(
           `${victimTitle} - detected a title/URL swap deadlock among ${stillStuck.length} page(s); temporarily relocating to break the cycle.`,
         );
-        await job.save();
+        await flushJob();
         await withRetryOnTransient(() =>
           temporarilyRelocatePage(relocatable.page, subdomain),
         );
@@ -2641,6 +2734,8 @@ const runRemixerJob = async ({
 
       deferredStack = stillStuck;
     }
+
+    await flushJob({ force: true });
 
     if (deferredStack.length > 0) {
       const remainingTitles = deferredStack
@@ -2714,8 +2809,8 @@ const runRemixerJob = async ({
           );
         }
       }
-      job.messages.push("Article kind reconciliation pass complete.");
-      await job.save();
+      logJob("Article kind reconciliation pass complete.");
+      await flushJob({ force: true });
     }
 
     // Ensure Back Matter is the last chapter among its siblings.
@@ -2724,14 +2819,18 @@ const runRemixerJob = async ({
       orderBackMatterLast(finalBook, subdomain, coverId),
     );
     if (orderedBackMatter) {
-      job.messages.push("Back Matter ordered as last chapter.");
-      await job.save();
+      logJob("Back Matter ordered as last chapter.");
+      await flushJob({ force: true });
     }
 
-    // ── Final ordering pass: enforce sibling order for every group ────────────
-    // BFS over finalBook; for each sibling group, call ORDER_PAGES in sequence
-    // so MindTouch reflects the exact intended order even if individual
-    // create/move calls placed pages in the wrong slot.
+    // ── Final ordering pass: enforce sibling order ───────────────────────────
+    // For each sibling group in scope, call ORDER_PAGES in sequence so
+    // MindTouch reflects the exact intended order even if individual
+    // create/move calls placed pages in the wrong slot. In scope: the book's
+    // first layer (the cover's children), plus any deeper group this run
+    // created, imported or moved a page into. Untouched deeper groups are
+    // left alone; ordering every group cost one PUT per page in the book,
+    // which dominated publish time for a small edit to a big book.
     logger.info("[*] Final sibling ordering pass...");
     {
       const finalById = new Map(finalBook.map((p) => [p["@id"], p]));
@@ -2748,46 +2847,43 @@ const runRemixerJob = async ({
         }
       }
 
-      // BFS: process each parent's children group in pathNumber order,
-      // delegating the actual placement to `orderPageAfterPreviousSibling`
-      // (same helper used during create/import) so every page ends up
-      // exactly where its pathNumber says it should be, group by group.
-      const bfsQueue: string[] = [...finalRoots];
-      const bfsVisited = new Set<string>();
-      while (bfsQueue.length > 0) {
-        const parentId = bfsQueue.shift()!;
-        if (bfsVisited.has(parentId)) continue;
-        bfsVisited.add(parentId);
+      // Children of a root are the first layer. Placed pages' parentIDs are
+      // read now, after every adoption, so they name live MindTouch ids.
+      const groupsToOrder = new Set<string>(finalRoots);
+      placedPages.forEach((p) => groupsToOrder.add(p.parentID ?? "-1"));
 
-        const children = finalChildrenOf.get(parentId) ?? [];
-        if (children.length > 0) {
-          // Sort by order key ascending so each page is ordered after an
-          // already-placed predecessor within its sibling group.
-          const sortedChildren = [...children]
-            .map((id) => finalById.get(id)!)
-            .filter(Boolean)
-            .sort((a, b) => {
-              const parent = finalById.get(parentId);
-              return compareSiblingOrderKeys(
-                siblingOrderKey(a, parent),
-                siblingOrderKey(b, parent),
-              );
-            });
+      // Process each group's children in pathNumber order, delegating the
+      // actual placement to `orderPageAfterPreviousSibling` (same helper used
+      // during create/import) so every page ends up exactly where its
+      // pathNumber says it should be.
+      for (const parentId of groupsToOrder) {
+        const children = (finalChildrenOf.get(parentId) ?? [])
+          .map((id) => finalById.get(id)!)
+          .filter(Boolean);
+        if (children.length === 0) continue;
+        const parent = finalById.get(parentId);
+        // Sort by order key ascending so each page is ordered after an
+        // already-placed predecessor within its sibling group.
+        const sortedChildren = [...children].sort((a, b) =>
+          compareSiblingOrderKeys(
+            siblingOrderKey(a, parent),
+            siblingOrderKey(b, parent),
+          ),
+        );
 
-          for (const child of sortedChildren) {
-            await orderPageAfterPreviousSibling(
-              child["@id"],
-              child,
-              finalBook,
-              subdomain,
-            );
-            bfsQueue.push(child["@id"]);
-          }
+        for (const child of sortedChildren) {
+          await orderPageAfterPreviousSibling(
+            child["@id"],
+            child,
+            finalBook,
+            subdomain,
+            { parent, children },
+          );
         }
       }
 
-      job.messages.push("Final sibling ordering pass complete.");
-      await job.save();
+      logJob("Final sibling ordering pass complete.");
+      await flushJob({ force: true });
     }
 
     // ── Trigger Mindtouch TOC update ─────────────────────────────────────────
