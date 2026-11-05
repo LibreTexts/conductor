@@ -125,6 +125,16 @@ export type EditableActivity = {
 
 export type ActivityPerson = { uuid: string; name: string; role: "owner" | "collaborator" };
 
+/** A user an owner or staff member may add as a collaborator. */
+export type ActivityCollaboratorCandidate = {
+  uuid: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  /** The part of their email after "@", to tell similarly named people apart. */
+  emailDomain?: string;
+};
+
 /** One row of another user's activities, for staff on the LibreOne user page. */
 export type UserActivityAdminRow = {
   activityID: string;

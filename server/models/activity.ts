@@ -163,7 +163,7 @@ const ActivitySchema = new Schema<ActivityInterface>(
     /**
      * Conductor-local UUIDs of users granted edit access by the owner, resolved
      * from LibreOne UUIDs the same way as `createdBy`. Studio capped this at 10
-     * and had no invitation flow; the cap is enforced in the validator.
+     * and had no invitation flow. `api/activity-collaborators.ts` keeps the cap.
      */
     collaborators: {
       type: [String],

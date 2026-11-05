@@ -100,6 +100,24 @@ function metadataUpdate(body: z.infer<typeof createActivitySchema>["body"]): Par
   return update;
 }
 
+export type ActivityPerson = { uuid: string; name: string; role: "owner" | "collaborator" };
+
+/** The owner, then each collaborator, by name, for the edit screen's Sharing section. */
+export async function buildActivityPeople(createdBy?: string, collaborators: string[] = []): Promise<ActivityPerson[]> {
+  const users = await User.find(
+    { uuid: { $in: [createdBy, ...collaborators].filter(Boolean) } },
+    { _id: 0, uuid: 1, firstName: 1, lastName: 1 }
+  ).lean();
+  const nameOf = (uuid: string) => {
+    const u = users.find((p) => p.uuid === uuid);
+    return u ? [u.firstName, u.lastName].filter(Boolean).join(" ") : "Unknown user";
+  };
+  return [
+    ...(createdBy ? [{ uuid: createdBy, name: nameOf(createdBy), role: "owner" as const }] : []),
+    ...collaborators.map((uuid) => ({ uuid, name: nameOf(uuid), role: "collaborator" as const })),
+  ];
+}
+
 /**
  * An activity as its create/edit screen needs it: every field an author
  * edits, the caller's role, and the collaborators by name. Owners,
@@ -123,14 +141,6 @@ async function getActivityForEditing(
     const role = activityViewerRole(activity, req.user);
     if (!role) return conductorErr(res, 403, "err8");
 
-    const people = await User.find(
-      { uuid: { $in: [activity.createdBy, ...(activity.collaborators ?? [])].filter(Boolean) } },
-      { _id: 0, uuid: 1, firstName: 1, lastName: 1 }
-    ).lean();
-    const nameOf = (uuid?: string) => {
-      const u = people.find((p) => p.uuid === uuid);
-      return u ? [u.firstName, u.lastName].filter(Boolean).join(" ") : "Unknown user";
-    };
     const level: VisibilityLevel =
       activity.visibility === "private" ? "private" : activity.includeInLibrary === false ? "unlisted" : "public";
 
@@ -139,10 +149,7 @@ async function getActivityForEditing(
       err: false,
       activity: { ...rest, visibilityLevel: level },
       role,
-      people: [
-        ...(createdBy ? [{ uuid: createdBy, name: nameOf(createdBy), role: "owner" }] : []),
-        ...(collaborators ?? []).map((uuid) => ({ uuid, name: nameOf(uuid), role: "collaborator" })),
-      ],
+      people: await buildActivityPeople(createdBy, collaborators),
     });
   } catch (err) {
     log.error({ err }, "getActivityForEditing failed");

@@ -15,6 +15,9 @@ const api = vi.hoisted(() => ({
   createActivity: vi.fn(),
   updateActivity: vi.fn(),
   deleteActivity: vi.fn(),
+  searchActivityCollaborators: vi.fn(),
+  addActivityCollaborator: vi.fn(),
+  removeActivityCollaborator: vi.fn(),
 }));
 const notify = vi.hoisted(() => vi.fn());
 const config = vi.hoisted(() => ({ authoring: true, origin: "https://studio.example.test", verified: true }));
@@ -29,7 +32,7 @@ vi.mock("../../../hooks/useClientConfig", () => ({
   }),
 }));
 vi.mock("../../../state/hooks", () => ({
-  useTypedSelector: (select: (state: any) => unknown) => select({ user: { verifiedInstructor: config.verified } }),
+  useTypedSelector: (select: (state: any) => unknown) => select({ user: { uuid: "o", verifiedInstructor: config.verified } }),
 }));
 vi.mock("usehooks-ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("usehooks-ts")>()),
@@ -79,6 +82,7 @@ beforeEach(() => {
   api.getActivitySubjects.mockResolvedValue({ data: { subjects: ["Biology", "Chemistry"] } });
   api.getActivityEditorToken.mockResolvedValue({ data: { token: "create-token", expiresAt: "", ttlSeconds: 900 } });
   api.updateActivity.mockResolvedValue({ data: { err: false } });
+  api.searchActivityCollaborators.mockResolvedValue({ data: { err: false, users: [] } });
 });
 
 describe("Create H5P", () => {

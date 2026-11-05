@@ -36,3 +36,11 @@ export function activityViewerRole(
   if (isActivityStaff(user)) return "staff";
   return undefined;
 }
+
+/** Studio capped collaborators at 10, and Conductor keeps that cap. */
+export const MAX_ACTIVITY_COLLABORATORS = 10;
+
+/** Owners and LibreTexts staff manage who may edit. Collaborators may only leave. */
+export function canManageActivityCollaborators(role?: ActivityViewerRole): boolean {
+  return role === "owner" || role === "staff";
+}

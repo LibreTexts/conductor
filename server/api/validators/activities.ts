@@ -164,6 +164,22 @@ export const activityIDOnlySchema = z.object({
   params: activityIDParamsSchema,
 });
 
+/** A collaborator to add or remove. `uuid` is the Conductor-local UUID. */
+export const activityCollaboratorSchema = z.object({
+  params: activityIDParamsSchema.extend({
+    uuid: z.uuid({ version: "v4" }),
+  }),
+});
+
+/** People an owner or staff member may add as collaborators, searched by name. */
+export const searchActivityCollaboratorsSchema = z.object({
+  params: activityIDParamsSchema,
+  query: z.object({
+    search: z.string().max(100, { message: conductorErrors.err1 }).optional().default(""),
+    limit: z.coerce.number().int().min(1).max(25).default(10),
+  }),
+});
+
 /**
  * Another user's activities, for LibreTexts staff on the LibreOne user page.
  * `uuid` is the Conductor-local UUID, which ownership keys off.

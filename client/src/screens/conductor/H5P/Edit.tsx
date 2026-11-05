@@ -14,6 +14,7 @@ import {
   Dialog,
   EmptyState,
   Heading,
+  IconButton,
   Input,
   Select,
   Skeleton,
@@ -38,7 +39,10 @@ import {
 } from "../../../types";
 import languageCodes from "../../../utils/languageCodes";
 import { buildActivityAttribution, getActivityLicense } from "../../../utils/activityHelpers";
+import { useTypedSelector } from "../../../state/hooks";
 import { EditorSaveError, useEditorBridge } from "./useEditorBridge";
+import CollaboratorsField from "./CollaboratorsField";
+import { Divider } from "semantic-ui-react";
 
 /** Below Tailwind's `lg`, the screen becomes Content / Details / Sharing tabs. */
 const DESKTOP_QUERY = "(min-width: 1024px)";
@@ -194,11 +198,11 @@ const SubjectsField = ({
   </div>
 );
 
-/** A read-only ID with a Copy button, set off from the fields above by a divider. */
+/** A read-only ID with a Copy button. Spaced for a `divide-y` list of IDs. */
 const CopyIDField = ({ label, value }: { label: string; value: string }) => (
-  <div className="border-t border-neutral-200 pt-4">
+  <div className="py-3 first:pt-0 last:pb-0">
     <div className="flex items-center justify-between gap-2">
-      <Text weight="medium">{label}</Text>
+      <Text weight="bold" size="base">{label}</Text>
       <CopyFieldButton value={value} label={label} />
     </div>
     <Text as="p" size="sm" className="font-mono break-all">
@@ -209,8 +213,12 @@ const CopyIDField = ({ label, value }: { label: string; value: string }) => (
 
 /** Visibility as radio cards, frame 1a. Native radios keep keyboard behaviour. */
 const VisibilityField = ({ value, onChange }: { value: ActivityVisibilityLevel; onChange: (v: ActivityVisibilityLevel) => void }) => (
-  <fieldset className="m-0 border-0 p-0">
-    <legend className="mb-2 text-sm font-medium text-neutral-900">Visibility</legend>
+  <fieldset className="m-0 border-0 p-0!">
+    {/* Davis Text, like the Collaborators heading beside it, so the two match. */}
+    <legend>
+      <Text as="span" weight="medium" className="mb-0! pb-0!">Visibility</Text>
+    </legend>
+    <Divider className="mt-0! mb-2" />
     <div className="flex flex-col gap-2">
       {VISIBILITY_CHOICES.map((choice) => {
         const checked = value === choice.value;
@@ -355,6 +363,7 @@ const EditH5P = () => {
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
+  const currentUserUUID = useTypedSelector((state) => state.user.uuid);
   const role = data?.role ?? "owner";
   const people: ActivityPerson[] = data?.people ?? [];
   const licenseInfo = getActivityLicense(data?.activity.license);
@@ -648,32 +657,23 @@ const EditH5P = () => {
         value={form.language}
         onChange={(e) => setForm({ ...form, language: e.target.value })}
       />
-      {/* A new activity has no record to show until its first save. */}
-      {data && <CopyIDField label="H5P ID" value={String(data.activity.h5pContentID)} />}
-      {data?.activity.adaptID && <CopyIDField label="ADAPT ID" value={data.activity.adaptID} />}
     </div>
   );
 
-  const sharingFields = (
-    <div className="flex flex-col gap-4">
-      <VisibilityField value={form.visibility} onChange={(visibility) => setForm({ ...form, visibility })} />
-      <div>
-        <Text weight="medium">Collaborators</Text>
-        <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
-          {/* "You" only while creating: an existing activity with no owner on record is an orphaned migration. */}
-          {(people.length ? people : isCreate ? [{ uuid: "me", name: "You", role: "owner" as const }] : []).map((p) => (
-            <li key={p.uuid} className="flex items-center justify-between gap-2">
-              <Text>{p.name}</Text>
-              <Text size="sm" color="muted">{p.role === "owner" ? "Owner" : "Can edit"}</Text>
-            </li>
-          ))}
-          {!isCreate && !people.length && (
-            <li>
-              <Text color="muted">No owner on record</Text>
-            </li>
-          )}
-        </ul>
+  // A new activity has no record to show until its first save.
+  const idsCard = data ? (
+    <Card padding="sm">
+      <div className="flex flex-col divide-y divide-neutral-200">
+        <CopyIDField label="H5P ID" value={String(data.activity.h5pContentID)} />
+        {data.activity.adaptID && <CopyIDField label="ADAPT ID" value={data.activity.adaptID} />}
       </div>
+    </Card>
+  ) : null;
+
+  const sharingFields = (
+    <div className="flex flex-col gap-6">
+      <VisibilityField value={form.visibility} onChange={(visibility) => setForm({ ...form, visibility })} />
+      <CollaboratorsField activityID={data ? activityID : undefined} people={people} role={role} currentUserUUID={currentUserUUID} />
     </div>
   );
 
@@ -713,21 +713,20 @@ const EditH5P = () => {
 
   const section = (key: string, label: string, summary: string, body: JSX.Element, open = false) => (
     <Accordion.Item key={key} defaultOpen={open}>
-      <Accordion.Trigger>
+      {/* The summary stands in for a closed section's fields, so it hides while they show. */}
+      <Accordion.Trigger className="group">
         <span className="flex flex-col items-start text-left">
           <span className="font-semibold">{label}</span>
-          <span className="text-sm font-normal text-neutral-600">{summary}</span>
+          <span className="text-sm font-normal text-neutral-600 group-aria-expanded:hidden">{summary}</span>
         </span>
       </Accordion.Trigger>
       <Accordion.Panel>{body}</Accordion.Panel>
     </Accordion.Item>
   );
 
-  const deleteButton =
+  const deleteButton = (size: "md" | "lg") => 
     !isCreate && role === "owner" ? (
-      <Button variant="destructive" size="sm" icon={<IconTrash size={16} />} onClick={() => setConfirmDelete(true)}>
-        Delete H5P
-      </Button>
+      <IconButton aria-label="Delete H5P activity" variant="destructive" size={size} icon={<IconTrash size={16} />} onClick={() => setConfirmDelete(true)} />
     ) : null;
 
   const saveButton = (size: "md" | "lg") => (
@@ -806,21 +805,24 @@ const EditH5P = () => {
   if (isDesktop) {
     return (
       <div className="min-h-full bg-neutral-50 px-6 pb-16 pt-4">
-        <Breadcrumb aria-label="Page navigation">
-          <Breadcrumb.Item href="/h5p">My H5P</Breadcrumb.Item>
-          <Breadcrumb.Item isCurrent>{loadingActivity ? <Skeleton variant="text" width={160} /> : title}</Breadcrumb.Item>
-        </Breadcrumb>
         <header className="mt-3 flex flex-wrap items-center justify-between gap-4 border-b border-neutral-200 pb-4">
-          <div className="flex min-w-0 items-center gap-3">
-            {loadingActivity ? (
-              <Skeleton variant="text" width={420} height={44} />
-            ) : (
-              <Heading level={1} className="truncate mb-0!">{title}</Heading>
-            )}
-            {!loadingActivity && statusBadge}
+          <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 items-center gap-3">
+              {loadingActivity ? (
+                <Skeleton variant="text" width={420} height={44} />
+              ) : (
+                <Heading level={1} className="truncate mb-0!">{title}</Heading>
+              )}
+              {!loadingActivity && statusBadge}
+            </div>
+            <Breadcrumb aria-label="Page navigation" className="pl-0.5">
+              <Breadcrumb.Item href="/h5p">My H5P</Breadcrumb.Item>
+              <Breadcrumb.Item isCurrent>{loadingActivity ? <Skeleton variant="text" width={160} /> : title}</Breadcrumb.Item>
+            </Breadcrumb>
           </div>
           <div className="flex items-center gap-3">
             <Text size="sm" color="muted">{saveStatus}</Text>
+            {deleteButton("md")}
             {cancelButton("md")}
             {saveButton("md")}
           </div>
@@ -843,15 +845,17 @@ const EditH5P = () => {
                 <Skeleton variant="text" lines={6} />
               </Card>
             ) : (
-              <Card padding="sm">
-                <Accordion>
-                  {section("details", "Details", metadataSummary.details, detailsFields, true)}
-                  {section("sharing", "Sharing", metadataSummary.sharing, sharingFields, true)}
-                  {section("license", "License and attribution", metadataSummary.license, licenseFields)}
-                </Accordion>
-              </Card>
+              <>
+                {idsCard}
+                <Card padding="sm">
+                  <Accordion>
+                    {section("details", "Details", metadataSummary.details, detailsFields, true)}
+                    {section("sharing", "Sharing", metadataSummary.sharing, sharingFields, true)}
+                    {section("license", "License and attribution", metadataSummary.license, licenseFields)}
+                  </Accordion>
+                </Card>
+              </>
             )}
-            {deleteButton && <div className="flex justify-center">{deleteButton}</div>}
           </aside>
         </div>
         {dialogs}
@@ -917,6 +921,7 @@ const EditH5P = () => {
         {displayOptionsCard}
       </div>
       <div id="edit-panel-details" role="tabpanel" aria-labelledby="edit-tab-details" hidden={tab !== "details"} className="flex flex-col gap-4 px-4">
+        {idsCard}
         <Card padding="sm">{detailsFields}</Card>
         <Card padding="sm">
           <Accordion>{section("license", "License and attribution", metadataSummary.license, licenseFields)}</Accordion>
@@ -924,11 +929,11 @@ const EditH5P = () => {
       </div>
       <div id="edit-panel-sharing" role="tabpanel" aria-labelledby="edit-tab-sharing" hidden={tab !== "sharing"} className="flex flex-col gap-4 px-4">
         <Card padding="sm">{sharingFields}</Card>
-        {deleteButton && <div className="flex justify-center">{deleteButton}</div>}
       </div>
       <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t border-neutral-200 bg-white px-4 py-3">
         <Text size="sm" color="muted" className="min-w-0 truncate">{saveStatus}</Text>
         <div className="flex shrink-0 gap-2">
+          {deleteButton("lg")}
           {cancelButton("lg")}
           {saveButton("lg")}
         </div>

@@ -25,6 +25,7 @@ import collectionsAPI from "./api/collections.js";
 import activitiesAPI from "./api/activities.js";
 import studioLegacyAPI from "./api/studio-legacy.js";
 import activityAuthoringAPI from "./api/activity-authoring.js";
+import activityCollaboratorsAPI from "./api/activity-collaborators.js";
 import studioCompatAPI from "./api/studio-compat.js";
 import { requireAdaptIntegration } from "./util/adapt-integration.js";
 import booksAPI from "./api/books.js";
@@ -1202,6 +1203,31 @@ router
     authAPI.verifyRequest,
     middleware.validateZod(activityValidators.activityIDOnlySchema),
     activityAuthoringAPI.deleteActivity
+  );
+
+// Owners and staff manage collaborators; a collaborator may remove only themselves.
+router
+  .route("/activities/:activityID/collaborators/search")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.searchActivityCollaboratorsSchema),
+    activityCollaboratorsAPI.searchCollaboratorCandidates
+  );
+
+router
+  .route("/activities/:activityID/collaborators/:uuid")
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.activityCollaboratorSchema),
+    activityCollaboratorsAPI.addCollaborator
+  )
+  .delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.activityCollaboratorSchema),
+    activityCollaboratorsAPI.removeCollaborator
   );
 
 router

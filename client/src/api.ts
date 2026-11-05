@@ -2,6 +2,7 @@ import axios, { AxiosRequestConfig } from "axios";
 import {
   Announcement,
   ActivityMetadataInput,
+  ActivityCollaboratorCandidate,
   ActivityEditorRole,
   ActivityPerson,
   CommonsActivity,
@@ -528,6 +529,30 @@ class API {
 
   async deleteActivity(activityID: string) {
     const res = await axios.delete<ConductorBaseResponse>(`/activities/${activityID}`);
+    return res;
+  }
+
+  /** Users who could be added as collaborators, by name. Owners and staff only. */
+  async searchActivityCollaborators(activityID: string, search: string) {
+    const res = await axios.get<{ users: ActivityCollaboratorCandidate[] } & ConductorBaseResponse>(
+      `/activities/${activityID}/collaborators/search`,
+      { params: { search } }
+    );
+    return res;
+  }
+
+  async addActivityCollaborator(activityID: string, uuid: string) {
+    const res = await axios.put<{ people: ActivityPerson[] } & ConductorBaseResponse>(
+      `/activities/${activityID}/collaborators/${uuid}`
+    );
+    return res;
+  }
+
+  /** `left` is set when the caller removed themselves. */
+  async removeActivityCollaborator(activityID: string, uuid: string) {
+    const res = await axios.delete<{ people: ActivityPerson[]; left?: boolean } & ConductorBaseResponse>(
+      `/activities/${activityID}/collaborators/${uuid}`
+    );
     return res;
   }
 

@@ -289,7 +289,8 @@ async function getActivityByH5PID(
         orgID: process.env.ORG_ID,
         ...(_buildVisibilityFilter(req.user?.decoded?.uuid)),
       },
-      { _id: 0, __v: 0 }
+      // Anonymous callers reach this, so owner and collaborator ids stay server-side.
+      { ...ACTIVITY_LIST_PROJECTION, createdBy: 0, authorCentralID: 0 }
     ).lean();
 
     if (!activity) return conductor404Err(res);
