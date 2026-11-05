@@ -1,5 +1,6 @@
 # Stage 1: Build client
-FROM node:22-alpine3.22 AS client-builder
+# sha256:546f76c5ef8161c2c37932978a63c89eb7ea61062537e5865361603d9d3af668 = 22.23.4-alpine3.23
+FROM node@sha256:546f76c5ef8161c2c37932978a63c89eb7ea61062537e5865361603d9d3af668 AS client-builder
 WORKDIR /usr/src/conductor/client
 
 # Install git (needed for git dependencies in package.json)
@@ -20,7 +21,7 @@ COPY client/ ./
 RUN npm run build
 
 # Stage 2: Build server
-FROM node:22-alpine3.22 AS server-builder
+FROM node@sha256:546f76c5ef8161c2c37932978a63c89eb7ea61062537e5865361603d9d3af668 AS server-builder
 WORKDIR /usr/src/conductor/server
 
 # Copy manifest + lockfile and install the exact, committed tree (see client note)
@@ -35,7 +36,7 @@ RUN mkdir -p ./public
 RUN npm run build
 
 # Stage 3: Production runtime
-FROM node:22-alpine3.22
+FROM node@sha256:546f76c5ef8161c2c37932978a63c89eb7ea61062537e5865361603d9d3af668
 
 # Build arguments for dynamic labels
 ARG VERSION=dev
