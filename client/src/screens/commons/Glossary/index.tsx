@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   Grid,
+  Heading,
   IconButton,
   Link,
   Stack,
@@ -182,7 +183,7 @@ const GlossaryManager: React.FC = () => {
       if (res.err) {
         throw new Error(
           res.errMsg ??
-            "Failed to import glossary terms from existing glossary.",
+          "Failed to import glossary terms from existing glossary.",
         );
       }
     },
@@ -315,22 +316,27 @@ const GlossaryManager: React.FC = () => {
   };
 
   return (
-    <Grid cols={3} gap="lg" className="glossary-page px-4 py-6">
+    <Grid cols={3} gap="lg" className="glossary-page px-4! py-8! md:px-16!">
       <div className="glossary-page__column commons-glossary col-span-2">
         <div className="glossary-page__column-header">
-          <Stack direction="horizontal" align="center" justify="between">
-            <Stack direction="vertical"  gap="sm">
-              <h4 className="text-2xl font-semibold">Book Glossary</h4>
-              {!isLoadingProject &&
-                project?.title && (
-                  <Breadcrumb className="ml-1">
-                    <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+          <Stack direction="horizontal" align="start" justify="between">
+            <Stack direction="vertical" gap="sm">
+              <Heading level={2} className="-mt-1!">Glossary Manager</Heading>
+              <Breadcrumb className="ml-1">
+                <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+                {(!isLoadingProject &&
+                  project?.title) ?
+                  (
                     <Breadcrumb.Item href={`/projects/${id}`}>
                       {project?.title}
                     </Breadcrumb.Item>
-                    <Breadcrumb.Item isCurrent>Glossary</Breadcrumb.Item>
-                  </Breadcrumb>
-                )}
+                  ) : (
+                    <Breadcrumb.Item>
+                      Project
+                    </Breadcrumb.Item>
+                  )}
+                <Breadcrumb.Item isCurrent>Glossary</Breadcrumb.Item>
+              </Breadcrumb>
             </Stack>
             <Stack direction="horizontal" gap="sm">
               <Button
@@ -373,7 +379,6 @@ const GlossaryManager: React.FC = () => {
               )}
             </Stack>
           </Stack>
-          <p className="text-sm text-neutral-600"></p>
         </div>
         <div className="glossary-page__panel-scroll">
           <GlossaryList
@@ -399,8 +404,8 @@ const GlossaryManager: React.FC = () => {
       </div>
       <div className="glossary-page__column commons-glossary">
         <div className="glossary-page__column-header">
-          <Stack direction="horizontal" align="center" justify="between">
-            <h4 className="text-2xl font-semibold">Table of Contents</h4>
+          <Stack direction="horizontal" align="start" justify="between">
+            <Heading level={2}>Table of Contents</Heading>
             {bookTOC && bookTOC.children.length > 0 && (
               <Button
                 size="sm"
