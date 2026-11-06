@@ -3099,6 +3099,8 @@ router
 
 router.route("/kb/tree").get(authAPI.optionalVerifyRequest, kbAPI.getKBTree);
 
+router.route("/kb/doc-links").get(kbAPI.getKBDocLinks);
+
 router
   .route("/kb/page")
   .post(

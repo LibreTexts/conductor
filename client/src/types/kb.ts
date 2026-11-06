@@ -12,6 +12,7 @@ export type KBPage = {
   internalOnly?: boolean;
   slug: string;
   parent?: string;
+  docKey?: string | null;
   lastEditedBy: string | KBPageEditor;
   createdAt: string;
   updatedAt: string;

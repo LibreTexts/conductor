@@ -112,9 +112,12 @@ const KBPageEditMode = ({
         throw new Error("Error creating page");
       }
 
-      // Invalidate nav tree cache
+      // Invalidate nav tree and doc link caches
       queryClient.invalidateQueries({
         queryKey: ["nav-tree"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["kb-doc-links"],
       });
 
       window.location.assign(`/insight/${res.data.page.slug}`); // Redirect to new page
@@ -146,9 +149,12 @@ const KBPageEditMode = ({
       const updated = res.data.page;
       setSaveSuccess(true);
 
-      // Invalidate nav tree cache
+      // Invalidate nav tree and doc link caches
       queryClient.invalidateQueries({
         queryKey: ["nav-tree"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["kb-doc-links"],
       });
 
       // Redirect if slug has changed
@@ -321,6 +327,32 @@ const KBPageEditMode = ({
                 />
               )}
             />
+            {user.isDeveloper && (
+              <Controller
+                control={control}
+                name="docKey"
+                rules={{
+                  pattern: {
+                    value: /^[A-Z][A-Z0-9_]{1,63}$/,
+                    message:
+                      "Use uppercase letters, numbers, and underscores (e.g. REFERENCE_MANAGER)",
+                  },
+                }}
+                render={({ field, fieldState: { error } }) => (
+                  <Input
+                    {...field}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                    name="docKey"
+                    label="Doc link key (optional) (ex: REFERENCE_MANAGER)"
+                    placeholder="Stable key referenced by in-app help links"
+                    helperText="Stable identifier used by in-app help links. Changing or removing it hides those links. Must match a key defined in the app's code."
+                    error={!!error}
+                    errorMessage={error?.message}
+                  />
+                )}
+              />
+            )}
             <Controller
               control={control}
               name="internalOnly"

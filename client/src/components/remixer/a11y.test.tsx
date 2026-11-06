@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import TreeNodeContainer from "./BookContent/TreeNodeContainer";
 import ContextMenu from "./BookContent/ContextMenu";
 import CatalogList from "./CatalogBook/CatalogList";
@@ -146,7 +147,11 @@ describe("Catalog Book modal", () => {
 
 describe("ConsultInsightButton", () => {
   it("is a single link with a descriptive name", () => {
-    render(<ConsultInsightButton href="https://commons.libretexts.org/insight/x" />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConsultInsightButton href="https://commons.libretexts.org/insight/x" />
+      </QueryClientProvider>,
+    );
     expect(
       screen.getByRole("link", {
         name: "Consult Insight Knowledge Base (opens in new tab)",

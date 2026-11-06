@@ -52,6 +52,7 @@ import ReferenceWarningsModal, {
   type ReferenceWarning,
 } from "./ReferenceWarningsModal";
 import useClientConfig from "../../../hooks/useClientConfig";
+import ConsultInsightButton from "../../NextGenComponents/ConsultInsightButton";
 
 const columnHelper = createColumnHelper<ReferenceEntry>();
 const BOOK_REFERENCES_QUERY_KEY = "bookReferencesFormat";
@@ -877,7 +878,10 @@ const ReferenceManager: React.FC = () => {
     <Stack direction="vertical" gap="lg" className="px-4 py-8 md:px-16">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <Stack direction="vertical" gap="xs">
-          <Heading level={2}>Reference Manager</Heading>
+          <Stack direction="horizontal" gap="xs">
+            <Heading level={2}>Reference Manager</Heading>
+            <ConsultInsightButton docKey="REFERENCE_MANAGER" />
+          </Stack>
           {!isLoadingProject && project?.title && (
             <Breadcrumb className="ml-1">
               <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>

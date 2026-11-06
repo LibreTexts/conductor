@@ -64,6 +64,26 @@ function _canViewInternalKB(user?: { roles?: any[] } | null): boolean {
   );
 }
 
+/**
+ * Doc keys are referenced from application code, so changing one can hide help
+ * links across the app. Only superadmins may set or clear them.
+ */
+function _canEditDocKey(user?: { roles?: any[] } | null): boolean {
+  if (!user) return false;
+  return authAPI.checkHasRole(user, "libretexts", "superadmin");
+}
+
+function _isDuplicateDocKeyErr(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: unknown }).code === 11000 &&
+    "docKey" in ((err as { keyPattern?: object }).keyPattern ?? {})
+  );
+}
+
+const DUPLICATE_DOC_KEY_MSG = "Doc key already in use by another page";
+
 async function getKBPage(
   req: ZodReqWithOptionalUser<z.infer<typeof GetKBPageValidator>>,
   res: Response
@@ -111,6 +131,40 @@ async function getKBPage(
         msg: "Page not found",
       });
     }
+    return conductor500Err(res);
+  }
+}
+
+/**
+ * Maps each doc key to the current slug of its page, so in-app help links
+ * survive slug renames. Only published, public pages are included: a link to a
+ * page the reader can't open is worse than no link.
+ */
+async function getKBDocLinks(
+  _req: Request,
+  res: Response
+) {
+  try {
+    const pages = await KBPage.find({
+      docKey: { $exists: true, $ne: null },
+      status: "published",
+      internalOnly: { $ne: true },
+    })
+      .select("docKey slug")
+      .lean();
+
+    const links: Record<string, string> = {};
+    for (const p of pages) {
+      if (p.docKey) links[p.docKey] = p.slug;
+    }
+
+    res.set("Cache-Control", "public, max-age=300");
+    return res.send({
+      err: false,
+      links,
+    });
+  } catch (err) {
+    logger.error({ err }, "getKBDocLinks failed");
     return conductor500Err(res);
   }
 }
@@ -255,8 +309,16 @@ async function createKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, slug, status, parent, internalOnly } =
-      req.body;
+    const {
+      title,
+      description,
+      body,
+      slug,
+      status,
+      parent,
+      internalOnly,
+      docKey,
+    } = req.body;
     const { decoded } = req.user;
 
     const placementErr = await _checkKBParentPlacement(parent);
@@ -279,6 +341,7 @@ async function createKBPage(
       internalOnly: internalOnly ?? true,
       slug: safeSlug,
       parent,
+      ...(docKey && _canEditDocKey(req.user) && { docKey }),
       lastEditedByUUID: editor.uuid,
     });
 
@@ -297,6 +360,9 @@ async function createKBPage(
       page: kbPage,
     });
   } catch (err) {
+    if (_isDuplicateDocKeyErr(err)) {
+      return res.status(400).send({ err: true, errMsg: DUPLICATE_DOC_KEY_MSG });
+    }
     logger.error({ err }, "createKBPage failed");
     return conductor500Err(res);
   }
@@ -402,8 +468,16 @@ async function updateKBPage(
   res: Response
 ) {
   try {
-    const { title, description, body, status, slug, parent, internalOnly } =
-      req.body; // Image URLs should not be updated directly
+    const {
+      title,
+      description,
+      body,
+      status,
+      slug,
+      parent,
+      internalOnly,
+      docKey,
+    } = req.body; // Image URLs should not be updated directly
     const { uuid } = req.params;
     const { decoded } = req.user;
 
@@ -429,6 +503,10 @@ async function updateKBPage(
     kbPage.internalOnly = internalOnly ?? kbPage.internalOnly; // Preserve existing value if not provided
     kbPage.parent = parent;
     kbPage.lastEditedByUUID = editor.uuid;
+    // Undefined means "not sent", so the existing key is kept.
+    if (docKey !== undefined && _canEditDocKey(req.user)) {
+      kbPage.docKey = docKey || undefined;
+    }
 
     const urlsToDelete = _checkForDeletedImages(body, kbPage.imgURLs);
     if (urlsToDelete.length > 0) {
@@ -464,6 +542,9 @@ async function updateKBPage(
       page: kbPage,
     });
   } catch (err) {
+    if (_isDuplicateDocKeyErr(err)) {
+      return res.status(400).send({ err: true, errMsg: DUPLICATE_DOC_KEY_MSG });
+    }
     logger.error({ err }, "updateKBPage failed");
     return conductor500Err(res);
   }
@@ -1253,6 +1334,7 @@ async function agentQueryLangGraph(req: z.infer<typeof AgentQueryLangGraphValida
 
 export default {
   getKBPage,
+  getKBDocLinks,
   getKBTree,
   createKBPage,
   imageUploadHandler,

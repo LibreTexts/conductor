@@ -100,6 +100,9 @@ const KBPageViewMode = ({
           {canEdit && page?.internalOnly && (
             <Badge label="Internal only" variant="warning" className="ml-3 !mt-0.5" />
           )}
+          {canEdit && page?.docKey && (
+            <Badge label={`Doc key: ${page.docKey}`} variant="primary" className="ml-3 !mt-0.5" />
+          )}
         </div>
         <Divider />
 

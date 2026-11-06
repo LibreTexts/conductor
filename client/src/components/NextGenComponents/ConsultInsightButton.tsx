@@ -1,11 +1,15 @@
 import { Button } from "@libretexts/davis-react";
 import { iconButton } from "@libretexts/davis-core";
 import { IconInfoCircle } from "@tabler/icons-react";
+import useDocLinks from "../../hooks/useDocLinks";
+import { DocLinkKey } from "../../utils/docLinks";
 
 type ConsultInsightButtonProps = {
-  href: string;
   iconOnly?: boolean;
-};
+} & (
+  | { docKey: DocLinkKey; href?: never }
+  | { href: string; docKey?: never }
+);
 
 const ACCESSIBLE_NAME = "Consult Insight Knowledge Base (opens in new tab)";
 
@@ -14,11 +18,19 @@ const ACCESSIBLE_NAME = "Consult Insight Knowledge Base (opens in new tab)";
  * IconButton, which put two focus stops (a link and a button) on one control;
  * the icon-only form now styles the link itself with Davis's icon-button
  * recipe so it looks the same but is one element.
+ *
+ * Prefer `docKey` over `href`: the URL then follows the article through slug
+ * renames, and the button hides if the article is gone or unpublished.
  */
 const ConsultInsightButton: React.FC<ConsultInsightButtonProps> = ({
-  href,
+  href: hrefProp,
+  docKey,
   iconOnly = true,
 }) => {
+  const { docLinks } = useDocLinks({ enabled: !!docKey });
+  const href = docKey ? docLinks[docKey] : hrefProp;
+  if (!href) return null;
+
   if (iconOnly) {
     return (
       <a

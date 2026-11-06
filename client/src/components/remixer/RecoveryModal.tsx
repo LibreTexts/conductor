@@ -123,7 +123,7 @@ const RecoveryModal: React.FC<RecoveryModalProps> = ({
             tree.
           </Text>
           <Tooltip placement="left" content="Consult the Insight Knowledge Base for more information about loading the Remixer state">
-            <ConsultInsightButton href="https://commons.libretexts.org/insight/remixer---load-remixer-state" />
+            <ConsultInsightButton docKey="REMIXER_LOAD_STATE" />
           </Tooltip>
         </div>
         <Stack direction="vertical" gap="md" className="mt-4">

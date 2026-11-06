@@ -10,6 +10,7 @@ export interface KBPageInterface extends Document {
   internalOnly: boolean;
   slug: string;
   parent?: string;
+  docKey?: string; // Stable identifier used by in-app help links
   imgURLs?: string[];
   lastEditedByUUID: string; // User uuid
   embeddings?: number[];
@@ -50,6 +51,9 @@ const KBPageSchema = new Schema<KBPageInterface>(
     parent: {
       type: String,
     },
+    docKey: {
+      type: String,
+    },
     imgURLs: {
       type: [String],
     },
@@ -82,6 +86,7 @@ KBPageSchema.virtual("lastEditedBy", {
 KBPageSchema.index({ title: "text", description: "text", body: "text" });
 KBPageSchema.index({ slug: 1 }, { unique: true }); // slug must be unique
 KBPageSchema.index({ parent: 1 });
+KBPageSchema.index({ docKey: 1 }, { unique: true, sparse: true }); // sparse so unkeyed pages don't collide
 
 const KBPage = model<KBPageInterface>("KBPage", KBPageSchema);
 

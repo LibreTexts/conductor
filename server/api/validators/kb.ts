@@ -40,6 +40,17 @@ export const CreateKBPageValidator = z.object({
       internalOnly: z.boolean().optional(),
       slug: z.string().optional(),
       parent: z.string().uuid().optional(),
+      // Empty string or null clears the key.
+      docKey: z
+        .union([
+          z.string().trim().regex(/^[A-Z][A-Z0-9_]{1,63}$/, {
+            message:
+              "Doc key must be uppercase letters, numbers, and underscores (e.g. REFERENCE_MANAGER)",
+          }),
+          z.literal(""),
+          z.null(),
+        ])
+        .optional(),
     })
     .refine((data) => {
       if (

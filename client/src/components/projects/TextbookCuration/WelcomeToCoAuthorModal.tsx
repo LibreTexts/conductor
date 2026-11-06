@@ -1,5 +1,6 @@
 import { Button, Modal } from "semantic-ui-react";
 import { Link } from "react-router-dom";
+import useDocLinks from "../../../hooks/useDocLinks";
 
 interface WelcomeToCoAuthorModalProps {
   onClose: () => void;
@@ -8,6 +9,8 @@ interface WelcomeToCoAuthorModalProps {
 const WelcomeToCoAuthorModal: React.FC<WelcomeToCoAuthorModalProps> = ({
   onClose,
 }) => {
+  const { docLinks } = useDocLinks();
+
   const handleOnAcknowledge = () => {
     window.localStorage.setItem("conductor_show_coauthor_welcome", "false");
     onClose();
@@ -24,12 +27,17 @@ const WelcomeToCoAuthorModal: React.FC<WelcomeToCoAuthorModalProps> = ({
               suggestions to help you manage and create your OER content. In
               addition to the instructions on this page, you can find more
               information on how to use these tools in our{" "}
-              <a
-                href="https://commons.libretexts.org/insight/ai-co-author-tools"
-                target="_blank"
-              >
-                Insight
-              </a>{" "}
+              {docLinks.AI_CO_AUTHOR_TOOLS ? (
+                <a
+                  href={docLinks.AI_CO_AUTHOR_TOOLS}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Insight
+                </a>
+              ) : (
+                "Insight"
+              )}{" "}
               knowledge base.
             </p>
             <p className="text-xl mt-6">

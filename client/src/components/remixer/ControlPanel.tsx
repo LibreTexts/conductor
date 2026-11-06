@@ -241,7 +241,7 @@ const ControlPanelNewUITemp: React.FC<ControlPanelNewUITempProps> = ({
                                 })
                             }
                             <Tooltip content="Consult the Insight Knowledge Base for more information about the Remixer">
-                                <ConsultInsightButton href="https://commons.libretexts.org/insight/the-remixer" />
+                                <ConsultInsightButton docKey="REMIXER" />
                             </Tooltip>
                         </div>
                         <div className="flex shrink-0 flex-row items-center gap-2">

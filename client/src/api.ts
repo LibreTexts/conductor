@@ -144,6 +144,7 @@ import {
 } from "./screens/commons/Glossary/model";
 import { BookSearchProps, ReferenceDisplayLocation, ReferenceEntry, ReferenceFormatType, ReferenceFormData, ReferenceScopeGroup, ReferenceScopeMode } from "./components/projects/References/model";
 import type { CitationScanData } from "./components/projects/References/model";
+import type { DocLinkKey } from "./utils/docLinks";
 
 /**
  * @fileoverview
@@ -2072,6 +2073,13 @@ class API {
   }
 
   // Knowledge Base
+  async getKBDocLinks() {
+    const res = await axios.get<
+      { links: Partial<Record<DocLinkKey, string>> } & ConductorBaseResponse
+    >("/kb/doc-links");
+    return res;
+  }
+
   async getKBOEmbed(url: string) {
     const res = await axios.get<{ oembed: string } & ConductorBaseResponse>(
       "/kb/oembed",

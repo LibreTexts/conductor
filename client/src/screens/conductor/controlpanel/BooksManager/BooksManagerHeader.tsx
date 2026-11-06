@@ -79,7 +79,7 @@ const BooksManagerHeader: React.FC<BooksManagerHeaderProps> = ({
             {org.autoCatalogMatchingDisabled ? "Enable" : "Disable"} Automatic
             Catalog Matching
           </Button>
-          <ConsultInsightButton href="https://commons.libretexts.org/insight/using-the-books-manager-and-understanding-catalog-matching" />
+          <ConsultInsightButton docKey="BOOKS_MANAGER" />
         </div>
       </Segment>
       {org.orgID === "libretexts" && (
