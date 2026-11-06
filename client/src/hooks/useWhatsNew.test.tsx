@@ -20,7 +20,7 @@ vi.mock("../api", () => ({
 }));
 
 import api from "../api";
-import useWhatsNew from "./useWhatsNew";
+import useWhatsNew, { WHATS_NEW_REMIND_LATER_MS } from "./useWhatsNew";
 
 const ENTRY: WhatsNewEntry = {
   _id: "entry-2",
@@ -138,6 +138,62 @@ describe("useWhatsNew", () => {
       lastEntryId: "entry-2",
       lastPublishedAt: ENTRY.publishedAt,
     });
+  });
+
+  it("snoozes on remind-later and keeps the existing watermark", async () => {
+    mockActive(ENTRY);
+    ackState = {
+      entry: ack({ lastEntryId: "entry-1", lastPublishedAt: "2026-06-01T00:00:00.000Z" }),
+      ready: true,
+    };
+    const { result } = renderUseWhatsNew();
+
+    await waitFor(() => expect(result.current.shouldShow).toBe(true));
+    const before = Date.now();
+    result.current.remindLater();
+
+    expect(mockAcknowledge).toHaveBeenCalledWith("seen", {
+      lastEntryId: "entry-1",
+      lastPublishedAt: "2026-06-01T00:00:00.000Z",
+      snoozedEntryId: "entry-2",
+      snoozedUntil: expect.any(String),
+    });
+    const until = new Date((mockAcknowledge.mock.calls[0] as any[])[1].snoozedUntil).getTime();
+    expect(until).toBeGreaterThanOrEqual(before + WHATS_NEW_REMIND_LATER_MS);
+  });
+
+  it("hides a snoozed entry until the snooze runs out", async () => {
+    mockActive(ENTRY);
+    ackState = {
+      entry: ack({ snoozedEntryId: "entry-2", snoozedUntil: new Date(Date.now() + 60_000).toISOString() }),
+      ready: true,
+    };
+    const { result } = renderUseWhatsNew();
+
+    await waitFor(() => expect(result.current.entry).not.toBeNull());
+    expect(result.current.shouldShow).toBe(false);
+  });
+
+  it("shows a snoozed entry again once the snooze has run out", async () => {
+    mockActive(ENTRY);
+    ackState = {
+      entry: ack({ snoozedEntryId: "entry-2", snoozedUntil: new Date(Date.now() - 60_000).toISOString() }),
+      ready: true,
+    };
+    const { result } = renderUseWhatsNew();
+
+    await waitFor(() => expect(result.current.shouldShow).toBe(true));
+  });
+
+  it("ignores a snooze left over from an older entry", async () => {
+    mockActive(ENTRY);
+    ackState = {
+      entry: ack({ snoozedEntryId: "entry-1", snoozedUntil: new Date(Date.now() + 60_000).toISOString() }),
+      ready: true,
+    };
+    const { result } = renderUseWhatsNew();
+
+    await waitFor(() => expect(result.current.shouldShow).toBe(true));
   });
 
   it("does not show the same entry twice in one tab session", async () => {

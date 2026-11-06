@@ -2,6 +2,11 @@ import { z } from "zod";
 import { checkBookIDFormat, isValidLicense } from "../../util/bookutils.js";
 import conductorErrors from "../../conductor-errors.js";
 import { isHttpUrl } from "../../util/sanitize-text.js";
+import {
+  isKnownLicense,
+  isKnownLicenseVersionKey,
+  licenseHasVersion,
+} from "../../util/license-versions.js";
 
 /**
  * A glossary link. It is rendered as an `href`, so only absolute http(s) URLs
@@ -12,6 +17,45 @@ const glossaryLinkSchema = z
   .max(2000)
   .refine(isHttpUrl, { message: "Link must be an http:// or https:// URL." });
 
+/**
+ * A glossary term's source license. Mirrors the client's picker, which reads
+ * the same shared table, so "mixed" is accepted where `isValidLicense` would
+ * reject it. An empty value clears the license.
+ */
+const glossaryLicenseSchema = z
+  .string()
+  .max(300)
+  .refine((value) => value === "" || isKnownLicense(value), {
+    message: conductorErrors.err1,
+  });
+
+/**
+ * Version key of a glossary term's source license, e.g. "40" for 4.0; empty
+ * clears it. Which versions a given license allows is checked on the body,
+ * since that needs the license too.
+ */
+const glossaryLicenseVersionSchema = z
+  .string()
+  .max(10)
+  .refine((value) => value === "" || isKnownLicenseVersionKey(value), {
+    message: "Unknown license version.",
+  });
+
+/**
+ * A version is only ever stored alongside the license it belongs to: reject a
+ * version the chosen license isn't issued in, and a version sent with no
+ * license at all.
+ */
+const hasValidSourceVersion = (body: {
+  source?: string;
+  sourceVersion?: string;
+}) => !body.sourceVersion || licenseHasVersion(body.source, body.sourceVersion);
+
+const sourceVersionError = {
+  message: "That version does not belong to the selected license.",
+  path: ["sourceVersion"],
+};
+
 // Book ID format: library-pageid (e.g. "chem-123")
 export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
   message: "Book ID must be in the format 'library-pageid' (e.g. 'chem-123')",
@@ -19,7 +63,7 @@ export const bookIDSchema = z.string().regex(/^[a-zA-Z]{2,12}-\d{1,12}$/, {
 
 export const createBookSchema = z.object({
   body: z.object({
-    library: z.coerce.number().positive().int(),
+    library: z.string().min(1).max(255), // library subdomain
     title: z.string().min(1).max(255),
     projectID: z.string().length(10),
   }),
@@ -232,7 +276,7 @@ export const GeneratePageImagesAltTextSchema =
 
   export const importPressBooksBookSchema = z.object({
     body: z.object({
-      library: z.coerce.number().positive().int(),
+      library: z.string().min(1).max(255), // library subdomain
       // pressbooks book URL
       pbBookURL: z.string().trim().url({ message: "Invalid URL" }),
       title: z.string().min(1).max(255).optional(),
@@ -292,9 +336,8 @@ export const addWithCoverIDParamSchema = z.object({
     definition: z.string().min(1).max(1000),
     aliases: z.string().min(0).max(500).optional(),
     link: glossaryLinkSchema.optional(),
-    source: z.string().refine(isValidLicense, {
-      message: conductorErrors.err1,
-    }).optional(),
+    source: glossaryLicenseSchema.optional(),
+    sourceVersion: glossaryLicenseVersionSchema.optional(),
     author: z.string().max(500).optional(),
     imageSource: z.string().max(500).optional(),
     caption: z.string().max(500).optional(),
@@ -305,7 +348,7 @@ export const addWithCoverIDParamSchema = z.object({
       message: conductorErrors.err1,
     }).optional(),
     italic: z.enum(["true", "false"]).transform((val) => val === "true").optional(),
-  }),
+  }).refine(hasValidSourceVersion, sourceVersionError),
 });
 
 
@@ -361,8 +404,11 @@ export const bulkUpdateGlossaryAttributionSchema = z.object({
     usageIds: z.array(z.string().min(10).max(10)).min(1).max(500),
     author: z.string().max(300).optional(),
     link: glossaryLinkSchema.optional(),
-    source: z.string().max(300).optional(),
-  }),
+    // Written to up to 500 records at once, so the license is checked here
+    // rather than trusted from the dialog.
+    source: glossaryLicenseSchema.optional(),
+    sourceVersion: glossaryLicenseVersionSchema.optional(),
+  }).refine(hasValidSourceVersion, sourceVersionError),
 });
 
 export const readFromCxOneGlossaryAndAddToGlossaryUsageSchema = z.object({

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import lazyWithRetry from "./utils/lazyWithRetry";
-import { Route, Switch, useLocation } from 'react-router-dom';
+import { Redirect, Route, Switch, useLocation } from 'react-router-dom';
 import { SkipLink } from '@libretexts/davis-react';
 
 import AnonRoute from './components/util/AnonRoute';
@@ -55,6 +55,8 @@ const ProjectsCompleted = lazyWithRetry(() => import('./screens/conductor/Projec
 const ProjectsFlagged = lazyWithRetry(() => import('./screens/conductor/Projects/ProjectsFlagged'));
 import ProjectTimeline from './components/projects/ProjectTimeline';
 const MyTasks = lazyWithRetry(() => import('./screens/conductor/Tasks'));
+const MyH5P = lazyWithRetry(() => import('./screens/conductor/H5P'));
+const EditH5P = lazyWithRetry(() => import('./screens/conductor/H5P/Edit'));
 import ProjectView from './components/projects/ProjectView';
 const Search = lazyWithRetry(() => import('./screens/conductor/Search'));
 const ShapeshiftConsole = lazyWithRetry(() => import('./screens/conductor/controlpanel/ShapeshiftConsole'));
@@ -98,6 +100,7 @@ import LibreTextsPrivateRoute from './components/util/LibreTextsPrivateRoute';
 import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
 import Restacker from './components/projects/Restacker';
 import { useTypedSelector } from './state/hooks';
+import ReferenceManager from './components/projects/References';
 
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
@@ -131,19 +134,50 @@ const Conductor = () => {
           <PrivateRoute exact path='/search' component={Search} />
           <PrivateRoute exact path='/alerts' component={MyAlerts} />
           <PrivateRoute exact path='/tasks' component={MyTasks} />
+          <PrivateRoute exact path='/h5p' component={MyH5P} />
+          {/* One route for both, so a new activity's editor is not reloaded when its URL changes after the first save. */}
+          <PrivateRoute exact path={['/h5p/new', '/h5p/:activityID/edit']} component={EditH5P} />
           <PrivateRoute exact path='/projects/(create)?' component={MyProjects} />
           <PrivateRoute exact path='/projects/available' component={ProjectsAvailable} />       
           <PrivateRoute exact path='/projects/completed' component={ProjectsCompleted} />
           <PrivateRoute exact path='/projects/flagged' component={ProjectsFlagged} />
           <PrivateRoute exact path='/projects/:id' component={ProjectView} />
-          <PrivateRoute exact path='/projects/:id/accessibility' component={ProjectAccessibility} />
+          <PrivateRoute exact path='/projects/:id/accessibility-remediation' component={ProjectAccessibility} />
+          <Route
+            exact
+            path='/projects/:id/accessibility'
+            render={({ match, location }) => (
+              <Redirect
+                to={`/projects/${match.params.id}/accessibility-remediation${location.search}`}
+              />
+            )}
+          />
           <PrivateRoute exact path='/projects/:id/peerreview' component={ProjectPeerReview} />
           <PrivateRoute exact path='/projects/:id/submit-peer-review' component={ProjectPeerReviewSubmit} />
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
-          <PrivateRoute exact path='/projects/:id/ai-co-author' component={TextbookCuration} />
-          <PrivateRoute exact path='/projects/:id/ai-co-author/batch' component={BatchRun} />
+          <PrivateRoute exact path='/projects/:id/metadata-editor' component={TextbookCuration} />
+          <PrivateRoute exact path='/projects/:id/metadata-editor/batch' component={BatchRun} />
+          <Route
+            exact
+            path='/projects/:id/ai-co-author'
+            render={({ match, location }) => (
+              <Redirect
+                to={`/projects/${match.params.id}/metadata-editor${location.search}`}
+              />
+            )}
+          />
+          <Route
+            exact
+            path='/projects/:id/ai-co-author/batch'
+            render={({ match, location }) => (
+              <Redirect
+                to={`/projects/${match.params.id}/metadata-editor/batch${location.search}`}
+              />
+            )}
+          />
           <PrivateRoute exact path='/projects/:id/remixer' component={RemixerDashboard} />
           <PrivateRoute exact path='/projects/:id/restacker' component={Restacker} />
+          <PrivateRoute exact path='/projects/:id/references' component={ReferenceManager} />
           <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
           {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />

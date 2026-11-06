@@ -1,6 +1,6 @@
 import React from "react";
-import { Button, Input } from "@libretexts/davis-react";
-import { IconPlus, IconX } from "@tabler/icons-react";
+import { Button, IconButton, Input } from "@libretexts/davis-react";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 
 type CampusAliasesControlProps = {
   aliases: string[];
@@ -26,7 +26,7 @@ const CampusAliasesControl: React.FC<CampusAliasesControlProps> = ({
   };
 
   return (
-    <div className="w-full border border-gray-200 rounded-lg overflow-hidden">
+    <div className="w-full xl:w-1/2 border border-gray-200 rounded-lg overflow-hidden">
       <div className="flex items-center bg-gray-50 border-b border-gray-200 px-4 py-2">
         <div className="flex-1 text-sm font-semibold text-gray-700">Alias</div>
         <div className="w-16 text-right text-sm font-semibold text-gray-700">
@@ -45,9 +45,9 @@ const CampusAliasesControl: React.FC<CampusAliasesControlProps> = ({
               onChange={(e) => handleAliasChange(index, e.target.value)}
               className="flex-1"
             />
-            <Button
+            <IconButton
               variant="destructive"
-              icon={<IconX size={16} />}
+              icon={<IconTrash size={18} />}
               onClick={() => deleteAlias(index)}
               aria-label={`Remove alias ${index + 1}`}
             />
@@ -55,7 +55,7 @@ const CampusAliasesControl: React.FC<CampusAliasesControlProps> = ({
         ))}
       </div>
 
-      <div className="bg-gray-50 border-t border-gray-200 px-4 py-2">
+      <div className="bg-gray-50 border-t border-gray-200 px-4 py-2 justify-end flex">
         <Button
           variant="primary"
           icon={<IconPlus size={16} />}

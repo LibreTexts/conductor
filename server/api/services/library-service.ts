@@ -1,7 +1,8 @@
 import logger, { childLogger } from "../../logger.js";
-import Library from "../../models/library.js";
+import Library, { LibraryInterface } from "../../models/library.js";
 import { CXOneFetch } from "../../util/librariesclient.js";
 import MindTouch from "../../util/CXOne/index.js";
+import { checkUserApplicationAccessInternalBulk } from "../central-identity.js";
 
 const shelfSearchLog = childLogger("shelf-search");
 
@@ -29,12 +30,67 @@ const trimSlashes = (value: string): string => {
  * Books; `hasChildren` tells the picker whether the node can be expanded.
  */
 export type LibraryShelf = {
-  title: string;
-  path: string;
-  hasChildren: boolean;
+    title: string;
+    path: string;
+    hasChildren: boolean;
 };
 
 export default class LibraryService {
+
+    /**
+     * Checks whether the given users have access to the library identified by the subdomain.
+     * @param subdomain - The subdomain of the library to check access for.
+     * @param userIDs - An array of user identifiers, each containing a `uuid` and `centralID`.
+     * @returns A promise that resolves to the access results if successful, or null if the library is not found or an error occurs.
+     */
+    public async checkLibraryAccess(subdomain: string, userIDs: { uuid: string; centralID: string }[]) {
+        try {
+            // Don't filter by `hidden` status here; there are cases where we need to check if a user
+            // has access to a hidden library.
+            const library = await Library.findOne({ subdomain: { $eq: subdomain } });
+            if (!library) {
+                logger.warn({ subdomain }, "Library not found");
+                return null;
+            }
+
+            return await checkUserApplicationAccessInternalBulk(
+                userIDs,
+                library.centralIdentityAppId,
+            );
+        } catch (error) {
+            // Log the local UUIDs only: central identity IDs are not ours to put in logs.
+            logger.error(
+                { err: error, subdomain, userIDs: userIDs.map((u) => u.uuid) },
+                "Error checking library access",
+            );
+            return null;
+        }
+    }
+
+    /**
+     * 
+     * @param subdomain - The subdomain of the library to fetch.
+     * @param opts - Optional parameters, including whether to include hidden libraries.
+     * @returns A promise that resolves to the library object if found, or null if not found or if an error occurs.
+     */
+    public async getLibraryFromSubdomain(subdomain: string, opts?: { includeHidden?: boolean }): Promise<LibraryInterface | null> {
+        try {
+            const library = await Library.findOne({
+                subdomain: { $eq: subdomain },
+                ...((opts?.includeHidden ?? false) ? {} : { hidden: { $ne: true } }),
+            });
+
+            if (!library) {
+                logger.warn({ subdomain, includeHidden: opts?.includeHidden ?? false }, "Library not found");
+                return null;
+            }
+
+            return library;
+        } catch (error) {
+            logger.error({ err: error, subdomain }, "Error fetching library");
+            return null;
+        }
+    }
 
     /**
      * Fetches the guide tab template for a given library subdomain and template key.

@@ -46,3 +46,9 @@ export const getWithProjectIDParamSchema = z.object({
     projectID: z.string().length(10),
   }),
 });
+
+export const CheckTeamLibraryAccessSchema = z.object({
+  query: z.object({
+    library: z.string().min(1).max(100).optional(),
+  }),
+}).extend(getWithProjectIDParamSchema.shape);

@@ -218,6 +218,48 @@ export const getProductionURL = () => {
     return process.env.CONDUCTOR_DOMAIN || '';
 };
 
+const DEFAULT_COMMONS_CANONICAL_URL = "https://commons.libretexts.org";
+
+/**
+ * Origin of the permanent Commons host. Asset permalinks are generated and
+ * resolved against this origin, not the instance's own CONDUCTOR_DOMAIN.
+ * Set COMMONS_CANONICAL_DOMAIN (host or absolute URL) so staging points at
+ * the staging commons host.
+ *
+ * @returns {string} Origin with no trailing slash.
+ */
+export const getCommonsCanonicalURL = () => {
+    const configured = (process.env.COMMONS_CANONICAL_DOMAIN || "").trim();
+    const raw = configured || DEFAULT_COMMONS_CANONICAL_URL;
+    const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+        return new URL(withProtocol).origin;
+    } catch {
+        logger.warn(
+            { configured },
+            "Invalid COMMONS_CANONICAL_DOMAIN, falling back to default"
+        );
+        return DEFAULT_COMMONS_CANONICAL_URL;
+    }
+};
+
+/**
+ * Whether this Conductor instance is the permanent Commons host.
+ * Compares CONDUCTOR_DOMAIN (this instance) to getCommonsCanonicalURL().
+ *
+ * @returns {boolean}
+ */
+export const isCanonicalCommonsInstance = () => {
+    const self = (process.env.CONDUCTOR_DOMAIN || "").trim();
+    if (!self) return false;
+    const withProtocol = /^https?:\/\//i.test(self) ? self : `https://${self}`;
+    try {
+        return new URL(withProtocol).origin === getCommonsCanonicalURL();
+    } catch {
+        return false;
+    }
+};
+
 /**
  * Removes a leading slash, if any, from a string.
  *
@@ -360,8 +402,27 @@ export async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function getSubdomainFromUrl(url){
-  const hostname = new URL(url).hostname;
+export function getSubdomainFromUrl(url) {
+  const SCHEME_REGEX = /^[a-z][a-z\d+\-.]*:\/\//i;
+
+  if (typeof url !== 'string' || url.trim() === '') {
+    return null;
+  }
+
+  let input = url.trim();
+  if (input.startsWith('//')) {
+    input = 'https:' + input;          // protocol-relative: //example.com
+  } else if (!SCHEME_REGEX.test(input)) {
+    input = 'https://' + input;        // bare host: www.example.com
+  }
+
+  let hostname;
+  try {
+    hostname = new URL(input).hostname;
+  } catch {
+    return null;
+  }
+
   const parts = hostname.split('.');
   if (parts.length > 2) {
     return parts[0];

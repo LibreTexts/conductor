@@ -20,6 +20,8 @@ node_modules/
 # Build / Dist
 dist
 build
+playwright-report/
+test-results/
 
 # macOS Metafiles
 .DS_Store
@@ -29,6 +31,7 @@ build
 
 # Sensitive Files
 config/
+
 
 # Runtime-generated Files
 server/public
@@ -45,4 +48,11 @@ agents/
 .claude/
 .codegraph/
 .mcp.json
+.kiro/
 CLAUDE.md
+
+# Vendored copy of the legacy Studio Drupal install
+studio_main/
+
+# Output of server/migrations/StudioSurvey.ts
+migration-reports/

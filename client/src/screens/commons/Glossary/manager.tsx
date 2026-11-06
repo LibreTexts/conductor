@@ -7,6 +7,7 @@ import {
   Modal,
   Select,
   Tabs,
+  Text,
   Textarea,
 } from "@libretexts/davis-react";
 import { IconPhoto, IconX } from "@tabler/icons-react";
@@ -14,6 +15,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import GlossaryTermAutocomplete from "./GlossaryTermAutocomplete";
 import {
+  getLicenseVersionOptions,
+  getValidLicenseVersion,
   licenseOptions,
   normalizeLicenseKey,
 } from "../../../components/util/LicenseOptions";
@@ -44,6 +47,7 @@ type GlossaryFormFields = {
   aliases?: string[];
   link?: string;
   source?: string;
+  sourceVersion?: string;
   author?: string;
   imageSource?: string;
   caption?: string;
@@ -60,6 +64,7 @@ const DEFAULT_VALUES: GlossaryFormFields = {
   caption: "",
   link: "",
   source: "",
+  sourceVersion: "",
   imageSource: "",
   aliasInput: "",
   aliases: [],
@@ -125,7 +130,12 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     setValue("aliases", term.aliases ?? []);
     setValue("link", term.link ?? "");
     // Map renamed license values (e.g. "multiple") so the select shows the saved choice.
-    setValue("source", normalizeLicenseKey(term.source ?? ""));
+    const source = normalizeLicenseKey(term.source ?? "");
+    setValue("source", source);
+    setValue(
+      "sourceVersion",
+      getValidLicenseVersion(source, term.sourceVersion ?? ""),
+    );
     setValue("author", term.author ?? "");
     setValue("imageSource", term.imageSource ?? "");
     setValue("imageAuthor", term.imageAuthor ?? "");
@@ -214,6 +224,9 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
     return null;
   };
 
+  const sourceVersionOptions: { key: string; label: string }[] =
+    getLicenseVersionOptions(watch("source") ?? "");
+
   const onSubmitHandler = async (data: GlossaryFormFields) => {
     const contextErr = validateContext();
     if (contextErr) {
@@ -235,6 +248,10 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         caption: data.caption?.trim() || undefined,
         link: data.link?.trim() || undefined,
         source: data.source?.trim() || undefined,
+        // Only licenses that are issued in versions carry one.
+        sourceVersion:
+          getValidLicenseVersion(data.source ?? "", data.sourceVersion ?? "") ||
+          undefined,
         glossaryID: glossaryID?.trim() || undefined,
         author: data.author?.trim() || undefined,
         imageAuthor: data.imageAuthor?.trim() || undefined,
@@ -306,12 +323,12 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
             <Alert message="Glossary page not found." variant="warning" />
           )}
           <Tabs selectedIndex={selectedTab} onChange={setSelectedTab}>
-            <Tabs.List>
+            <Tabs.List className="mb-4">
               <Tabs.Tab>Term</Tabs.Tab>
               <Tabs.Tab>Attribution</Tabs.Tab>
               <Tabs.Tab>Image</Tabs.Tab>
             </Tabs.List>
-            <Tabs.Panel>
+            <Tabs.Panel className="px-2">
               <GlossaryTermAutocomplete
                 control={control}
                 name="term"
@@ -417,7 +434,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 rows={10}
               />
             </Tabs.Panel>
-            <Tabs.Panel>
+            <Tabs.Panel className="px-2">
               <Input
                 label="Link"
                 placeholder="https://..."
@@ -438,8 +455,39 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 error={!!errors.source}
                 errorMessage={errors.source?.message}
                 className="mt-4"
-                {...register("source")}
+                {...register("source", {
+                  // Drop a version the newly chosen license isn't issued in.
+                  onChange: (e) =>
+                    setValue(
+                      "sourceVersion",
+                      getValidLicenseVersion(
+                        e.target.value,
+                        getValues("sourceVersion") ?? "",
+                      ),
+                    ),
+                })}
               />
+              {sourceVersionOptions.length > 0 && (
+                <Select
+                  label="License Version"
+                  placeholder="Select a version…"
+                  required
+                  options={sourceVersionOptions.map((o) => ({
+                    value: o.key,
+                    label: o.label,
+                  }))}
+                  error={!!errors.sourceVersion}
+                  errorMessage={errors.sourceVersion?.message}
+                  className="mt-4"
+                  {...register("sourceVersion", {
+                    validate: (value) =>
+                      getLicenseVersionOptions(getValues("source") ?? "")
+                        .length === 0 ||
+                      !!value ||
+                      "Choose the license version",
+                  })}
+                />
+              )}
               <Input
                 label="Author"
                 placeholder="Author of the term…"
@@ -449,11 +497,11 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 {...register("author")}
               />
             </Tabs.Panel>
-            <Tabs.Panel>
+            <Tabs.Panel className="px-2">
               <div className="mt-4">
-                <p className="mb-1 text-sm font-medium text-neutral-700">
+                <Text>
                   Image
-                </p>
+                </Text>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -463,7 +511,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                   onChange={handleFileChange}
                 />
                 {imagePreview ? (
-                  <div className="relative inline-block">
+                  <div className="relative inline-block mt-2">
                     <img
                       src={imagePreview}
                       alt="Preview"
@@ -484,7 +532,7 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
                 ) : (
                   <label
                     htmlFor="glossary-image-upload"
-                    className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border border-dashed border-neutral-300 px-6 py-5 text-sm text-neutral-500 hover:border-neutral-400 hover:bg-neutral-50"
+                    className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded border border-dashed border-neutral-300 mt-2 px-6 py-5 text-sm text-neutral-500 hover:border-neutral-400 hover:bg-neutral-50"
                   >
                     <IconPhoto size={24} className="text-neutral-400" />
                     <span>Click to upload an image</span>
@@ -560,11 +608,11 @@ const GlossaryForm: React.FC<GlossaryFormProps> = (props) => {
         </form>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="ghost" onClick={() => handleClose(false)}>
-          Cancel
-        </Button>
         <Button variant="ghost" onClick={handleClearAll}>
           Clear All
+        </Button>
+        <Button variant="outline" onClick={() => handleClose(false)}>
+          Cancel
         </Button>
 
         <Button

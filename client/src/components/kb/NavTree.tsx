@@ -14,7 +14,7 @@ import {
   IconLock,
 } from "@tabler/icons-react";
 import { truncateString } from "../util/HelperFunctions";
-import { canEditKB } from "../../utils/kbHelpers";
+import { canEditKB, KB_MAX_PAGE_DEPTH } from "../../utils/kbHelpers";
 import { useQuery } from "@tanstack/react-query";
 
 const NavTree = () => {
@@ -119,6 +119,57 @@ const NavTree = () => {
     return <IconLock size={14} className="ml-2 mt-0.5 text-amber-600 shrink-0" aria-label="Internal only" />;
   };
 
+  const renderNodes = (nodes: KBTreeNode[], depth: number) => (
+    <ul>
+      {nodes.map((node) => {
+        const isActive = isActiveLink(node.slug);
+        const canAddChild = canEdit && depth < KB_MAX_PAGE_DEPTH;
+        return (
+          <li key={node.uuid}>
+            <div
+              className={`p-2 flex flex-row items-center overflow-x-clip ${
+                depth === 0 ? "rounded-xl" : "rounded-lg"
+              } ${isActive ? "bg-blue-50" : "hover:bg-slate-100"}`}
+            >
+              <a
+                className={`${depth === 0 ? "text-lg" : "text-md"} break-words hyphens-auto rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                  isActive
+                    ? "text-blue-600"
+                    : depth === 0
+                      ? "text-black"
+                      : "text-gray-600"
+                }`}
+                href={getLink(node.slug)}
+                aria-current={isActive ? "page" : undefined}
+                onClick={handleLinkClick}
+              >
+                {truncateString(node.title, 50)}
+              </a>
+              {canEdit && <StatusLabel status={node.status} />}
+              {canEdit && <InternalLabel internalOnly={node.internalOnly} />}
+            </div>
+            {(node.children.length > 0 || canAddChild) && (
+              <div className="pl-4">
+                {node.children.length > 0 &&
+                  renderNodes(node.children, depth + 1)}
+                {canAddChild && (
+                  <button
+                    type="button"
+                    className="p-2 text-md font-semibold text-blue-500 break-words hyphens-auto cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    onClick={() => handleCreatePage(node.uuid)}
+                    aria-label={`Add Page under ${node.title}`}
+                  >
+                    + Add Page
+                  </button>
+                )}
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+
   return (
     <nav
       aria-label="Knowledge base navigation"
@@ -160,68 +211,7 @@ const NavTree = () => {
             </Tooltip>
           </div>
           <div ref={navTreeRef} className="overflow-y-auto flex-1 px-4 pb-4">
-          {tree?.map((node, index) => {
-            const isActive = isActiveLink(node.slug);
-            return (
-              <div
-                key={node.uuid}
-                id={`node-${index}`}
-                className={`p-2 rounded-xl ${isActive ? "bg-blue-50" : "hover:bg-slate-100"}`}
-                data-active={isActive}
-              >
-                <div className="flex flex-row justify-between items-center">
-                  <div className="flex flex-row items-center overflow-x-clip align-middle">
-                    <a
-                      className={`text-lg break-words hyphens-auto rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                        isActive ? "text-blue-600" : "text-black"
-                      }`}
-                      href={getLink(node.slug)}
-                      onClick={handleLinkClick}
-                    >
-                      {truncateString(node.title, 50)}
-                    </a>
-                    {canEdit && <StatusLabel status={node.status} />}
-                    {canEdit && <InternalLabel internalOnly={node.internalOnly} />}
-                  </div>
-                </div>
-                <div className="pl-4">
-                  {node.children &&
-                    node.children.map((child, index) => {
-                      const isChildActive = isActiveLink(child.slug);
-                      return (
-                        <div
-                          key={child.uuid}
-                          id={`child-${index}`}
-                          className={`p-2 rounded-lg flex flex-row items-center ${isChildActive ? "bg-blue-50" : "hover:bg-slate-100"}`}
-                          data-active={isChildActive}
-                        >
-                          <a
-                            className={`text-md break-words hyphens-auto rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                              isChildActive ? "text-blue-600" : "text-gray-600"
-                            }`}
-                            href={getLink(child.slug)}
-                            onClick={handleLinkClick}
-                          >
-                            {truncateString(child.title, 50)}
-                          </a>
-                          {canEdit && <StatusLabel status={child.status} />}
-                          {canEdit && <InternalLabel internalOnly={child.internalOnly} />}
-                        </div>
-                      );
-                    })}
-                  {canEdit && (
-                    <button
-                      type="button"
-                      className="p-2 text-md font-semibold text-blue-500 break-words hyphens-auto cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                      onClick={() => handleCreatePage(node.uuid)}
-                    >
-                      + Add Page
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+            {tree && renderNodes(tree, 0)}
           </div>
         </>
       ) : (

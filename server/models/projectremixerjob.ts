@@ -1,17 +1,17 @@
 import { model, Schema, Document } from "mongoose";
 
-export type PrejectRemixerJobStatus =
+export type ProjectRemixerJobStatus =
   | "pending"
   | "running"
   | "success"
   | "error";
 
-export interface PrejectRemixerJobInterface extends Document {
+export interface ProjectRemixerJobInterface extends Document {
   jobID: string;
   remixerID: string;
   projectID: string;
   userID: string;
-  status: PrejectRemixerJobStatus;
+  status: ProjectRemixerJobStatus;
   messages: string[];
   errorMessage?: string;
   /**
@@ -25,7 +25,7 @@ export interface PrejectRemixerJobInterface extends Document {
   updatedAt: Date;
 }
 
-const PrejectRemixerJobSchema = new Schema<PrejectRemixerJobInterface>(
+const ProjectRemixerJobSchema = new Schema<ProjectRemixerJobInterface>(
   {
     jobID: {    
         type: String,   
@@ -77,11 +77,15 @@ const PrejectRemixerJobSchema = new Schema<PrejectRemixerJobInterface>(
   },
 );
 
-PrejectRemixerJobSchema.index({ projectID: 1, userID: 1 }, { unique: false });
+ProjectRemixerJobSchema.index({ projectID: 1, userID: 1 }, { unique: false });
 
-const PrejectRemixerJob = model<PrejectRemixerJobInterface>(
-  "PrejectRemixerJob",
-  PrejectRemixerJobSchema,
+// The collection keeps its historical (misspelled) name: it was derived from
+// the old "PrejectRemixerJob" model name, and renaming it would orphan the
+// existing job documents.
+const ProjectRemixerJob = model<ProjectRemixerJobInterface>(
+  "ProjectRemixerJob",
+  ProjectRemixerJobSchema,
+  "prejectremixerjobs",
 );
 
-export default PrejectRemixerJob;
+export default ProjectRemixerJob;

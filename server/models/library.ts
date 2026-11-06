@@ -1,6 +1,6 @@
 import { Document, model, Schema } from "mongoose";
 
-export interface LibraryInterface extends Document {
+export interface LibraryInterfaceRaw {
   subdomain: string;
   title: string;
   link: string;
@@ -12,6 +12,8 @@ export interface LibraryInterface extends Document {
   hidden: boolean;
   syncSupported: boolean;
 }
+
+export interface LibraryInterface extends LibraryInterfaceRaw, Document {}
 
 const LibrarySchema = new Schema(
   {

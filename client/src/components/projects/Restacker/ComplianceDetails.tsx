@@ -61,25 +61,25 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
       <Modal.Body>
         
         {pageTitle && (
-          <p className="mb-3 text-sm font-semibold text-neutral-800">{pageTitle}</p>
+          <h3 className="mb-3 text-sm font-semibold text-neutral-800">{pageTitle}</h3>
         )}
-        <Stack direction="vertical" gap="xs">
-          <Text size="sm">
+        <ul className="flex flex-col gap-1 text-sm">
+          <li>
             Book License: <LicenseBadge license={bookLicense} />
-          </Text>
-          <Text size="sm">
+          </li>
+          <li>
             Page License: <LicenseBadge license={pageLicense} />
-          </Text>
-          <Text size="sm">
+          </li>
+          <li>
             Source License: <LicenseBadge license={sourceLicense} />
-          </Text>
+          </li>
           {contentLicenses?.map((license, index) => (
-            <Text key={`content-${index}`} size="sm">
+            <li key={`content-${index}`}>
               Content License {contentLicenses.length > 1 ? index + 1 : ""}:{" "}
               <LicenseBadge license={license} />
-            </Text>
+            </li>
           ))}
-        </Stack>
+        </ul>
         {pageNotes.map((note) => (
           <Alert
             key={note.id}
@@ -144,7 +144,9 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
                   <span className={statusClass}>{statusText}</span>
                   {": "}
                   <span className="font-medium">{labelA}</span>{" "}
-                  <LicenseBadge license={licenseA} /> ↔{" "}
+                  <LicenseBadge license={licenseA} />{" "}
+                  <span aria-hidden="true">↔</span>
+                  <span className="sr-only">compared with</span>{" "}
                   <span className="font-medium">{labelB}</span>{" "}
                   <LicenseBadge license={licenseB} />
                 </li>
@@ -153,7 +155,9 @@ const ComplianceDetails: React.FC<ComplianceDetailsProps> = ({
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose} aria-label="Close Compliance Details">
+          Close
+        </Button>
       </Modal.Footer>
     </Modal>
   );

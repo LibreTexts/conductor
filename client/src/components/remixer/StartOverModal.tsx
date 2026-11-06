@@ -48,7 +48,7 @@ const StartOverModal: React.FC<StartOverModalProps> = ({
             Reload the original book structure from the library. This will
             replace your current book tree.
           </Text>
-          <Tooltip placement="bottom" content="Consult the Insight Knowledge Base for more information about loading the Remixer state">
+          <Tooltip placement="left" content="Consult the Insight Knowledge Base for more information about loading the Remixer state">
             <ConsultInsightButton href="https://commons.libretexts.org/insight/remixer---load-remixer-state" />
           </Tooltip>
         </div>

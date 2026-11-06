@@ -71,9 +71,7 @@ function getMathJaxConfig(): Record<string, unknown> {
 }
 
 export function loadMathJax(): Promise<void> {
-  console.debug("[MathJax] loadMathJax() called");
   if (window.__libretextsMathJaxLoad) {
-    console.debug("[MathJax] Already loading/loaded, returning cached promise");
     return window.__libretextsMathJaxLoad;
   }
 
@@ -88,7 +86,6 @@ export function loadMathJax(): Promise<void> {
       startup: {
         ready: () => {
           window.MathJax?.startup?.defaultReady?.();
-          console.debug("[MathJax] Loaded successfully");
           resolve();
         },
       },
@@ -96,7 +93,6 @@ export function loadMathJax(): Promise<void> {
 
     const existingScript = document.getElementById("mathjax-script");
     if (existingScript) {
-      console.debug("[MathJax] Script tag already exists, awaiting startup promise");
       window.MathJax?.startup?.promise?.then(resolve).catch(reject);
       return;
     }
@@ -106,10 +102,8 @@ export function loadMathJax(): Promise<void> {
     script.src = MATHJAX_SCRIPT_URL;
     script.defer = true;
     script.onerror = () => {
-      console.error("[MathJax] Failed to load script from", MATHJAX_SCRIPT_URL);
       reject(new Error("MathJax failed to load"));
     };
-    console.debug("[MathJax] Injecting script tag...");
     document.head.appendChild(script);
   });
 
@@ -119,7 +113,6 @@ export function loadMathJax(): Promise<void> {
 export async function typesetMathElements(
   elements: HTMLElement[],
 ): Promise<void> {
-  console.debug("[MathJax] typesetMathElements() called with", elements.length, "element(s)");
   await loadMathJax();
   await (window.MathJax?.startup?.promise ?? Promise.resolve());
   window.MathJax?.typesetClear?.(elements);

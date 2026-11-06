@@ -22,6 +22,12 @@ import orgsAPI from "./api/organizations.js";
 import alertsAPI from "./api/alerts.js";
 import adoptionReportAPI from "./api/adoptionreports.js";
 import collectionsAPI from "./api/collections.js";
+import activitiesAPI from "./api/activities.js";
+import studioLegacyAPI from "./api/studio-legacy.js";
+import activityAuthoringAPI from "./api/activity-authoring.js";
+import activityCollaboratorsAPI from "./api/activity-collaborators.js";
+import studioCompatAPI from "./api/studio-compat.js";
+import { requireAdaptIntegration } from "./util/adapt-integration.js";
 import booksAPI from "./api/books.js";
 import homeworkAPI from "./api/homework.js";
 import librariesAPI from "./api/libraries.js";
@@ -50,6 +56,8 @@ import * as publishAPI from "./api/publish.js";
 import * as storeValidators from "./api/validators/store.js";
 import * as centralIdentityValidators from "./api/validators/central-identity.js";
 import * as collectionValidators from "./api/validators/collections.js";
+import * as activityValidators from "./api/validators/activities.js";
+import * as studioLegacyValidators from "./api/validators/studio-legacy.js";
 import * as kbValidators from "./api/validators/kb.js";
 import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
@@ -73,6 +81,8 @@ import * as WhatsNewValidators from "./api/validators/whatsnew.js";
 
 import * as RestackerValidators from "./api/validators/Restacker.js";
 import restackerAPI from "./api/restacker.js";
+import * as ReferenceValidators from "./api/validators/Reference.js";
+import referenceAPI from "./api/reference.js";
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -94,7 +104,7 @@ const corsMiddleware = cors({
       if (process.env.DEVELOPMENTURLS) {
         allowedOrigins = String(process.env.DEVELOPMENTURLS).split(",").map((url) => url.trim());
       } else {
-        allowedOrigins = ["http://localhost:5000","http://localhost:5500","http://localhost:5501"];
+        allowedOrigins = ["http://localhost:5000","http://localhost:5500","http://127.0.0.1:5500"];
       }
     }
 
@@ -1104,6 +1114,172 @@ router
     collectionsAPI.deleteCollection
   );
 
+/* Commons Activities (H5P) */
+router
+  .route("/commons/activities")
+  .get(
+    middleware.validateZod(activityValidators.getCommonsActivitiesSchema),
+    activitiesAPI.getCommonsActivities
+  );
+
+// Declared before the :activityID route because of the nature in which route
+// params fall-through.
+router
+  .route("/commons/activities/h5p/:h5pContentID")
+  .get(
+    middleware.validateZod(activityValidators.getActivityByH5PIDSchema),
+    activitiesAPI.getActivityByH5PID
+  );
+
+router
+  .route("/commons/activities/author/:uuid")
+  .get(
+    middleware.validateZod(activityValidators.getActivitiesByAuthorSchema),
+    activitiesAPI.getActivitiesByAuthor
+  );
+// end
+
+// Replacements for the Studio API paths ADAPT calls, in Studio's exact
+// shapes. The studio.libretexts.org Worker forwards each path here once it
+// passes its diff against the captured production responses. Anonymous, as
+// Studio's were, except author lookups, which kept Studio's Basic auth.
+// Production only; see util/adapt-integration.ts.
+router.route("/studio/h5p/:idOrAll").get(middleware.checkLibreCommons, requireAdaptIntegration, studioCompatAPI.getStudioH5P);
+router
+  .route("/studio/author/:email")
+  .get(middleware.checkLibreCommons, requireAdaptIntegration, studioCompatAPI.requireStudioBasicAuth, studioCompatAPI.getStudioAuthorH5P);
+// "list" is declared before ":cid" so it is not read as a collection id.
+router.route("/studio/collections/list").get(middleware.checkLibreCommons, requireAdaptIntegration, studioCompatAPI.getStudioCollectionsList);
+router.route("/studio/collections/:cid").get(middleware.checkLibreCommons, requireAdaptIntegration, studioCompatAPI.getStudioCollection);
+
+// H5P authoring. Conductor decides who may edit what and signs capability
+// tokens for the H5P service, which owns the content. Owners, collaborators
+// and LibreTexts staff (support, superadmin) edit; only owners delete. Routes
+// that admit staff load roles with getUserAttributes. See H5P_AUTHORING_DESIGN.md.
+router
+  .route("/activities")
+  .post(
+    authAPI.verifyRequest,
+    middleware.validateZod(activityValidators.createActivitySchema),
+    activityAuthoringAPI.createActivity
+  );
+
+router
+  .route("/activities/subjects")
+  .get(authAPI.verifyRequest, activityAuthoringAPI.listActivitySubjects);
+
+router
+  .route("/activities/:activityID/authoring")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.activityIDOnlySchema),
+    activityAuthoringAPI.getActivityForEditing
+  );
+
+router
+  .route("/activities/editor-token")
+  .post(authAPI.verifyRequest, activityAuthoringAPI.issueNewActivityEditorToken);
+
+// Daily, triggered externally like /alerts/processdaily.
+router
+  .route("/activities/automation/cleanup")
+  .put(middleware.checkLibreAPIKey, activityAuthoringAPI.cleanupAbandonedActivities);
+
+// Hourly, triggered externally. Production only, replaces Studio's ADAPT id cron.
+router
+  .route("/activities/automation/adapt-ids")
+  .put(middleware.checkLibreAPIKey, activityAuthoringAPI.syncAdaptIDsJob);
+
+router
+  .route("/activities/:activityID")
+  .patch(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.updateActivitySchema),
+    activityAuthoringAPI.updateActivity
+  )
+  .delete(
+    authAPI.verifyRequest,
+    middleware.validateZod(activityValidators.activityIDOnlySchema),
+    activityAuthoringAPI.deleteActivity
+  );
+
+// Owners and staff manage collaborators; a collaborator may remove only themselves.
+router
+  .route("/activities/:activityID/collaborators/search")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.searchActivityCollaboratorsSchema),
+    activityCollaboratorsAPI.searchCollaboratorCandidates
+  );
+
+router
+  .route("/activities/:activityID/collaborators/:uuid")
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.activityCollaboratorSchema),
+    activityCollaboratorsAPI.addCollaborator
+  )
+  .delete(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.activityCollaboratorSchema),
+    activityCollaboratorsAPI.removeCollaborator
+  );
+
+router
+  .route("/activities/:activityID/editor-token")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.activityIDOnlySchema),
+    activityAuthoringAPI.issueEditorToken
+  );
+
+// The signed-in user's own activities, for My H5P.
+router
+  .route("/activities/mine")
+  .get(
+    authAPI.verifyRequest,
+    middleware.validateZod(activityValidators.getMyActivitiesSchema),
+    activitiesAPI.getMyActivities
+  );
+
+router
+  .route("/commons/activities/:activityID")
+  .get(
+    // Roles, when signed in, so staff can open private activities.
+    authAPI.optionalGetUserAttributes,
+    middleware.validateZod(activityValidators.getActivitySchema),
+    activitiesAPI.getActivity
+  );
+
+// ADAPT question-bank reconciliation feed, replacing Studio's /api/v2/nodes.
+// Anonymous by design: Studio served it without authentication and ADAPT pulls
+// it unauthenticated today. Restricted to the LibreTexts instance.
+router
+  .route("/commons/activities-adapt-feed")
+  .get(
+    middleware.checkLibreCommons,
+    requireAdaptIntegration,
+    middleware.validateZod(activityValidators.getAdaptFeedSchema),
+    activitiesAPI.getAdaptFeed
+  );
+
+// Old studio.libretexts.org page URLs, sent here by Cloudflare Single
+// Redirects after cutover. Always answers with a redirect. Anonymous, and
+// restricted to the LibreTexts instance, which is the only one Studio fed.
+router
+  .route("/commons/studio-legacy/:kind(h5p|node|collection)/:value")
+  .get(
+    middleware.checkLibreCommons,
+    middleware.validateZod(studioLegacyValidators.resolveStudioLegacyPathSchema),
+    studioLegacyAPI.resolveStudioLegacyPath
+  );
+
 // Data export endpoint for 3rd-party content hosts
 router
   .route("/commons/kbexport")
@@ -1131,8 +1307,8 @@ router.route("/commons/libraries/:subdomain/shelves").get(
 );
 
 router.route("/commons/libraries/:subdomain").get(
-  middleware.validateZod(LibraryValidators.GetLibraryFromSubdomainSchema),
-  librariesAPI.getLibraryFromSubdomain
+  middleware.validateZod(LibraryValidators.GetLibraryBySubdomainSchema),
+  librariesAPI.getLibraryBySubdomain
 )
 
 /* Commons Management */
@@ -1258,6 +1434,7 @@ router
 router.route("/commons/book/:library/:coverID/glossary")
   // get glossary of a book
   .get(
+    authAPI.optionalGetUserAttributes,
     middleware.validateZod(BookValidators.getWithCoverIDParamSchema),
     booksAPI.getBookGlossary
   )
@@ -1718,6 +1895,17 @@ router
     projectsAPI.validate("getUserProjectsAdmin"),
     middleware.checkValidationErrors,
     projectsAPI.getUserProjectsAdmin
+  );
+
+// A user's H5P activities, owned or collaborating, for the LibreOne user page.
+router
+  .route("/user/activities")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "support"),
+    middleware.validateZod(activityValidators.getUserActivitiesAdminSchema),
+    activitiesAPI.getUserActivitiesAdmin
   );
 
 router
@@ -2200,6 +2388,15 @@ router
     authAPI.getUserAttributes,
     middleware.validateZod(ProjectValidators.GetAddableTeamMembersSchema),
     projectsAPI.getAddableMembers
+  );
+
+router
+  .route("/project/:projectID/team/library-access")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(ProjectValidators.CheckTeamLibraryAccessSchema),
+    projectsAPI.checkTeamLibraryAccess
   );
 
 router.route("/project/:projectID/team/re-sync").put(
@@ -2955,6 +3152,16 @@ router
   );
 
 router
+  .route("/kb/page/:uuid/subpages")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", "kbeditor"),
+    middleware.validateZod(kbValidators.GetKBPageSubpagesValidator),
+    kbAPI.getKBPageSubpages
+  );
+
+router
   .route("/kb/page/:uuid/files")
   .post(
     authAPI.verifyRequest,
@@ -3448,6 +3655,16 @@ router.route('/project/:projectID/publish/security').post(
   catchInternal((req, res) => publishAPI.setPublishBookSecurity(req, res)),
 );
 
+// PUT rather than POST: this replaces one value on the coverpage and is
+// idempotent, mirroring the CXOne tags call underneath it.
+router.route('/project/:projectID/publish/lulu-tag').put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  authAPI.checkHasRoleMiddleware("libretexts", "superadmin"),
+  middleware.validateZod(PublishValidators.LuluTagValidator),
+  catchInternal((req, res) => publishAPI.setPublishLuluTag(req, res)),
+);
+
 router.route('/project/:projectID/publish/move').post(
   authAPI.verifyRequest,
   authAPI.getUserAttributes,
@@ -3640,6 +3857,101 @@ router.route('/projects/:projectID/restacker/license/bulk').patch(
   restackerAPI.bulkUpdateRestackerLicense
 );
 
+router.route('/projects/:projectID/reference')
+.get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.GetReferencePageSchema),
+  referenceAPI.getReferenceDetails
+)
+.post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.UpdateReferenceFormatSchema),
+  referenceAPI.updateReferenceFormat
+).put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.UpdateReferenceEntrySchema),
+  referenceAPI.updateReferenceEntry
+).delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.DeleteReferenceEntrySchema),
+  referenceAPI.deleteReferenceEntry
+)
+.patch(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.AddReferenceEntrySchema),
+  referenceAPI.addReferenceEntry
+);
+
+
+
+router.route('/projects/:projectID/reference/bulk-delete').post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.BulkDeleteReferenceEntriesSchema),
+  referenceAPI.deleteReferenceEntries
+);
+
+router.route('/projects/:projectID/reference/scope')
+.put(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.SaveReferenceScopeSchema),
+  referenceAPI.saveReferenceScope
+)
+.delete(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.DeleteReferenceScopeSchema),
+  referenceAPI.deleteReferenceScope
+);
+
+router.route('/projects/:projectID/reference/search').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.SearchReferencesValidator),
+  referenceAPI.searchReferences
+);
+
+router.route('/projects/:projectID/reference/book').get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.tocValidator),
+  referenceAPI.getBookToc
+).post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.BookAsReferenceValidator),
+  referenceAPI.addBookPageAsReference
+);
+
+
+
+router.route("/reference/projects/:projectID/populate").post(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.PopulateReferenceSchema),
+  referenceAPI.startReferencePopulateJob
+).get(
+  authAPI.verifyRequest,
+  authAPI.getUserAttributes,
+  middleware.validateZod(ReferenceValidators.PopulateReferenceSchema),
+  referenceAPI.populateReferenceDetails
+);
+
+router.route("/reference/page/:pageID/library/:library").get(
+  middleware.validateZod(ReferenceValidators.GetReferencePageByPageIDAndLibrarySchema),
+  referenceAPI.getReferencePageDetails
+);
+
+router.route("/reference/projects/:projectID").get(
+  middleware.validateZod(ReferenceValidators.GetReferenceProjectsSchema),
+  referenceAPI.getReferenceItems
+);
 
 
 export default router;

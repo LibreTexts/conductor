@@ -99,7 +99,8 @@ const LibraryActions: React.FC<LibraryActionsProps> = ({
                     onClick={onOpenCatalogModal}
                     loading={catalogLoading}
                     disabled={catalogLoading}
-                    variant="outline"
+                    // Davis "outline" border is below 3:1 (pending Davis fix).
+                    variant="secondary"
                     size="md"
                     className="shrink-0"
                 />

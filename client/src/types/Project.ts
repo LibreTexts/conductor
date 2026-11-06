@@ -225,13 +225,18 @@ export type AuthenBrowser = {
 }
 
 export interface CreateWorkbenchForm {
-  library: number | string;
+  library: string;
   title: string;
 }
 
 export interface ImportWorkbenchForm {
-  library: number | string;
+  library: string;
   pbBookURL: string;
-  title: string;
-
+  title?: string | null;
 }
+
+export type TeamMemberLibraryAccess = {
+  id: string;
+  centralID?: string;
+  hasAccess: boolean;
+};

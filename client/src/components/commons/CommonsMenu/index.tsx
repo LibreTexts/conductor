@@ -22,6 +22,7 @@ const CommonsMenu = ({ activeItem = "catalog" }: { activeItem?: string }) => {
 
     if (org.orgID === "libretexts") {
       opts.push({ key: "homework", text: "Homework" });
+      opts.push({ key: "interactives", text: "Interactives" });
     }
 
     return opts;

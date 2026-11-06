@@ -2,7 +2,8 @@ import { Badge, Divider } from "@libretexts/davis-react";
 import useGlobalError from "../../components/error/ErrorHooks";
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
-import { KBPage } from "../../types";
+import { KBPage, KBTreeNode } from "../../types";
+import { findKBTreeNode } from "../../utils/kbHelpers";
 import KBRenderer from "./KBRenderer";
 import InThisArticle from "./InThisArticle";
 import PageLastEditor from "./PageLastEditor";
@@ -12,13 +13,6 @@ import { useQuery } from "@tanstack/react-query";
 import { checkIsUUID } from "../../utils/misc";
 import useHashScroll from "../../hooks/useHashScroll";
 import type { ArticleHeading } from "../../utils/kbHeadings";
-
-type TOCItem = {
-  id: string;
-  text: string;
-  link: string;
-  isActive: boolean;
-};
 
 
 const KBPageViewMode = ({
@@ -31,14 +25,14 @@ const KBPageViewMode = ({
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<KBPage | null>(null);
-  const [toc, setToc] = useState<TOCItem[] | null>(null);
   const [headings, setHeadings] = useState<ArticleHeading[]>([]);
   const [contentRendered, setContentRendered] = useState(false);
   const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
 
-  const { isFetching: sidebarLoading } = useQuery({
+  // Read the tree NavTree already loads; this component never fetches it.
+  const { data: tree } = useQuery<KBTreeNode[]>({
     queryKey: ["nav-tree"],
-    enabled: false, // Don't fetch, just check loading state
+    enabled: false,
   });
 
   useEffect(() => {
@@ -85,45 +79,7 @@ const KBPageViewMode = ({
     }
   }
 
-  const generateTOC = () => {
-    // Find the active node container in the DOM
-    const activeNodeContainer = document.querySelector('div[id^="node-"][data-active="true"]');
-    if (!activeNodeContainer) return [];
-
-    // Find all child elements within this node's children container
-    const childrenLinks = activeNodeContainer.querySelectorAll('div[id^="child-"]');
-    
-    const toc = Array.from(childrenLinks).map((childDiv, index) => {
-      const link = childDiv.querySelector('a[href^="/insight/"]'); 
-      if (!link) return null;
-      
-      const href = link.getAttribute('href');
-      const text = link.textContent?.trim();
-      const dataActive = link.getAttribute('data-active') === 'true';
-      
-      return {
-        id: `child-${index}`,
-        text: text || '',
-        link: href || '#',
-        isActive: dataActive
-      };
-    }).filter((item) => item !== null);
-
-
-    return toc;
-  };
-
-  useEffect(() => {
-    if (!sidebarLoading) {
-      const timer = setTimeout(() => {
-        const toc = generateTOC();
-        if (!toc) return;
-        setToc(toc as TOCItem[]);
-      }, 100);
-  
-      return () => clearTimeout(timer); // Cleanup
-    }
-  }, [sidebarLoading]);
+  const subpages = slug ? findKBTreeNode(tree, slug)?.children ?? [] : [];
 
   return (
     <div aria-busy={loading} className="flex flex-row items-start">
@@ -147,13 +103,13 @@ const KBPageViewMode = ({
         </div>
         <Divider />
 
-        {toc && toc.length > 0 && (
+        {subpages.length > 0 && (
           <div className="mt-6 mb-9">
             <h3 className="text-xl font-bold underline mb-4">Articles in this section</h3>
             <ul>
-              {toc.map((item) => (
-                <li key={item.id}>
-                  <a href={item.link}>{item.text}</a>
+              {subpages.map((item) => (
+                <li key={item.uuid}>
+                  <a href={`/insight/${item.slug}`}>{item.title}</a>
                 </li>
               ))}
             </ul>

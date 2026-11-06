@@ -13,6 +13,24 @@ export type StoreProduct = Stripe.Product & {
     prices: Stripe.Price[];
 }
 
+/**
+ * Changes needed to bring a cart in line with the current Stripe catalog.
+ * `updated` lines moved to the active price of the same variant, `removed` lines have no active
+ * equivalent. The client stores full product and price objects, so `updated` carries both.
+ */
+export type StoreCartReconciliation = {
+    updated: {
+        product_id: string;
+        old_price_id: string;
+        product: StoreProduct;
+        price: Stripe.Price;
+    }[];
+    removed: {
+        product_id: string;
+        price_id: string;
+    }[];
+}
+
 export type StoreShippingOption = {
     title: string;
     id: number;

@@ -154,6 +154,11 @@ export function areLicensesCompatible(
 
   if (!keyAdption || !keyOrigin) return null;
 
+  // The CK-12 license only combines with itself.
+  if (keyAdption === "ck12" || keyOrigin === "ck12") {
+    return keyAdption === keyOrigin;
+  }
+
   const ccKeyAdption = toCcLicenseKey(keyAdption);
   const ccKeyOrigin = toCcLicenseKey(keyOrigin);
 
@@ -400,7 +405,7 @@ export const  parseLicenseVersion =(version?: string): string | undefined=> {
     const v = version.replace(/^licenseversion:/, "");
     return v.replace(/^(\d)(\d)$/, "$1.$2");
   }
-/** URL substrings that identify structural pages which must always be Public Domain. */
+/** URL substrings that identify core pages which must always be Public Domain. */
 export const PUBLIC_DOMAIN_PAGE_SUFFIXES = [
   "00%3A_Front_Matter/02%3A_InfoPage",
   "00%3A_Front_Matter/03%3A_Table_of_Contents",

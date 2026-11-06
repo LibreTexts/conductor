@@ -79,6 +79,7 @@ const UserSupportTickets = lazyWithRetry(
 
 import api from "../../../../api";
 import UserConductorData from "../../../../components/controlpanel/CentralIdentity/UserConductorData";
+import UserH5PActivities from "../../../../components/controlpanel/CentralIdentity/UserH5PActivities";
 import CampusAdminRolesSection from "../../../../components/controlpanel/CentralIdentity/CampusAdminRolesSection";
 import EditUserAcademyOnlineModal from "../../../../components/controlpanel/CentralIdentity/EditUserAcademyOnlineModal";
 import { useModals } from "../../../../context/ModalContext";
@@ -893,6 +894,7 @@ const CentralIdentityUserView = () => {
             </Card>
 
             {userLocalID && <UserConductorData uuid={userLocalID} />}
+            {userLocalID && <UserH5PActivities uuid={userLocalID} />}
           </Stack>
 
           {/* Right column */}

@@ -89,7 +89,9 @@ import {
 } from "@libretexts/davis-react";
 import useProject from "../../hooks/useProject";
 import { useModals } from "../../context/ModalContext";
-import ConfirmModal from "../ConfirmModal";
+import PublishImportOptionsModal, {
+  type PublishImportOptions,
+} from "./PublishImportOptionsModal";
 import ControlPanelNewUITemp from "./ControlPanel";
 import { useDocumentTitle } from "usehooks-ts";
 import BookActions from "./BookActions";
@@ -187,6 +189,8 @@ const RemixerDashboard: React.FC = () => {
     nodeId: string;
     x: number;
     y: number;
+    /** Row Actions button that opened the menu; focus returns to it. */
+    returnFocusTo?: HTMLElement | null;
   } | null>(null);
 
   const [pendingBookImport, setPendingBookImport] = useState<{
@@ -359,6 +363,16 @@ const RemixerDashboard: React.FC = () => {
     !(remixerData.currentBook ?? []).some(
       (n) => n.parentID === contextMenu.nodeId,
     );
+
+  const contextMenuDuplicateUnavailableReason =
+    contextMenu == null || contextMenuCanDuplicate
+      ? undefined
+      : isDefaultMatterItem(contextMenu.nodeId)
+        ? "not available for core pages"
+        : "not available for items with subpages";
+
+  const contextMenuTargetTitle =
+    contextMenuTargetNode?.["@title"] || contextMenuTargetNode?.title || "item";
 
   const contextMenuSiblingTypeLabel = contextMenu
     ? getNodeTypeLabelForDepth(getContextNodeDepth(contextMenu.nodeId) - 1)
@@ -1085,7 +1099,6 @@ const RemixerDashboard: React.FC = () => {
       (existingBookNodes) => applyBookNodeDeletion(existingBookNodes, nodeId),
       { trackHistory: true },
     );
-    setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
   };
 
   /** Soft-delete the currently selected book node and its descendants. */
@@ -1110,7 +1123,6 @@ const RemixerDashboard: React.FC = () => {
       (existingBookNodes) => applyBookNodeRestore(existingBookNodes, nodeId),
       { trackHistory: true },
     );
-    setUiState((prev) => ({ ...prev, selectedBookNodeId: undefined }));
   };
 
   /** Restore the currently selected book node and its descendants (mirrors handleDeleteSelectedBookNode). */
@@ -2172,6 +2184,7 @@ const RemixerDashboard: React.FC = () => {
         copyModeState?: string;
         pathLevelFormats?: PathLevelFormat[];
         importGlossaryTerms?: boolean;
+        importReferences?: boolean;
         liveBookFingerprint?: string;
       };
     }) => {
@@ -2227,7 +2240,10 @@ const RemixerDashboard: React.FC = () => {
       !page["@id"].startsWith("new-"),
   );
 
-  const startPublish = (importGlossaryTerms: boolean) => {
+  const startPublish = ({
+    importGlossaryTerms,
+    importReferences,
+  }: PublishImportOptions) => {
     if (!id) return;
     setPublishStatus("pending");
     setPublishMessages(["Publish request accepted. Creating backend job..."]);
@@ -2238,6 +2254,7 @@ const RemixerDashboard: React.FC = () => {
         copyModeState: uiState.copyModeState,
         pathLevelFormats: uiState.pathLevelFormats,
         importGlossaryTerms,
+        importReferences,
         liveBookFingerprint: liveBookFingerprintRef.current ?? undefined,
       },
     });
@@ -2247,25 +2264,17 @@ const RemixerDashboard: React.FC = () => {
     if (!id) return;
     if (hasImportedLibraryPages) {
       openModal(
-        <ConfirmModal
-          text="This remix includes pages imported from other books. Would you like to import the glossary terms used on those pages into this book's glossary as well?"
-          confirmText="Import Glossary Terms"
-          cancelText="Skip"
-          // "Skip" still publishes, so Esc/outside click must not trigger it.
-          dismissible={false}
-          onCancel={() => {
+        <PublishImportOptionsModal
+          onCancel={closeAllModals}
+          onPublish={(options) => {
             closeAllModals();
-            startPublish(false);
-          }}
-          onConfirm={() => {
-            closeAllModals();
-            startPublish(true);
+            startPublish(options);
           }}
         />,
       );
       return;
     }
-    startPublish(false);
+    startPublish({ importGlossaryTerms: false, importReferences: false });
   };
 
   // Rendered inline in the tree (see below) rather than pushed through
@@ -2345,6 +2354,20 @@ const RemixerDashboard: React.FC = () => {
     (nodeId: string, event: React.MouseEvent) => {
       setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId }));
       setContextMenu({ nodeId, x: event.clientX, y: event.clientY });
+    },
+    [],
+  );
+  /** Keyboard route to the context menu: a row's "Actions for …" button. */
+  const handleNodeActions = useCallback(
+    (nodeId: string, trigger: HTMLElement) => {
+      const rect = trigger.getBoundingClientRect();
+      setUiState((prev) => ({ ...prev, selectedBookNodeId: nodeId }));
+      setContextMenu({
+        nodeId,
+        x: rect.left,
+        y: rect.bottom + 4,
+        returnFocusTo: trigger,
+      });
     },
     [],
   );
@@ -3026,6 +3049,7 @@ const RemixerDashboard: React.FC = () => {
                   onSelectNode={handleSelectBookNode}
                   onNodeDoubleClick={handleNodeDoubleClick}
                   onNodeContextMenu={handleNodeContextMenu}
+                  onNodeActions={handleNodeActions}
                   onRestoreNode={handleRestoreNode}
                 />
               ) : (
@@ -3090,11 +3114,14 @@ const RemixerDashboard: React.FC = () => {
         canAddSibling={contextMenuCanAddSibling}
         canAddChild={contextMenuCanAddChild}
         canDuplicate={contextMenuCanDuplicate}
+        duplicateUnavailableReason={contextMenuDuplicateUnavailableReason}
         isDeleted={contextMenuIsDeleted}
         addAboveLabel={`Add ${contextMenuSiblingTypeLabel} Above`}
         addToLabel={`Add ${contextMenuChildTypeLabel} To`}
         addBelowLabel={`Add ${contextMenuSiblingTypeLabel} Below`}
+        label={`Actions for ${contextMenuTargetTitle}`}
         onAction={handleContextMenuAction}
+        onClose={() => setContextMenu(null)}
       />
     </div>
   );

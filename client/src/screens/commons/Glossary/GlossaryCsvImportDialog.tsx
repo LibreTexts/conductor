@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import { Button, Modal } from "@libretexts/davis-react";
+import { Button, Modal, Text } from "@libretexts/davis-react";
 import {
   IconAlertTriangle,
   IconCircleCheck,
@@ -371,11 +371,11 @@ const GlossaryCsvImportDialog: React.FC<GlossaryCsvImportDialogProps> = ({
       <Modal.Body>
         {!batchStarted && (
           <>
-            <p className="text-sm text-neutral-600">
+            <Text size="sm">
               Upload one or more CSV files, each with two columns:{" "}
               <strong>term</strong> and <strong>definition</strong>. A header
               row is optional.
-            </p>
+            </Text>
             <input
               ref={fileInputRef}
               type="file"
@@ -595,7 +595,7 @@ const GlossaryCsvImportDialog: React.FC<GlossaryCsvImportDialogProps> = ({
       <Modal.Footer>
         {!batchStarted ? (
           <>
-            <Button variant="ghost" onClick={handleClose}>
+            <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button
@@ -607,7 +607,7 @@ const GlossaryCsvImportDialog: React.FC<GlossaryCsvImportDialogProps> = ({
           </>
         ) : (
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={handleClose}
             disabled={isImportingActive}
           >

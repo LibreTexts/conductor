@@ -1,41 +1,48 @@
-import { useState, useEffect } from "react";
-import { Link, useParams, useHistory } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useHistory, useParams } from "react-router-dom";
 import {
-  Header,
-  Segment,
-  Grid,
+  Alert,
   Breadcrumb,
-  Image,
-  Icon,
-  Message,
-  Dimmer,
-  Loader,
-} from "semantic-ui-react";
-import Input from "../../../../components/NextGenInputs/Input";
-import Button from "../../../../components/NextGenComponents/Button";
+  Button,
+  Card,
+  Heading,
+  Input,
+  Spinner,
+  Stack,
+  Text,
+} from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef } from "@libretexts/davis-react-table";
+import {
+  IconArrowLeft,
+  IconDeviceFloppy,
+  IconX,
+} from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { format, parseISO } from "date-fns";
+import api from "../../../../api";
+import useGlobalError from "../../../../components/error/ErrorHooks";
+import { useTypedSelector } from "../../../../state/hooks";
 import {
   CentralIdentityOrg,
   CentralIdentityOrgAdminResult,
 } from "../../../../types";
-import useGlobalError from "../../../../components/error/ErrorHooks";
-import { format, parseISO } from "date-fns";
-import { useTypedSelector } from "../../../../state/hooks";
-import api from "../../../../api";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import SupportCenterTable from "../../../../components/support/SupportCenterTable";
-import { useNotifications } from "../../../../context/NotificationContext";
-const DEFAULT_LOGO_URL = "https://cdn.libretexts.net/DefaultImages/avatar.png";
+
+const DEFAULT_LOGO_URL =
+  "https://cdn.libretexts.net/DefaultImages/avatar.png";
+
+const formatTimestamp = (value?: string) =>
+  value ? format(parseISO(value), "MM/dd/yyyy hh:mm aa") : "N/A";
 
 const CentralIdentityOrganizationView = () => {
   const { id } = useParams<{ id: string }>();
   const history = useHistory();
   const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
-  const { addNotification } = useNotifications();
   const isSuperAdmin = useTypedSelector((state) => state.user.isSuperAdmin);
 
-  const [editedName, setEditedName] = useState<string>("");
-  const [originalName, setOriginalName] = useState<string>("");
+  const [editedName, setEditedName] = useState("");
+  const [originalName, setOriginalName] = useState("");
 
   const { data, isLoading } = useQuery<CentralIdentityOrg>({
     queryKey: ["central-identity-org", id],
@@ -68,209 +75,177 @@ const CentralIdentityOrganizationView = () => {
       if (!data) return;
       const res = await api.patchCentralIdentityOrg({
         orgId: data.id,
-        name: editedName,
+        name: editedName.trim(),
       });
 
       if (res.data.err) {
         throw new Error(res.data.errMsg || "Failed to update organization.");
       }
     },
-    onError(error, variables, context) {
-      handleGlobalError(error);
-    },
-    onSuccess(data, variables, context) {
-      queryClient.invalidateQueries(["central-identity-org", id]);
+    onError: handleGlobalError,
+    onSuccess: async () => {
+      setOriginalName(editedName.trim());
+      await queryClient.invalidateQueries(["central-identity-org", id]);
     },
   });
 
+  const adminColumns: ColumnDef<CentralIdentityOrgAdminResult>[] = [
+    {
+      id: "first_name",
+      header: "First Name",
+      accessorFn: (admin) => admin.user?.first_name || "N/A",
+    },
+    {
+      id: "last_name",
+      header: "Last Name",
+      accessorFn: (admin) => admin.user?.last_name || "N/A",
+    },
+    {
+      id: "email",
+      header: "Email",
+      accessorFn: (admin) => admin.user?.email || "N/A",
+    },
+    { accessorKey: "admin_role", header: "Admin Role" },
+  ];
+
   if (!isSuperAdmin) {
     return (
-      <Message negative>
-        <Message.Header>Access Denied</Message.Header>
-        <p>Insufficient authorization.</p>
-      </Message>
+      <div className="!p-8">
+        <Alert
+          variant="error"
+          title="Access denied"
+          message="Insufficient authorization."
+        />
+      </div>
     );
   }
 
   if (isLoading) {
     return (
-      <Segment style={{ minHeight: "200px" }}>
-        <Dimmer active inverted>
-          <Loader inverted content="Loading..." />
-        </Dimmer>
-      </Segment>
+      <div className="flex min-h-52 items-center justify-center">
+        <Spinner size="lg" />
+        <span className="sr-only">Loading organization</span>
+      </div>
     );
   }
 
   if (!data) {
     return (
-      <Grid className="controlpanel-container" centered>
-        <Grid.Column width={16} textAlign="center">
-          <Segment placeholder>
-            <Header icon>
-              <Icon name="warning sign" />
-              Organization Not Found
-            </Header>
-            <p>
+      <div className="!p-8">
+        <Card variant="outline" padding="lg">
+          <Stack direction="vertical" gap="md" align="center">
+            <Heading level={2}>Organization Not Found</Heading>
+            <Text as="p">
               The requested organization could not be found or you do not have
               permission to view it.
-            </p>
-          </Segment>
-        </Grid.Column>
-      </Grid>
+            </Text>
+          </Stack>
+        </Card>
+      </div>
     );
   }
 
+  const hasChanges = editedName.trim() !== originalName;
+
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            Edit Organization
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Console
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone/orgs">
-                  Organizations & Systems
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  Edit Organization
-                </Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment loading={isLoading}>
-              <Grid columns={2} stackable>
-                <Grid.Column width={4}>
-                  <Image
-                    src={data?.logo || DEFAULT_LOGO_URL}
-                    size="medium"
-                    bordered
-                    style={{ marginBottom: "1em" }}
-                  />
-                </Grid.Column>
-                <Grid.Column width={12}>
-                  <div className="flex justify-between items-center border-b border-slate-300 py-1.5">
-                    <Header as="h3" className="!m-0">
-                      Properties
-                    </Header>
-                  </div>
-                  <Input
-                    name="orgName"
-                    label="Organization Name"
-                    placeholder="Organization Name"
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    className="mt-4"
-                  />
+    <div className="controlpanel-container !h-full">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>Edit Organization</Heading>
 
-                  <div className="flex flex-row gap-6 mt-6">
-                    <div className="flex flex-col">
-                      <p className="font-semibold">Created At</p>
-                      <p>
-                        {data?.created_at
-                          ? format(
-                              parseISO(data.created_at),
-                              "MM/dd/yyyy hh:mm aa"
-                            )
-                          : "N/A"}
-                      </p>
-                    </div>
+        <Card variant="outline" padding="none" className="overflow-hidden">
+          <div className="border-b border-gray-200 p-4">
+            <Breadcrumb>
+              <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+              <Breadcrumb.Item href="/controlpanel/libreone">
+                LibreOne Admin Console
+              </Breadcrumb.Item>
+              <Breadcrumb.Item href="/controlpanel/libreone/orgs">
+                Organizations &amp; Systems
+              </Breadcrumb.Item>
+              <Breadcrumb.Item isCurrent>Edit Organization</Breadcrumb.Item>
+            </Breadcrumb>
+          </div>
 
-                    <div className="flex flex-col">
-                      <p className="font-semibold">Updated At</p>
-                      <p>
-                        {data?.updated_at
-                          ? format(
-                              parseISO(data.updated_at),
-                              "MM/dd/yyyy hh:mm aa"
-                            )
-                          : "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col  bg-white h-fit space-y-1.5 my-8">
-                    <div className="flex justify-between items-center mb-3 border-b border-slate-300 py-1.5">
-                      <Header as="h3" className="!m-0">
-                        Administrators
-                      </Header>
-                    </div>
-                    <SupportCenterTable<
-                      CentralIdentityOrgAdminResult & { actions?: string }
-                    >
-                      className="!shadow-none"
-                      loading={isLoadingAdmins}
-                      data={admins || []}
-                      onRowClick={(record) => window.open(`/controlpanel/libreone/users/${record.user_id}`)}
-                      columns={[
-                        {
-                          accessor: "user.first_name",
-                          title: "First Name",
-                        },
-                        {
-                          accessor: "user.last_name",
-                          title: "Last Name",
-                        },
-                        {
-                          accessor: "user.email",
-                          title: "Email",
-                          copyButton: true,
-                        },
-                        {
-                          accessor: "admin_role",
-                          title: "Admin Role",
-                        },
-                      ]}
-                    />
-                  </div>
-                </Grid.Column>
-              </Grid>
-            </Segment>
-            <Segment>
-              <div className="flex justify-between items-center">
-                <Button
-                  onClick={() => history.goBack()}
-                  icon="IconArrowLeft"
-                  variant="secondary"
-                >
-                  Back
-                </Button>
-                <div className="flex flex-row gap-2">
-                  <Button
-                    onClick={() => setEditedName(originalName)}
-                    disabled={editedName === originalName}
-                    icon="IconX"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => updateOrgMutation.mutateAsync()}
-                    disabled={editedName === originalName}
-                    loading={updateOrgMutation.isLoading}
-                    icon="IconDeviceFloppy"
-                  >
-                    Save
-                  </Button>
+          <div className="grid grid-cols-1 gap-8 p-6 md:grid-cols-4">
+            <img
+              src={data.logo || DEFAULT_LOGO_URL}
+              alt={`${data.name} logo`}
+              className="w-full max-w-[300px] rounded border border-gray-200 object-contain"
+            />
+
+            <Stack direction="vertical" gap="lg" className="md:col-span-3">
+              <div className="border-b border-gray-200 pb-2">
+                <Heading level={3}>Properties</Heading>
+              </div>
+
+              <Input
+                name="org-name"
+                label="Organization Name"
+                placeholder="Organization name"
+                value={editedName}
+                onChange={(event) => setEditedName(event.target.value)}
+                disabled={updateOrgMutation.isLoading}
+              />
+
+              <div className="flex flex-wrap gap-8">
+                <div>
+                  <Text as="p" weight="semibold">Created At</Text>
+                  <Text as="p">{formatTimestamp(data.created_at)}</Text>
+                </div>
+                <div>
+                  <Text as="p" weight="semibold">Updated At</Text>
+                  <Text as="p">{formatTimestamp(data.updated_at)}</Text>
                 </div>
               </div>
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+
+              <Stack direction="vertical" gap="md">
+                <div className="border-b border-gray-200 pb-2">
+                  <Heading level={3}>Administrators</Heading>
+                </div>
+                <DataTable<CentralIdentityOrgAdminResult>
+                  data={admins || []}
+                  columns={adminColumns}
+                  loading={isLoadingAdmins}
+                  density="compact"
+                  onRowClick={(admin) =>
+                    window.open(`/controlpanel/libreone/users/${admin.user_id}`)
+                  }
+                />
+              </Stack>
+            </Stack>
+          </div>
+
+          <div className="flex flex-wrap justify-between gap-2 border-t border-gray-200 p-4">
+            <Button
+              variant="outline"
+              icon={<IconArrowLeft size={16} />}
+              onClick={() => history.goBack()}
+            >
+              Back
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                icon={<IconX size={16} />}
+                onClick={() => setEditedName(originalName)}
+                disabled={!hasChanges || updateOrgMutation.isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                icon={<IconDeviceFloppy size={16} />}
+                onClick={() => updateOrgMutation.mutate(undefined)}
+                disabled={!hasChanges || !editedName.trim()}
+                loading={updateOrgMutation.isLoading}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </Stack>
+    </div>
   );
 };
 

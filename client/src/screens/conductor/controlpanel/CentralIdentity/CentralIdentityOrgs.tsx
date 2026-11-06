@@ -1,23 +1,29 @@
-import { useState, useEffect } from "react";
-import * as React from "react";
-import { Link, useHistory } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useHistory } from "react-router-dom";
+import { Alert, Avatar, Breadcrumb, Button, Heading, Stack } from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef, PaginationState } from "@libretexts/davis-react-table";
 import {
-  Table,
-  Icon,
-  Header,
-  Segment,
-  Grid,
-  Breadcrumb,
-  Message,
-} from "semantic-ui-react";
-import Button from "../../../../components/NextGenComponents/Button";
+  IconChevronDown,
+  IconChevronRight,
+  IconEye,
+  IconPlus,
+} from "@tabler/icons-react";
 import { CentralIdentityOrg, CentralIdentitySystem } from "../../../../types";
 import useGlobalError from "../../../../components/error/ErrorHooks";
 import { useTypedSelector } from "../../../../state/hooks";
 import CreateSystemModal from "../../../../components/controlpanel/CentralIdentity/CreateSystemModal";
 import CreateOrgModal from "../../../../components/controlpanel/CentralIdentity/CreateOrgModal";
-import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
 import api from "../../../../api";
+
+type OrganizationTableRow = {
+  id: number;
+  name: string;
+  logo?: string | null;
+  type: "system" | "org";
+  isChild?: boolean;
+  organizations?: CentralIdentityOrg[];
+};
 
 const CentralIdentityOrgs = () => {
   const { handleGlobalError } = useGlobalError();
@@ -27,7 +33,6 @@ const CentralIdentityOrgs = () => {
   const [loading, setLoading] = useState(false);
   const [activePage, setActivePage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
   const [systems, setSystems] = useState<CentralIdentitySystem[]>([]);
   const [organizations, setOrganizations] = useState<CentralIdentityOrg[]>([]);
   const [expandedSystemIds, setExpandedSystemIds] = useState<number[]>([]);
@@ -35,326 +40,226 @@ const CentralIdentityOrgs = () => {
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
 
   useEffect(() => {
-    if (isSuperAdmin) {
-      loadData();
-      setTotalPages(
-        Math.ceil((systems.length + organizations.length) / itemsPerPage)
-      );
-    }
-  }, [activePage, itemsPerPage, isSuperAdmin]);
+    if (isSuperAdmin) void loadData();
+  }, [isSuperAdmin]);
 
   async function loadData() {
     try {
       setLoading(true);
       const [systemsRes, orgsRes] = await Promise.all([
-        await api.getCentralIdentitySystems(),
-        await api.getCentralIdentityOrgs(),
+        api.getCentralIdentitySystems(),
+        api.getCentralIdentityOrgs(),
       ]);
 
-      const systemsData = systemsRes.data.systems || [];
-      const orgsData = (orgsRes.data.orgs as CentralIdentityOrg[]).filter(
-        (org) => !org.system
+      setSystems(systemsRes.data.systems || []);
+      setOrganizations(
+        (orgsRes.data.orgs as CentralIdentityOrg[]).filter((org) => !org.system)
       );
-      setSystems(systemsData);
-      setOrganizations(orgsData);
-      setTotalPages(
-        Math.ceil((systemsData.length + orgsData.length) / itemsPerPage)
-      );
-    } catch (err) {
-      handleGlobalError(err);
+    } catch (error) {
+      handleGlobalError(error);
     } finally {
       setLoading(false);
     }
   }
 
-  function toggleSystemExpand(systemId: number) {
-    setExpandedSystemIds((prev) =>
-      prev.includes(systemId)
-        ? prev.filter((id) => id !== systemId)
-        : [...prev, systemId]
-    );
-  }
-
-  function handleEdit(type: "org" | "system", id: number) {
-    history.push(
-      `/controlpanel/libreone/orgs/${type === "org" ? "org" : "system"}/${id}`
-    );
-  }
-
-  const handlePageChange = (page: number) => {
-    setActivePage(page);
-  };
-
-  const handleItemsPerPageChange = (items: number) => {
-    setItemsPerPage(items);
-    setActivePage(1);
-  };
-
-  const getPaginatedData = () => {
-    const startIndex = (activePage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-
-    const allItems = [
-      ...systems.map((system) => ({
-        ...system,
-        type: "system" as const,
-      })),
-      ...organizations.map((org) => ({
-        ...org,
+  const topLevelRows = useMemo<OrganizationTableRow[]>(
+    () => [
+      ...systems.map((system) => ({ ...system, type: "system" as const })),
+      ...organizations.map((organization) => ({
+        ...organization,
         type: "org" as const,
       })),
-    ];
+    ],
+    [systems, organizations]
+  );
 
-    return allItems.slice(startIndex, endIndex);
+  const visibleRows = useMemo(() => {
+    const startIndex = (activePage - 1) * itemsPerPage;
+    return topLevelRows
+      .slice(startIndex, startIndex + itemsPerPage)
+      .flatMap((row) => {
+        if (row.type !== "system" || !expandedSystemIds.includes(row.id)) {
+          return [row];
+        }
+
+        const childRows: OrganizationTableRow[] = (row.organizations || []).map(
+          (organization) => ({
+            ...organization,
+            type: "org",
+            isChild: true,
+          })
+        );
+        return [row, ...childRows];
+      });
+  }, [activePage, expandedSystemIds, itemsPerPage, topLevelRows]);
+
+  const toggleSystemExpand = (systemId: number) => {
+    setExpandedSystemIds((current) =>
+      current.includes(systemId)
+        ? current.filter((id) => id !== systemId)
+        : [...current, systemId]
+    );
+  };
+
+  const handleView = (row: OrganizationTableRow) => {
+    history.push(
+      `/controlpanel/libreone/orgs/${row.type === "org" ? "org" : "system"}/${row.id}`
+    );
+  };
+
+  const columns: ColumnDef<OrganizationTableRow>[] = [
+    {
+      id: "expand",
+      header: "",
+      cell: ({ row }) => {
+        const item = row.original;
+        if (item.type !== "system") return null;
+        const expanded = expandedSystemIds.includes(item.id);
+
+        return (
+          <Button
+            variant="ghost"
+            icon={expanded ? <IconChevronDown size={18} /> : <IconChevronRight size={18} />}
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleSystemExpand(item.id);
+            }}
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${item.name}`}
+          />
+        );
+      },
+    },
+    {
+      id: "logo",
+      header: "Logo",
+      cell: ({ row }) => (
+        <Avatar
+          src={row.original.logo || undefined}
+          name={row.original.name}
+          alt={`${row.original.name} logo`}
+          size="sm"
+        />
+      ),
+    },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row, getValue }) => (
+        <span className={row.original.isChild ? "pl-6" : "font-semibold"}>
+          {getValue<string>()}
+        </span>
+      ),
+    },
+    {
+      id: "type",
+      header: "Type",
+      cell: ({ row }) =>
+        row.original.type === "system" ? "System" : "Organization",
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          icon={<IconEye size={16} aria-hidden="true" />}
+          onClick={(event) => {
+            event.stopPropagation();
+            handleView(row.original);
+          }}
+        >
+          View
+        </Button>
+      ),
+    },
+  ];
+
+  const paginationState: PaginationState = {
+    pageIndex: activePage - 1,
+    pageSize: itemsPerPage,
   };
 
   if (!isSuperAdmin) {
     return (
-      <Message negative>
-        <Message.Header>Access Denied</Message.Header>
-        <p>You must be a Superadmin to access this page.</p>
-      </Message>
+      <div className="!p-8">
+        <Alert
+          variant="error"
+          title="Access denied"
+          message="You must be a Superadmin to access this page."
+        />
+      </div>
     );
   }
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            LibreOne Admin Console: Organizations & Systems
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Console
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  Organizations & Systems
-                </Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment className="flex flex-row gap-2">
-              <Button
-                icon="IconPlus"
-                onClick={() => setShowCreateSystemModal(true)}
-              >
-                New System
-              </Button>
-              <Button
-                icon="IconPlus"
-                onClick={() => setShowCreateOrgModal(true)}
-              >
-                New Organization
-              </Button>
-            </Segment>
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={handleItemsPerPageChange}
-                setActivePageFn={handlePageChange}
-                totalLength={systems.length + organizations.length}
-              />
-            </Segment>
-            <Segment loading={loading}>
-              <Table celled>
-                <Table.Header>
-                  <Table.Row>
-                    <Table.HeaderCell
-                      width={1}
-                      textAlign="center"
-                    ></Table.HeaderCell>
-                    <Table.HeaderCell width={2}>Logo</Table.HeaderCell>
-                    <Table.HeaderCell>Name</Table.HeaderCell>
-                    <Table.HeaderCell>Type</Table.HeaderCell>
-                    <Table.HeaderCell>Actions</Table.HeaderCell>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {getPaginatedData().map((item) => {
-                    if (item.type === "system") {
-                      return (
-                        <React.Fragment key={`system-${item.id}`}>
-                          <Table.Row>
-                            <Table.Cell collapsing>
-                              <Icon
-                                name={
-                                  expandedSystemIds.includes(item.id)
-                                    ? "chevron down"
-                                    : "chevron right"
-                                }
-                                link
-                                onClick={() => toggleSystemExpand(item.id)}
-                              />
-                            </Table.Cell>
-                            <Table.Cell textAlign="center">
-                              {item.logo ? (
-                                <a
-                                  href={item.logo}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{ cursor: "pointer" }}
-                                >
-                                  <img
-                                    src={item.logo}
-                                    alt={`${item.name} logo`}
-                                    style={{
-                                      width: 32,
-                                      height: 32,
-                                      objectFit: "contain",
-                                      display: "inline-block",
-                                    }}
-                                  />
-                                </a>
-                              ) : (
-                                <Icon name="image outline" size="large" />
-                              )}
-                            </Table.Cell>
-                            <Table.Cell>
-                              <b>{item.name}</b>
-                            </Table.Cell>
-                            <Table.Cell>System</Table.Cell>
-                            <Table.Cell>
-                              <Button
-                                icon="IconEye"
-                                onClick={() => handleEdit("system", item.id)}
-                              >
-                                View
-                              </Button>
-                            </Table.Cell>
-                          </Table.Row>
-                          {expandedSystemIds.includes(item.id) &&
-                            item.organizations &&
-                            item.organizations.map((org) => (
-                              <Table.Row key={`org-${org.id}`}>
-                                <Table.Cell />
-                                <Table.Cell textAlign="center">
-                                  {org.logo ? (
-                                    <a
-                                      href={org.logo}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={{ cursor: "pointer" }}
-                                    >
-                                      <img
-                                        src={org.logo}
-                                        alt={`${org.name} logo`}
-                                        style={{
-                                          width: 32,
-                                          height: 32,
-                                          objectFit: "contain",
-                                          display: "inline-block",
-                                        }}
-                                      />
-                                    </a>
-                                  ) : (
-                                    <Icon name="image outline" size="large" />
-                                  )}
-                                </Table.Cell>
-                                <Table.Cell style={{ paddingLeft: 40 }}>
-                                  {org.name}
-                                </Table.Cell>
-                                <Table.Cell>Organization</Table.Cell>
-                                <Table.Cell>
-                                  <Button
-                                    icon="IconEye"
-                                    onClick={() => handleEdit("org", org.id)}
-                                  >
-                                    View
-                                  </Button>
-                                </Table.Cell>
-                              </Table.Row>
-                            ))}
-                        </React.Fragment>
-                      );
-                    } else {
-                      return (
-                        <Table.Row key={`org-${item.id}`}>
-                          <Table.Cell />
-                          <Table.Cell textAlign="center">
-                            {item.logo ? (
-                              <a
-                                href={item.logo}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ cursor: "pointer" }}
-                              >
-                                <img
-                                  src={item.logo}
-                                  alt={`${item.name} logo`}
-                                  style={{
-                                    width: 32,
-                                    height: 32,
-                                    objectFit: "contain",
-                                    display: "inline-block",
-                                  }}
-                                />
-                              </a>
-                            ) : (
-                              <Icon name="image outline" size="large" />
-                            )}
-                          </Table.Cell>
-                          <Table.Cell>{item.name}</Table.Cell>
-                          <Table.Cell>Organization</Table.Cell>
-                          <Table.Cell>
-                            <Button
-                              icon="IconEye"
-                              onClick={() => handleEdit("org", item.id)}
-                            >
-                              View
-                            </Button>
-                          </Table.Cell>
-                        </Table.Row>
-                      );
-                    }
-                  })}
-                </Table.Body>
-              </Table>
-            </Segment>
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={activePage}
-                totalPages={totalPages}
-                itemsPerPage={itemsPerPage}
-                setItemsPerPageFn={handleItemsPerPageChange}
-                setActivePageFn={handlePageChange}
-                totalLength={systems.length + organizations.length}
-              />
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
+    <div className="!h-full !p-8">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>LibreOne Admin Console: Organizations &amp; Systems</Heading>
+        <Breadcrumb>
+          <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+          <Breadcrumb.Item href="/controlpanel/libreone">
+            LibreOne Admin Console
+          </Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>Organizations &amp; Systems</Breadcrumb.Item>
+        </Breadcrumb>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            icon={<IconPlus size={16} aria-hidden="true" />}
+            onClick={() => setShowCreateSystemModal(true)}
+          >
+            New System
+          </Button>
+          <Button
+            variant="outline"
+            icon={<IconPlus size={16} aria-hidden="true" />}
+            onClick={() => setShowCreateOrgModal(true)}
+          >
+            New Organization
+          </Button>
+        </div>
+        <DataTable<OrganizationTableRow>
+          data={visibleRows}
+          columns={columns}
+          loading={loading}
+          density="compact"
+          enablePagination
+          pageSize={itemsPerPage}
+          pageSizeOptions={[10, 25, 50, 100]}
+          tableOptions={{
+            manualPagination: true,
+            rowCount: topLevelRows.length,
+            state: { pagination: paginationState },
+            getRowId: (row) => `${row.type}-${row.id}${row.isChild ? "-child" : ""}`,
+            onPaginationChange: (updater) => {
+              const nextPagination =
+                typeof updater === "function"
+                  ? updater(paginationState)
+                  : updater;
+              setActivePage(nextPagination.pageIndex + 1);
+              setItemsPerPage(nextPagination.pageSize);
+            },
+          }}
+        />
+      </Stack>
 
       <CreateSystemModal
         show={showCreateSystemModal}
         onClose={() => setShowCreateSystemModal(false)}
         onCreated={() => {
           setShowCreateSystemModal(false);
-          loadData();
+          void loadData();
         }}
       />
-
       <CreateOrgModal
         show={showCreateOrgModal}
         onClose={() => setShowCreateOrgModal(false)}
         onCreated={() => {
           setShowCreateOrgModal(false);
-          loadData();
+          void loadData();
         }}
       />
-    </Grid>
+    </div>
   );
 };
 

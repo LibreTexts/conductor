@@ -39,6 +39,8 @@ export interface GlossaryUsageInterface extends Document {
   caption?: string;
   link?: string;
   source?: string;
+  /** Version of the `source` license (e.g. "4.0" for CC BY 4.0). */
+  sourceVersion?: string;
   imageSource?: string;
   imageAuthor?: string;
   imageLicense?: string;
@@ -94,6 +96,7 @@ const GlossaryUsageSchema = new Schema<GlossaryUsageInterface>({
   caption: { type: String, required: false },
   link: { type: String, required: false },
   source: { type: String, required: false },
+  sourceVersion: { type: String, required: false },
   imageSource: { type: String, required: false },
   imageAuthor: { type: String, required: false },
   imageLicense: { type: String, required: false },

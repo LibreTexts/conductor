@@ -32,6 +32,8 @@ import GlossaryDefinitionPreview from "./GlossaryDefinitionPreview";
 import BulkAttributionDialog from "./BulkAttributionDialog";
 
 const BULK_DELETE_MODAL_ID = "glossary-bulk-delete-modal";
+const DELETE_TERM_MODAL_ID = "glossary-delete-term-modal";
+const REMOVE_PAGE_MODAL_ID = "glossary-remove-page-modal";
 const BULK_ATTRIBUTION_MODAL_ID = "glossary-bulk-attribution-modal";
 
 type GlossaryListProps = {
@@ -90,7 +92,7 @@ const GlossaryList = ({
     if (selectedTerms.length === 0) return;
     downloadCsv(
       `${slugifyForFilename(toc?.title ?? "glossary")}-selected-terms.csv`,
-      glossaryEntriesToCsv(selectedTerms),
+      glossaryEntriesToCsv(selectedTerms, toc),
     );
   };
 
@@ -250,23 +252,40 @@ const GlossaryList = ({
             aria-label="Remove this page from glossary term"
             variant="primary"
             icon={<IconTrash />}
-            onClick={async() => {
-              const res = await api.removePageFromGlossary({
-                pageId: getValue() as string,
-                usageId: row.original.usageID,
-              }); 
-              if (res.err) {
-                addNotification({
-                  message: res.errMsg ?? "Failed to remove page from glossary term.",
-                  type: "error",
+            onClick={() => {
+              const pageId = getValue() as string;
+              const usageId = row.original.usageID;
+              const pageTitle =
+                (toc && findTocNodeById(toc, pageId)?.title) || "this page";
+              const removePage = async () => {
+                closeModal(REMOVE_PAGE_MODAL_ID);
+                const res = await api.removePageFromGlossary({
+                  pageId,
+                  usageId,
                 });
-                return;
-              }
-              addNotification({
-                message: "Page removed from glossary term successfully",
-                type: "success",
-              });
-              refetchGlossary();
+                if (res.err) {
+                  addNotification({
+                    message: res.errMsg ?? "Failed to remove page from glossary term.",
+                    type: "error",
+                  });
+                  return;
+                }
+                addNotification({
+                  message: "Page removed from glossary term successfully",
+                  type: "success",
+                });
+                refetchGlossary();
+              };
+              openModal(
+                <ConfirmModal
+                  text={`Remove "${pageTitle}" from this glossary term? The term will no longer be linked on that page.`}
+                  confirmText="Remove"
+                  confirmColor="red"
+                  onConfirm={removePage}
+                  onCancel={() => closeModal(REMOVE_PAGE_MODAL_ID)}
+                />,
+                REMOVE_PAGE_MODAL_ID,
+              );
             }}
             size="sm"
           />
@@ -274,7 +293,7 @@ const GlossaryList = ({
         </Stack>
       ),
     },
-  ], [toc, tocIdSet, addNotification, refetchGlossary]);
+  ], [toc, tocIdSet, addNotification, refetchGlossary, openModal, closeModal]);
 
   const columns: ColumnDef<GlossaryEntry>[] = useMemo(() => [
     {
@@ -367,20 +386,34 @@ const GlossaryList = ({
             aria-label="Delete this glossary term"
             variant="primary"
             icon={<IconTrash />}
-            onClick={async() => {
-              const res = await api.removeGlossaryTerm({ usageId: row.original.usageID });
-              if (res.err) {
+            onClick={() => {
+              const usageId = row.original.usageID;
+              const deleteTerm = async () => {
+                closeModal(DELETE_TERM_MODAL_ID);
+                const res = await api.removeGlossaryTerm({ usageId });
+                if (res.err) {
+                  addNotification({
+                    message: res.errMsg ?? "Failed to remove glossary term.",
+                    type: "error",
+                  });
+                  return;
+                }
                 addNotification({
-                  message: res.errMsg ?? "Failed to remove glossary term.",
-                  type: "error",
+                  message: "Glossary term removed successfully",
+                  type: "success",
                 });
-                return;
-              }
-              addNotification({
-                message: "Glossary term removed successfully",
-                type: "success",
-              });
-              refetchGlossary();
+                refetchGlossary();
+              };
+              openModal(
+                <ConfirmModal
+                  text={`Delete the glossary term "${row.original.term}"? This cannot be undone.`}
+                  confirmText="Delete"
+                  confirmColor="red"
+                  onConfirm={deleteTerm}
+                  onCancel={() => closeModal(DELETE_TERM_MODAL_ID)}
+                />,
+                DELETE_TERM_MODAL_ID,
+              );
             }}
             size="sm"
           />
@@ -398,7 +431,7 @@ const GlossaryList = ({
       enableSorting: false,
       enableColumnFilter: false,
     },
-  ], [toc, tocIdSet, addNotification, refetchGlossary, setEditingUsageID]);
+  ], [toc, tocIdSet, addNotification, refetchGlossary, setEditingUsageID, openModal, closeModal]);
 
   if (isLoading) {
     return (
@@ -478,7 +511,7 @@ const GlossaryList = ({
                     iconPosition="left"
                     onClick={openBulkAttributionModal}
                   >
-                    Update Attribution
+                    Bulk Attributions
                   </Button>
                   <Button
                     size="sm"

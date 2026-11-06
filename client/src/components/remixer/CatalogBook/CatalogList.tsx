@@ -1,17 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  DataTable,
-  selectionColumn,
-  type ColumnDef,
-  type RowSelectionState,
-} from "@libretexts/davis-react-table";
+import React, { useEffect, useMemo, useState } from "react";
+import type { ColumnDef } from "@libretexts/davis-react-table";
 import { Book } from "../../../types";
 import { getLibraryName } from "../../util/LibraryOptions";
 import { getLicenseText } from "../../util/LicenseOptions";
-import { Button, Input, Modal, Stack } from "@libretexts/davis-react";
+import { Button, Input, Modal, Stack, Text } from "@libretexts/davis-react";
 import { IconSearch } from "@tabler/icons-react";
+import RowHeaderDataTable from "../../util/RowHeaderDataTable";
 
-const truncateCellClass = "block max-w-full overflow-hidden text-ellipsis whitespace-nowrap";
+const SELECTION_HINT_ID = "catalog-book-selection-hint";
+const ROW_HEADER_COLUMN_ID = "title";
 
 interface CatalogListProps {
   open: boolean;
@@ -25,18 +22,12 @@ interface CatalogListProps {
 const CatalogList: React.FC<CatalogListProps> = ({
   open,
   onClose,
-  dimmer,
   catalogBook,
   loadSelectedBook,
   loading = false,
 }: CatalogListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-
-  const handleRowClick = useCallback((book: Book) => {
-    setRowSelection({ [book.bookID]: true });
-  }, []);
+  const [selectedBookID, setSelectedBookID] = useState<string | null>(null);
 
   const filteredCatalogBook = useMemo(() => {
     const books = catalogBook ?? [];
@@ -60,22 +51,51 @@ const CatalogList: React.FC<CatalogListProps> = ({
     });
   }, [catalogBook, searchTerm]);
 
+  // A new search or catalog clears a selection that may no longer be listed.
+  useEffect(() => {
+    setSelectedBookID(null);
+  }, [searchTerm, catalogBook]);
+
+  const selectedBook = useMemo(
+    () =>
+      selectedBookID
+        ? (filteredCatalogBook.find((b) => b.bookID === selectedBookID) ?? null)
+        : null,
+    [selectedBookID, filteredCatalogBook],
+  );
+
   const columns = useMemo<ColumnDef<Book>[]>(
     () => [
       {
-        ...selectionColumn<Book>(),
-        // Single-select table: no select-all checkbox in the header.
-        header: () => null,
-      } as ColumnDef<Book>,
+        // Only one book can be loaded, so selection uses radio buttons (one
+        // group across the table) rather than checkboxes.
+        id: "select",
+        header: () => <span className="sr-only">Select</span>,
+        enableSorting: false,
+        size: 48,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center">
+            <input
+              type="radio"
+              name="catalog-book"
+              className="size-4 accent-primary"
+              aria-label={`Select ${row.original.title}`}
+              aria-describedby={SELECTION_HINT_ID}
+              checked={selectedBookID === row.original.bookID}
+              onChange={() => setSelectedBookID(row.original.bookID)}
+              onClick={(event) => event.stopPropagation()}
+            />
+          </div>
+        ),
+      },
       {
+        id: ROW_HEADER_COLUMN_ID,
         accessorKey: "title",
         header: "Title",
         size: 280,
         minSize: 120,
         cell: ({ row }) => (
-          <span className="block whitespace-normal break-words leading-snug">
-            {row.original.title}
-          </span>
+          <span className="block leading-snug">{row.original.title}</span>
         ),
       },
       {
@@ -83,14 +103,6 @@ const CatalogList: React.FC<CatalogListProps> = ({
         header: "ID",
         size: 96,
         minSize: 72,
-        cell: ({ row }) => (
-          <span
-            className={truncateCellClass}
-            title={row.original.bookID}
-          >
-            {row.original.bookID}
-          </span>
-        ),
       },
       {
         accessorKey: "library",
@@ -101,42 +113,19 @@ const CatalogList: React.FC<CatalogListProps> = ({
           getLibraryName(rowA.original.library)
             .toLowerCase()
             .localeCompare(getLibraryName(rowB.original.library).toLowerCase()),
-        cell: ({ row }) => {
-          const label = getLibraryName(row.original.library);
-          return (
-            <span className={truncateCellClass} title={label}>
-              {label}
-            </span>
-          );
-        },
+        cell: ({ row }) => getLibraryName(row.original.library),
       },
       {
         accessorKey: "author",
         header: "Author",
         size: 180,
         minSize: 100,
-        cell: ({ row }) => (
-          <span
-            className={truncateCellClass}
-            title={row.original.author ?? ""}
-          >
-            {row.original.author}
-          </span>
-        ),
       },
       {
         accessorKey: "course",
         header: "Campus",
         size: 160,
         minSize: 100,
-        cell: ({ row }) => (
-          <span
-            className={truncateCellClass}
-            title={row.original.course ?? ""}
-          >
-            {row.original.course}
-          </span>
-        ),
       },
       {
         accessorKey: "license",
@@ -148,96 +137,56 @@ const CatalogList: React.FC<CatalogListProps> = ({
           const b = (getLicenseText(rowB.original.license) ?? "").toLowerCase();
           return a.localeCompare(b);
         },
-        cell: ({ row }) => {
-          const label = getLicenseText(row.original.license) ?? "";
-          return (
-            <span className={truncateCellClass} title={label}>
-              {label}
-            </span>
-          );
-        },
+        cell: ({ row }) => getLicenseText(row.original.license) ?? "",
       },
     ],
-    [],
+    [selectedBookID],
   );
-
-  useEffect(() => {
-    setRowSelection({});
-  }, [searchTerm, catalogBook]);
-
-  useEffect(() => {
-    const selectedId = Object.keys(rowSelection).find((id) => rowSelection[id]);
-    if (!selectedId) {
-      setSelectedBook(null);
-      return;
-    }
-    const book = filteredCatalogBook.find((b) => b.bookID === selectedId);
-    if (!book) {
-      setSelectedBook(null);
-      setRowSelection({});
-      return;
-    }
-    setSelectedBook(book);
-  }, [rowSelection, filteredCatalogBook]);
 
   return (
     <Modal open={open} size="xl" onClose={onClose}>
-      <Modal.Header>Catalog Book</Modal.Header>
+      <Modal.Header>
+        <Modal.Title>Catalog Book</Modal.Title>
+      </Modal.Header>
       <Modal.Body className="!overflow-visible">
         <Input
           name="search"
-          label=""
-          leftIcon={<IconSearch size={16} />}
+          label="Search the catalog"
+          labelClassName="sr-only"
+          leftIcon={<IconSearch size={16} aria-hidden="true" />}
           placeholder="Search by title, ID, library, author, course, or license…"
           value={searchTerm}
           onChange={(value) => setSearchTerm(value.target.value ?? "")}
           style={{ marginBottom: 12 }}
         />
+        <Text as="p" size="sm" id={SELECTION_HINT_ID} className="mb-2 text-gray-700">
+          Select one book to load. Only one book can be selected at a time.
+        </Text>
 
-        <DataTable<Book>
+        <RowHeaderDataTable<Book>
           data={filteredCatalogBook}
           columns={columns}
           caption="Catalog books"
+          rowHeaderColumnId={ROW_HEADER_COLUMN_ID}
+          getRowId={(row) => row.bookID}
           enableSorting
-          enablePagination
           pageSize={10}
           pageSizeOptions={[5, 10, 25, 50, 100]}
-          density="compact"
-          striped
-          bordered
-          maxHeight="min(50vh, 420px)"
-          stickyHeader
-          classNames={{
-            // Davis wrapper is always `overflow-auto`; with maxHeight that creates a
-            // second scrollbar beside the table scroll region. Keep overflow on the
-            // maxHeight container only.
-            wrapper: "!overflow-hidden",
-            table: "w-full min-w-[640px] table-fixed",
-            pagination:
-              "[&_select]:min-w-[4.5rem] [&_select]:pl-2 [&_select]:pr-7",
-          }}
+          maxHeightClassName="md:max-h-[min(50vh,420px)]"
+          tableClassName="w-full min-w-[640px] table-fixed"
           emptyState="No books match your search."
-          onRowClick={handleRowClick}
-          enableMultiSort
-          enableColumnFilters
-          tableOptions={{
-            enableRowSelection: true,
-            getRowId: (row) => row.bookID,
-            enableMultiRowSelection: false,
-            state: { rowSelection },
-            onRowSelectionChange: setRowSelection,
-          }}
+          onRowClick={(book) => setSelectedBookID(book.bookID)}
+          isRowSelected={(book) => book.bookID === selectedBookID}
         />
-
       </Modal.Body>
       <Modal.Footer>
         <Stack direction="horizontal" gap="md" justify="end">
-          <Button onClick={onClose} disabled={loading} variant="outline" className="bg-neutral-100 text-neutral-700 hover:bg-neutral-200">
+          {/* Davis "outline" border is below 3:1 (pending Davis fix). */}
+          <Button onClick={onClose} disabled={loading} variant="secondary">
             Close
           </Button>
           <Button
             variant="primary"
-            className="bg-primary text-white hover:bg-primary-dark"
             loading={loading}
             disabled={!selectedBook || loading}
             onClick={() =>
@@ -249,7 +198,8 @@ const CatalogList: React.FC<CatalogListProps> = ({
             }
           >
             Load on Library
-          </Button></Stack>
+          </Button>
+        </Stack>
       </Modal.Footer>
     </Modal>
   );

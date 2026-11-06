@@ -19,7 +19,7 @@ const licenses = [
     { key: 'gnugpl',        text: 'GNU GPL',                value: 'gnugpl'         },
     { key: 'publicdomain',  text: 'Public Domain',          value: 'publicdomain'   },
     { key: 'ck12',          text: 'CK-12 License',          value: 'ck12'           },
-    { key: 'mixed',      text: 'Multiple Licenses',      value: 'mixed'       }
+    { key: 'mixed',      text: 'Multiple Licenses(Collection)',      value: 'mixed'       }
 ];
 
 const licenseOptions = [

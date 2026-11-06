@@ -21,7 +21,14 @@ export const GetKBPageValidator = z
     return true;
   });
 
-export const DeleteKBPageValidator = KBUUIDParams;
+export const DeleteKBPageValidator = KBUUIDParams.extend({
+  query: z.object({
+    // Must be "true" to delete a page that has subpages; they're deleted with it.
+    cascade: z.enum(["true", "false"]).optional(),
+  }),
+});
+
+export const GetKBPageSubpagesValidator = KBUUIDParams;
 
 export const CreateKBPageValidator = z.object({
   body: z

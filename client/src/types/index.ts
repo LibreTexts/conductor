@@ -1,6 +1,7 @@
 export * from "./Announcement";
 export * from "./AICoAuthor";
 export * from "./Author";
+export * from "./Activity";
 export * from "./AssetTagging";
 export * from "./a11y";
 export * from "./BaseDocument";

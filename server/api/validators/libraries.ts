@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const GetLibraryFromSubdomainSchema = z.object({
+export const GetLibraryBySubdomainSchema = z.object({
   params: z.object({
     subdomain: z.string(),
   }),

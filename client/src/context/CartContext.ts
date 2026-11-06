@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import { StoreProduct, StoreProductPrice, Cart } from "../types";
+import { StoreCartReconciliation, StoreProduct, StoreProductPrice, Cart } from "../types";
 
 export interface CartContextType {
   cart: Cart | undefined;
@@ -12,6 +12,7 @@ export interface CartContextType {
   addToCart: (product: StoreProduct, price: StoreProductPrice, quantity: number) => void;
   removeFromCart: (productId: string, priceId: string) => void;
   updateQuantity: (productId: string, priceId: string, quantity: number) => void;
+  reconcileCart: (reconciliation: StoreCartReconciliation) => void;
   loading: boolean;
 }
 

@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   Grid,
+  Heading,
   IconButton,
   Link,
   Stack,
@@ -29,8 +30,9 @@ import "./Glossary.css";
 import {
   downloadCsv,
   extractLibraryFromURL,
-  filterGlossaryEntriesForPage,
+  filterGlossaryEntriesForPages,
   findTocNode,
+  findTocNodeById,
   glossaryEntriesToCsv,
   slugifyForFilename,
 } from "./services";
@@ -39,6 +41,7 @@ import { GlossaryEntry } from "./model";
 import AddPageDialog from "./AddPageDialog";
 import GlossaryCsvImportDialog from "./GlossaryCsvImportDialog";
 import GlossaryConfigModal from "./GlossaryConfigModal";
+import { collectSubtreeIds } from "./glossaryConfigDefaults";
 import { useNotifications } from "../../../context/NotificationContext";
 import { useModals } from "../../../context/ModalContext";
 import useProject from "../../../hooks/useProject";
@@ -101,16 +104,30 @@ const GlossaryManager: React.FC = () => {
     queryClient.invalidateQueries(["glossary-config", library, coverID]);
   };
 
-  /** Page ids with at least one glossary term — gates the TOC row export icon. */
+  /**
+   * TOC nodes whose own page or any page below it has a glossary term —
+   * gates the TOC row export icon, which exports the node's whole subtree
+   * (so a chapter gets the icon even when only its sections hold terms).
+   */
   const pageIdsWithTerms = useMemo(() => {
-    const ids = new Set<string>();
+    const direct = new Set<string>();
     for (const entry of glossaryEntries) {
       for (const page of entry.pages) {
-        ids.add(page.pageID);
+        direct.add(page.pageID);
       }
     }
-    return ids;
-  }, [glossaryEntries]);
+    const withTerms = new Set<string>();
+    const visit = (node: TableOfContents): boolean => {
+      let has = direct.has(node.id);
+      for (const child of node.children) {
+        if (visit(child)) has = true;
+      }
+      if (has) withTerms.add(node.id);
+      return has;
+    };
+    if (bookTOC) visit(bookTOC);
+    return withTerms;
+  }, [glossaryEntries, bookTOC]);
 
   const handleAddTermsToPages = async (
     pageIds: string[],
@@ -166,7 +183,7 @@ const GlossaryManager: React.FC = () => {
       if (res.err) {
         throw new Error(
           res.errMsg ??
-            "Failed to import glossary terms from existing glossary.",
+          "Failed to import glossary terms from existing glossary.",
         );
       }
     },
@@ -260,12 +277,15 @@ const GlossaryManager: React.FC = () => {
     }
     downloadCsv(
       `${slugifyForFilename(bookTOC?.title ?? "glossary")}-glossary.csv`,
-      glossaryEntriesToCsv(glossaryEntries),
+      glossaryEntriesToCsv(glossaryEntries, bookTOC),
     );
   };
 
+  /** Exports the terms used on a TOC node and every page under it (e.g. a chapter). */
   const handleExportPageCsv = (pageId: string, pageTitle: string) => {
-    const pageEntries = filterGlossaryEntriesForPage(glossaryEntries, pageId);
+    const node = bookTOC ? findTocNodeById(bookTOC, pageId) : undefined;
+    const pageIds = new Set(node ? collectSubtreeIds(node) : [pageId]);
+    const pageEntries = filterGlossaryEntriesForPages(glossaryEntries, pageIds);
     if (pageEntries.length === 0) {
       addNotification({
         message: `“${pageTitle}” has no glossary terms to export.`,
@@ -275,7 +295,7 @@ const GlossaryManager: React.FC = () => {
     }
     downloadCsv(
       `${slugifyForFilename(pageTitle)}-glossary.csv`,
-      glossaryEntriesToCsv(pageEntries),
+      glossaryEntriesToCsv(pageEntries, bookTOC),
     );
   };
 
@@ -296,22 +316,27 @@ const GlossaryManager: React.FC = () => {
   };
 
   return (
-    <Grid cols={3} gap="lg" className="glossary-page px-4 py-6">
+    <Grid cols={3} gap="lg" className="glossary-page px-4! py-8! md:px-16!">
       <div className="glossary-page__column commons-glossary col-span-2">
         <div className="glossary-page__column-header">
-          <Stack direction="horizontal" align="center" justify="between">
-            <Stack direction="vertical"  gap="sm">
-              <h4 className="text-2xl font-semibold">Book Glossary</h4>
-              {!isLoadingProject &&
-                project?.title && (
-                  <Breadcrumb className="ml-1">
-                    <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+          <Stack direction="horizontal" align="start" justify="between">
+            <Stack direction="vertical" gap="sm">
+              <Heading level={2} className="-mt-1!">Glossary Manager</Heading>
+              <Breadcrumb className="ml-1">
+                <Breadcrumb.Item href="/projects">Projects</Breadcrumb.Item>
+                {(!isLoadingProject &&
+                  project?.title) ?
+                  (
                     <Breadcrumb.Item href={`/projects/${id}`}>
                       {project?.title}
                     </Breadcrumb.Item>
-                    <Breadcrumb.Item isCurrent>Glossary</Breadcrumb.Item>
-                  </Breadcrumb>
-                )}
+                  ) : (
+                    <Breadcrumb.Item>
+                      Project
+                    </Breadcrumb.Item>
+                  )}
+                <Breadcrumb.Item isCurrent>Glossary</Breadcrumb.Item>
+              </Breadcrumb>
             </Stack>
             <Stack direction="horizontal" gap="sm">
               <Button
@@ -354,7 +379,6 @@ const GlossaryManager: React.FC = () => {
               )}
             </Stack>
           </Stack>
-          <p className="text-sm text-neutral-600"></p>
         </div>
         <div className="glossary-page__panel-scroll">
           <GlossaryList
@@ -380,8 +404,8 @@ const GlossaryManager: React.FC = () => {
       </div>
       <div className="glossary-page__column commons-glossary">
         <div className="glossary-page__column-header">
-          <Stack direction="horizontal" align="center" justify="between">
-            <h4 className="text-2xl font-semibold">Table of Contents</h4>
+          <Stack direction="horizontal" align="start" justify="between">
+            <Heading level={2}>Table of Contents</Heading>
             {bookTOC && bookTOC.children.length > 0 && (
               <Button
                 size="sm"

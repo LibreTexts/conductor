@@ -1,29 +1,52 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Header, Segment, Grid, Breadcrumb } from "semantic-ui-react";
-import { CentralIdentityVerificationRequest } from "../../../../types";
-import useGlobalError from "../../../../components/error/ErrorHooks";
-import { PaginationWithItemsSelect } from "../../../../components/util/PaginationWithItemsSelect";
-import ManageVerificationRequestModal from "../../../../components/controlpanel/CentralIdentity/ManageVerificationRequestModal";
+import { Breadcrumb, Heading, Stack } from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef, PaginationState } from "@libretexts/davis-react-table";
 import { format as formatDate, parseISO } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
+import { CentralIdentityVerificationRequest } from "../../../../types";
+import useGlobalError from "../../../../components/error/ErrorHooks";
+import ManageVerificationRequestModal from "../../../../components/controlpanel/CentralIdentity/ManageVerificationRequestModal";
 import api from "../../../../api";
 import { useModals } from "../../../../context/ModalContext";
-import SupportCenterTable from "../../../../components/support/SupportCenterTable";
+
+const columns: ColumnDef<CentralIdentityVerificationRequest>[] = [
+  {
+    id: "first_name",
+    accessorFn: (request) => request.user.first_name,
+    header: "First Name",
+  },
+  {
+    id: "last_name",
+    accessorFn: (request) => request.user.last_name,
+    header: "Last Name",
+  },
+  {
+    id: "email",
+    accessorFn: (request) => request.user.email,
+    header: "Email",
+  },
+  {
+    accessorKey: "created_at",
+    header: "Request Date",
+    cell: ({ row }) =>
+      formatDate(parseISO(row.original.created_at.toString()), "MM/dd/yyyy"),
+  },
+];
 
 const CentralIdentityInstructorVerifications = () => {
-  //Global State & Hooks
   const { handleGlobalError } = useGlobalError();
   const { openModal, closeAllModals } = useModals();
 
-  const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(25);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
   const { data, isLoading, refetch } = useQuery<{
     requests: CentralIdentityVerificationRequest[];
     totalCount: number;
   }>({
     queryKey: ["central-identity-verification-requests", page, limit],
-    queryFn: () => loadData(),
+    queryFn: loadData,
+    keepPreviousData: true,
   });
 
   async function loadData() {
@@ -33,22 +56,27 @@ const CentralIdentityInstructorVerifications = () => {
         limit,
         status: "open",
       });
+
       if (response.data.err) {
-        console.error(response.data.errMsg);
         throw new Error(response.data.errMsg);
       }
+
       return response.data;
-    } catch (err) {
-      handleGlobalError(err);
+    } catch (error) {
+      handleGlobalError(error);
       return { requests: [], totalCount: 0 };
     }
   }
 
-  // Handlers & Methods
+  function handleCloseManageModal() {
+    closeAllModals();
+    refetch();
+  }
+
   function handleSelectRequest(request: CentralIdentityVerificationRequest) {
     openModal(
       <ManageVerificationRequestModal
-        show={true}
+        show
         requestId={request.id.toString()}
         userId={request.user_id.toString()}
         onClose={handleCloseManageModal}
@@ -57,96 +85,54 @@ const CentralIdentityInstructorVerifications = () => {
     );
   }
 
-  function handleCloseManageModal() {
-    closeAllModals();
-    refetch();
-  }
+  const paginationState: PaginationState = {
+    pageIndex: page - 1,
+    pageSize: limit,
+  };
 
   return (
-    <Grid className="controlpanel-container" divided="vertically">
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Header className="component-header" as="h2">
-            LibreOne Admin Console: Instructor Verfication Requests
-          </Header>
-        </Grid.Column>
-      </Grid.Row>
-      <Grid.Row>
-        <Grid.Column width={16}>
-          <Segment.Group>
-            <Segment>
-              <Breadcrumb>
-                <Breadcrumb.Section as={Link} to="/controlpanel">
-                  Control Panel
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section as={Link} to="/controlpanel/libreone">
-                  LibreOne Admin Consoles
-                </Breadcrumb.Section>
-                <Breadcrumb.Divider icon="right chevron" />
-                <Breadcrumb.Section active>
-                  Instructor Verification Requests
-                </Breadcrumb.Section>
-              </Breadcrumb>
-            </Segment>
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={page}
-                totalPages={
-                  data?.totalCount ? Math.ceil(data?.totalCount / limit) : 1
-                }
-                itemsPerPage={limit}
-                setItemsPerPageFn={setLimit}
-                setActivePageFn={setPage}
-                totalLength={data?.totalCount ?? 0}
-              />
-            </Segment>
-            <Segment>
-              <SupportCenterTable<CentralIdentityVerificationRequest>
-                data={data?.requests ?? []}
-                loading={isLoading}
-                onRowClick={(record) => handleSelectRequest(record)}
-                columns={[
-                  {
-                    accessor: "user.first_name",
-                    title: "First Name",
-                  },
-                  {
-                    accessor: "user.last_name",
-                    title: "Last Name",
-                  },
-                  {
-                    accessor: "user.email",
-                    title: "Email",
-                  },
-                  {
-                    accessor: "created_at",
-                    title: "Request Date",
-                    render: (record) =>
-                      formatDate(
-                        parseISO(record.created_at.toString() ?? ""),
-                        "MM/dd/yyyy"
-                      ),
-                  },
-                ]}
-              />
-            </Segment>
-            <Segment>
-              <PaginationWithItemsSelect
-                activePage={page}
-                totalPages={
-                  data?.totalCount ? Math.ceil(data?.totalCount / limit) : 1
-                }
-                itemsPerPage={limit}
-                setItemsPerPageFn={setLimit}
-                setActivePageFn={setPage}
-                totalLength={data?.totalCount ?? 0}
-              />
-            </Segment>
-          </Segment.Group>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
+    <div className="!h-full !p-8">
+      <Stack direction="vertical" gap="md" className="mb-4">
+        <Heading level={2}>
+          LibreOne Admin Console: Instructor Verification Requests
+        </Heading>
+        <Breadcrumb>
+          <Breadcrumb.Item href="/controlpanel">Control Panel</Breadcrumb.Item>
+          <Breadcrumb.Item href="/controlpanel/libreone">
+            LibreOne Admin Consoles
+          </Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>
+            Instructor Verification Requests
+          </Breadcrumb.Item>
+        </Breadcrumb>
+        <DataTable<CentralIdentityVerificationRequest>
+          data={data?.requests ?? []}
+          columns={columns}
+          loading={isLoading}
+          density="compact"
+          onRowClick={handleSelectRequest}
+          enablePagination
+          pageSize={limit}
+          pageSizeOptions={[10, 25, 50, 100]}
+          tableOptions={{
+            manualPagination: true,
+            rowCount: data?.totalCount ?? 0,
+            state: {
+              pagination: paginationState,
+            },
+            onPaginationChange: (updater) => {
+              const nextPagination =
+                typeof updater === "function"
+                  ? updater(paginationState)
+                  : updater;
+
+              setPage(nextPagination.pageIndex + 1);
+              setLimit(nextPagination.pageSize);
+            },
+          }}
+        />
+      </Stack>
+    </div>
   );
 };
 

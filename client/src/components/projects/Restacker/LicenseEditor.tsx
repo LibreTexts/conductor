@@ -19,6 +19,10 @@ export type LicenseField = "book" | "page";
 
 interface LicenseEditorProps {
   license?: RestackerTocLicense;
+  /** Which license this edits; part of the controls' accessible names. */
+  field: LicenseField;
+  /** Page the row belongs to; part of the controls' accessible names. */
+  pageTitle: string;
   editable?: boolean;
   isEditing?: boolean;
   loading?: boolean;
@@ -29,6 +33,8 @@ interface LicenseEditorProps {
 
 const LicenseEditor: React.FC<LicenseEditorProps> = ({
   license,
+  field,
+  pageTitle,
   editable,
   isEditing,
   loading,
@@ -72,29 +78,30 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
   };
 
   if (!isEditing) {
+    if (!editable) return <LicenseBadge license={license} />;
+    // The accessible name is the visible license text ("Not set" when empty)
+    // followed by what the button does, so it satisfies label-in-name and
+    // tells screen-reader users which page's license it edits.
     return (
       <button
         type="button"
-        onClick={() => {
-          if (editable) onStartEdit?.();
-        }}
+        onClick={onStartEdit}
         style={{
-          cursor: editable ? "pointer" : "default",
+          cursor: "pointer",
           background: "transparent",
           border: 0,
           padding: 0,
           margin: 0,
           textAlign: "left",
           font: "inherit",
-          lineHeight: 0,
           display: "inline-flex",
           alignItems: "center",
         }}
-        title={editable ? "Click to edit" : undefined}
-        disabled={!editable}
-        aria-label={editable ? "Edit license" : undefined}
       >
-        <LicenseBadge license={license} />
+        <LicenseBadge license={license} emptyLabel="Not set" />
+        <span className="sr-only">
+          , edit {field} license for {pageTitle}
+        </span>
       </button>
     );
   }
@@ -108,13 +115,20 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
     onSubmit(draftLicense, showVersion ? draftVersion || undefined : undefined);
   };
 
+  // Wraps so Save/Cancel drop below the selects in narrow cells (and at high
+  // zoom) instead of overflowing into the next column. The selects use their
+  // visible labels as accessible names.
   return (
-    <Stack direction="horizontal" gap="xs" align="center" className="py-1">
-      <Stack direction="vertical" gap="xs" className="min-w-[120px]">
+    <Stack
+      direction="horizontal"
+      gap="xs"
+      align="center"
+      className="flex-wrap py-1"
+    >
+      <Stack direction="vertical" gap="xs" className="w-full min-w-0">
         <Select
-          name="license"
+          name={`license-${field}`}
           label="License"
-          aria-label="License"
           placeholder="License..."
           options={licenseOptions.map((option) => ({
             value: option.value,
@@ -129,10 +143,11 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
           }}
         />
         {showVersion && (
+          // Pending Davis fix: Select drops `required` (visual "*" only), so the
+          // requirement isn't exposed to assistive tech.
           <Select
-            name="version"
+            name={`license-version-${field}`}
             label="Version"
-            aria-label="License version"
             placeholder="Version..."
             required
             options={getLicenseVersionOptions(draftLicense).map(
@@ -149,14 +164,14 @@ const LicenseEditor: React.FC<LicenseEditorProps> = ({
       </Stack>
       <Stack direction="horizontal" gap="xs" align="center">
         <IconButton
-          aria-label="Save license"
+          aria-label={`Save ${field} license for ${pageTitle}`}
           icon={<IconCheck size="lg" />}
           onClick={handleSubmit}
           loading={loading}
           disabled={loading || missingVersion}
         />
         <IconButton
-          aria-label="Cancel editing"
+          aria-label={`Cancel editing ${field} license for ${pageTitle}`}
           icon={<IconX size="lg" />}
           onClick={handleCancel}
           disabled={loading}

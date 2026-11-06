@@ -1442,3 +1442,11 @@ code {
 .lt-legacy .shadow-lg {
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.05);
 }
+
+/* Underline links in Insight KB articles (WCAG 1.4.1).
+ * Semantic UI's unlayered `a { text-decoration: none }` beats Typography's
+ * layered `.prose a` underline. `.kb-content` wraps both KBRenderer and the
+ * KBCKEditor editing surface. An inline style on the link still wins. */
+.kb-content a {
+  text-decoration: underline;
+}

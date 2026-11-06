@@ -243,7 +243,7 @@ const KBRenderer: React.FC<KBRendererProps> = ({
   }, [headings]);
 
   return (
-    <div className="prose !max-w-full" {...rest}>
+    <div className="kb-content prose !max-w-full" {...rest}>
       {nodes}
     </div>
   );

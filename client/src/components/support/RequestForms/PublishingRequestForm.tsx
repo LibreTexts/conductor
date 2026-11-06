@@ -197,7 +197,7 @@ const PublishingRequestForm: React.FC<PublishingRequestFormProps> = () => {
             <CtlNextGenCheckbox
               control={control}
               name="metadata.prePublishingChecks.summaries"
-              label="A summary has been provided in the 'Page Settings' of your book's cover page. You can use the 'AI Co-Author' feature in Conductor to help generate summaries for each page."
+              label="A summary has been provided in the 'Page Settings' of your book's cover page. You can use the 'Metadata Editor' feature in Conductor to help generate summaries for each page."
               required={true}
             />
             <CtlNextGenCheckbox

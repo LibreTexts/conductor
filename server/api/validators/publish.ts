@@ -54,3 +54,42 @@ export const MoveBookValidator = z.object({
     to: DestinationPath,
   }),
 });
+
+/**
+ * Longest Lulu printing tag accepted. Same reasoning as the path cap above: the
+ * value reaches a library-mutating call, so it is bounded. Generous, because
+ * the tag packs four human-readable fields into one string.
+ */
+const MAX_LULU_TAG_LENGTH = 512;
+
+/**
+ * A book's Lulu print-fulfillment tag, as stored on the CXOne coverpage.
+ *
+ * The shape is `lulu@<cover_title>@<author_name>@<institution>@<spine_title>`,
+ * so the segments are prose: spaces, commas, and periods all belong there
+ * ("lulu@Introductory Chemistry@Delmar Larsen, PhD@UC Davis@Intro Chem"), and a
+ * single space is how a segment says "use the cover page's own value". Only the
+ * `lulu@` prefix is enforced; past it the content is Lulu's business.
+ *
+ * Control characters are the one exclusion — they do not survive a MindTouch
+ * tag value intact. Surrounding whitespace is trimmed, so an empty string is
+ * the removal signal.
+ */
+export const LuluPrintingTag = z
+  .string()
+  .trim()
+  .max(MAX_LULU_TAG_LENGTH)
+  .refine((v) => v === "" || /^lulu@/i.test(v), {
+    message: 'Tag must start with "lulu@".',
+  })
+  // Covers tabs and line breaks too, which are themselves below 0x20.
+  .refine((v) => ![...v].some((c) => c.charCodeAt(0) < 0x20), {
+    message: "Tag must not contain line breaks, tabs, or control characters.",
+  });
+
+export const LuluTagValidator = z.object({
+  params: ProjectScopedParams,
+  body: z.object({
+    tag: LuluPrintingTag,
+  }),
+});

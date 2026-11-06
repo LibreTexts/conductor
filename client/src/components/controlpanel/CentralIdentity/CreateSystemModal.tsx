@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { Modal, Button, Input, Icon } from "semantic-ui-react";
+import { useState } from "react";
+import { Button, Input, Modal, Stack, Text } from "@libretexts/davis-react";
+import { IconCheck, IconX } from "@tabler/icons-react";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import api from "../../../api";
 
@@ -12,11 +13,10 @@ interface CreateSystemModalProps {
 const CreateSystemModal: React.FC<CreateSystemModalProps> = ({
   show,
   onClose,
-  onCreated
+  onCreated,
 }) => {
-  const [newSystemName, setNewSystemName] = useState<string>("");
-  const [creating, setCreating] = useState<boolean>(false);
-  const DEFAULT_AVATAR_LOGO_URL = "https://cdn.libretexts.net/DefaultImages/avatar.png";
+  const [newSystemName, setNewSystemName] = useState("");
+  const [creating, setCreating] = useState(false);
   const { handleGlobalError } = useGlobalError();
 
   const handleSubmit = async () => {
@@ -25,8 +25,8 @@ const CreateSystemModal: React.FC<CreateSystemModalProps> = ({
     try {
       setCreating(true);
       const res = await api.postCentralIdentitySystem({
-        name: newSystemName,
-        logo: DEFAULT_AVATAR_LOGO_URL
+        name: newSystemName.trim(),
+        logo: "https://cdn.libretexts.net/DefaultImages/avatar.png",
       });
 
       if (res.data.err) {
@@ -36,8 +36,8 @@ const CreateSystemModal: React.FC<CreateSystemModalProps> = ({
 
       setNewSystemName("");
       onCreated();
-    } catch (err) {
-      handleGlobalError(err);
+    } catch (error) {
+      handleGlobalError(error);
     } finally {
       setCreating(false);
     }
@@ -49,31 +49,34 @@ const CreateSystemModal: React.FC<CreateSystemModalProps> = ({
   };
 
   return (
-    <Modal open={show} onClose={handleClose} size="tiny">
-      <Modal.Header>Create New System</Modal.Header>
-      <Modal.Content>
-        <p>Enter the name for the new system:</p>
-        <Input
-          fluid
-          placeholder="System Name"
-          value={newSystemName}
-          onChange={(e) => setNewSystemName(e.target.value)}
-          disabled={creating}
-        />
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={handleClose} disabled={creating}>
-          Cancel
-        </Button>
-        <Button
-          color="green"
-          onClick={handleSubmit}
-          loading={creating}
-          disabled={!newSystemName.trim() || creating}
-        >
-          <Icon name="checkmark" /> Create
-        </Button>
-      </Modal.Actions>
+    <Modal open={show} onClose={handleClose} size="sm">
+      <Modal.Header>
+        <Modal.Title>Create New System</Modal.Title>
+        <Modal.Close />
+      </Modal.Header>
+      <Modal.Body>
+        <Stack direction="vertical" gap="sm">
+          <Text as="p">Enter the name for the new system.</Text>
+          <Input
+            name="system-name"
+            label="System Name"
+            placeholder="Enter system name"
+            value={newSystemName}
+            onChange={(event) => setNewSystemName(event.target.value)}
+            disabled={creating}
+          />
+        </Stack>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex w-full justify-end gap-2">
+          <Button variant="outline" icon={<IconX size={16} />} onClick={handleClose} disabled={creating}>
+            Cancel
+          </Button>
+          <Button variant="primary" icon={<IconCheck size={16} />} onClick={handleSubmit} loading={creating} disabled={!newSystemName.trim() || creating}>
+            Create
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };

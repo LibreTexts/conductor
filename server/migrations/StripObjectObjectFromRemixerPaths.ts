@@ -1,5 +1,5 @@
 import logger from "../logger.js";
-import PrejectRemixer, {
+import ProjectRemixer, {
   PathLevelFormatState,
   RemixerSubPageState,
 } from "../models/projectremixer.js";
@@ -26,7 +26,7 @@ const MARKER = "[object Object]";
 
 export async function runMigration() {
   try {
-    const states = await PrejectRemixer.find({}).lean();
+    const states = await ProjectRemixer.find({}).lean();
 
     const toUpdate: {
       _id: unknown;
@@ -96,7 +96,7 @@ export async function runMigration() {
         },
       }));
 
-      await PrejectRemixer.bulkWrite(bulkOps);
+      await ProjectRemixer.bulkWrite(bulkOps);
     }
 
     logger.info("Remixer path repair migration complete.");

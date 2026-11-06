@@ -33,6 +33,8 @@ type BookAction = {
     variant: IconButtonProps['variant'];
     onClick: () => void;
     disabled?: boolean;
+    /** Editing actions render twice as wide to set them apart from view controls. */
+    wide?: boolean;
 }
 
 const BookActions: React.FC<BookActionsProps> = ({
@@ -49,11 +51,14 @@ const BookActions: React.FC<BookActionsProps> = ({
     canRedo
 }) => {
 
+    // Non-primary actions use "secondary": the Davis "outline" border is
+    // below 3:1 contrast (pending Davis fix).
     const actions: BookAction[] = [
         {
             title: "Add",
             icon: <IconPlus size={18} />,
             variant: "primary",
+            wide: true,
             onClick: () => {
                 onAddItem();
             }
@@ -61,7 +66,8 @@ const BookActions: React.FC<BookActionsProps> = ({
         isSelectedItemDeleted ? {
             title: "Restore",
             icon: <IconRestore size={18} />,
-            variant: "outline",
+            variant: "secondary",
+            wide: true,
             onClick: () => {
                 onRestoreItem();
             }
@@ -69,6 +75,7 @@ const BookActions: React.FC<BookActionsProps> = ({
             title: "Delete",
             icon: <IconTrash size={18} />,
             variant: "destructive",
+            wide: true,
             onClick: () => {
                 onDeleteItem();
             }
@@ -76,7 +83,8 @@ const BookActions: React.FC<BookActionsProps> = ({
         {
             title: "Undo",
             icon: <IconArrowBackUp size={18} />,
-            variant: "outline",
+            variant: "secondary",
+            wide: true,
             disabled: !canUndo,
             onClick: () => {
                 onUndo();
@@ -85,7 +93,8 @@ const BookActions: React.FC<BookActionsProps> = ({
         {
             title: "Redo",
             icon: <IconArrowForwardUp size={18} />,
-            variant: "outline",
+            variant: "secondary",
+            wide: true,
             disabled: !canRedo,
             onClick: () => {
                 onRedo();
@@ -94,7 +103,7 @@ const BookActions: React.FC<BookActionsProps> = ({
         {
             title: isAllExpanded ? "Collapse all" : "Expand all",
             icon: isAllExpanded ? <IconChevronUp size={18} /> : <IconChevronDown size={18} />,
-            variant: "outline",
+            variant: "secondary",
             onClick: () => {
                 onToggleExpandCollapse();
             }
@@ -137,7 +146,9 @@ const BookActions: React.FC<BookActionsProps> = ({
                             icon={action.icon}
                             onClick={action.onClick}
                             disabled={action.disabled ?? false}
-                            className="m-0" // This is a temp fix until Semantic UI is removed from the project. It's applying a margin to the button that isn't needed
+                            // m-0: temp fix until Semantic UI is removed (it adds an unneeded margin).
+                            // !w-20: editing actions are twice the default 40px icon-button width.
+                            className={action.wide ? "m-0 !w-20" : "m-0"}
                         />
                     </Tooltip>
                 ))

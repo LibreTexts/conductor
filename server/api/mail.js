@@ -116,6 +116,37 @@ const sendAddedAsMemberNotification = (newMemberName, memberAddress, projectID, 
 
 
 /**
+ * Escapes text a user typed (an activity title, a name) for an email's HTML part.
+ * @param {string} value
+ * @returns {string}
+ */
+const escapeHTML = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[c]));
+
+/**
+ * Tells a user they were added as a collaborator on an H5P activity.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {string} recipientName  - the added user's first name
+ * @param {string} recipientAddress - the added user's email address
+ * @param {string} activityID     - the activity's Conductor identifier
+ * @param {string} activityTitle  - the activity's title
+ * @param {string} addedByName    - the name of the user who added them
+ * @returns {Promise<Object|Error>} a Mailgun API Promise
+ */
+const sendAddedAsActivityCollaboratorNotification = (recipientName, recipientAddress, activityID, activityTitle, addedByName) => {
+    const editURL = `https://${process.env.LIBRE_SUBDOMAIN}.libretexts.org/h5p/${encodeURIComponent(activityID)}/edit`;
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: DEFAULT_MAIL_FROM,
+        to: recipientAddress,
+        subject: `You can now edit "${activityTitle}"`,
+        text: `Hi ${recipientName || 'there'}, ${addedByName} added you as a collaborator on the H5P activity "${activityTitle}" on the LibreTexts Conductor Platform. You can now edit it at ${editURL}, and it appears under My H5P. Sincerely, The LibreTexts team` + autoGenNoticeText,
+        html: `<p>Hi ${escapeHTML(recipientName || 'there')},</p><p>${escapeHTML(addedByName)} added you as a collaborator on the H5P activity <a href='${editURL}' target='_blank' rel='noopener noreferrer'>${escapeHTML(activityTitle)}</a> on the LibreTexts Conductor Platform.</p><p>You can now edit it, and it appears under My H5P.</p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML
+    });
+};
+
+/**
  * Sends a standard LibreText Publishing Requested email to the LibreTexts team via the Mailgun API.
  * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
  *  only after proper verification via other internal methods.
@@ -1091,6 +1122,7 @@ export default {
     sendRegistrationConfirmation,
     sendPasswordChangeNotification,
     sendAddedAsMemberNotification,
+    sendAddedAsActivityCollaboratorNotification,
     sendPublishingRequestedNotification,
     sendProjectFlaggedNotification,
     sendNewProjectMessagesNotification,

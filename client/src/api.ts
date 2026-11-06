@@ -1,6 +1,19 @@
 import axios, { AxiosRequestConfig } from "axios";
 import {
   Announcement,
+  ActivityMetadataInput,
+  ActivityCollaboratorCandidate,
+  ActivityEditorRole,
+  ActivityPerson,
+  CommonsActivity,
+  CommonsActivitiesParams,
+  CommonsActivitySummary,
+  EditableActivity,
+  EditorSavedContent,
+  EditorToken,
+  MyActivitiesParams,
+  MyActivitiesResult,
+  UserActivityAdminRow,
   AssetSearchParams,
   AssetTagFramework,
   AssetTagFrameworkWithCampusDefault,
@@ -50,6 +63,7 @@ import {
   Note,
   StoreProduct,
   StoreCheckoutSessionItem,
+  StoreCartReconciliation,
   ClientConfig,
   StoreGetShippingOptionsRes,
   StoreCheckoutForm,
@@ -89,6 +103,7 @@ import {
   ProjectBookBatchUpdateJob,
   ProjectFileAuthor,
   ProjectTag,
+  TeamMemberLibraryAccess,
 } from "./types/Project";
 import {
   Collection,
@@ -127,6 +142,8 @@ import {
   GlossaryConfigMode,
   GlossaryConfigGroup,
 } from "./screens/commons/Glossary/model";
+import { BookSearchProps, ReferenceDisplayLocation, ReferenceEntry, ReferenceFormatType, ReferenceFormData, ReferenceScopeGroup, ReferenceScopeMode } from "./components/projects/References/model";
+import type { CitationScanData } from "./components/projects/References/model";
 
 /**
  * @fileoverview
@@ -429,6 +446,112 @@ class API {
           sort,
         },
       },
+    );
+    return res;
+  }
+
+  /**
+   * Activities listed in the public catalog, for the Interactives page.
+   */
+  async getCommonsActivities(params: CommonsActivitiesParams) {
+    const res = await axios.get<
+      { activities: CommonsActivitySummary[]; total_items: number } & ConductorBaseResponse
+    >("/commons/activities", { params });
+    return res;
+  }
+
+  /**
+   * The public page data for one H5P activity. A 404 means missing, removed
+   * or not visible to the caller, which the page deliberately treats alike.
+   */
+  async getCommonsActivity(activityID: string) {
+    const res = await axios.get<
+      { activity: CommonsActivity } & ConductorBaseResponse
+    >(`/commons/activities/${activityID}`);
+    return res;
+  }
+
+  /**
+   * The signed-in user's activities for My H5P: owned and collaborating.
+   */
+  async getMyActivities(params: MyActivitiesParams) {
+    const res = await axios.get<MyActivitiesResult & ConductorBaseResponse>(
+      "/activities/mine",
+      { params }
+    );
+    return res;
+  }
+
+  /**
+   * Another user's activities, owned or collaborating, by Conductor-local
+   * UUID. LibreTexts staff only.
+   */
+  async getUserActivitiesAdmin(params: { uuid: string; page: number; limit: number }) {
+    const res = await axios.get<
+      { activities: UserActivityAdminRow[]; total_items: number; has_more: boolean } & ConductorBaseResponse
+    >("/user/activities", { params });
+    return res;
+  }
+
+  /** An activity with everything its edit screen needs. Owners, collaborators and staff only. */
+  async getActivityForEditing(activityID: string) {
+    const res = await axios.get<
+      { activity: EditableActivity; role: ActivityEditorRole; people: ActivityPerson[] } & ConductorBaseResponse
+    >(`/activities/${activityID}/authoring`);
+    return res;
+  }
+
+  async getActivitySubjects() {
+    const res = await axios.get<{ subjects: string[] } & ConductorBaseResponse>("/activities/subjects");
+    return res;
+  }
+
+  /** A token for the H5P editor: `create` without an id, `edit` with one. */
+  async getActivityEditorToken(activityID?: string) {
+    const res = await axios.post<EditorToken & ConductorBaseResponse>(
+      activityID ? `/activities/${activityID}/editor-token` : "/activities/editor-token"
+    );
+    return res;
+  }
+
+  /** Allocates the H5P content id and creates the activity; returns an edit token for it. */
+  async createActivity(metadata: ActivityMetadataInput) {
+    const res = await axios.post<
+      { activity: { activityID: string; h5pContentID: number } } & EditorToken & ConductorBaseResponse
+    >("/activities", metadata);
+    return res;
+  }
+
+  async updateActivity(activityID: string, update: ActivityMetadataInput & { contentSaved?: EditorSavedContent }) {
+    const res = await axios.patch<ConductorBaseResponse>(`/activities/${activityID}`, update);
+    return res;
+  }
+
+  async deleteActivity(activityID: string) {
+    const res = await axios.delete<ConductorBaseResponse>(`/activities/${activityID}`);
+    return res;
+  }
+
+  /** Users who could be added as collaborators, by name. Owners and staff only. */
+  async searchActivityCollaborators(activityID: string, search: string) {
+    const res = await axios.get<{ users: ActivityCollaboratorCandidate[] } & ConductorBaseResponse>(
+      `/activities/${activityID}/collaborators/search`,
+      { params: { search } }
+    );
+    return res;
+  }
+
+  async addActivityCollaborator(activityID: string, uuid: string) {
+    const res = await axios.put<{ people: ActivityPerson[] } & ConductorBaseResponse>(
+      `/activities/${activityID}/collaborators/${uuid}`
+    );
+    return res;
+  }
+
+  /** `left` is set when the caller removed themselves. */
+  async removeActivityCollaborator(activityID: string, uuid: string) {
+    const res = await axios.delete<{ people: ActivityPerson[]; left?: boolean } & ConductorBaseResponse>(
+      `/activities/${activityID}/collaborators/${uuid}`
     );
     return res;
   }
@@ -781,7 +904,10 @@ class API {
     >;
   }) {
     const res = await axios.post<
-      { options: StoreGetShippingOptionsRes } & ConductorBaseResponse
+      {
+        options: StoreGetShippingOptionsRes;
+        cart_reconciliation?: StoreCartReconciliation;
+      } & ConductorBaseResponse
     >("/store/checkout/shipping-options", {
       items,
       shipping_address,
@@ -1536,7 +1662,7 @@ class API {
     return res;
   }
 
-  async getLibraryFromSubdomain(subdomain: string, includeHidden?: boolean) {
+  async getLibraryBySubdomain(subdomain: string, includeHidden?: boolean) {
     const res = await axios.get<
       {
         library: Library;
@@ -1662,18 +1788,18 @@ class API {
   async updateUserPinnedProjects(
     data:
       | {
-          action: "add-project" | "move-project";
-          folder: string;
-          projectID: string;
-        }
+        action: "add-project" | "move-project";
+        folder: string;
+        projectID: string;
+      }
       | {
-          action: "remove-project";
-          projectID: string;
-        }
+        action: "remove-project";
+        projectID: string;
+      }
       | {
-          action: "add-folder" | "remove-folder";
-          folder: string;
-        },
+        action: "add-folder" | "remove-folder";
+        folder: string;
+      },
   ) {
     const res = await axios.patch<ConductorBaseResponse>(
       "/user/projects/pinned",
@@ -2381,15 +2507,13 @@ class API {
   }
 
   // Library access
-  async checkTeamLibraryAccess(applicationId: string | number, ids: string[]) {
-    const res = await axios.post<
-      {
-        accessResults: { id: string; hasAccess: boolean }[];
-      } & ConductorBaseResponse
-    >(`/central-identity/users/applications/${applicationId}`, {
-      ids,
+  async checkTeamLibraryAccess(projectID: string, library?: string) {
+    const res = await axios.get<
+      ConductorBaseResponse & { data: TeamMemberLibraryAccess[] }
+    >(`/project/${projectID}/team/library-access`, {
+      params: { library },
     });
-    return res;
+    return res.data;
   }
 
   // user manager
@@ -2747,6 +2871,7 @@ class API {
     caption?: string;
     link?: string;
     source?: string;
+    sourceVersion?: string;
     glossaryID?: string;
     author?: string;
     imageAuthor?: string;
@@ -2916,8 +3041,10 @@ class API {
     author?: string;
     link?: string;
     source?: string;
+    sourceVersion?: string;
   }) {
-    const { library, coverID, usageIds, author, link, source } = props;
+    const { library, coverID, usageIds, author, link, source, sourceVersion } =
+      props;
     const res = await axios.patch<
       { modifiedCount: number } & ConductorBaseResponse
     >(`/commons/book/${library}/${coverID}/glossary/usage/bulk/attribution`, {
@@ -2925,6 +3052,7 @@ class API {
       author,
       link,
       source,
+      sourceVersion,
     });
     return res.data;
   }
@@ -2992,6 +3120,17 @@ class API {
     const res = await axios.post<ConductorBaseResponse>(
       `/project/${projectID}/publish/security`,
     );
+    return res.data;
+  }
+
+  /**
+   * Writes the book's Lulu printing tag onto its coverpage. Pass an empty
+   * string to remove whatever tag is there.
+   */
+  async setPublishLuluTag(projectID: string, tag: string) {
+    const res = await axios.put<
+      { luluTag: string | null } & ConductorBaseResponse
+    >(`/project/${projectID}/publish/lulu-tag`, { tag });
     return res.data;
   }
 
@@ -3105,6 +3244,7 @@ class API {
       copyModeState?: string;
       pathLevelFormats?: unknown[];
       importGlossaryTerms?: boolean;
+      importReferences?: boolean;
       /** Fingerprint of the live book the edits were made against; see the publish route. */
       liveBookFingerprint?: string;
     },
@@ -3313,6 +3453,243 @@ class API {
         skipped: { pageID: string; reason: string }[];
       } & ConductorBaseResponse
     >(`/projects/${projectID}/restacker/license/bulk`, data);
+    return res.data;
+  }
+
+  async updateBookReferenceFormat(
+    projectID: string,
+    data: {
+      format: ReferenceFormatType;
+      displayLocation?: ReferenceDisplayLocation;
+      pageTitle?: string;
+      selectedList?: string[];
+    },
+  ) {
+    const res = await axios.post<
+      {
+        data: {
+          format: ReferenceFormatType;
+          displayLocation?: ReferenceDisplayLocation;
+          pageTitle?: string;
+          selectedList?: string[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, data);
+    return res.data;
+  }
+
+  async getBookReferenceDetails(projectID: string) {
+    const res = await axios.get<
+      {
+        data: {
+          /** Absent until references are set up for the book. */
+          format?: ReferenceFormatType;
+          displayLocation?: ReferenceDisplayLocation;
+          pageTitle?: string;
+          selectedList?: string[];
+          backmatterPageID?: string;
+          scopeMode?: ReferenceScopeMode;
+          scopeGroups?: ReferenceScopeGroup[];
+          entries: ReferenceEntry[];
+          /** Comparison with the last citation scan; null before the first one. */
+          citationCheck?: CitationScanData | null;
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`);
+    return res.data;
+  }
+
+  /**
+   * Saves the reference format and scope (mode + groups) — the glossary
+   * scope model. The server derives the legacy display fields from it.
+   */
+  async saveReferenceScope(
+    projectID: string,
+    data: {
+      format: ReferenceFormatType;
+      pageTitle?: string;
+      mode: ReferenceScopeMode;
+      groups: ReferenceScopeGroup[];
+    },
+  ) {
+    const res = await axios.put<
+      {
+        data: {
+          format: ReferenceFormatType;
+          displayLocation?: ReferenceDisplayLocation;
+          pageTitle?: string;
+          selectedList: string[];
+          scopeMode: ReferenceScopeMode;
+          scopeGroups: ReferenceScopeGroup[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/scope`, data);
+    return res.data;
+  }
+
+  /** Forgets the saved reference scope; the editor falls back to defaults. */
+  async resetReferenceScope(projectID: string) {
+    const res = await axios.delete<ConductorBaseResponse>(
+      `/projects/${projectID}/reference/scope`,
+    );
+    return res.data;
+  }
+
+  async addBookReference(projectID: string, data: ReferenceFormData) {
+    const res = await axios.put<
+      {
+        data: { referenceID: string; citationKey: string };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, { entry: data });
+    return res.data;
+  }
+
+  /**
+   * Saves changes to an existing reference. A reference owned by another
+   * project is copied into this one instead, so the returned referenceID can
+   * differ from the one sent.
+   */
+  async updateBookReference(
+    projectID: string,
+    data: ReferenceFormData & { referenceID: string },
+  ) {
+    const res = await axios.put<
+      {
+        data: { referenceID: string; citationKey: string };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, { entry: data });
+    return res.data;
+  }
+
+  async getSearchReferences(projectID: string, query: string) {
+    const res = await axios.get<
+      {
+        data: { references: ReferenceEntry[] };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/search`, {
+      params: { query },
+    });
+    return res.data;
+  }
+
+  /** Removes several references; the response lists any that couldn't be removed. */
+  async deleteBookReferences(
+    projectID: string,
+    referenceIDs: string[],
+    deleteFromReferences: boolean,
+  ) {
+    const res = await axios.post<
+      {
+        data: {
+          removed: string[];
+          failed: { referenceID: string; message: string }[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/bulk-delete`, {
+      referenceIDs,
+      deleteFromReferences,
+    });
+    return res.data;
+  }
+
+  async deleteBookReference(
+    projectID: string,
+    referenceID: string,
+    deleteFromReferences: boolean,
+  ) {
+    const res = await axios.delete<
+      {
+        data: { referenceID: string; citationKey: string };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, {
+      data: { referenceID, deleteFromReferences },
+    });
+    return res.data;
+  }
+
+  async addReferencesToProject(projectID: string, referenceIDs: string[]) {
+    const res = await axios.patch<
+      {
+        data: {
+          /** referenceIDs added to the book. */
+          added: string[];
+          /** Not added: unknown ID, or the book already uses its citation key. */
+          skipped: { referenceID: string; reason: "not-found" | "key-in-use" }[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference`, { referenceIDs });
+    return res.data;
+  }
+
+  async addExistingReferencesToProject(projectID: string, referenceIDs: string[]) {
+    const res = await axios.patch<
+      {
+        data: {
+          /** referenceIDs added to the book. */
+          added: string[];
+          /** Not added: unknown ID, or the book already uses its citation key. */
+          skipped: { referenceID: string; reason: "not-found" | "key-in-use" }[];
+        };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/existing`, { referenceIDs });
+    return res.data;
+  }
+
+  async getReferenceTOC(
+    projectID: string,
+    query: { toc: boolean; bookID: string },
+  ) {
+    const res = await axios.get<
+      {
+        toc: TableOfContents;
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/book`, {
+      params: query,
+    });
+    return res.data;
+  }
+
+  async addBookPageAsReference(projectID: string, data: { bookID: string; pageID: string }) {
+    const res = await axios.post<
+      {
+        data: { referenceID: string; citationKey: string, author: string, title: string, year: string, url: string, };
+      } & ConductorBaseResponse
+    >(`/projects/${projectID}/reference/book`, { ...data });
+    return res.data;
+  }
+
+  async populateReferencesDetails(projectID: string) {
+    try {
+      const res = await axios.get<
+        {
+          data: {
+            status?: string;
+            message?: string[];
+            totalPages?: number;
+            completedPages?: number;
+          };
+        } & ConductorBaseResponse
+      >(`/reference/projects/${projectID}/populate`);
+      return res.data;
+    } catch (error) {
+      // Server returns 404 with empty data when no populate job exists.
+      if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 500)) {
+        return (
+          error.response.data ?? {
+            err: false,
+            data: {},
+          }
+        );
+      }
+      throw error;
+    }
+  }
+  async createPopulateJob(projectID: string) {
+    const res = await axios.post<
+      {
+        data: { status: boolean; };
+      } & ConductorBaseResponse
+    >(`/reference/projects/${projectID}/populate`);
     return res.data;
   }
 }

@@ -1,5 +1,30 @@
-import { AtlasSearchHighlight, KBPage, SupportTicket, User } from "../types";
+import {
+  AtlasSearchHighlight,
+  KBPage,
+  KBTreeNode,
+  SupportTicket,
+  User,
+} from "../types";
 import DOMPurify from "dompurify";
+
+/** Deepest level a KB page may sit at: 0 = root, 1 = child, 2 = grandchild. Mirrors the server. */
+export const KB_MAX_PAGE_DEPTH = 2;
+
+/**
+ * Finds the node for a page slug or UUID anywhere in the KB tree.
+ * @returns The matching node, or undefined if the page isn't in the tree
+ */
+export const findKBTreeNode = (
+  nodes: KBTreeNode[] | undefined,
+  slugOrUUID: string
+): KBTreeNode | undefined => {
+  for (const node of nodes ?? []) {
+    if (node.slug === slugOrUUID || node.uuid === slugOrUUID) return node;
+    const found = findKBTreeNode(node.children, slugOrUUID);
+    if (found) return found;
+  }
+  return undefined;
+};
 
 export const getKBSharingObj = (page: KBPage) => {
   return {

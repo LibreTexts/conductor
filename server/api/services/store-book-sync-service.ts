@@ -1,8 +1,11 @@
+import { randomUUID } from "node:crypto";
 import logger, { childLogger } from "../../logger.js";
 import Stripe from "stripe";
 import Book, { BookInterface } from "../../models/book.js";
+import StoreBookSyncLock from "../../models/storebooksynclock.js";
 import { getLibraryAndPageFromBookID } from "../../util/bookutils.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
+import { sleep } from "../../util/helpers.js";
 import storeService from "./store-service.js";
 import StripeService from "./stripe-service.js";
 const storeBookSyncLog = childLogger("store-book-sync");
@@ -39,6 +42,39 @@ const STRIPE_SYNC_CONCURRENCY = 5;
 
 /** Currency every book price is denominated in. */
 const BOOK_PRICE_CURRENCY = "usd";
+
+/** How long a book's sync lease lasts without renewal. Far above one book's Stripe round trips. */
+const BOOK_SYNC_LOCK_MS = 60_000;
+
+/** How often a held lease is renewed. A third of its length survives two missed renewals. */
+const BOOK_SYNC_LOCK_RENEW_MS = BOOK_SYNC_LOCK_MS / 3;
+
+/** How long a run waits for another to release a book. Covers a holder that dies and expires. */
+const BOOK_SYNC_LOCK_WAIT_MS = BOOK_SYNC_LOCK_MS * 2;
+
+/** Delay between attempts to take a held lease. */
+const BOOK_SYNC_LOCK_POLL_MS = 500;
+
+/**
+ * Lease time held back from every Stripe mutation. Expiry is compared against each instance's own
+ * clock, so this absorbs skew between instances and Mongo round-trip time.
+ */
+const BOOK_SYNC_LOCK_SKEW_MS = 10_000;
+
+/** The shortest window a mutation may start with. Below this the lease is treated as gone. */
+const BOOK_SYNC_MIN_MUTATION_MS = 5_000;
+
+/**
+ * Proof of ownership handed to code running under {@link withBookSyncLock}.
+ *
+ * Every Stripe mutation for the book takes its request options from `mutation()`. That call
+ * throws once ownership can't be guaranteed, and otherwise caps the request's timeout at the time
+ * left on the lease, so a request that starts while we own the book can't finish after another
+ * instance has taken it over.
+ */
+type BookSyncLease = {
+  mutation: () => Stripe.RequestOptions;
+};
 
 /** The Book fields a Stripe product is built from. */
 type StripeSyncBook = Pick<
@@ -104,6 +140,132 @@ export const isStripeEligible = (
  */
 export const buildStripeProductID = (bookID: string): string =>
   `book_${bookID.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+
+/** True if Mongo rejected an insert because the `_id` already exists. */
+const isDuplicateKey = (err: unknown): boolean =>
+  typeof err === "object" && err !== null && (err as { code?: unknown }).code === 11000;
+
+/**
+ * Takes the book's lease if nobody holds it or the holder's lease expired.
+ *
+ * One upsert does both. A live lease fails the filter, so the upsert tries to insert a second
+ * document under the same `_id` and Mongo rejects it, which is the "held" answer. Two instances
+ * racing for a free book resolve the same way: one write lands, the other gets the duplicate key.
+ */
+const tryAcquireBookSyncLock = async (bookID: string, leaseID: string): Promise<boolean> => {
+  const now = new Date();
+  try {
+    await StoreBookSyncLock.updateOne(
+      { _id: { $eq: bookID }, lockedUntil: { $lt: now } },
+      { $set: { leaseID, lockedUntil: new Date(now.getTime() + BOOK_SYNC_LOCK_MS) } },
+      { upsert: true },
+    );
+    return true;
+  } catch (err) {
+    if (isDuplicateKey(err)) return false;
+    throw err;
+  }
+};
+
+/** Thrown when a run stops writing because it can no longer prove it owns the book. */
+class BookSyncLeaseLostError extends Error {
+  constructor(bookID: string, detail: string) {
+    super(`Stopped writing ${bookID} to Stripe: ${detail}.`);
+    this.name = "BookSyncLeaseLostError";
+  }
+}
+
+/**
+ * Runs `fn` while holding the book's sync lease, across every server instance.
+ *
+ * Every Stripe write for a book goes through here: the incremental sync, the full run, and
+ * archival. Without it, two runs holding different page-count snapshots interleave their
+ * list/create/archive steps. Each one archives the other's price as stale or as a duplicate, and
+ * the variant ends with no active price, which cart reconciliation then removes as unavailable.
+ *
+ * A run that finds the book held waits rather than skipping. The waiter may hold the newer
+ * snapshot, which is why callers re-read the book inside `fn` instead of trusting what they read
+ * before queueing.
+ *
+ * @throws If the lease can't be taken within {@link BOOK_SYNC_LOCK_WAIT_MS}.
+ */
+const withBookSyncLock = async <T>(
+  bookID: string,
+  fn: (lease: BookSyncLease) => Promise<T>,
+): Promise<T> => {
+  const leaseID = randomUUID();
+  const deadline = Date.now() + BOOK_SYNC_LOCK_WAIT_MS;
+  /* The expiry we can vouch for, measured from *before* the write that set it. The stored value
+     is later than this by one round trip, so trusting our own clock errs on the safe side. */
+  let confirmedUntil = 0;
+  for (;;) {
+    const sentAt = Date.now();
+    if (await tryAcquireBookSyncLock(bookID, leaseID)) {
+      confirmedUntil = sentAt + BOOK_SYNC_LOCK_MS;
+      break;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(`Timed out waiting for the Stripe sync lock on ${bookID}.`);
+    }
+    await sleep(BOOK_SYNC_LOCK_POLL_MS);
+  }
+
+  /* Set when a renewal finds another lease in our place. Final: a lease is never regained, since
+     the new holder may already have written. A renewal that merely fails leaves this unset, and
+     `confirmedUntil` runs out on its own instead. */
+  let lost = false;
+
+  const heartbeat = setInterval(() => {
+    const sentAt = Date.now();
+    StoreBookSyncLock.updateOne(
+      { _id: { $eq: bookID }, leaseID: { $eq: leaseID } },
+      { $set: { lockedUntil: new Date(sentAt + BOOK_SYNC_LOCK_MS) } },
+    )
+      .then(({ matchedCount }) => {
+        if (lost) return;
+        if (matchedCount === 0) {
+          lost = true;
+          clearInterval(heartbeat);
+          storeBookSyncLog.error({ bookID }, "Lost the Stripe sync lease while still writing, stopping further writes");
+          return;
+        }
+        confirmedUntil = Math.max(confirmedUntil, sentAt + BOOK_SYNC_LOCK_MS);
+      })
+      .catch((err) => storeBookSyncLog.warn({ err, bookID }, "Failed to renew the Stripe sync lease"));
+  }, BOOK_SYNC_LOCK_RENEW_MS);
+  heartbeat.unref();
+
+  const lease: BookSyncLease = {
+    mutation: () => {
+      if (lost) {
+        throw new BookSyncLeaseLostError(bookID, "another run took over its sync lease");
+      }
+      const remaining = confirmedUntil - BOOK_SYNC_LOCK_SKEW_MS - Date.now();
+      if (remaining < BOOK_SYNC_MIN_MUTATION_MS) {
+        throw new BookSyncLeaseLostError(bookID, "its sync lease could not be renewed in time");
+      }
+      /* No automatic retries: each attempt gets its own timeout, so a retry could outlive the
+         lease. A failed write is picked up by the next sync. */
+      return { timeout: remaining, maxNetworkRetries: 0 };
+    },
+  };
+
+  try {
+    return await fn(lease);
+  } finally {
+    clearInterval(heartbeat);
+    // A failed release costs at most one lease length of waiting for the next run.
+    await StoreBookSyncLock.deleteOne({ _id: { $eq: bookID }, leaseID: { $eq: leaseID } })
+      .catch((err) => storeBookSyncLog.warn({ err, bookID }, "Failed to release the Stripe sync lease"));
+  }
+};
+
+/** Reads the fields a sync needs for one book, or null if the book no longer exists. */
+const readSyncBook = async (bookID: string): Promise<StripeSyncBook | null> =>
+  (await Book.findOne(
+    { bookID: { $eq: bookID } },
+    STRIPE_SYNC_BOOK_PROJECTION,
+  ).lean()) as StripeSyncBook | null;
 
 /** True if a Stripe error is its "no such object" response. */
 const isResourceMissing = (err: unknown): boolean =>
@@ -213,6 +375,7 @@ const reconcilePrices = async (
   stripe: Stripe,
   product: Stripe.Product,
   book: StripeSyncBook,
+  lease: BookSyncLease,
 ): Promise<boolean> => {
   const numPages = book.exportInfo?.contentPageCount as number;
   const priceOptions = storeService.calculateBookPrices({ num_pages: numPages });
@@ -253,7 +416,7 @@ const reconcilePrices = async (
     const [existingPrice, ...duplicates] = variantPrices;
 
     for (const duplicate of duplicates) {
-      await stripe.prices.update(duplicate.id, { active: false });
+      await stripe.prices.update(duplicate.id, { active: false }, lease.mutation());
       wrote = true;
       storeBookSyncLog.info(`Archived duplicate price ${duplicate.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}) -- more than one active price for this variant.`);
     }
@@ -282,15 +445,18 @@ const reconcilePrices = async (
             store_category: "books",
             book_id: book.bookID,
           },
-        });
+        }, lease.mutation());
         wrote = true;
         continue;
       }
-
-      await stripe.prices.update(existingPrice.id, { active: false });
-      wrote = true;
-      storeBookSyncLog.info(`Archived price ${existingPrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}) -- amount changed.`);
     }
+
+    /* The replacement is created before the stale price is archived. Archiving
+       first leaves a window where the variant has no active price, and a cart
+       reconciled inside it would drop the customer's line as unavailable. Two
+       active prices for a moment is harmless: cart reconciliation picks the
+       newest, and the next run archives a leftover as a duplicate. */
+    const stalePrice = existingPrice;
 
     try {
       const newPrice = await stripe.prices.create(
@@ -310,6 +476,7 @@ const reconcilePrices = async (
           },
         },
         {
+          ...lease.mutation(),
           /* Two runs that both found no price for this variant would otherwise
              each create one. The amount is part of the key on purpose: Stripe
              prices are immutable in `unit_amount`, so a repriced variant must be
@@ -330,17 +497,24 @@ const reconcilePrices = async (
          the key, so a replayed price is by definition already at the amount we
          want. */
       if (!newPrice.active) {
-        await stripe.prices.update(newPrice.id, { active: true });
+        await stripe.prices.update(newPrice.id, { active: true }, lease.mutation());
         storeBookSyncLog.info(`Reactivated replayed price ${newPrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}).`);
       }
 
       storeBookSyncLog.info(`Created price ${newPrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}): ${option.formatted_price}`);
     } catch (err) {
       /* A concurrent run holds the same key and is mid-create. Its price is the
-         one that lands; ours would have been a duplicate. Nothing to repair here
-         -- the next sync reconciles whatever the other run produced. */
+         one that lands; ours would have been a duplicate. The stale price stays
+         active until a replacement is confirmed -- the other run archives it
+         after its own create, or the next sync does as a duplicate. */
       if (!isIdempotencyKeyInUse(err)) throw err;
       storeBookSyncLog.info(`Skipped creating a price for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}): a concurrent sync is already creating it.`);
+      continue;
+    }
+
+    if (stalePrice) {
+      await stripe.prices.update(stalePrice.id, { active: false }, lease.mutation());
+      storeBookSyncLog.info(`Archived price ${stalePrice.id} for ${book.bookID} (hardcover=${option.hardcover}, color=${option.color}) -- amount changed.`);
     }
   }
 
@@ -356,6 +530,7 @@ const reconcilePrices = async (
 const writeBookToStripe = async (
   stripe: Stripe,
   book: StripeSyncBook,
+  lease: BookSyncLease,
 ): Promise<StripeBookSyncOutcome> => {
   const fields = buildProductFields(book);
   const metadata = buildProductMetadata(book);
@@ -370,7 +545,7 @@ const writeBookToStripe = async (
         id: buildStripeProductID(book.bookID),
         ...fields,
         metadata,
-      });
+      }, lease.mutation());
       created = true;
       wrote = true;
     } catch (err) {
@@ -396,11 +571,11 @@ const writeBookToStripe = async (
       // become eligible again.
       active: true,
       metadata,
-    });
+    }, lease.mutation());
     wrote = true;
   }
 
-  const pricesWritten = await reconcilePrices(stripe, product, book);
+  const pricesWritten = await reconcilePrices(stripe, product, book, lease);
   wrote = wrote || pricesWritten;
 
   if (created) return { status: "created" };
@@ -437,8 +612,23 @@ export type StripeArchiveOutcome =
 export async function archiveBookInStripe(
   bookID: string,
 ): Promise<StripeArchiveOutcome> {
+  if (!bookID) return { ok: true, archived: false };
   try {
-    if (!bookID) return { ok: true, archived: false };
+    return await withBookSyncLock(bookID, (lease) => archiveBookUnlocked(bookID, lease));
+  } catch (err) {
+    // Only the lock can throw here. `archiveBookUnlocked` reports its own failures.
+    const reason = err instanceof Error ? err.message : String(err);
+    storeBookSyncLog.error({ err, bookID }, "Error archiving book in Stripe");
+    return { ok: false, reason };
+  }
+}
+
+/** {@link archiveBookInStripe} for a caller that already holds the book's sync lease. */
+async function archiveBookUnlocked(
+  bookID: string,
+  lease: BookSyncLease,
+): Promise<StripeArchiveOutcome> {
+  try {
     const stripe = stripeService.getInstance();
 
     const product = await resolveProduct(stripe, bookID);
@@ -450,11 +640,11 @@ export async function archiveBookInStripe(
       limit: 100,
     });
     for (const price of prices.data) {
-      await stripe.prices.update(price.id, { active: false });
+      await stripe.prices.update(price.id, { active: false }, lease.mutation());
     }
 
     if (product.active) {
-      await stripe.products.update(product.id, { active: false });
+      await stripe.products.update(product.id, { active: false }, lease.mutation());
     }
 
     if (prices.data.length === 0 && !product.active) {
@@ -484,49 +674,7 @@ export async function syncBookToStripe(
 ): Promise<StripeBookSyncOutcome> {
   try {
     if (!bookID) return { status: "skipped", reason: "No bookID provided." };
-
-    const book = (await Book.findOne(
-      { bookID: { $eq: bookID } },
-      STRIPE_SYNC_BOOK_PROJECTION,
-    ).lean()) as StripeSyncBook | null;
-
-    if (!book) {
-      // Gone from the DB -- make sure it isn't lingering in the store.
-      const reason = "Book no longer exists in Commons.";
-      const archival = await archiveBookInStripe(bookID);
-      if (!archival.ok) {
-        return {
-          status: "error",
-          reason: `${reason} Archiving it in Stripe failed: ${archival.reason}`,
-        };
-      }
-      return { status: "archived", reason };
-    }
-
-    if (!isStripeEligible(book)) {
-      const reason = book.syncMissingSince
-        ? `${bookID} is marked missing from its library.`
-        : `${bookID} has no finite exportInfo.contentPageCount (got ${JSON.stringify(book.exportInfo?.contentPageCount)}).`;
-      storeBookSyncLog.info(`Not syncing: ${reason}`);
-      const archival = await archiveBookInStripe(bookID);
-      if (!archival.ok) {
-        /* The book must come off sale and did not. Reporting `archived` here
-           would tell an operator the opposite of what happened. */
-        return {
-          status: "error",
-          reason: `${reason} Archiving it in Stripe failed: ${archival.reason}`,
-        };
-      }
-      return { status: "archived", reason };
-    }
-
-    const stripe = stripeService.getInstance();
-    const outcome = await writeBookToStripe(stripe, book);
-    if (outcome.status !== "unchanged") {
-      storeService.invalidateProductCache();
-    }
-    storeBookSyncLog.info(`${outcome.status} ${bookID} in Stripe.`);
-    return outcome;
+    return await withBookSyncLock(bookID, (lease) => syncBookUnlocked(bookID, lease));
   } catch (err) {
     storeBookSyncLog.error({ err }, `Error syncing ${bookID} to Stripe`);
     return {
@@ -534,6 +682,57 @@ export async function syncBookToStripe(
       reason: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+/**
+ * {@link syncBookToStripe} for a caller that holds the book's sync lease. Throws.
+ *
+ * The book is read here, under the lease, so a run that waited on another writes the page count
+ * as it stands now rather than as it stood when the run was queued.
+ */
+async function syncBookUnlocked(
+  bookID: string,
+  lease: BookSyncLease,
+): Promise<StripeBookSyncOutcome> {
+  const book = await readSyncBook(bookID);
+
+  if (!book) {
+    // Gone from the DB -- make sure it isn't lingering in the store.
+    const reason = "Book no longer exists in Commons.";
+    const archival = await archiveBookUnlocked(bookID, lease);
+    if (!archival.ok) {
+      return {
+        status: "error",
+        reason: `${reason} Archiving it in Stripe failed: ${archival.reason}`,
+      };
+    }
+    return { status: "archived", reason };
+  }
+
+  if (!isStripeEligible(book)) {
+    const reason = book.syncMissingSince
+      ? `${bookID} is marked missing from its library.`
+      : `${bookID} has no finite exportInfo.contentPageCount (got ${JSON.stringify(book.exportInfo?.contentPageCount)}).`;
+    storeBookSyncLog.info(`Not syncing: ${reason}`);
+    const archival = await archiveBookUnlocked(bookID, lease);
+    if (!archival.ok) {
+      /* The book must come off sale and did not. Reporting `archived` here
+         would tell an operator the opposite of what happened. */
+      return {
+        status: "error",
+        reason: `${reason} Archiving it in Stripe failed: ${archival.reason}`,
+      };
+    }
+    return { status: "archived", reason };
+  }
+
+  const stripe = stripeService.getInstance();
+  const outcome = await writeBookToStripe(stripe, book, lease);
+  if (outcome.status !== "unchanged") {
+    storeService.invalidateProductCache();
+  }
+  storeBookSyncLog.info(`${outcome.status} ${bookID} in Stripe.`);
+  return outcome;
 }
 
 export type StripeCatalogSyncResult = {
@@ -604,8 +803,19 @@ export async function syncAllBooksToStripe(): Promise<StripeCatalogSyncResult> {
   // rejects the whole call if `fn` rejects.
   await mapWithConcurrency(eligible, STRIPE_SYNC_CONCURRENCY, async (book) => {
     try {
-      await writeBookToStripe(stripe, book);
-      result.sync_count += 1;
+      await withBookSyncLock(book.bookID, async (lease) => {
+        /* Re-read under the lease. An incremental sync may have repriced the book since the bulk
+           read above, and writing the older snapshot would archive its newer price. A book that
+           stopped being eligible meanwhile was archived by that sync, so it is left alone here. */
+        const current = await readSyncBook(book.bookID);
+        if (!current || !isStripeEligible(current)) {
+          storeBookSyncLog.info({ bookID: book.bookID }, "Book changed during the full sync and is no longer eligible, skipping");
+          result.skipped_count += 1;
+          return;
+        }
+        await writeBookToStripe(stripe, current, lease);
+        result.sync_count += 1;
+      });
     } catch (err) {
       result.failed_count += 1;
       storeBookSyncLog.error({ err }, `Error syncing ${book.bookID} to Stripe`);

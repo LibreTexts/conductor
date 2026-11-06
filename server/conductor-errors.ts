@@ -99,6 +99,9 @@ const conductorErrors = {
   err90: "Cannot get embed code for non-public resource.",
   err91: "Sorry, you can't remove your own role(s). Please contact our Support Center for assistance.",
   err92: "Sorry, an internal error occurred as a result of internal misconfiguration. Please contact our Support Center for assistance.",
+  err93: "Sorry, creating and editing H5P activities is not available right now. Please try again later.",
+  err94: "Sorry, only verified instructors can create H5P activities. You can request verification from your LibreOne account.",
+  err95: "Sorry, an H5P activity can have at most 10 collaborators.",
 };
 
 export default conductorErrors;

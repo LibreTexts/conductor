@@ -47,6 +47,8 @@ const queryClient = new QueryClient({
 });
 
 export const COMMONS_PATHS = [
+  "/activity",
+  "/interactive",
   "/catalog",
   "/collections",
   "/commons-project",
@@ -91,6 +93,9 @@ const Platform = () => {
 
   const commonsRouterPaths = [
     "/",
+    "/activity/:activityID",
+    "/interactive/:activityID",
+    "/interactives",
     "/catalog",
     "/catalog/:entryType",
     "/collections",

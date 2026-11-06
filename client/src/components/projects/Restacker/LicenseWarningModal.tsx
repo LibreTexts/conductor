@@ -95,7 +95,12 @@ const LicenseWarningModal: React.FC<LicenseWarningModalProps> = ({
         </Stack>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline" onClick={onCancel} disabled={loading}>
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          disabled={loading}
+          aria-label="Cancel License Compatibility Warning"
+        >
           Cancel
         </Button>
         <Button variant="primary" onClick={onConfirm} loading={loading}>

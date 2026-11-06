@@ -18,8 +18,8 @@ describe("getLicenseText", () => {
 
 describe("legacy license identifiers", () => {
   it("still displays the renamed 'multiple' value", () => {
-    expect(getLicenseText("multiple")).toBe("Multiple Licenses");
-    expect(getLicenseText("mixed")).toBe("Multiple Licenses");
+    expect(getLicenseText("multiple")).toBe("Multiple Licenses(Collection)");
+    expect(getLicenseText("mixed")).toBe("Multiple Licenses(Collection)");
   });
 });
 

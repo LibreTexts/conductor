@@ -70,7 +70,7 @@ describe("getBulkLicenseSkip", () => {
     expect(skip?.reason).toBe("conflict");
   });
 
-  it("skips structural pages unless the license is public domain", () => {
+  it("skips Core pages unless the license is public domain", () => {
     const url = "https://x/00%3A_Front_Matter/03%3A_Table_of_Contents";
     expect(getBulkLicenseSkip({ url }, "ccby", "40")?.reason).toBe("structural");
     expect(getBulkLicenseSkip({ url }, "publicdomain")).toBeNull();
@@ -92,6 +92,19 @@ describe("getBulkLicenseSkip", () => {
     expect(
       getBulkLicenseSkip({ pageLicense: lic("ccby", "40") }, "ccby", "40")?.reason,
     ).toBe("unchanged");
+  });
+});
+
+describe("CK-12 license", () => {
+  it("is incompatible with every other license", () => {
+    for (const other of ["ccby", "ccbync", "ccbysa", "publicdomain", "gnu"]) {
+      expect(isLicenseNonCompliant(lic("ck12"), lic(other, "40"))).toBe(true);
+      expect(isLicenseNonCompliant(lic(other, "40"), lic("ck12"))).toBe(true);
+    }
+  });
+
+  it("is compatible with itself", () => {
+    expect(isLicenseNonCompliant(lic("ck12"), lic("ck12"))).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 import logger, { childLogger } from "../../logger.js";
 import base62 from "base62-random";
-import PrejectRemixerJob from "../../models/projectremixerjob";
-import PrejectRemixer, {
+import ProjectRemixerJob from "../../models/projectremixerjob";
+import ProjectRemixer, {
   RemixerSubPageState,
 } from "../../models/projectremixer";
 import RemixerTemplates from "../../util/CXOne/CXOneRemixerTemplates";
@@ -27,6 +27,8 @@ import { detectTranscludeStub } from "../../util/transclusion.js";
 import { RemixerSubPage } from "../../types/Remixer";
 import BookService from "./book-service";
 import GlossaryService from "./glossary-service";
+import { importPageReferences } from "./references-service.js";
+import { rewriteCitationKeys } from "../../util/referenceCitations.js";
 const remixerLog = childLogger("remixer");
 const glossaryService = new GlossaryService();
 
@@ -1458,10 +1460,63 @@ const handleImportedPage = async (
   options?: CreatePageOptions,
   importGlossaryTerms?: boolean,
   addedBy?: string,
+  importReferences?: boolean,
 ): Promise<{ pageID: string; pageURI: string; warnings: string[] }> => {
   // Per-page, non-fatal notes (skipped attachments, file-copy fallback) that the
   // caller folds into the job log so they reach the publish panel, not just pino.
   const warnings: string[] = [];
+
+  /**
+   * Shares the references the source page cites with this book (opt-in, and
+   * non-fatal like the glossary import). Returns the citation key renames a
+   * copied page's content needs; transcluded content can't be rewritten.
+   */
+  const importReferencesFor = async (
+    canRewriteContent: boolean,
+    sourceContent?: string,
+  ): Promise<Record<string, string>> => {
+    if (!importReferences || !coverId || !sourceSubdomain) return {};
+    try {
+      const result = await importPageReferences({
+        sourcePageID: sourceId.toString(),
+        sourceLibrary: sourceSubdomain,
+        sourceContent,
+        targetCoverID: coverId,
+        targetLibrary: subdomain,
+        actorUUID: addedBy || "system",
+        canRewriteContent,
+      });
+      if (result.imported > 0) {
+        warnings.push(
+          `imported ${result.imported} reference(s) cited on the source page`,
+        );
+      }
+      const renamed = Object.keys(result.keyRenames).length;
+      if (renamed > 0) {
+        warnings.push(
+          `changed ${renamed} citation key(s) on this page that already meant a different reference in this book`,
+        );
+      }
+      if (result.conflicts.length > 0) {
+        warnings.push(
+          `citation key(s) ${result.conflicts.join(", ")} already mean a different reference in this book; this page is transcluded and can't be changed, so resolve them in the Reference Manager`,
+        );
+      }
+      if (result.unresolved > 0) {
+        warnings.push(
+          `${result.unresolved} citation(s) on the source page have no matching reference in the source book`,
+        );
+      }
+      return result.keyRenames;
+    } catch (error) {
+      warnings.push("failed to import references from the source page");
+      remixerLog.warn(
+        { err: error },
+        `Reference import failed for imported page (source ${sourceId})`,
+      );
+      return {};
+    }
+  };
   const sourceUri = getRemixerPageUriUi(page);
   const sourceSubdomain = extractLibretextsSubdomain(sourceUri);
   if (!sourceSubdomain) {
@@ -1505,6 +1560,7 @@ const handleImportedPage = async (
 
     const shouldTransclude = copyModeState === "Transclude" && !hasChildren;
     if (shouldTransclude) {
+      await importReferencesFor(false);
       const resolvedSource = await resolveTranscludeSource({
         subdomain: sourceSubdomain,
         pageId: sourceId,
@@ -1547,7 +1603,13 @@ const handleImportedPage = async (
       // Fragment parse so we don't wrap the body in <html><head><body>.
       const $ = cheerio.load(rawHtml, null, false);
       $(".mt-guide-content").remove();
-      const cleanedRawHtml = $.root().html() ?? $.html() ?? "";
+      const sourceHtml = $.root().html() ?? $.html() ?? "";
+      // Copied content belongs to this book, so citations whose key means a
+      // different reference here are renamed to the imported one's key.
+      const cleanedRawHtml = rewriteCitationKeys(
+        sourceHtml,
+        await importReferencesFor(true, sourceHtml),
+      );
 
       // A same-library fork can keep the source's relative `/@api/deki/files/...`
       // paths: file ids resolve library-wide, so the target page renders the same
@@ -1799,10 +1861,20 @@ const copyPageThumbnailAndOverview = async ({
 interface RunRemixerJobParams {
   jobID: string;
   projectID: string;
+  /**
+   * The remixer state this job publishes — the record the publish request
+   * just wrote. The job must load exactly this record: "the newest record for
+   * the project" can be a different one (a draft saved while the publish was
+   * being set up, or a duplicate active draft), which would publish a book
+   * the user never submitted.
+   */
+  remixerID: string;
   subdomain: string;
   coverId: string;
   /** Carry glossary terms used on imported pages' source pages over to this book. */
   importGlossaryTerms?: boolean;
+  /** Share the references imported pages cite with this book. */
+  importReferences?: boolean;
 }
 
 /** Plain snapshot of a remixer page for persistence (avoids spreading Mongoose subdocs). */
@@ -1947,24 +2019,40 @@ const previewPageIDs = (ids: string[], limit = 20): string => {
 const runRemixerJob = async ({
   jobID,
   projectID,
+  remixerID,
   subdomain,
   coverId,
   importGlossaryTerms = false,
+  importReferences = false,
 }: RunRemixerJobParams) => {
-  const job = await PrejectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({
+  const job = await ProjectRemixerJob.findOne({ jobID: { $eq: jobID } }).sort({
     _id: -1,
   });
-  const remixerState = await PrejectRemixer.findOne({
-    projectID: { $eq: projectID },
-  }).sort({
-    _id: -1,
-  });
-  let finalBook: RemixerSubPageState[] = [];
-  if (!remixerState) {
-    throw new Error("Remixer state not found");
-  }
   if (!job) {
     throw new Error("Job not found");
+  }
+  // Load the exact record the publish request wrote (by its remixerID), from
+  // the primary so a lagging secondary can't serve the previous state.
+  const stateID = remixerID || job.remixerID;
+  const remixerState = stateID
+    ? await ProjectRemixer.findOne({
+        projectID: { $eq: projectID },
+        remixerID: { $eq: stateID },
+      })
+        .sort({ updatedAt: -1 })
+        .read("primary")
+    : null;
+  let finalBook: RemixerSubPageState[] = [];
+  if (!remixerState) {
+    remixerLog.error(
+      { jobID, projectID, remixerID: stateID },
+      "Remixer state for publish job not found",
+    );
+    job.status = "error";
+    job.errorMessage = "The submitted book could not be found; nothing was published.";
+    job.messages.push(job.errorMessage);
+    await job.save();
+    throw new Error("Remixer state not found");
   }
 
   try {
@@ -2242,6 +2330,7 @@ const runRemixerJob = async ({
                     createOptions,
                     importGlossaryTerms,
                     job.userID,
+                    importReferences,
                   ),
                 { onRetry: logRetry },
               );
@@ -2719,7 +2808,7 @@ const runRemixerJob = async ({
     remixerState.archived = true;
     // await remixerState.save();
 
-    await PrejectRemixer.create({
+    await ProjectRemixer.create({
       projectID: remixerState.projectID,
       archived: false,
       createdBy: remixerState.createdBy,
@@ -2735,6 +2824,14 @@ const runRemixerJob = async ({
     // whole published book (no-op when the book already has one).
     if (importGlossaryTerms && coverId) {
       await glossaryService.ensureDefaultGlossaryConfig(coverId, subdomain);
+    }
+
+    if (importReferences) {
+      // Importing only records which references the book uses; the pages
+      // render them once Populate has run on this book.
+      job.messages.push(
+        "References from imported pages were added. Run Scan Citations in the Reference Manager to show them in the book.",
+      );
     }
 
     job.status = "success";
@@ -2772,10 +2869,10 @@ const runRemixerJob = async ({
  * that draft is newer, and the client maps `createdPages` onto it instead.
  */
 const saveFailedRunDraft = async (
-  remixerState: InstanceType<typeof PrejectRemixer>,
+  remixerState: InstanceType<typeof ProjectRemixer>,
   createdPages: { draftID: string; pageID: string }[],
 ): Promise<void> => {
-  const hasActiveDraft = await PrejectRemixer.exists({
+  const hasActiveDraft = await ProjectRemixer.exists({
     projectID: remixerState.projectID,
     archived: false,
   });
@@ -2789,7 +2886,7 @@ const saveFailedRunDraft = async (
       : plain;
   });
 
-  await PrejectRemixer.create({
+  await ProjectRemixer.create({
     projectID: remixerState.projectID,
     archived: false,
     createdBy: remixerState.createdBy,

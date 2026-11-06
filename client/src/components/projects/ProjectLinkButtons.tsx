@@ -182,11 +182,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
             View Export Options
           </DavisButton>
         )}
-        {/* Hidden on purpose. The publish flow is merged but not yet released to
-            the publishing team; uncomment this to turn it on. Everything behind
-            it — `canPublish`, the drawer, the API — is live and unchanged, so
-            this is the only line that has to move. */}
-        {/* {canPublish && (
+        {canPublish && user.isSuperAdmin && (
           <DavisButton
             variant="primary"
             size="sm"
@@ -195,7 +191,7 @@ const ProjectLinkButtons: React.FC<ProjectLinkButtonsProps> = ({
           >
             Publish Book (Admin Visible Only)
           </DavisButton>
-        )} */}
+        )}
         {projectVisibility === "public" && (
           <Popup
             content="This link will take you to the project's page on the Commons."

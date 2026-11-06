@@ -60,7 +60,11 @@ const SubpageLicenseModal: React.FC<SubpageLicenseModalProps> = ({
         </Stack>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline" onClick={onCancel}>
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          aria-label="Cancel Apply to Subpages"
+        >
           Cancel
         </Button>
         <Button variant="secondary" onClick={onThisPageOnly}>
