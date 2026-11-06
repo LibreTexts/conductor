@@ -58,7 +58,7 @@
     "date-and-time": "0.14.2",
     "date-fns": "2.30.0",
     "date-fns-tz": "2.0.1",
-    "dompurify": "3.4.16",
+    "dompurify": "3.4.17",
     "extended-eventsource": "2.1.0",
     "file-saver": "2.0.5",
     "focus-trap-react": "10.3.1",
@@ -154,7 +154,7 @@
     "postcss": "8.5.12",
     "sass": "1.99.0",
     "tailwindcss": "4.2.4",
-    "vite": "6.4.2",
+    "vite": "6.4.4",
     "vite-tsconfig-paths": "4.3.2",
     "vitest": "4.1.11"
   },
