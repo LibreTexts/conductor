@@ -33,7 +33,6 @@
     "@libretexts/davis-core": "1.11.4",
     "@libretexts/davis-react": "1.11.4",
     "@libretexts/davis-react-table": "1.11.4",
-    "@marsidev/react-turnstile": "0.5.4",
     "@stripe/react-stripe-js": "3.10.0",
     "@stripe/stripe-js": "7.9.0",
     "@tabler/icons-react": "3.41.1",
