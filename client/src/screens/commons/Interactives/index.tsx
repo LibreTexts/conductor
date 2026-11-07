@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useDebounceValue, useDocumentTitle } from "usehooks-ts";
 import {
+  Alert,
   Breadcrumb,
   Button,
   Card,
@@ -25,10 +26,19 @@ import {
 } from "@tabler/icons-react";
 import api from "../../../api";
 import AccessibleDataTable from "../../../components/commons/AccessibleDataTable";
-import { CommonsActivitiesParams, CommonsActivitySummary } from "../../../types";
-import { getContentTypeIcon, getContentTypeName, interactivePath, toPlainText } from "../../../utils/activityHelpers";
+import {
+  CommonsActivitiesParams,
+  CommonsActivitySummary,
+} from "../../../types";
+import {
+  getContentTypeIcon,
+  getContentTypeName,
+  interactivePath,
+  toPlainText,
+} from "../../../utils/activityHelpers";
 import ActivityCardDetails from "../../../components/commons/ActivityCardDetails";
 import { truncateString } from "../../../components/util/HelperFunctions.js";
+import { useTypedSelector } from "../../../state/hooks";
 
 const ITEMS_PER_LOAD = 24;
 
@@ -41,7 +51,9 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ];
 
 /** Title reads A to Z. Dates read newest first. */
-function sortDirectionFor(sort: SortKey): CommonsActivitiesParams["sortDirection"] {
+function sortDirectionFor(
+  sort: SortKey,
+): CommonsActivitiesParams["sortDirection"] {
   return sort === "title" ? "ascending" : "descending";
 }
 
@@ -52,35 +64,49 @@ function sortDirectionFor(sort: SortKey): CommonsActivitiesParams["sortDirection
  */
 const CommonsInteractives = () => {
   useDocumentTitle("LibreCommons | Interactives");
+  const user = useTypedSelector((state) => state.user);
 
-  const [displayChoice, setDisplayChoice] = useState<"visual" | "itemized">("visual");
+  const [displayChoice, setDisplayChoice] = useState<"visual" | "itemized">(
+    "visual",
+  );
   const [searchString, setSearchString] = useState("");
   const [sort, setSort] = useState<SortKey>("updated");
   const [debouncedSearch] = useDebounceValue(searchString.trim(), 300);
 
-  const { data, isLoading, isError, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } =
-    useInfiniteQuery({
-      queryKey: ["commons-interactives", debouncedSearch, sort],
-      queryFn: async ({ pageParam = 1 }) => {
-        const res = await api.getCommonsActivities({
-          query: debouncedSearch || undefined,
-          sort,
-          sortDirection: sortDirectionFor(sort),
-          page: pageParam,
-          limit: ITEMS_PER_LOAD,
-        });
-        if (res.data.err) throw new Error(res.data.errMsg);
-        return { activities: res.data.activities ?? [], total: res.data.total_items ?? 0, page: pageParam };
-      },
-      getNextPageParam: (last) =>
-        last.page * ITEMS_PER_LOAD < last.total ? last.page + 1 : undefined,
-      refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5,
-    });
+  const {
+    data,
+    isLoading,
+    isError,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: ["commons-interactives", debouncedSearch, sort],
+    queryFn: async ({ pageParam = 1 }) => {
+      const res = await api.getCommonsActivities({
+        query: debouncedSearch || undefined,
+        sort,
+        sortDirection: sortDirectionFor(sort),
+        page: pageParam,
+        limit: ITEMS_PER_LOAD,
+      });
+      if (res.data.err) throw new Error(res.data.errMsg);
+      return {
+        activities: res.data.activities ?? [],
+        total: res.data.total_items ?? 0,
+        page: pageParam,
+      };
+    },
+    getNextPageParam: (last) =>
+      last.page * ITEMS_PER_LOAD < last.total ? last.page + 1 : undefined,
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5,
+  });
 
   const activities = useMemo(
     () => data?.pages.flatMap((p) => p.activities) ?? [],
-    [data]
+    [data],
   );
   const total = data?.pages[0]?.total ?? 0;
 
@@ -89,7 +115,10 @@ const CommonsInteractives = () => {
       id: "title",
       header: "Title",
       cell: ({ row }) => (
-        <Link to={interactivePath(row.original.activityID)} className="font-bold">
+        <Link
+          to={interactivePath(row.original.activityID)}
+          className="font-bold"
+        >
           {row.original.title}
         </Link>
       ),
@@ -97,13 +126,17 @@ const CommonsInteractives = () => {
     {
       id: "type",
       header: "Content type",
-      cell: ({ row }) => <Text>{getContentTypeName(row.original) ?? "Unknown"}</Text>,
+      cell: ({ row }) => (
+        <Text>{getContentTypeName(row.original) ?? "Unknown"}</Text>
+      ),
     },
     {
       id: "description",
       header: "Description",
       cell: ({ row }) => (
-        <Text>{truncateString(toPlainText(row.original.description), 200)}</Text>
+        <Text>
+          {truncateString(toPlainText(row.original.description), 200)}
+        </Text>
       ),
     },
   ];
@@ -132,9 +165,14 @@ const CommonsInteractives = () => {
               </div>
               <Card.Body className="flex flex-1 flex-col gap-1.5 p-3!">
                 {typeName && (
-                  <Text className="text-xs font-semibold uppercase text-neutral-600">{typeName}</Text>
+                  <Text className="text-xs font-semibold uppercase text-neutral-600">
+                    {typeName}
+                  </Text>
                 )}
-                <Heading level={2} className="text-base! mt-0! mb-0! line-clamp-2 break-words">
+                <Heading
+                  level={2}
+                  className="text-base! mt-0! mb-0! line-clamp-2 break-words"
+                >
                   {/* The stretched link makes the whole card clickable while
                       keeping one link per card for screen readers. */}
                   <Link
@@ -144,7 +182,9 @@ const CommonsInteractives = () => {
                     {item.title}
                   </Link>
                 </Heading>
-                {description && <Text className="text-sm line-clamp-3">{description}</Text>}
+                {description && (
+                  <Text className="text-sm line-clamp-3">{description}</Text>
+                )}
                 <ActivityCardDetails activity={item} className="mt-auto pt-1" />
               </Card.Body>
             </Card>
@@ -184,7 +224,9 @@ const CommonsInteractives = () => {
     if (activities.length === 0) {
       return (
         <Text className="text-center italic" role="status">
-          {debouncedSearch ? "No interactives match your search." : "No interactives available right now."}
+          {debouncedSearch
+            ? "No interactives match your search."
+            : "No interactives available right now."}
         </Text>
       );
     }
@@ -204,13 +246,26 @@ const CommonsInteractives = () => {
           <Heading level={1} className="text-center lg:text-left">
             Interactives
           </Heading>
-          <Text>
+          <Text className="text-center lg:text-left">
             Interactive H5P activities you can use in a course or embed in a
             LibreTexts book: quizzes, interactive videos, flashcards, drag and
             drop exercises and more. Open an activity to try it, copy its link,
             or get its embed code.
           </Text>
         </Stack>
+        <Alert
+          variant="info"
+          title=""
+          message="LibreTexts Studio has been retired. H5P activities are now managed in Conductor. Verified instructors can view, create, and edit H5P activities by signing in to Conductor and using the 'My H5P' link in the navigation bar."
+          action={
+            user?.verifiedInstructor
+              ? {
+                  label: "Go to My H5P",
+                  onClick: () => window.open("/h5p", "_blank"),
+                }
+              : undefined
+          }
+        />
         <Divider />
         <div className="flex flex-row items-end justify-center w-full gap-2">
           <Input
@@ -236,24 +291,46 @@ const CommonsInteractives = () => {
           <div className="flex items-center gap-4">
             {!isLoading && !isError && (
               <Text className="text-sm text-neutral-600" role="status">
-                {total === 1 ? "1 interactive" : `${total.toLocaleString()} interactives`}
+                {total === 1
+                  ? "1 interactive"
+                  : `${total.toLocaleString()} interactives`}
               </Text>
             )}
             <IconButton
               variant="outline"
               size="sm"
-              tooltip={displayChoice === "visual" ? "Switch to itemized mode" : "Switch to visual mode"}
-              aria-label={displayChoice === "visual" ? "Switch to itemized mode" : "Switch to visual mode"}
-              onClick={() => setDisplayChoice(displayChoice === "visual" ? "itemized" : "visual")}
-              icon={displayChoice === "visual" ? <IconList size={16} /> : <IconLayoutGrid size={16} />}
+              tooltip={
+                displayChoice === "visual"
+                  ? "Switch to itemized mode"
+                  : "Switch to visual mode"
+              }
+              aria-label={
+                displayChoice === "visual"
+                  ? "Switch to itemized mode"
+                  : "Switch to visual mode"
+              }
+              onClick={() =>
+                setDisplayChoice(
+                  displayChoice === "visual" ? "itemized" : "visual",
+                )
+              }
+              icon={
+                displayChoice === "visual" ? (
+                  <IconList size={16} />
+                ) : (
+                  <IconLayoutGrid size={16} />
+                )
+              }
             />
           </div>
         </div>
 
         <div aria-busy={isLoading || isFetchingNextPage}>{renderContent()}</div>
 
-        {!isLoading && !isError && activities.length > 0 && (
-          hasNextPage ? (
+        {!isLoading &&
+          !isError &&
+          activities.length > 0 &&
+          (hasNextPage ? (
             <div className="w-full mt-6 flex justify-center">
               <Button
                 variant="primary"
@@ -265,9 +342,10 @@ const CommonsInteractives = () => {
               </Button>
             </div>
           ) : (
-            <Text className="text-center font-semibold mt-4">End of results</Text>
-          )
-        )}
+            <Text className="text-center font-semibold mt-4">
+              End of results
+            </Text>
+          ))}
       </Stack>
     </>
   );
