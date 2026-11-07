@@ -201,6 +201,16 @@ export function getActivityEmbedURL(origin: string, h5pContentID: number): strin
 }
 
 /**
+ * The embed URL for this page's own player. A private activity's embed needs
+ * a `view` token, which goes in the query because an iframe cannot send a
+ * header. Never use this for embed code: the token expires in 15 minutes.
+ */
+export function getActivityPlayerURL(origin: string, h5pContentID: number, viewToken?: string | null): string {
+  const url = getActivityEmbedURL(origin, h5pContentID);
+  return viewToken ? `${url}?token=${encodeURIComponent(viewToken)}` : url;
+}
+
+/**
  * Where h5p-service serves an activity as a .h5p package: the Lumi ajax
  * router's default `/download` route, mounted under `/h5p`.
  */

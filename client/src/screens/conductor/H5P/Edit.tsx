@@ -111,7 +111,7 @@ function parseAuthors(raw?: string): string[] {
 const VISIBILITY_CHOICES: { value: ActivityVisibilityLevel; label: string; description: string; icon: JSX.Element }[] = [
   { value: "public", label: "Public", description: "Listed in Commons and search results", icon: <IconWorld size={20} aria-hidden="true" /> },
   { value: "unlisted", label: "Unlisted", description: "Anyone with the link can view", icon: <IconLink size={20} aria-hidden="true" /> },
-  { value: "private", label: "Private", description: "Only you and collaborators", icon: <IconLock size={20} aria-hidden="true" /> },
+  { value: "private", label: "Private", description: "Only you and collaborators. Embeds in textbooks and ADAPT won't load", icon: <IconLock size={20} aria-hidden="true" /> },
 ];
 
 const DISPLAY_OPTION_CHOICES: { key: keyof ActivityDisplayOptions; label: string; description: string }[] = [

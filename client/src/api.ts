@@ -515,6 +515,14 @@ class API {
     return res;
   }
 
+  /** A `view` token for a private activity's player; `token` is null for any other. */
+  async getActivityViewToken(activityID: string) {
+    const res = await axios.post<{ token: string | null; expiresAt?: string } & ConductorBaseResponse>(
+      `/activities/${activityID}/view-token`
+    );
+    return res;
+  }
+
   /** Allocates the H5P content id and creates the activity; returns an edit token for it. */
   async createActivity(metadata: ActivityMetadataInput) {
     const res = await axios.post<

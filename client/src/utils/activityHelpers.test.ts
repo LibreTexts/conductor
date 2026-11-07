@@ -6,6 +6,7 @@ import {
   getActivityDownloadURL,
   getActivityEmbedURL,
   getActivityLicense,
+  getActivityPlayerURL,
   getContentTypeIcon,
   getContentTypeName,
 } from "./activityHelpers";
@@ -74,6 +75,18 @@ describe("embed code", () => {
     expect(code).toContain('src="https://studio.libretexts.org/h5p/31483/embed"');
     expect(code).toContain('title="Say &quot;hi&quot; &amp; &lt;go>"');
     expect(code).toContain('src="https://studio.libretexts.org/h5p/core/js/h5p-resizer.js"');
+  });
+
+  it("adds a view token to the player URL only when one is given", () => {
+    expect(getActivityPlayerURL("https://studio.libretexts.org/", 31483)).toBe(
+      "https://studio.libretexts.org/h5p/31483/embed"
+    );
+    expect(getActivityPlayerURL("https://studio.libretexts.org", 31483, null)).toBe(
+      "https://studio.libretexts.org/h5p/31483/embed"
+    );
+    expect(getActivityPlayerURL("https://studio.libretexts.org", 31483, "a.b-c_d")).toBe(
+      "https://studio.libretexts.org/h5p/31483/embed?token=a.b-c_d"
+    );
   });
 
   it("points downloads at h5p-service's package route", () => {

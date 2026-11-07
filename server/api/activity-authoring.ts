@@ -14,6 +14,9 @@ import {
   EDITOR_TOKEN_TTL_SECONDS,
   allocateH5PContentId,
   deleteH5PContent,
+  isAuthoringConfigured,
+  replacePrivateH5PContent,
+  setH5PContentPrivate,
   signCapabilityToken,
 } from "./services/h5p-authoring-service.js";
 import {
@@ -230,6 +233,36 @@ async function issueEditorToken(
 }
 
 /**
+ * Token for viewing a private activity: its embed, parameters and download on
+ * the H5P service, which refuses them without one. Owners, collaborators and
+ * LibreTexts staff get one, the same people `getActivity` shows a private
+ * activity to. Public activities need no token, so none is issued.
+ */
+async function issueViewToken(
+  req: ZodReqWithUser<z.infer<typeof activityIDOnlySchema>>,
+  res: Response
+) {
+  try {
+    const activity = await Activity.findOne(
+      { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
+      { _id: 0, h5pContentID: 1, visibility: 1, createdBy: 1, collaborators: 1 }
+    ).lean();
+    if (!activity) return conductor404Err(res);
+    if (!activityViewerRole(activity, req.user)) return conductorErr(res, 403, "err8");
+    if (activity.visibility !== "private") return res.send({ err: false, token: null });
+
+    const { token, expiresAt } = await signCapabilityToken({
+      subject: req.user.decoded.uuid,
+      actions: ["view"],
+      contentId: activity.h5pContentID,
+    });
+    return res.send({ err: false, token, expiresAt, ttlSeconds: EDITOR_TOKEN_TTL_SECONDS });
+  } catch (err) {
+    return authoringFailure(res, err, "issueViewToken");
+  }
+}
+
+/**
  * Creates an activity at the first Save of a new one (authoring design,
  * section 4). Conductor allocates the H5P content id first, so the link
  * between Activity and content is Conductor's from the start, and returns an
@@ -285,6 +318,20 @@ async function createActivity(
 }
 
 /**
+ * Tells the H5P service whether the content is private. Never fails the
+ * caller: the hourly `reconcileH5PVisibility` job repairs a missed push, and
+ * failing an author's save over it would lose more than an hour of drift.
+ */
+async function pushContentVisibility(h5pContentID: number, visibility: ActivityInterface["visibility"]) {
+  if (!isAuthoringConfigured()) return;
+  try {
+    await setH5PContentPrivate(h5pContentID, visibility === "private");
+  } catch (err) {
+    log.warn({ err, h5pContentID, visibility }, "Could not push visibility to the H5P service; the reconcile will retry");
+  }
+}
+
+/**
  * Updates an activity's metadata, and, with `contentSaved`, records what the
  * H5P editor just saved. Owners, collaborators and LibreTexts staff may update.
  *
@@ -331,6 +378,11 @@ async function updateActivity(
         { activityID: req.params.activityID, actingAs: role, contentSaved: Boolean(saved) },
         "Staff edited activity"
       );
+    }
+    // A first save leaves the content private on the H5P service, so the
+    // stored visibility goes with every save as well as every change.
+    if (updated && (req.body.visibility !== undefined || saved)) {
+      await pushContentVisibility(updated.h5pContentID, updated.visibility);
     }
     return res.send({ err: false, activity: updated });
   } catch (err) {
@@ -407,6 +459,29 @@ async function cleanupAbandonedActivities(_req: Request, res: Response) {
 }
 
 /**
+ * Hourly: sends the H5P service the full list of private activities' content
+ * ids, so its private flags match Conductor's visibility. Repairs a push
+ * `updateActivity` missed, and any drift after a Studio import re-run.
+ * Triggered externally with the LibreTexts API key, like the other jobs.
+ */
+async function reconcileH5PVisibility(_req: Request, res: Response) {
+  try {
+    const ids = (
+      await Activity.find({ orgID: process.env.ORG_ID, visibility: "private" }, { _id: 0, h5pContentID: 1 }).lean()
+    ).map((a) => a.h5pContentID);
+    const result = await replacePrivateH5PContent(ids);
+    // Unknown ids are activities whose first save has not happened yet.
+    log.info(
+      { private: ids.length, marked: result.marked, cleared: result.cleared, unknown: result.unknown.length },
+      "H5P visibility reconcile finished"
+    );
+    return res.send({ err: false, private: ids.length, ...result });
+  } catch (err) {
+    return authoringFailure(res, err, "reconcileH5PVisibility");
+  }
+}
+
+/**
  * Looks up ADAPT question ids for activities that lack one. Triggered
  * externally, hourly, like the cleanup. `?limit=` caps the batch, 500 at most.
  * Answers 404 outside production, the same as the other ADAPT endpoints.
@@ -433,9 +508,11 @@ export default {
   listActivitySubjects,
   issueNewActivityEditorToken,
   issueEditorToken,
+  issueViewToken,
   createActivity,
   updateActivity,
   deleteActivity,
   cleanupAbandonedActivities,
+  reconcileH5PVisibility,
   syncAdaptIDsJob,
 };

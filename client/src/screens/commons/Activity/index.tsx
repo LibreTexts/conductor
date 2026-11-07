@@ -46,8 +46,8 @@ import { getLanguageName } from "../../../utils/languageCodes";
 import {
   buildActivityAttribution,
   buildActivityEmbedCode,
-  getActivityEmbedURL,
   getActivityLicense,
+  getActivityPlayerURL,
   getContentTypeIcon,
   getContentTypeName,
 } from "../../../utils/activityHelpers";
@@ -228,12 +228,35 @@ const PublicActions = ({
   </div>
 );
 
+/**
+ * The activity in an iframe. A private activity's embed needs a `view` token,
+ * fetched once: the H5P service checks it when the page loads, so it may
+ * expire afterwards. Fetching a new one would change the src and reload the
+ * player mid-attempt.
+ */
 const Player = ({ activity, origin }: { activity: CommonsActivity; origin?: string }) => {
   const [loaded, setLoaded] = useState(false);
+  const isPrivate = activity.visibility === "private";
+  const { data: viewToken, isLoading: tokenLoading } = useQuery<string | null>({
+    queryKey: ["activity-view-token", activity.activityID],
+    queryFn: async () => (await api.getActivityViewToken(activity.activityID)).data.token,
+    enabled: isPrivate && Boolean(origin),
+    staleTime: Infinity,
+    cacheTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
   if (!origin) {
     return (
       <div className="flex aspect-video items-center justify-center rounded-md bg-neutral-100 p-6">
         <Text color="muted">The activity player is not available right now.</Text>
+      </div>
+    );
+  }
+  if (isPrivate && tokenLoading) {
+    return (
+      <div className="flex aspect-video items-center justify-center rounded-md bg-neutral-100">
+        <Spinner size="lg" text="Loading activity" />
       </div>
     );
   }
@@ -245,7 +268,7 @@ const Player = ({ activity, origin }: { activity: CommonsActivity; origin?: stri
         </div>
       )}
       <iframe
-        src={getActivityEmbedURL(origin, activity.h5pContentID)}
+        src={getActivityPlayerURL(origin, activity.h5pContentID, isPrivate ? viewToken : null)}
         title={`${activity.title} (interactive activity)`}
         className="block w-full rounded-md border-0"
         style={{ minHeight: 450 }}

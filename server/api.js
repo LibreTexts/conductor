@@ -1191,6 +1191,11 @@ router
   .route("/activities/automation/adapt-ids")
   .put(middleware.checkLibreAPIKey, activityAuthoringAPI.syncAdaptIDsJob);
 
+// Hourly, triggered externally. Makes the H5P service's private flags match.
+router
+  .route("/activities/automation/h5p-visibility")
+  .put(middleware.checkLibreAPIKey, activityAuthoringAPI.reconcileH5PVisibility);
+
 router
   .route("/activities/:activityID")
   .patch(
@@ -1237,6 +1242,16 @@ router
     authAPI.getUserAttributes,
     middleware.validateZod(activityValidators.activityIDOnlySchema),
     activityAuthoringAPI.issueEditorToken
+  );
+
+// Opens a private activity's embed on the H5P service. See issueViewToken.
+router
+  .route("/activities/:activityID/view-token")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.activityIDOnlySchema),
+    activityAuthoringAPI.issueViewToken
   );
 
 // The signed-in user's own activities, for My H5P.

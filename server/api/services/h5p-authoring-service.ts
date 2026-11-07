@@ -37,7 +37,12 @@ const SERVICE_SUBJECT = "conductor-service";
 
 const SERVICE_TIMEOUT_MS = 10_000;
 
-export type CapabilityAction = "edit" | "create" | "delete" | "allocate";
+/**
+ * `view` reads one private activity's embed, parameters and download.
+ * `visibility` marks content private or public: with a content id, that
+ * content alone; without, the full private set (the reconcile job).
+ */
+export type CapabilityAction = "edit" | "create" | "delete" | "allocate" | "view" | "visibility";
 
 export class AuthoringNotConfiguredError extends Error {}
 
@@ -109,7 +114,13 @@ export async function signCapabilityToken(params: {
   return { token, expiresAt: new Date((now + ttl) * 1000), tokenId };
 }
 
-async function callService(method: string, path: string, actions: CapabilityAction[], contentId?: number) {
+async function callService(
+  method: string,
+  path: string,
+  actions: CapabilityAction[],
+  contentId?: number,
+  json?: unknown
+) {
   const { token, tokenId } = await signCapabilityToken({
     subject: SERVICE_SUBJECT,
     actions,
@@ -119,7 +130,11 @@ async function callService(method: string, path: string, actions: CapabilityActi
   try {
     const res = await fetch(`${serviceUrl()}${path}`, {
       method,
-      headers: { authorization: `Bearer ${token}` },
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(json !== undefined ? { "content-type": "application/json" } : {}),
+      },
+      ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
       signal: AbortSignal.timeout(SERVICE_TIMEOUT_MS),
     });
     return { res, tokenId };
@@ -156,4 +171,55 @@ export async function deleteH5PContent(contentId: number): Promise<"deleted" | "
   }
   if (res.status === 404) return "absent";
   throw new H5PServiceError(`delete returned ${res.status}`, res.status);
+}
+
+/**
+ * Tells the H5P service whether an activity's content is private, so its
+ * embed, parameters and download need a `view` token. A 404 counts as done:
+ * content not saved yet starts private there, and this is sent again with
+ * the first save.
+ */
+export async function setH5PContentPrivate(
+  contentId: number,
+  isPrivate: boolean
+): Promise<"updated" | "absent"> {
+  const { res, tokenId } = await callService(
+    "PUT",
+    `/h5p/service/content/${contentId}/visibility`,
+    ["visibility"],
+    contentId,
+    { private: isPrivate }
+  );
+  if (res.status === 204) {
+    log.info({ contentId, private: isPrivate, jti: tokenId }, "Set H5P content visibility");
+    return "updated";
+  }
+  if (res.status === 404) return "absent";
+  throw new H5PServiceError(`visibility returned ${res.status}`, res.status);
+}
+
+/**
+ * Makes `contentIds` the complete set of private content on the H5P service,
+ * clearing the flag everywhere else. Repairs any push `setH5PContentPrivate`
+ * missed.
+ */
+export async function replacePrivateH5PContent(
+  contentIds: number[]
+): Promise<{ marked: number; cleared: number; unknown: string[] }> {
+  const { res, tokenId } = await callService(
+    "PUT",
+    "/h5p/service/private-content",
+    ["visibility"],
+    undefined,
+    { contentIds }
+  );
+  const body: any = await res.json().catch(() => ({}));
+  if (res.status !== 200 || typeof body?.marked !== "number" || typeof body?.cleared !== "number") {
+    throw new H5PServiceError(`private-content returned ${res.status}`, res.status);
+  }
+  log.info(
+    { requested: contentIds.length, marked: body.marked, cleared: body.cleared, jti: tokenId },
+    "Replaced the private H5P content set"
+  );
+  return { marked: body.marked, cleared: body.cleared, unknown: Array.isArray(body.unknown) ? body.unknown : [] };
 }
