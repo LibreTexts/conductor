@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useHistory, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDocumentTitle, useMediaQuery } from "usehooks-ts";
@@ -23,7 +23,7 @@ import {
   Textarea,
   VisuallyHidden,
 } from "@libretexts/davis-react";
-import { IconAlertTriangle, IconDeviceFloppy, IconExternalLink, IconLink, IconLock, IconTrash, IconWorld } from "@tabler/icons-react";
+import { IconAlertTriangle, IconDeviceFloppy, IconDownload, IconExternalLink, IconLink, IconLock, IconTrash, IconWorld } from "@tabler/icons-react";
 import api from "../../../api";
 import CopyFieldButton from "../../../components/util/CopyFieldButton";
 import useClientConfig from "../../../hooks/useClientConfig";
@@ -38,7 +38,14 @@ import {
   EditableActivity,
 } from "../../../types";
 import languageCodes from "../../../utils/languageCodes";
-import { buildActivityAttribution, getActivityLicense } from "../../../utils/activityHelpers";
+import {
+  buildActivityAttribution,
+  buildActivityEmbedCode,
+  getActivityDownloadURL,
+  getActivityLicense,
+  interactivePath,
+} from "../../../utils/activityHelpers";
+import { getCommonsBaseURL } from "../../../utils/misc";
 import { useTypedSelector } from "../../../state/hooks";
 import { EditorSaveError, useEditorBridge } from "./useEditorBridge";
 import CollaboratorsField from "./CollaboratorsField";
@@ -198,14 +205,17 @@ const SubjectsField = ({
   </div>
 );
 
-/** A read-only ID with a Copy button. Spaced for a `divide-y` list of IDs. */
-const CopyIDField = ({ label, value }: { label: string; value: string }) => (
+/**
+ * A read-only ID with a Copy button. Spaced for a `divide-y` list of IDs.
+ * `truncate` cuts a long value to one line; Copy still copies all of it.
+ */
+const CopyIDField = ({ label, value, truncate = false }: { label: string; value: string; truncate?: boolean }) => (
   <div className="py-3 first:pt-0 last:pb-0">
     <div className="flex items-center justify-between gap-2">
       <Text weight="bold" size="base">{label}</Text>
       <CopyFieldButton value={value} label={label} />
     </div>
-    <Text as="p" size="sm" className="font-mono break-all">
+    <Text as="p" size="sm" className={truncate ? "font-mono truncate" : "font-mono break-all"}>
       {value}
     </Text>
   </div>
@@ -660,15 +670,76 @@ const EditH5P = () => {
     </div>
   );
 
-  // A new activity has no record to show until its first save.
-  const idsCard = data ? (
-    <Card padding="sm">
-      <div className="flex flex-col divide-y divide-neutral-200">
-        <CopyIDField label="H5P ID" value={String(data.activity.h5pContentID)} />
-        {data.activity.adaptID && <CopyIDField label="ADAPT ID" value={data.activity.adaptID} />}
-      </div>
-    </Card>
+  // A new activity has no record to show until its first save. Sharing reads
+  // the saved visibility, not the form, so an unsaved change offers nothing
+  // that would not work yet.
+  const savedVisibility = data?.activity.visibilityLevel;
+  const shareOrigin =
+    data && !data.activity.pendingFirstSave && savedVisibility !== "private" ? editorOrigin : undefined;
+  const idRows = data ? (
+    <>
+      <CopyIDField label="H5P ID" value={String(data.activity.h5pContentID)} />
+      {data.activity.adaptID && <CopyIDField label="ADAPT ID" value={data.activity.adaptID} />}
+    </>
   ) : null;
+  const shareRows = data ? (
+    shareOrigin ? (
+      <>
+        <CopyIDField
+          label="Embed Code"
+          truncate
+          value={buildActivityEmbedCode(shareOrigin, data.activity.h5pContentID, data.activity.title)}
+        />
+        <div className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0">
+          {savedVisibility === "public" ? (
+            <Button
+              as="a"
+              href={`${getCommonsBaseURL(clientConfig)}${interactivePath(data.activity.activityID)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="outline"
+              fullWidth
+              icon={<IconExternalLink size={18} />}
+            >
+              View on Commons
+              <VisuallyHidden> (opens in new tab)</VisuallyHidden>
+            </Button>
+          ) : (
+            <Text as="p" size="sm" color="muted">
+              Unlisted activities aren't listed on Commons. Make it Public and save to link to its Commons page.
+            </Text>
+          )}
+          {/* The package comes from h5p-service, a different origin, where
+              browsers ignore the download attribute. A new tab keeps the
+              editor open if the response is not an attachment. */}
+          <Button
+            as="a"
+            href={getActivityDownloadURL(shareOrigin, data.activity.h5pContentID)}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="outline"
+            fullWidth
+            icon={<IconDownload size={18} />}
+          >
+            Download .h5p
+            <VisuallyHidden> (opens in new tab)</VisuallyHidden>
+          </Button>
+        </div>
+      </>
+    ) : (
+      <Text as="p" size="sm" color="muted" className="py-3 first:pt-0 last:pb-0">
+        {data.activity.pendingFirstSave
+          ? "Save this activity to get its embed code and .h5p download."
+          : "Make this activity Unlisted or Public and save to get its embed code and .h5p download."}
+      </Text>
+    )
+  ) : null;
+  const rowsCard = (rows: ReactNode) =>
+    rows ? (
+      <Card padding="sm">
+        <div className="flex flex-col divide-y divide-neutral-200">{rows}</div>
+      </Card>
+    ) : null;
 
   const sharingFields = (
     <div className="flex flex-col gap-6">
@@ -846,7 +917,12 @@ const EditH5P = () => {
               </Card>
             ) : (
               <>
-                {idsCard}
+                {rowsCard(
+                  <>
+                    {idRows}
+                    {shareRows}
+                  </>
+                )}
                 <Card padding="sm">
                   <Accordion>
                     {section("details", "Details", metadataSummary.details, detailsFields, true)}
@@ -921,13 +997,14 @@ const EditH5P = () => {
         {displayOptionsCard}
       </div>
       <div id="edit-panel-details" role="tabpanel" aria-labelledby="edit-tab-details" hidden={tab !== "details"} className="flex flex-col gap-4 px-4">
-        {idsCard}
+        {rowsCard(idRows)}
         <Card padding="sm">{detailsFields}</Card>
         <Card padding="sm">
           <Accordion>{section("license", "License and attribution", metadataSummary.license, licenseFields)}</Accordion>
         </Card>
       </div>
       <div id="edit-panel-sharing" role="tabpanel" aria-labelledby="edit-tab-sharing" hidden={tab !== "sharing"} className="flex flex-col gap-4 px-4">
+        {rowsCard(shareRows)}
         <Card padding="sm">{sharingFields}</Card>
       </div>
       <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t border-neutral-200 bg-white px-4 py-3">

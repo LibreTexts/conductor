@@ -3,6 +3,7 @@ import {
   Author,
   Book,
   CommonsModule,
+  ClientConfig,
   CommonsModuleSettings,
   ConductorSearchResponseFile,
   GenericKeyTextValueObj,
@@ -401,3 +402,7 @@ export const checkIsUUID = (str?: string | null) => {
   const isUUID = parsed.success;
   return isUUID;
 };
+/** The main Commons origin, without a trailing slash. */
+export function getCommonsBaseURL(clientConfig?: Pick<ClientConfig, "main_commons_url"> | null): string {
+  return (clientConfig?.main_commons_url || "https://commons.libretexts.org").replace(/\/+$/, "");
+}

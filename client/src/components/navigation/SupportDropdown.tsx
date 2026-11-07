@@ -1,4 +1,5 @@
 import useClientConfig from "../../hooks/useClientConfig";
+import { getCommonsBaseURL } from "../../utils/misc";
 import { Menu, MenuItemProps } from "@libretexts/davis-react";
 
 interface SupportDropdownProps { }
@@ -10,7 +11,7 @@ const SupportDropdown: React.FC<SupportDropdownProps> = () => {
         {
             children: "Insight - Knowledge Base",
             onClick() {
-                window.open(`${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/insight`, "_blank", "noopener,noreferrer");
+                window.open(`${getCommonsBaseURL(clientConfig)}/insight`, "_blank", "noopener,noreferrer");
             },
         },
         {
@@ -22,7 +23,7 @@ const SupportDropdown: React.FC<SupportDropdownProps> = () => {
         {
             children: "Contact Support",
             onClick() {
-                window.open(`${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/support/contact`, "_blank", "noopener,noreferrer");
+                window.open(`${getCommonsBaseURL(clientConfig)}/support/contact`, "_blank", "noopener,noreferrer");
             },
         },
     ]

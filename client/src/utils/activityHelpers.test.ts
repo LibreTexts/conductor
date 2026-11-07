@@ -3,6 +3,7 @@ import { IconBox, IconPlayerPlay } from "@tabler/icons-react";
 import {
   buildActivityAttribution,
   buildActivityEmbedCode,
+  getActivityDownloadURL,
   getActivityEmbedURL,
   getActivityLicense,
   getContentTypeIcon,
@@ -73,5 +74,11 @@ describe("embed code", () => {
     expect(code).toContain('src="https://studio.libretexts.org/h5p/31483/embed"');
     expect(code).toContain('title="Say &quot;hi&quot; &amp; &lt;go>"');
     expect(code).toContain('src="https://studio.libretexts.org/h5p/core/js/h5p-resizer.js"');
+  });
+
+  it("points downloads at h5p-service's package route", () => {
+    expect(getActivityDownloadURL("https://studio.libretexts.org/", 31483)).toBe(
+      "https://studio.libretexts.org/h5p/download/31483"
+    );
   });
 });

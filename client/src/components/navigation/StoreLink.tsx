@@ -1,11 +1,12 @@
 import useClientConfig from "../../hooks/useClientConfig";
+import { getCommonsBaseURL } from "../../utils/misc";
 import { Link } from "@libretexts/davis-react";
 
 const StoreLink = () => {
   const { clientConfig } = useClientConfig();
   return (
     <Link
-      href={`${clientConfig?.main_commons_url || "https://commons.libretexts.org"}/store`}
+      href={`${getCommonsBaseURL(clientConfig)}/store`}
       target="_blank"
       rel="noopener noreferrer"
       external

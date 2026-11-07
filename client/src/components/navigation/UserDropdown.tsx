@@ -1,6 +1,7 @@
 import AuthHelper from "../util/AuthHelper";
 import { useTypedSelector } from "../../state/hooks";
 import useClientConfig from "../../hooks/useClientConfig";
+import { getCommonsBaseURL } from "../../utils/misc";
 import { Avatar, Menu, Stack, Text } from "@libretexts/davis-react";
 import { IconLock, IconLogout, IconTicket, IconUser } from "@tabler/icons-react";
 
@@ -16,7 +17,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   const user = useTypedSelector((state) => state.user);
   const { clientConfig } = useClientConfig();
   const centralIdentityBaseUrl = clientConfig?.central_identity_base_url || "";
-  const mainCommonsUrl = clientConfig?.main_commons_url || "https://commons.libretexts.org";
+  const mainCommonsUrl = getCommonsBaseURL(clientConfig);
 
   return (
     <Menu>

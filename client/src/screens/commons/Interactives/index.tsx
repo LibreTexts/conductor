@@ -26,7 +26,7 @@ import {
 import api from "../../../api";
 import AccessibleDataTable from "../../../components/commons/AccessibleDataTable";
 import { CommonsActivitiesParams, CommonsActivitySummary } from "../../../types";
-import { getContentTypeIcon, getContentTypeName, toPlainText } from "../../../utils/activityHelpers";
+import { getContentTypeIcon, getContentTypeName, interactivePath, toPlainText } from "../../../utils/activityHelpers";
 import ActivityCardDetails from "../../../components/commons/ActivityCardDetails";
 import { truncateString } from "../../../components/util/HelperFunctions.js";
 
@@ -44,8 +44,6 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 function sortDirectionFor(sort: SortKey): CommonsActivitiesParams["sortDirection"] {
   return sort === "title" ? "ascending" : "descending";
 }
-
-export const interactivePath = (activityID: string) => `/interactive/${activityID}`;
 
 /**
  * Commons listing of H5P activities in the public catalog. Each card opens the

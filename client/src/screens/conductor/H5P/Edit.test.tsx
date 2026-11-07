@@ -181,7 +181,7 @@ describe("Edit H5P", () => {
     fromEditor(iframe, { type: "ready", mode: "edit" });
     await waitFor(() => expect(api.getActivityEditorToken).toHaveBeenCalledWith("101"));
     expect(screen.getByText("Published")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete H5P" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete H5P activity" })).toBeInTheDocument();
     // The License section starts collapsed, as in the design.
     await userEvent.click(screen.getByRole("button", { name: /License and attribution/ }));
     expect(await screen.findByText(/Regulations on Fintech by Sophie K, is shared under a CC BY 4.0 license/)).toBeInTheDocument();
@@ -198,7 +198,7 @@ describe("Edit H5P", () => {
     api.getActivityForEditing.mockResolvedValue(editable("collaborator"));
     renderAt("/h5p/101/edit");
     await screen.findByTitle("H5P editor");
-    expect(screen.queryByRole("button", { name: "Delete H5P" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete H5P activity" })).toBeNull();
   });
 
   it("tells staff they edit with staff access and offers no delete", async () => {
@@ -207,7 +207,7 @@ describe("Edit H5P", () => {
     renderAt("/h5p/101/edit");
     await screen.findByTitle("H5P editor");
     expect(screen.getByText(/because you have LibreTexts staff access/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete H5P" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete H5P activity" })).toBeNull();
   });
 
   it("shows no staff notice to the owner", async () => {
@@ -335,6 +335,52 @@ describe("Edit H5P", () => {
     renderAt("/h5p/101/edit");
     expect(await screen.findByRole("button", { name: "Copy ADAPT ID" })).toBeInTheDocument();
     expect(screen.getByText("98765")).toBeInTheDocument();
+  });
+
+  // Distinct IDs, so a test fails if a link uses the wrong one: Commons pages
+  // key on activityID, h5p-service URLs on h5pContentID.
+  const shared = (overrides: Record<string, unknown> = {}) => {
+    const record = editable("owner");
+    record.data.activity = { ...record.data.activity, activityID: "abc123", h5pContentID: 31483, ...overrides } as typeof record.data.activity;
+    return record;
+  };
+
+  it("offers embed code, the Commons page and the .h5p download for a public activity", async () => {
+    api.getActivityForEditing.mockResolvedValue(shared());
+    renderAt("/h5p/abc123/edit");
+    expect(await screen.findByRole("button", { name: "Copy Embed Code" })).toBeInTheDocument();
+    expect(screen.getByText((text) => text.includes(`src="${EDITOR}/h5p/31483/embed"`))).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /View on Commons/ })).toHaveAttribute(
+      "href",
+      "https://commons.libretexts.org/interactive/abc123"
+    );
+    const download = screen.getByRole("link", { name: /Download \.h5p/ });
+    expect(download).toHaveAttribute("href", `${EDITOR}/h5p/download/31483`);
+    expect(download).toHaveAttribute("target", "_blank");
+  });
+
+  it("offers embed code and download but no Commons link for an unlisted activity", async () => {
+    api.getActivityForEditing.mockResolvedValue(shared({ visibilityLevel: "unlisted" }));
+    renderAt("/h5p/abc123/edit");
+    expect(await screen.findByRole("button", { name: "Copy Embed Code" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Download \.h5p/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /View on Commons/ })).toBeNull();
+  });
+
+  it("offers no sharing for a private activity, or one that has never been saved", async () => {
+    const cases: [Record<string, unknown>, RegExp][] = [
+      [{ visibilityLevel: "private" }, /Make this activity Unlisted or Public and save/],
+      [{ pendingFirstSave: true }, /Save this activity to get its embed code/],
+    ];
+    for (const [overrides, hint] of cases) {
+      api.getActivityForEditing.mockResolvedValue(shared(overrides));
+      const { unmount } = renderAt("/h5p/abc123/edit");
+      expect(await screen.findByRole("button", { name: "Copy H5P ID" })).toBeInTheDocument();
+      expect(screen.getByText(hint)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Copy Embed Code" })).toBeNull();
+      expect(screen.queryByRole("link", { name: /Download \.h5p/ })).toBeNull();
+      unmount();
+    }
   });
 
   it("offers Copy on the attribution preview", async () => {

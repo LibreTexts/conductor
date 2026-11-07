@@ -1,6 +1,6 @@
 import { useTypedSelector } from "../../state/hooks";
 import { SupportTicket } from "../../types";
-import { camelCaseToSpaces } from "../../utils/misc";
+import { camelCaseToSpaces, getCommonsBaseURL } from "../../utils/misc";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../../api";
 import { useNotifications } from "../../context/NotificationContext";
@@ -19,8 +19,7 @@ const TicketMetadata: React.FC<TicketMetadataProps> = ({ ticket }) => {
   const { addNotification } = useNotifications();
   const { clientConfig } = useClientConfig();
   const projectID = ticket?.metadata?.projectID as string | undefined;
-  const commonsURL =
-    clientConfig?.main_commons_url || "https://commons.libretexts.org";
+  const commonsURL = getCommonsBaseURL(clientConfig);
 
   const createProjectMutation = useMutation({
     mutationFn: async () => {

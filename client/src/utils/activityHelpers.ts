@@ -189,12 +189,23 @@ export function buildActivityAttribution(
   return sentence;
 }
 
+/** Path of an activity's page on Commons. */
+export const interactivePath = (activityID: string) => `/interactive/${activityID}`;
+
 /**
  * The URL h5p-service serves an activity's embed page at. This shape is a
  * public contract that published textbooks and ADAPT depend on.
  */
 export function getActivityEmbedURL(origin: string, h5pContentID: number): string {
   return `${origin.replace(/\/+$/, "")}/h5p/${h5pContentID}/embed`;
+}
+
+/**
+ * Where h5p-service serves an activity as a .h5p package: the Lumi ajax
+ * router's default `/download` route, mounted under `/h5p`.
+ */
+export function getActivityDownloadURL(origin: string, h5pContentID: number): string {
+  return `${origin.replace(/\/+$/, "")}/h5p/download/${h5pContentID}`;
 }
 
 /**
