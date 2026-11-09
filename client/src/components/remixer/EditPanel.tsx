@@ -15,6 +15,7 @@ import {
   isRemixerBookRoot,
   joinPrefixAndIndex,
   sanitizeRemixerPageTitle,
+  stripReservedPathChars,
   toEditableRemixerTitle,
 } from "./services";
 
@@ -234,7 +235,12 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                   onChange={(e) =>
                     setPage((prev) =>
                       prev
-                        ? { ...prev, formattedPathPrefix: e.target.value }
+                        ? {
+                            ...prev,
+                            formattedPathPrefix: stripReservedPathChars(
+                              e.target.value,
+                            ),
+                          }
                         : prev,
                     )
                   }
@@ -255,7 +261,12 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                   onChange={(e) =>
                     setPage((prev) =>
                       prev
-                        ? { ...prev, formattedPathIndex: e.target.value }
+                        ? {
+                            ...prev,
+                            formattedPathIndex: stripReservedPathChars(
+                              e.target.value,
+                            ),
+                          }
                         : prev,
                     )
                   }

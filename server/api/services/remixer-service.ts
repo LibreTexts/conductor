@@ -14,6 +14,8 @@ import {
 } from "../../util/librariesclient";
 import MindTouch from "../../util/CXOne/index.js";
 import {
+  assertLibraryPagePath,
+  bookRootPathSegment,
   buildRemixerPagePathSegment,
   extractLibretextsSubdomain,
   extractPagePath,
@@ -826,6 +828,7 @@ const handleNewPage = async (
     }
   })();
   const rawPath = `${parentPath}/${segment}`;
+  assertLibraryPagePath(rawPath);
   // MindTouch pages/=<path> requires the content path to be double-encoded:
   // the HTTP server decodes once, then the DekiWiki router decodes again.
   const pathEnc = encodeURIComponent(encodeURIComponent(rawPath));
@@ -877,10 +880,7 @@ const remixerPagePaddedSlug = (
 ): string => {
   const rawTitle = page["@title"] || page.title || displayTitle;
   if (isBookRoot) {
-    return rawTitle
-      .toLowerCase()
-      .replace(/ /g, "-")
-      .replace(/[\:\.\-]/g, "_");
+    return bookRootPathSegment(rawTitle);
   }
   return buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
 };
@@ -998,6 +998,7 @@ const handleModifiedPage = async (
       extractPagePath(await resolveUiUri(parent!, subdomain)),
     );
     const newPathRaw = `${parentPath}/${leaf}`;
+    assertLibraryPagePath(newPathRaw);
     const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
     moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
   } else if (isRenamed && !isMoved) {
@@ -1011,6 +1012,7 @@ const handleModifiedPage = async (
     );
     const padded = remixerPagePaddedSlug(page, title, isBookRoot);
     const newPathRaw = `${parentPath}/${padded}`;
+    assertLibraryPagePath(newPathRaw);
     const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
     moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
   } else {

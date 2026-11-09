@@ -158,6 +158,17 @@ export const sanitizeRemixerPageTitle = (
 };
 
 /**
+ * Characters that make MindTouch switch a page URL to its `?title=` query
+ * form, or that are path/query syntax outright. Mirrors the server's
+ * `RESERVED_PATH_SEGMENT_CHARS` in `server/util/remixerutils.ts`.
+ */
+const RESERVED_PATH_SEGMENT_CHARS = /[&?#%+/\\"'<>|{}^[\]`]/g;
+
+/** Drops URL-reserved characters from a path field (formatted-path prefix/index). */
+export const stripReservedPathChars = (value: string): string =>
+  value.replace(RESERVED_PATH_SEGMENT_CHARS, "");
+
+/**
  * Canonical editable form of a stored title: the autonumber prefix is removed
  * (numbering is re-applied at render time by `getRemixerDisplayTitle`) and any
  * remaining colons are hyphenated.
