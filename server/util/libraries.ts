@@ -9,7 +9,7 @@ const libraries = [
     { key: 'human',     text: 'Humanities',     value: 'human' },
     { key: 'k12',       text: 'K12 Education',  value: 'k12'},
     { key: 'math',      text: 'Mathematics',    value: 'math' },
-    { key: 'med',       text: 'Medicine',       value: 'med' },
+    { key: 'med',       text: 'Health',       value: 'med' },
     { key: 'phys',      text: 'Physics',        value: 'phys' },
     { key: 'socialsci', text: 'Social Science', value: 'socialsci' },
     { key: 'stats',     text: 'Statistics',     value: 'stats' },
