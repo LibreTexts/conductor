@@ -315,7 +315,7 @@ export function describeLimits(limits: LibrarySyncLimits): string {
  * request is issued and the in-flight ones unwind through their callers, so an
  * abandoned run stops walking instead of grinding on unwatched.
  */
-function createThrottle(intervalMs: number, signal?: AbortSignal) {
+export function createThrottle(intervalMs: number, signal?: AbortSignal) {
   let nextStart = 0;
   return async <T>(task: () => Promise<T>): Promise<T> => {
     signal?.throwIfAborted();

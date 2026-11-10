@@ -133,6 +133,95 @@ const hasMeaningfulRemainder = ($: cheerio.CheerioAPI): boolean => {
 };
 
 /**
+ * One content-reuse reference found in a page body. Unlike {@link TranscludeStub}
+ * this describes *any* reuse block, including sections embedded in an authored
+ * page, so `section` is set when only part of the source page is pulled in.
+ */
+export type ReuseRef =
+  | { kind: "cross-library"; subdomain: string; pageID: number }
+  | { kind: "same-library"; path: string; section?: string };
+
+const CROSS_TRANSCLUDE_SOURCE_RE_GLOBAL = new RegExp(
+  CROSS_TRANSCLUDE_SOURCE_RE.source,
+  "gi",
+);
+
+/**
+ * Every `wiki.page("path"[, NULL | "section"])` call — captures the path
+ * (group 1) and, when the second argument is a string, the section (group 2).
+ */
+const WIKI_PAGE_CALL_RE_GLOBAL =
+  /wiki\.page\s*\(\s*(?:["']|&quot;)([^"'&]+)(?:["']|&quot;)\s*(?:,\s*(?:NULL|(?:["']|&quot;)([^"'&]*)(?:["']|&quot;)))?/gi;
+
+const reuseRefKey = (ref: ReuseRef): string =>
+  ref.kind === "cross-library"
+    ? `x:${ref.subdomain}:${ref.pageID}`
+    : `s:${ref.path}#${ref.section ?? ""}`;
+
+/**
+ * Lists every reuse reference in a page body, in document order, without
+ * duplicates. Where {@link detectTranscludeStub} answers "is this page only a
+ * pointer?", this answers "what does this page pull in?", which is what the
+ * provenance graph records as edges, whether the page is a stub or an authored
+ * page embedding shared blocks.
+ *
+ * Only markup the parser sees as live is counted: a reuse block inside an HTML
+ * comment is not content and is ignored.
+ */
+export const extractReuseRefs = (rawContents: string): ReuseRef[] => {
+  const html = unwrapPageBody(rawContents);
+  if (!html.trim()) return [];
+
+  const $ = cheerio.load(html, null, false);
+  const refs: ReuseRef[] = [];
+  const seen = new Set<string>();
+  const add = (ref: ReuseRef) => {
+    const key = reuseRefKey(ref);
+    if (seen.has(key)) return;
+    seen.add(key);
+    refs.push(ref);
+  };
+
+  $("div.mt-contentreuse-widget").each((_, el) => {
+    const node = $(el);
+    const page = (node.attr("data-page") ?? "").trim();
+    if (!page) return;
+    const section = (node.attr("data-section") ?? "").trim();
+    add({
+      kind: "same-library",
+      path: safeDecodePath(page),
+      ...(section ? { section } : {}),
+    });
+  });
+
+  $("pre.script").each((_, el) => {
+    const node = $(el);
+    // A widget carries its own wiki.page() script; the widget pass counted it.
+    if (node.closest("div.mt-contentreuse-widget").length > 0) return;
+    const script = node.text() ?? "";
+
+    for (const match of script.matchAll(CROSS_TRANSCLUDE_SOURCE_RE_GLOBAL)) {
+      const pageID = parseInt(match[2], 10);
+      if (match[1] && !Number.isNaN(pageID)) {
+        add({ kind: "cross-library", subdomain: match[1], pageID });
+      }
+    }
+
+    for (const match of script.matchAll(WIKI_PAGE_CALL_RE_GLOBAL)) {
+      if (!match[1]) continue;
+      const section = (match[2] ?? "").trim();
+      add({
+        kind: "same-library",
+        path: safeDecodePath(match[1]),
+        ...(section ? { section } : {}),
+      });
+    }
+  });
+
+  return refs;
+};
+
+/**
  * Returns a stub descriptor iff the body is *nothing but* transclusion
  * machinery. Any authored content alongside the pointer, or a reuse widget that
  * names a section, means the page owns its content and is its own source.

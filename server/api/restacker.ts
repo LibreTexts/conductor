@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import BookService from "./services/book-service";
 import Restacker from "../models/restacker";
 import RestackerService, { type RestackerRefreshMode } from "../util/Restackerutil";
+import { syncBookStructureFromToc } from "./services/provenance-capture-service.js";
 const LICENSES_WITHOUT_VERSION = new Set(["publicdomain", "arr", "ck12"]);
 
 type RestackerLicenseLike = { label: string; raw: string; version?: string };
@@ -342,6 +343,10 @@ const getRestackerToc = async (
     // Project-gated: the restacker lists and relicenses a book's own pages, so it
     // reads every page, hidden ones included.
     const toc = await bookService.getBookTOCNew({ includeRestricted: true });
+    // Provenance: refresh the book's page structure from the TOC we already
+    // hold. Throttled per book and never throws; not awaited so it can't
+    // slow the response.
+    void syncBookStructureFromToc(project.libreLibrary, project.libreCoverID, toc);
     var restacker = await Restacker.findOne({ projectID: { $eq: projectID } });
     if (!restacker) {
       type RestackerPage = {

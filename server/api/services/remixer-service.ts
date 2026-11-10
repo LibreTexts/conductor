@@ -35,6 +35,11 @@ import BookService from "./book-service";
 import GlossaryService from "./glossary-service";
 import { importPageReferences } from "./references-service.js";
 import { rewriteCitationKeys } from "../../util/referenceCitations.js";
+import {
+  recordReuse,
+  syncBookStructure,
+  type RecordReuseParams,
+} from "./provenance-capture-service.js";
 import ExpertWithSSM from "../../util/ExpertWithSSM.js";
 import {
   ExpertError,
@@ -1604,13 +1609,41 @@ const handleImportedPage = async (
       .filter((tag) => !tag.startsWith("article:"));
 
     const shouldTransclude = copyModeState === "Transclude" && !hasChildren;
+    // What this import reuses, for the provenance graph. Recorded only once
+    // the page has fully imported, below.
+    let reuseRecord: Pick<RecordReuseParams, "source" | "type" | "via"> | null =
+      null;
     if (shouldTransclude) {
       await importReferencesFor(false);
+      // Every page the resolver walks through, in order, as `${lib}:${id}`.
+      const transcludeChain = new Set<string>();
       const resolvedSource = await resolveTranscludeSource({
         subdomain: sourceSubdomain,
         pageId: sourceId,
         fallbackUri: sourceUri,
+        visited: transcludeChain,
       });
+      const resolvedKey = `${resolvedSource.sourceSubdomain}:${resolvedSource.sourceId}`;
+      reuseRecord = {
+        source: {
+          lib: resolvedSource.sourceSubdomain,
+          pageID: resolvedSource.sourceId,
+          uri: resolvedSource.sourceUri,
+        },
+        type:
+          resolvedSource.sourceSubdomain === subdomain
+            ? "transclude-same"
+            : "transclude-cross",
+        // Stubs the content skips (the user picked B, a pointer at A),
+        // nearest the source first.
+        via: [...transcludeChain]
+          .filter((key) => key !== resolvedKey)
+          .reverse()
+          .map((key) => {
+            const [lib, id] = key.split(":");
+            return { lib, pageID: id };
+          }),
+      };
 
       if (resolvedSource.sourceSubdomain === subdomain) {
         const trimmedSourceUri = extractPagePath(resolvedSource.sourceUri);
@@ -1628,6 +1661,15 @@ const handleImportedPage = async (
       }
       postComment = "Remixer transclude";
     } else {
+      reuseRecord = {
+        source: {
+          lib: sourceSubdomain,
+          pageID: sourceId,
+          uri: sourceUri,
+          title: page["@title"] || page.title,
+        },
+        type: copyModeState === "Full" ? "full" : "fork",
+      };
       const htmlRes = await CXOneFetch({
         scope: "page",
         path: sourceId,
@@ -1812,6 +1854,23 @@ const handleImportedPage = async (
           `Glossary term import failed for imported page (source ${sourceId})`,
         );
       }
+    }
+
+    // Provenance: where this page's content comes from. Best-effort; it
+    // never throws, so it can't fail an import that already succeeded.
+    if (reuseRecord) {
+      await recordReuse({
+        ...reuseRecord,
+        origin: "remixer",
+        target: {
+          lib: subdomain,
+          pageID,
+          uri: pageURI,
+          title,
+          bookID: coverId ? `${subdomain}-${coverId}` : null,
+          parentID: parent["@id"],
+        },
+      });
     }
 
     return { pageID, pageURI, warnings };
@@ -2317,6 +2376,8 @@ const runRemixerJob = async ({
      * any later pass that writes to a page has to treat these as owned too.
      */
     const createdPageIDs = new Set<string>();
+    /** Pages this run deleted from the library, for the provenance graph. */
+    const deletedPageIDs: string[] = [];
 
     const adoptCreatedPageId = async (
       oldPageId: string,
@@ -2526,6 +2587,7 @@ const runRemixerJob = async ({
               () => handleDeletedPage(page, subdomain),
               { onRetry: logRetry },
             );
+            deletedPageIDs.push(page["@id"]);
             // Core matter pages are only deletable after an explicit
             // confirmation in the UI; leave an audit trail when one goes.
             const parent = byId.get(page.parentID ?? "");
@@ -2958,6 +3020,23 @@ const runRemixerJob = async ({
       copyModeState: remixerState.copyModeState,
       pathLevelFormats: remixerState.pathLevelFormats,
     });
+
+    // Provenance: one pass over the published book picks up every new,
+    // moved and renamed page, and marks deleted ones (breaking links onto
+    // them). Best-effort; it never throws.
+    if (coverId) {
+      await syncBookStructure({
+        lib: subdomain,
+        coverID: coverId,
+        pages: finalBook.map((entry) => ({
+          pageID: entry["@id"],
+          parentID: entry.parentID,
+          uri: entry["uri.ui"],
+          title: entry["@title"] || entry.title,
+        })),
+        deletedPageIDs,
+      });
+    }
 
     // Runs after every page exists so the default glossary scope covers the
     // whole published book (no-op when the book already has one).
