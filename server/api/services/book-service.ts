@@ -38,6 +38,7 @@ import {
   pageRestriction,
 } from "../../util/CXOne/page-restriction.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
+import { toCanonicalPageUrl } from "../../util/remixerutils.js";
 import LibraryService from "./library-service";
 
 export interface BookServiceParams {
@@ -388,15 +389,23 @@ export default class BookService {
 
   private _toRemixerSubPage(page: HierarchyPage): RemixerSubPage {
     const children = Array.isArray(page.subpages) ? page.subpages : [];
+    // Canonical (%-encoded pathname, never MindTouch's `?title=` form), the
+    // same rule the remixer applies to every URL it stores; see
+    // toCanonicalPageUrl. Pages whose path holds `&`, `%`, `?`… otherwise
+    // arrive here in query form.
+    const rawUiUri = page["uri.ui"] ?? page.url;
+    const uiUri = toCanonicalPageUrl(rawUiUri ?? "");
     return {
       "@id": String(page["@id"] ?? page.id ?? ""),
       "@title": page.title ?? "",
-      "@href": page["uri.ui"] ?? page.url ?? page["@href"] ?? "",
+      // Same fallback as before canonicalization: the API-form `@href` only
+      // when there is no UI URL at all, never in place of an empty one.
+      "@href": rawUiUri !== undefined ? uiUri : (page["@href"] ?? ""),
       "@subpages": children.length > 0,
       article: "article" in page && page.article ? String(page.article) : "",
       namespace: page.namespace ?? this._library,
       title: page.title ?? "",
-      "uri.ui": page["uri.ui"] ?? page.url ?? "",
+      "uri.ui": uiUri,
       parentID: page.parentID != null ? String(page.parentID) : "-1",
     };
   }

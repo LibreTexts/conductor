@@ -71,6 +71,8 @@ export const sanitizeRemixerUriEnding = (
     // Malformed percent-encoding (e.g. a lone "%") — fall through with the raw
     // value; the character class below drops whatever cannot be a path segment.
   }
+  // Same alphabet as the client's `sanitizeUriEnding`; `&` and `?` are left
+  // out for the reason given at RESERVED_PATH_SEGMENT_CHARS.
   const cleaned = decoded.replace(/[^A-Za-z0-9._~():-]/g, "");
   // `/` is already stripped, but a dots-only leaf ("." / "..") is still a
   // relative path segment; reject it rather than build a path around it.
@@ -105,8 +107,10 @@ export const buildRemixerPagePathSegment = (
   // pages that predate pathNumber; note they apply level `delimiter`/`excludeParent`
   // and, for formattedPath, the autoNumbering `start` offset, none of which belong
   // in a URL segment.
-  const numbering =
-    page.numberedPath?.trim() || page.formattedPath?.trim() || "";
+  // formattedPath can carry a user-typed override prefix; keep it URL-safe.
+  const numbering = stripReservedPathChars(
+    page.numberedPath?.trim() || page.formattedPath?.trim() || "",
+  );
   // An empty pathNumber marks the book root rather than "no numbering info",
   // so fall through to numbering instead of letting `[]` win as truthy. The
   // copy keeps the padding below from mutating the caller's stored array.
@@ -128,12 +132,113 @@ export const generatePagePath = (parent: string, title: string): string => {
   return encodeURIComponent(`${parent}/${slug}`);
 };
 
+/**
+ * Library path of a page URL, percent-encoded per segment like a normal
+ * `uri.ui` pathname (`Workbench/Book/00%3A_Front_Matter`).
+ *
+ * MindTouch reports a page whose path contains a URL-reserved character
+ * (e.g. `&`) in query form — `https://<lib>.libretexts.org/?title=<path>` —
+ * instead of as a pathname. Taking that string as-is yields a "path" of
+ * `?title=…`; pages moved or created under it land in a phantom top-level
+ * tree outside the book. Read the `title` value instead.
+ */
 export const extractPagePath = (pagePath: string): string => {
   const withoutHost = pagePath.replace(
     /^https?:\/\/[^/]*libretexts\.org\//i,
     "",
   );
-  return withoutHost;
+  const query = withoutHost.match(/^(?:index\.php)?\?(.*)$/i);
+  if (!query) return withoutHost;
+  const title = readQueryTitle(query[1]);
+  if (!title) return withoutHost;
+  return title.split("/").map(encodeURIComponent).join("/");
+};
+
+/**
+ * The `title` value of a query string, %-decoded only. Not URLSearchParams:
+ * that also turns `+` into a space, which would rename `C++_Programming` to
+ * `C  _Programming`. A malformed escape (a bare `%`) is kept as-is.
+ * Mirrored on the client by `readQueryTitle` in remixer/services.ts.
+ */
+const readQueryTitle = (query: string): string | null => {
+  const match = query.match(/(?:^|&)title=([^&]*)/i);
+  if (!match || !match[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+};
+
+/**
+ * The one rule for text that becomes part of a library page path, shared with
+ * the client (`RESERVED_PATH_SEGMENT_CHARS` in
+ * `client/src/components/remixer/services.ts`; keep the two identical).
+ *
+ * `&` and `?` are dropped: MindTouch serves any page whose path holds one only
+ * in its `?title=` query form, and even redirects the %-encoded pathname
+ * (`…/remixer_book_%26_test`) back to it (checked on dev). `/` and `\` split
+ * the path, `#` starts a fragment, `%` would be read as an escape when
+ * MindTouch decodes the double-encoded path, and the rest are not valid in a
+ * page name. `:` is kept: it is the numbering separator (`01:_Introduction`).
+ */
+const RESERVED_PATH_SEGMENT_CHARS = /[&?#%+/\\"'<>|{}^[\]`]/g;
+
+/** Drops the characters {@link RESERVED_PATH_SEGMENT_CHARS} rules out of a path. */
+export const stripReservedPathChars = (value: string): string =>
+  value.replace(RESERVED_PATH_SEGMENT_CHARS, "");
+
+/**
+ * URL segment for a book root (cover) page, from its title. The cover-slug
+ * style from master (lowercase, spaces → `-`, then `:` `.` `-` → `_`), with
+ * the reserved characters above dropped, so `Reading & Writing` becomes
+ * `reading__writing` and never a path MindTouch only serves as `?title=`.
+ */
+export const bookRootPathSegment = (title: string): string => {
+  const slug = stripReservedPathChars(
+    title
+      .toLowerCase()
+      .replace(/ /g, "-")
+      .replace(/[:.\-]/g, "_"),
+  );
+  return slug.length > 0 ? slug : "book";
+};
+
+/**
+ * The canonical form of a library page URL: a pathname with each segment
+ * %-encoded the way MindTouch encodes ordinary pages (`:` → `%3A`, and for
+ * existing pages whose path holds them, `&` → `%26`, `?` → `%3F`).
+ *
+ * MindTouch reports a page whose path contains `&` or `?` in query form
+ * (`https://<lib>.libretexts.org/?title=Workbench/a_&_b`). New paths never
+ * contain those characters (see RESERVED_PATH_SEGMENT_CHARS), but pages created
+ * elsewhere can, and storing their query form is what let `?title=` leak into
+ * new page paths, so every URL the remixer keeps goes through here. The
+ * pathname form still opens the page: MindTouch redirects it to the query form.
+ * Anything that is not a LibreTexts query-form URL (pathname URLs, API URLs,
+ * `#` placeholders) is returned as-is.
+ */
+export const toCanonicalPageUrl = (uri: string): string => {
+  if (typeof uri !== "string" || uri.length === 0) return uri;
+  const match = uri.match(/^(https?:\/\/[^/]*libretexts\.org)\/(?:index\.php)?\?/i);
+  if (!match) return uri;
+  const path = extractPagePath(uri);
+  // extractPagePath leaves the value unchanged when there is no usable title.
+  if (/^(?:index\.php)?\?/i.test(path)) return uri;
+  return `${match[1]}/${path}`;
+};
+
+/**
+ * Last line of defence before a move/create: a target path that still looks
+ * like a query-form URL would create a phantom `?title=…` tree in the library.
+ * Throws so the job fails on the first page instead of scattering the book.
+ */
+export const assertLibraryPagePath = (path: string): void => {
+  if (/^[/]*(?:index\.php)?\?/i.test(path) || /[?&]title=/i.test(path)) {
+    throw new Error(
+      `Refusing to write page to "${path}": it is a query-form URL, not a library path.`,
+    );
+  }
 };
 
 /** Subdomain label from a LibreTexts page URL (e.g. dev from https://dev.libretexts.org/...). */

@@ -15,6 +15,7 @@ import {
   isRemixerBookRoot,
   joinPrefixAndIndex,
   sanitizeRemixerPageTitle,
+  stripReservedPathChars,
   toEditableRemixerTitle,
 } from "./services";
 
@@ -42,8 +43,9 @@ function truncateMiddle(value: string, maxLen: number): string {
 }
 
 /**
- * Path-segment-safe characters only — no `/`, spaces, `?`, `#`, etc. Mirrors the
- * server's `sanitizeRemixerUriEnding`, which re-applies this on save.
+ * Path-segment-safe characters only — no `/`, spaces, `&`, `?`, `#`, `%`, etc.
+ * Mirrors the server's `sanitizeRemixerUriEnding`, which re-applies this on
+ * save.
  *
  * The override is stored as literal path text, matching what auto-numbering
  * produces (`01:_Introduction`, with a raw colon). `%` is excluded on purpose:
@@ -54,6 +56,8 @@ function truncateMiddle(value: string, maxLen: number): string {
  */
 function sanitizeUriEnding(value: string | undefined): string | undefined {
   if (!value) return undefined;
+  // Same alphabet as the server's `sanitizeRemixerUriEnding`; `&` and `?` are
+  // left out (see RESERVED_PATH_SEGMENT_CHARS in services.ts).
   const cleaned = decodeUriEndingLeaf(value).replace(
     /[^A-Za-z0-9._~():-]/g,
     "",
@@ -234,7 +238,12 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                   onChange={(e) =>
                     setPage((prev) =>
                       prev
-                        ? { ...prev, formattedPathPrefix: e.target.value }
+                        ? {
+                            ...prev,
+                            formattedPathPrefix: stripReservedPathChars(
+                              e.target.value,
+                            ),
+                          }
                         : prev,
                     )
                   }
@@ -255,7 +264,12 @@ const EditPanel: React.FC<EditPanelProps> = (props) => {
                   onChange={(e) =>
                     setPage((prev) =>
                       prev
-                        ? { ...prev, formattedPathIndex: e.target.value }
+                        ? {
+                            ...prev,
+                            formattedPathIndex: stripReservedPathChars(
+                              e.target.value,
+                            ),
+                          }
                         : prev,
                     )
                   }
