@@ -26,6 +26,11 @@ export const ReSyncProjectTeamBookAccessSchema = z.object({
   params: z.object({
     projectID: z.string().length(10),
   }),
+  body: z
+    .object({
+      cascade: z.enum(["delta", "absolute"]).optional(),
+    })
+    .optional(),
 });
 
 export const TrafficAnalyticsAggregationPeriodEnum = z.enum(['day', 'week', 'month', 'year']);

@@ -35,7 +35,7 @@ import { useTypedSelector } from "../../state/hooks";
 import { extractEmailDomain } from "../../utils/misc";
 import api from "../../api";
 import { useModals } from "../../context/ModalContext";
-import ConfirmModal from "../ConfirmModal";
+import ReSyncBookAccessModal, { ReSyncCascade } from "./ReSyncBookAccessModal";
 import { useNotifications } from "../../context/NotificationContext";
 import { Link } from "@libretexts/davis-react";
 import useProjectTeamLibraryAccess from "../../hooks/useProjectTeamLibraryAccess";
@@ -599,7 +599,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     }
   };
 
-  const submitReSyncAccess = async () => {
+  const submitReSyncAccess = async (cascade: ReSyncCascade) => {
     try {
       if (
         !project.libreCoverID ||
@@ -609,7 +609,10 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
 
       setLoading(true);
 
-      const res = await api.reSyncProjectTeamBookAccess(project.projectID);
+      const res = await api.reSyncProjectTeamBookAccess(
+        project.projectID,
+        cascade
+      );
       if (res.data.err) {
         handleGlobalError(res.data.errMsg);
         return;
@@ -636,14 +639,12 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
       return;
     }
     openModal(
-      <ConfirmModal
-        text="Are you sure you want to re-sync book access? Conductor handles this automatically, so this is only necessary if you are having issues with access."
-        onConfirm={() => {
+      <ReSyncBookAccessModal
+        canOverwriteSubpages={!!user.isSuperAdmin}
+        onConfirm={(cascade) => {
           closeAllModals();
-          submitReSyncAccess();
+          submitReSyncAccess(cascade);
         }}
-        confirmText="Re-Sync"
-        cancelText="Cancel"
         onCancel={closeAllModals}
       />
     );

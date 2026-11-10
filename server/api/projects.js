@@ -2271,6 +2271,18 @@ async function reSyncProjectTeamBookAccess(req, res){
       })
     }
 
+    // Absolute cascade wipes page-level grants on every subpage, so only LibreTexts superadmins may use it
+    const cascade = req.body?.cascade === 'absolute' ? 'absolute' : 'delta';
+    if (
+      cascade === 'absolute'
+      && !authAPI.checkHasRole(req.user, 'libretexts', 'superadmin', true, true)
+    ) {
+      return res.status(403).send({
+        err: true,
+        errMsg: conductorErrors.err8,
+      });
+    }
+
     // PUT user permissions for updated team if project is linked to a Workbench book
     if (project.libreLibrary && project.libreCoverID) {
       const subdomain = await getSubdomainFromLibrary(project.libreLibrary);
@@ -2278,7 +2290,18 @@ async function reSyncProjectTeamBookAccess(req, res){
         throw new Error("Invalid library");
       }
 
-      await updateTeamWorkbenchPermissions(projectID, subdomain, project.libreCoverID)
+      const updated = await updateTeamWorkbenchPermissions(
+        projectID,
+        subdomain,
+        project.libreCoverID,
+        cascade,
+      );
+      if (!updated) {
+        return res.status(500).send({
+          err: true,
+          errMsg: conductorErrors.err6,
+        });
+      }
     }
 
     return res.send({

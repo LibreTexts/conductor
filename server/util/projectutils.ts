@@ -29,7 +29,8 @@ import { sortXByOrderOfY } from "./assettaggingutils.js";
 import { AssetTagTemplateInterface } from "../models/assettagtemplate.js";
 import { CompleteMultipartUploadCommand, CreateMultipartUploadCommand, GetObjectAttributesCommand, GetObjectCommand, GetObjectCommandOutput, HeadObjectCommand, HeadObjectCommandOutput, PutObjectCommand, S3Client, S3ClientConfig, ServiceOutputTypes, UploadPartCommand } from "@aws-sdk/client-s3";
 import mailAPI from "../api/mail.js";
-import { CXOneFetch, getLibUsers, getLibreBotUserId } from "./librariesclient.js";
+import { getLibUsers, getLibreBotUserId } from "./librariesclient.js";
+import ExpertWithSSM from "./ExpertWithSSM.js";
 import MindTouch from "./CXOne/index.js";
 import { URLSearchParams } from "url";
 import { getFileExtensionFromMimeType } from "./exports.js";
@@ -1134,7 +1135,23 @@ export async function createZIPAndNotify(
   }
 }
 
-export async function updateTeamWorkbenchPermissions(projectID: string, subdomain: string, coverID: string) {
+/**
+ * Replaces the security grants on a Workbench book's cover page with the project's team.
+ *
+ * @param projectID - Project whose team should be granted access.
+ * @param subdomain - Library subdomain the book lives on.
+ * @param coverID - Cover page ID of the book.
+ * @param cascade - `delta` (default) applies only the changes to subpages. `absolute`
+ *   overwrites every subpage's security with the cover page's, discarding any
+ *   page-level grants. Callers must restrict `absolute` to LibreTexts superadmins.
+ * @returns True if the permissions were updated, false otherwise.
+ */
+export async function updateTeamWorkbenchPermissions(
+  projectID: string,
+  subdomain: string,
+  coverID: string,
+  cascade: "delta" | "absolute" = "delta"
+) {
   try {
     if (!projectID) {
       throw new Error("Invalid projectID passed to updateTeamWorkbenchPermissions");
@@ -1186,29 +1203,16 @@ export async function updateTeamWorkbenchPermissions(projectID: string, subdomai
       libreBotID
     );
 
-    const permsRes = await CXOneFetch({
-      scope: "page",
-      path: coverID,
-      api: MindTouch.API.Page.PUT_Security,
-      subdomain,
-      options: {
-        method: "PUT",
-        headers: { "Content-Type": "application/xml; charset=utf-8" },
-        body: body
-      },
-      query: {
-        cascade: "delta",
-      },
-    });
+    // SDK throws on a non-2xx response
+    const expert = await ExpertWithSSM.getInstance().forLibrary(subdomain);
+    await expert.pages.putPageSecurity(coverID, body, { cascade });
 
-    if (!permsRes.ok) {
-      throw new Error(
-        `Error updating permissions for Workbench project: "${projectID}"`
-      );
+    if (cascade === "absolute") {
+      logger.info({ projectID, subdomain, coverID }, "Applied absolute cascade of team permissions to Workbench book");
     }
     return true;
   } catch (err) {
-    logger.error({ err }, "updateTeamWorkbenchPermissions failed");
+    logger.error({ err, projectID, cascade }, "updateTeamWorkbenchPermissions failed");
     return false;
   }
 }

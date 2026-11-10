@@ -1760,9 +1760,13 @@ class API {
     return res;
   }
 
-  async reSyncProjectTeamBookAccess(projectID: string) {
+  async reSyncProjectTeamBookAccess(
+    projectID: string,
+    cascade: "delta" | "absolute" = "delta",
+  ) {
     const res = await axios.put<ConductorBaseResponse>(
       `/project/${projectID}/team/re-sync`,
+      { cascade },
     );
     return res;
   }
