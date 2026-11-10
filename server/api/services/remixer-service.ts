@@ -17,6 +17,7 @@ import {
   assertLibraryPagePath,
   bookRootPathSegment,
   buildRemixerPagePathSegment,
+  toCanonicalPageUrl,
   extractLibretextsSubdomain,
   extractPagePath,
   findUnownedRemixerPageIDs,
@@ -253,17 +254,23 @@ const withRetryOnTransient = async <T>(
 };
 
 /** CXOne / flat JSON use `"uri.ui"`; Mongoose maps that schema path to nested `uri.ui`. */
+/**
+ * Always canonical (see `toCanonicalPageUrl`): a `?title=` URL stored by an
+ * older run is read back as a %-encoded pathname, so it can't leak into new
+ * page paths.
+ */
 const getRemixerPageUriUi = (page: RemixerSubPageState): string => {
   const rec = page as unknown as Record<string, unknown>;
   const flat = rec["uri.ui"];
-  if (typeof flat === "string" && flat.length > 0) return flat;
+  if (typeof flat === "string" && flat.length > 0) return toCanonicalPageUrl(flat);
   const uri = rec.uri as Record<string, unknown> | undefined;
-  if (uri && typeof uri.ui === "string") return uri.ui as string;
-  return page["@href"] ?? "";
+  if (uri && typeof uri.ui === "string") return toCanonicalPageUrl(uri.ui as string);
+  return toCanonicalPageUrl(page["@href"] ?? "");
 };
 
-const setRemixerPageUriUi = (page: RemixerSubPageState, uri: string) => {
+const setRemixerPageUriUi = (page: RemixerSubPageState, rawUri: string) => {
   const rec = page as unknown as Record<string, unknown>;
+  const uri = toCanonicalPageUrl(rawUri);
   rec["uri.ui"] = uri;
   if (typeof rec.uri === "object" && rec.uri !== null) {
     (rec.uri as Record<string, unknown>).ui = uri;
@@ -1951,10 +1958,10 @@ const toFinalBookEntry = (
     (v.includes("/@api/deki/") || v.startsWith("@api/deki/"));
   const uriUi = String(
     typeof rawUriUi === "string" && rawUriUi.length > 0 && !isApiUrl(rawUriUi)
-      ? rawUriUi
+      ? toCanonicalPageUrl(rawUriUi)
       : "",
   );
-  const href = String(rawHref ?? rawUriUi ?? "");
+  const href = toCanonicalPageUrl(String(rawHref ?? rawUriUi ?? ""));
   return {
     "@id": String(plain["@id"] ?? ""),
     "@title": displayTitle ?? title,
@@ -2222,7 +2229,7 @@ const runRemixerJob = async ({
       await job.save();
       page["@id"] = pageID;
       setRemixerPageUriUi(page, pageURI || getRemixerPageUriUi(page));
-      page["@href"] = pageURI || page["@href"];
+      page["@href"] = pageURI ? toCanonicalPageUrl(pageURI) : page["@href"];
       byId.delete(oldPageId);
       byId.set(pageID, page);
       pages.forEach((candidate) => {
@@ -2364,7 +2371,6 @@ const runRemixerJob = async ({
             const uriUiVal = info?.["uri.ui"];
             if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
               setRemixerPageUriUi(page, uriUiVal);
-              page["uri.ui"] = uriUiVal as string;
               // The rename/move above just changed this page's own path
               // segment (e.g. renaming the book root changes its slug),
               // which shifts the URL of every descendant too — rewrite
@@ -2526,7 +2532,7 @@ const runRemixerJob = async ({
       if (typeof uriUiVal === "string" && uriUiVal.length > 0) {
         const oldUri = getRemixerPageUriUi(pending.page);
         setRemixerPageUriUi(pending.page, uriUiVal);
-        pending.page["@href"] = uriUiVal;
+        pending.page["@href"] = toCanonicalPageUrl(uriUiVal);
         remapDescendantUriPaths(
           childrenByParent,
           pending.page["@id"],

@@ -71,7 +71,9 @@ export const sanitizeRemixerUriEnding = (
     // Malformed percent-encoding (e.g. a lone "%") — fall through with the raw
     // value; the character class below drops whatever cannot be a path segment.
   }
-  const cleaned = decoded.replace(/[^A-Za-z0-9._~():-]/g, "");
+  // Same alphabet as the client's `sanitizeUriEnding`: `&`, `:` and `?` are
+  // kept as raw characters (see RESERVED_PATH_SEGMENT_CHARS).
+  const cleaned = decoded.replace(/[^A-Za-z0-9._~():&?-]/g, "");
   // `/` is already stripped, but a dots-only leaf ("." / "..") is still a
   // relative path segment; reject it rather than build a path around it.
   if (cleaned.length === 0 || /^\.+$/.test(cleaned)) return undefined;
@@ -147,40 +149,82 @@ export const extractPagePath = (pagePath: string): string => {
   );
   const query = withoutHost.match(/^(?:index\.php)?\?(.*)$/i);
   if (!query) return withoutHost;
-  const title = new URLSearchParams(query[1]).get("title");
+  const title = readQueryTitle(query[1]);
   if (!title) return withoutHost;
   return title.split("/").map(encodeURIComponent).join("/");
 };
 
 /**
- * Characters that make MindTouch switch a page's URL to the `?title=` query
- * form, or that are path/query syntax outright.
+ * The `title` value of a query string, %-decoded only. Not URLSearchParams:
+ * that also turns `+` into a space, which would rename `C++_Programming` to
+ * `C  _Programming`. A malformed escape (a bare `%`) is kept as-is.
+ * Mirrored on the client by `readQueryTitle` in remixer/services.ts.
  */
-const RESERVED_PATH_SEGMENT_CHARS = /[&?#%+/\\"'<>|{}^[\]`]/g;
+const readQueryTitle = (query: string): string | null => {
+  const match = query.match(/(?:^|&)title=([^&]*)/i);
+  if (!match || !match[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+};
 
 /**
- * Drops URL-reserved characters from text that ends up in a page URL.
- * Mirrored on the client by `stripReservedPathChars` in
- * `client/src/components/remixer/services.ts` for the edit panel's path fields.
+ * The one rule for text that becomes part of a library page path, shared with
+ * the client (`RESERVED_PATH_SEGMENT_CHARS` in
+ * `client/src/components/remixer/services.ts`; keep the two identical):
+ *
+ * - Kept: `&`, `:` and `?`. They are legal in a MindTouch page path; the URL
+ *   carries them %-encoded (`%26`, `%3A`, `%3F`, see {@link toCanonicalPageUrl}).
+ * - Dropped: the characters below. `/` and `\` split the path, `#` starts a
+ *   fragment, `%` would be read as an escape when MindTouch decodes the
+ *   double-encoded path, and the rest are not valid in a page name.
  */
+const RESERVED_PATH_SEGMENT_CHARS = /[#%+/\\"'<>|{}^[\]`]/g;
+
+/** Drops the characters {@link RESERVED_PATH_SEGMENT_CHARS} rules out of a path. */
 export const stripReservedPathChars = (value: string): string =>
   value.replace(RESERVED_PATH_SEGMENT_CHARS, "");
 
 /**
  * URL segment for a book root (cover) page, from its title. Keeps the
- * existing cover-slug style (lowercase, spaces → `-`, `:`/`.`/`-` → `_`) and
- * drops URL-reserved characters, so `Reading & Writing` becomes
- * `reading__writing` rather than `reading_&_writing`. Non-ASCII letters are
- * kept; MindTouch serves them as ordinary encoded pathnames.
+ * existing cover-slug style (lowercase, spaces → `_`) and keeps characters
+ * such as `&`, `:` and `?`, so `Reading & Writing` becomes `reading_&_writing`.
+ * The library path then holds the real character and its URL the %-code
+ * (`reading_%26_writing`); see {@link toCanonicalPageUrl} for why stored URLs
+ * stay usable. Only characters that break a path segment are dropped.
  */
 export const bookRootPathSegment = (title: string): string => {
   const slug = title
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[:.\-]/g, "_");
-  const safe = stripReservedPathChars(slug);
-  return safe.length > 0 ? safe : "book";
+    .replace(/\s+/g, "_")
+    .replace(RESERVED_PATH_SEGMENT_CHARS, "")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+  return slug.length > 0 ? slug : "book";
+};
+
+/**
+ * The canonical form of a library page URL: a pathname with each segment
+ * %-encoded the way MindTouch encodes ordinary pages, so `&` → `%26`,
+ * `:` → `%3A`, `?` → `%3F`.
+ *
+ * MindTouch reports a page whose path contains a character such as `&` in
+ * query form instead (`https://<lib>.libretexts.org/?title=Workbench/a_&_b`).
+ * Storing that form is what let `?title=` leak into new page paths, so every
+ * URL the remixer keeps goes through here. Anything that is not a LibreTexts
+ * query-form URL (pathname URLs, API URLs, `#` placeholders) is returned as-is.
+ */
+export const toCanonicalPageUrl = (uri: string): string => {
+  if (typeof uri !== "string" || uri.length === 0) return uri;
+  const match = uri.match(/^(https?:\/\/[^/]*libretexts\.org)\/(?:index\.php)?\?/i);
+  if (!match) return uri;
+  const path = extractPagePath(uri);
+  // extractPagePath leaves the value unchanged when there is no usable title.
+  if (/^(?:index\.php)?\?/i.test(path)) return uri;
+  return `${match[1]}/${path}`;
 };
 
 /**

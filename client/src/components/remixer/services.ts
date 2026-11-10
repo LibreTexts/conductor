@@ -158,15 +158,68 @@ export const sanitizeRemixerPageTitle = (
 };
 
 /**
- * Characters that make MindTouch switch a page URL to its `?title=` query
- * form, or that are path/query syntax outright. Mirrors the server's
- * `RESERVED_PATH_SEGMENT_CHARS` in `server/util/remixerutils.ts`.
+ * The one rule for text that becomes part of a library page path. Identical to
+ * `RESERVED_PATH_SEGMENT_CHARS` in `server/util/remixerutils.ts`; keep the two
+ * in sync, since the server re-applies it on publish.
+ *
+ * - Kept: `&`, `:` and `?`. They are legal in a MindTouch page path; the URL
+ *   carries them %-encoded (`%26`, `%3A`, `%3F`, see `toCanonicalPageUrl`).
+ * - Dropped: the characters below. `/` and `\` split the path, `#` starts a
+ *   fragment, `%` would be read as an escape when MindTouch decodes the
+ *   double-encoded path, and the rest are not valid in a page name.
  */
-const RESERVED_PATH_SEGMENT_CHARS = /[&?#%+/\\"'<>|{}^[\]`]/g;
+const RESERVED_PATH_SEGMENT_CHARS = /[#%+/\\"'<>|{}^[\]`]/g;
 
-/** Drops URL-reserved characters from a path field (formatted-path prefix/index). */
+/** Drops the characters the path rule rules out (formatted-path prefix/index). */
 export const stripReservedPathChars = (value: string): string =>
   value.replace(RESERVED_PATH_SEGMENT_CHARS, "");
+
+/**
+ * Library path of a page URL, with each segment %-encoded like a normal
+ * `uri.ui` pathname. Reads MindTouch's query form
+ * (`https://<lib>.libretexts.org/?title=Workbench/a_&_b`), which it uses for a
+ * page whose path contains a character such as `&`. Mirrors the server's
+ * `extractPagePath`.
+ */
+const extractLibraryPagePath = (url: string): string => {
+  const withoutHost = url.replace(/^https?:\/\/[^/]*libretexts\.org\//i, "");
+  const query = withoutHost.match(/^(?:index\.php)?\?(.*)$/i);
+  if (!query) return withoutHost;
+  const title = readQueryTitle(query[1]);
+  if (!title) return withoutHost;
+  return title.split("/").map(encodeURIComponent).join("/");
+};
+
+/**
+ * The `title` value of a query string, %-decoded only. Not URLSearchParams:
+ * that also turns `+` into a space, which would rename `C++_Programming` to
+ * `C  _Programming`. A malformed escape (a bare `%`) is kept as-is.
+ * Mirrors the server's `readQueryTitle` in `server/util/remixerutils.ts`.
+ */
+const readQueryTitle = (query: string): string | null => {
+  const match = query.match(/(?:^|&)title=([^&]*)/i);
+  if (!match || !match[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+};
+
+/**
+ * The canonical form of a library page URL: a pathname with each segment
+ * %-encoded (`&` → `%26`, `:` → `%3A`, `?` → `%3F`), never the `?title=` query
+ * form. Anything that is not a LibreTexts query-form URL is returned as-is.
+ * Mirrors the server's `toCanonicalPageUrl`.
+ */
+export const toCanonicalPageUrl = (url: string): string => {
+  if (typeof url !== "string" || url.length === 0) return url;
+  const match = url.match(/^(https?:\/\/[^/]*libretexts\.org)\/(?:index\.php)?\?/i);
+  if (!match) return url;
+  const path = extractLibraryPagePath(url);
+  if (/^(?:index\.php)?\?/i.test(path)) return url;
+  return `${match[1]}/${path}`;
+};
 
 /**
  * Canonical editable form of a stored title: the autonumber prefix is removed
@@ -313,10 +366,12 @@ export const getRemixerPageUriUi = (
   page: RemixerSubPage | undefined,
 ): string => {
   if (!page) return "";
+  // Canonical, like the server's getter: a stored `?title=` URL is read back
+  // as a %-encoded pathname so path splitting below never sees the query form.
   const flat = page["uri.ui"];
-  if (typeof flat === "string" && flat.length > 0) return flat;
+  if (typeof flat === "string" && flat.length > 0) return toCanonicalPageUrl(flat);
   const nested = (page as unknown as { uri?: { ui?: unknown } }).uri?.ui;
-  return typeof nested === "string" ? nested : "";
+  return typeof nested === "string" ? toCanonicalPageUrl(nested) : "";
 };
 
 export const isFrontMatterNode = (node: RemixerSubPage): boolean => {
