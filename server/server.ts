@@ -95,7 +95,7 @@ app.use(
         "https://*.libretexts.org",
         "https://*.libretexts.net", // LibreTexts CDN
         "https://*.cloudfront.net", // downloads storage origin
-        "https://*.cloudflare.com", // Cloudflare (Turnstile)
+        "https://*.cloudflare.com", // Cloudflare
         "https://www.youtube.com",
         "https://*.cloudflarestream.com", // Cloudflare Stream
       ],
@@ -106,7 +106,7 @@ app.use(
       scriptSrc: [
         "'self'",
         "https://*.libretexts.org",
-        "https://*.cloudflare.com", // Cloudflare (Turnstile)
+        "https://*.cloudflare.com", // Cloudflare
         "https://*.libretexts.net", // LibreTexts CDN
         "'sha256-wjPyHKFbRc4HkIhBXM6I/dBX9NqqdnXFbz8jONRWKCU='", // gtag.js inline
         "'sha256-pnIV3nmqaM9pcomyIJxQz4o3MHOOZiXIQ7B+8Wca1Fw='", // Matomo (traffic.libretexts.org) inline

@@ -184,14 +184,6 @@ router
     authAPI.fallbackAuthLogin
   );
 
-router
-  .route("/auth/turnstile")
-  .get(
-    authAPI.validate("turnstile"),
-    middleware.checkValidationErrors,
-    authAPI.cloudflareSiteVerify
-  );
-
 /* LibreOne Auth */
 router
   .route("/central-identity/users")
@@ -1554,7 +1546,7 @@ router.route("/commons/book/:library/:coverID/glossary")
     middleware.validateZod(BookValidators.getWithPageIDParamAndLibraryParamSchema),
     booksAPI.getGlossaryDetails
   );
-  
+
 router
   .route("/commons/glossary/term-search")
   .get(

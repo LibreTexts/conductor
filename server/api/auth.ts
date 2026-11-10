@@ -1002,7 +1002,7 @@ const checkHasRole = (
   explicit = false
 ) => {
   const rawMatchRoles = Array.isArray(role) ? role : [role]; // Always convert to an array for simplicity in checks
-  
+
   // Ensure roles are strings, not empty, and not null/undefined, and always lowercase
   const matchRoles = rawMatchRoles
     .filter((r) => typeof r === "string" && r.trim() !== "")
@@ -1022,7 +1022,7 @@ const checkHasRole = (
     }
     return false;
   }
-  
+
   if (user.roles !== undefined && Array.isArray(user.roles)) {
     const foundRole = user.roles.find((element) => {
       if (element.org && element.role) {
@@ -1215,45 +1215,6 @@ const assertCampusAdminForOrgParam = (
   });
 };
 
-async function cloudflareSiteVerify(req: Request, res: Response) {
-  try {
-    if (!req.query.token) {
-      throw new Error("No token provided");
-    }
-
-    const formdata = new FormData();
-    formdata.append("secret", process.env.CLOUDFLARE_TURNSTILE_SECRET);
-    formdata.append("response", req.query.token);
-
-    const cloudflareRes = await axios.post(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      formdata,
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
-    );
-
-    if (!cloudflareRes.data) {
-      throw new Error("No response from Cloudflare");
-    }
-
-    const success = cloudflareRes.data.success || false;
-
-    return res.send({
-      err: false,
-      success,
-    });
-  } catch (err) {
-    logger.error({ err }, "cloudflareSiteVerify failed");
-    return res.status(500).send({
-      err: true,
-      errMsg: conductorErrors.err6,
-    });
-  }
-}
-
 /**
  * Middleware(s) to verify requests contain
  * necessary fields.
@@ -1264,12 +1225,6 @@ const validate = (method: string) => {
       return [
         body("email", conductorErrors.err1).exists().isEmail(),
         body("password", conductorErrors.err1).exists().isLength({ min: 1 }),
-      ];
-    case "turnstile":
-      return [
-        query("token", conductorErrors.err1)
-          .exists()
-          .isLength({ min: 1, max: 1024 }),
       ];
   }
 };
@@ -1291,6 +1246,5 @@ export default {
   checkHasRoleByID,
   checkHasRoleMiddleware,
   assertCampusAdminForOrgParam,
-  cloudflareSiteVerify,
   validate,
 };
