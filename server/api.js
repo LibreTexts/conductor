@@ -61,6 +61,8 @@ import * as studioLegacyValidators from "./api/validators/studio-legacy.js";
 import * as kbValidators from "./api/validators/kb.js";
 import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
+import * as provenanceValidators from "./api/validators/provenance.js";
+import provenanceAPI from "./api/provenance.js";
 import * as supportQueueValidators from "./api/validators/supportqueues.js";
 import * as ProjectValidators from "./api/validators/projects.js";
 import * as ProjectFileValidators from "./api/validators/projectfiles.js";
@@ -1209,6 +1211,16 @@ router
 router
   .route("/activities/automation/h5p-visibility")
   .put(middleware.checkLibreAPIKey, activityAuthoringAPI.reconcileH5PVisibility);
+
+// Triggered externally on a schedule. Each call runs one time-boxed slice of
+// the page provenance backfill and resumes where the previous one stopped.
+router
+  .route("/provenance/automation/scan")
+  .put(
+    middleware.checkLibreAPIKey,
+    middleware.validateZod(provenanceValidators.RunProvenanceScanSchema),
+    provenanceAPI.runScanJob,
+  );
 
 router
   .route("/activities/:activityID")
