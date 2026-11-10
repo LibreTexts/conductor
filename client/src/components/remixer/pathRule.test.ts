@@ -13,9 +13,9 @@ import type { RemixerSubPage } from "./model";
 // server/util/remixerutils.test.ts. The UI and the publish job must follow one
 // rule for page paths, so change both together.
 
-describe("path rule: & : ? are kept, the rest of the reserved set is dropped", () => {
+describe("path rule: & and ? are dropped (MindTouch only serves them as ?title=), : is kept", () => {
   it("stripReservedPathChars", () => {
-    expect(stripReservedPathChars("A&B: why?")).toBe("A&B: why?");
+    expect(stripReservedPathChars("A&B: why?")).toBe("AB: why");
     expect(
       stripReservedPathChars("a/b\\c#d%e+f\"g'h<i>j|k{l}m^n[o]p`q"),
     ).toBe("abcdefghijklmnopq");

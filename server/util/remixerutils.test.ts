@@ -12,22 +12,25 @@ import {
 // The client runs the same cases against its mirrors in
 // client/src/components/remixer/pathRule.test.ts. Change both together.
 
-describe("path rule: & : ? are kept, the rest of the reserved set is dropped", () => {
+describe("path rule: & and ? are dropped (MindTouch only serves them as ?title=), : is kept", () => {
   it("stripReservedPathChars", () => {
-    assert.equal(stripReservedPathChars("A&B: why?"), "A&B: why?");
+    assert.equal(stripReservedPathChars("A&B: why?"), "AB: why");
     assert.equal(stripReservedPathChars("a/b\\c#d%e+f\"g'h<i>j|k{l}m^n[o]p`q"), "abcdefghijklmnopq");
   });
 
-  it("bookRootPathSegment keeps & : ? and drops path-breaking characters", () => {
-    assert.equal(bookRootPathSegment("Reading & Writing"), "reading_&_writing");
-    assert.equal(bookRootPathSegment("Chem: Why? 100%"), "chem:_why?_100");
-    assert.equal(bookRootPathSegment("  a / b # c  "), "a_b_c");
-    assert.equal(bookRootPathSegment("%%%"), "book");
+  it("bookRootPathSegment keeps master's cover-slug style and drops reserved characters", () => {
+    // Master's mapping: spaces → "-", then ":" "." "-" → "_".
+    assert.equal(bookRootPathSegment("Chem 101: Intro"), "chem_101__intro");
+    assert.equal(bookRootPathSegment("Self-Advocacy, Vol. 2"), "self_advocacy,_vol__2");
+    // The bug this branch fixes: "&" must never reach the path.
+    assert.equal(bookRootPathSegment("Reading & Writing"), "reading__writing");
+    assert.equal(bookRootPathSegment("Why? 100%"), "why_100");
+    assert.equal(bookRootPathSegment("&&&"), "book");
   });
 
-  it("sanitizeRemixerUriEnding keeps & : ? and heals encoded values", () => {
-    assert.equal(sanitizeRemixerUriEnding("01:_Q&A_why?"), "01:_Q&A_why?");
-    assert.equal(sanitizeRemixerUriEnding("01%3A_Q%26A"), "01:_Q&A");
+  it("sanitizeRemixerUriEnding drops & and ?, keeps :, and heals encoded values", () => {
+    assert.equal(sanitizeRemixerUriEnding("01:_Q&A_why?"), "01:_QA_why");
+    assert.equal(sanitizeRemixerUriEnding("01%3A_Intro"), "01:_Intro");
     assert.equal(sanitizeRemixerUriEnding("a/b#c d"), "abcd");
     assert.equal(sanitizeRemixerUriEnding(".."), undefined);
   });

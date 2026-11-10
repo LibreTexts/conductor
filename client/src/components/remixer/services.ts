@@ -162,13 +162,14 @@ export const sanitizeRemixerPageTitle = (
  * `RESERVED_PATH_SEGMENT_CHARS` in `server/util/remixerutils.ts`; keep the two
  * in sync, since the server re-applies it on publish.
  *
- * - Kept: `&`, `:` and `?`. They are legal in a MindTouch page path; the URL
- *   carries them %-encoded (`%26`, `%3A`, `%3F`, see `toCanonicalPageUrl`).
- * - Dropped: the characters below. `/` and `\` split the path, `#` starts a
- *   fragment, `%` would be read as an escape when MindTouch decodes the
- *   double-encoded path, and the rest are not valid in a page name.
+ * `&` and `?` are dropped: MindTouch serves any page whose path holds one only
+ * in its `?title=` query form, and even redirects the %-encoded pathname
+ * (`…/remixer_book_%26_test`) back to it (checked on dev). `/` and `\` split
+ * the path, `#` starts a fragment, `%` would be read as an escape when
+ * MindTouch decodes the double-encoded path, and the rest are not valid in a
+ * page name. `:` is kept: it is the numbering separator (`01:_Introduction`).
  */
-const RESERVED_PATH_SEGMENT_CHARS = /[#%+/\\"'<>|{}^[\]`]/g;
+const RESERVED_PATH_SEGMENT_CHARS = /[&?#%+/\\"'<>|{}^[\]`]/g;
 
 /** Drops the characters the path rule rules out (formatted-path prefix/index). */
 export const stripReservedPathChars = (value: string): string =>
@@ -208,9 +209,11 @@ const readQueryTitle = (query: string): string | null => {
 
 /**
  * The canonical form of a library page URL: a pathname with each segment
- * %-encoded (`&` → `%26`, `:` → `%3A`, `?` → `%3F`), never the `?title=` query
- * form. Anything that is not a LibreTexts query-form URL is returned as-is.
- * Mirrors the server's `toCanonicalPageUrl`.
+ * %-encoded (`:` → `%3A`, and for existing pages whose path holds them,
+ * `&` → `%26`, `?` → `%3F`), never the `?title=` query form, which pages with
+ * `&`/`?` in their path arrive in. The pathname still opens the page (MindTouch
+ * redirects it). Anything that is not a LibreTexts query-form URL is returned
+ * as-is. Mirrors the server's `toCanonicalPageUrl`.
  */
 export const toCanonicalPageUrl = (url: string): string => {
   if (typeof url !== "string" || url.length === 0) return url;

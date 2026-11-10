@@ -393,11 +393,14 @@ export default class BookService {
     // same rule the remixer applies to every URL it stores; see
     // toCanonicalPageUrl. Pages whose path holds `&`, `%`, `?`… otherwise
     // arrive here in query form.
-    const uiUri = toCanonicalPageUrl(page["uri.ui"] ?? page.url ?? "");
+    const rawUiUri = page["uri.ui"] ?? page.url;
+    const uiUri = toCanonicalPageUrl(rawUiUri ?? "");
     return {
       "@id": String(page["@id"] ?? page.id ?? ""),
       "@title": page.title ?? "",
-      "@href": uiUri || page["@href"] || "",
+      // Same fallback as before canonicalization: the API-form `@href` only
+      // when there is no UI URL at all, never in place of an empty one.
+      "@href": rawUiUri !== undefined ? uiUri : (page["@href"] ?? ""),
       "@subpages": children.length > 0,
       article: "article" in page && page.article ? String(page.article) : "",
       namespace: page.namespace ?? this._library,

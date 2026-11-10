@@ -253,8 +253,8 @@ const withRetryOnTransient = async <T>(
   throw lastError;
 };
 
-/** CXOne / flat JSON use `"uri.ui"`; Mongoose maps that schema path to nested `uri.ui`. */
 /**
+ * CXOne / flat JSON use `"uri.ui"`; Mongoose maps that schema path to nested `uri.ui`.
  * Always canonical (see `toCanonicalPageUrl`): a `?title=` URL stored by an
  * older run is read back as a %-encoded pathname, so it can't leak into new
  * page paths.
