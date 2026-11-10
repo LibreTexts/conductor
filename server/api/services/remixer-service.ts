@@ -334,8 +334,25 @@ const remapDescendantUriPaths = (
   // already-relative paths or `@href` values that carry a leading and/or
   // trailing slash. Trim both ends so the prefix comparison and the sliced
   // remap below stay aligned (and the rebuilt URL never doubles its slash).
+  // Segments are compared decoded: a canonicalized `?title=` URL re-encodes
+  // its ancestors with encodeURIComponent, which need not match MindTouch's
+  // own encoding of the same ancestor's pathname (e.g. `,` vs `%2C`).
   const toNormalizedPagePath = (value: string): string =>
-    extractPagePath(value).replace(/^\/+|\/+$/g, "");
+    extractPagePath(value)
+      .replace(/^\/+|\/+$/g, "")
+      .split("/")
+      .map((segment) => {
+        try {
+          return decodeURIComponent(segment);
+        } catch {
+          // Malformed escape (a bare `%`): keep it literal, as
+          // toCanonicalPageUrl does.
+          return segment;
+        }
+      })
+      .join("/");
+  const toEncodedPagePath = (path: string): string =>
+    path.split("/").map(encodeURIComponent).join("/");
 
   const oldPath = toNormalizedPagePath(oldUri);
   const newPath = toNormalizedPagePath(newUri);
@@ -361,7 +378,7 @@ const remapDescendantUriPaths = (
       const remappedPath = `${newPath}${currentPath.slice(oldPath.length)}`;
       setRemixerPageUriUi(
         node,
-        `https://${subdomain}.libretexts.org/${remappedPath}`,
+        `https://${subdomain}.libretexts.org/${toEncodedPagePath(remappedPath)}`,
       );
     }
     queue.push(...(childrenByParent.get(id) ?? []));
