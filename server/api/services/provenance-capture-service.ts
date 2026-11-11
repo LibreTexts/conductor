@@ -8,7 +8,7 @@ import {
   type ReuseEdgeType,
 } from "../../util/provenance-graph.js";
 import type { ReuseEdgeOrigin } from "../../models/pagereuseedge.js";
-import type { PageNodeKind } from "../../models/pagenode.js";
+import PageNode, { type PageNodeKind } from "../../models/pagenode.js";
 import {
   deletePageWithNotice,
   rebuildBookSummary,
@@ -115,7 +115,7 @@ export const recordReuseBatch = async (records: RecordReuseParams[]): Promise<vo
     targetId: string;
     sourceId: string;
   };
-  const prepared: Prepared[] = [];
+  let prepared: Prepared[] = [];
   for (const record of records) {
     const targetPageID = toPageID(record.target.pageID);
     const sourcePageID = toPageID(record.source.pageID);
@@ -137,6 +137,23 @@ export const recordReuseBatch = async (records: RecordReuseParams[]): Promise<vo
   if (prepared.length === 0) return;
 
   try {
+    // This runs after the job, so a later job may already have deleted some
+    // of these pages. The structure sync owns a page's lifecycle: skip pages
+    // marked deleted rather than revive them (and their links).
+    const deleted = new Set(
+      (
+        await PageNode.find(
+          { nodeID: { $in: [...new Set(prepared.map((p) => p.targetId))] }, deletedAt: { $ne: null } },
+          { _id: 0, nodeID: 1 },
+        ).lean<{ nodeID: string }[]>()
+      ).map((n) => n.nodeID),
+    );
+    if (deleted.size > 0) {
+      captureLog.info({ skipped: deleted.size }, "Skipping reuse of pages deleted since the job");
+      prepared = prepared.filter((p) => !deleted.has(p.targetId));
+      if (prepared.length === 0) return;
+    }
+
     // One read per distinct source page, however many pages reuse it.
     const throttle = createThrottle(SOURCE_READ_INTERVAL_MS);
     const sources = new Map<string, Prepared>();
@@ -175,7 +192,8 @@ export const recordReuseBatch = async (records: RecordReuseParams[]): Promise<vo
           title: record.target.title,
           kind: NODE_KIND_FOR_EDGE[record.type],
           reuseCount: 1,
-          deletedAt: null,
+          // No deletedAt: a new page starts undeleted (schema default), and
+          // an existing one keeps whatever the structure sync decided.
         },
         {
           lib: record.source.lib,

@@ -906,11 +906,12 @@ const scanLibrary = async (
 
       // Books elsewhere that reuse this library's books, or that it reuses:
       // their upstream/downstream lists changed with this pass.
+      // Looked up once per run, not per batch: the cursor walks the sorted list.
+      let neighbors: string[] | null = null;
       while (cursor.startsWith(NEIGHBORS_PREFIX) && !outOfTime(ctx)) {
         const after = cursor.slice(NEIGHBORS_PREFIX.length);
-        const next = (await findNeighborBooks({ libPrefix: `${lib}-` }))
-          .filter((bookID) => bookID > after)
-          .slice(0, BOOK_PAGE_SIZE);
+        neighbors ??= await findNeighborBooks({ libPrefix: `${lib}-` });
+        const next = neighbors.filter((bookID) => bookID > after).slice(0, BOOK_PAGE_SIZE);
         if (next.length === 0) {
           phase = "complete";
           cursor = "";
