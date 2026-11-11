@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildBookGraph, collectIds, groupUnscannedSources, toViewRef } from "./content-sources-view.js";
+import { buildBookGraph, collectIds, groupUnscannedSources, orderBookTree, toViewRef } from "./content-sources-view.js";
 
 describe("toViewRef", () => {
   it("names a page from the title map and links it by id", () => {
@@ -90,5 +90,40 @@ describe("buildBookGraph", () => {
     );
     assert.deepEqual(graph.edges.map((e) => e.target), ["b-1"]);
     assert.equal(graph.omittedEdges, 2);
+  });
+});
+
+describe("orderBookTree", () => {
+  const n = (pageID: number, parentID: number | null, path: string) => ({ nodeID: `dev-${pageID}`, pageID, parentID, path });
+
+  it("orders pages depth-first like the table of contents, with natural numbering", () => {
+    const places = orderBookTree(
+      [
+        n(2, 1, "Book/10:_Ten"),
+        n(1, null, "Book"),
+        n(3, 1, "Book/02:_Two"),
+        n(4, 3, "Book/02:_Two/2.10:_B"),
+        n(5, 3, "Book/02:_Two/2.02:_A"),
+      ],
+      1,
+    );
+    const ordered = [...places.entries()].sort((a, b) => a[1].order - b[1].order);
+    assert.deepEqual(ordered.map(([id, p]) => [id, p.depth]), [
+      ["dev-1", 0],
+      ["dev-3", 1],
+      ["dev-5", 2],
+      ["dev-4", 2],
+      ["dev-2", 1],
+    ]);
+  });
+
+  it("places pages with an unknown parent after the book at depth 1", () => {
+    const places = orderBookTree([n(1, null, "Book"), n(9, 777, "Elsewhere")], 1);
+    assert.deepEqual(places.get("dev-9"), { order: 1, depth: 1 });
+  });
+
+  it("survives a parent loop", () => {
+    const places = orderBookTree([n(1, null, "Book"), n(2, 3, "A"), n(3, 2, "B")], 1);
+    assert.equal(places.size, 3);
   });
 });

@@ -10,7 +10,7 @@ export const GetContentSourcesSchema = z.object({
   params: ProjectParams,
 });
 
-/** `GET /project/:projectID/content-sources/pages`: the book's pages and their sources. */
+/** `GET /project/:projectID/content-sources/pages`: the whole book's pages, in order, with their sources. */
 export const GetContentPagesSchema = z.object({
   params: ProjectParams,
   query: z.object({
@@ -20,8 +20,6 @@ export const GetContentPagesSchema = z.object({
       .enum(["true", "false"])
       .optional()
       .transform((value) => value === "true"),
-    page: z.coerce.number().int().min(1).max(10000).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(50),
   }),
 });
 

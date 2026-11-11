@@ -73,8 +73,8 @@ async function getContentPages(
     const { bookID } = await loadForMember(req.params.projectID, req.user);
     if (!bookID) return res.status(400).send({ err: true, errMsg: NO_BOOK_MSG });
 
-    const { kind, attention, page, limit } = req.query;
-    const data = await listContentPages(bookID, { kind, attention, page, limit });
+    const { kind, attention } = req.query;
+    const data = await listContentPages(bookID, { kind, attention });
     return res.send({ err: false, data });
   } catch (err) {
     return sendError(res, err, "getContentPages");

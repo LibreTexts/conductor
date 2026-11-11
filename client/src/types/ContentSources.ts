@@ -91,6 +91,8 @@ export type ContentSourcesPageSource = ContentSourcesRef & {
 
 export type ContentSourcesPage = ContentSourcesRef & {
   pageID: number;
+  /** Nesting in the book: 0 = cover, 1 = top-level pages, ... */
+  depth: number;
   kind: PageNodeKind;
   reuseDepth: number;
   rootSource: ContentSourcesRef | null;
@@ -100,8 +102,9 @@ export type ContentSourcesPage = ContentSourcesRef & {
 
 export type ContentSourcesPagesResult = {
   total: number;
-  page: number;
-  limit: number;
+  /** The book has more pages than one response carries. */
+  truncated: boolean;
+  /** In table-of-contents order. */
   pages: ContentSourcesPage[];
 };
 

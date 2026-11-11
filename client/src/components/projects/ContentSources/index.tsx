@@ -10,7 +10,6 @@ import {
   EmptyState,
   Heading,
   Link,
-  Pagination,
   Select,
   Spinner,
   Stack,
@@ -18,7 +17,8 @@ import {
   Switch,
   Text,
 } from "@libretexts/davis-react";
-import { DataTable, createColumnHelper } from "@libretexts/davis-react-table";
+import { createColumnHelper } from "@libretexts/davis-react-table";
+import RowHeaderDataTable from "../../util/RowHeaderDataTable";
 import { DonutChart } from "@tremor/react";
 import { format, parseISO } from "date-fns";
 import { IconExternalLink, IconRoute, IconSitemap } from "@tabler/icons-react";
@@ -43,7 +43,6 @@ import {
 } from "./labels";
 
 const OVERVIEW_QUERY_KEY = "contentSourcesOverview";
-const PAGES_PER_TABLE_PAGE = 25;
 
 const RefLink: React.FC<{ item: ContentSourcesRef }> = ({ item }) =>
   item.url ? (
@@ -111,7 +110,6 @@ const ContentSources: React.FC = () => {
 
   const [kindFilter, setKindFilter] = useState<PageNodeKind | "">("");
   const [attentionOnly, setAttentionOnly] = useState(false);
-  const [tablePage, setTablePage] = useState(1);
   const [lineagePage, setLineagePage] = useState<ContentSourcesPage | null>(null);
 
   const overviewQuery = useQuery({
@@ -124,13 +122,11 @@ const ContentSources: React.FC = () => {
   const overview = overviewQuery.data?.data;
 
   const pagesQuery = useQuery({
-    queryKey: ["contentSourcesPages", id, kindFilter, attentionOnly, tablePage],
+    queryKey: ["contentSourcesPages", id, kindFilter, attentionOnly],
     queryFn: () =>
       api.getContentSourcesPages(id, {
         kind: kindFilter || undefined,
         attention: attentionOnly,
-        page: tablePage,
-        limit: PAGES_PER_TABLE_PAGE,
       }),
     enabled: !!id && !!overview?.scanned,
     keepPreviousData: true,
@@ -138,7 +134,6 @@ const ContentSources: React.FC = () => {
     refetchOnWindowFocus: false,
   });
   const pages = pagesQuery.data?.data;
-  const totalTablePages = pages ? Math.max(1, Math.ceil(pages.total / pages.limit)) : 1;
 
   const notifyMutation = useMutation({
     mutationFn: (enabled: boolean) => api.updateContentSourcesNotifications(id, enabled),
@@ -164,22 +159,35 @@ const ContentSources: React.FC = () => {
     () => [
       pagesColumnHelper.accessor("title", {
         header: "Page",
-        cell: (info) => <RefLink item={info.row.original} />,
+        size: 380,
+        cell: (info) => {
+          const { depth } = info.row.original;
+          return (
+            // Indented by its level in the book; the level is also spoken,
+            // since indentation alone isn't conveyed to screen readers.
+            <div className="py-2" style={{ paddingLeft: `${Math.min(depth, 8) * 1.25}rem` }}>
+              <span className="sr-only">{depth === 0 ? "Book cover: " : `Level ${depth}: `}</span>
+              {depth === 0 ? <strong><RefLink item={info.row.original} /></strong> : <RefLink item={info.row.original} />}
+            </div>
+          );
+        },
       }),
       pagesColumnHelper.accessor("kind", {
         header: "Content",
+        size: 200,
         cell: (info) => (
-          <span title={KIND_DESCRIPTIONS[info.getValue()]}>{KIND_LABELS[info.getValue()]}</span>
+          <span className="block py-2" title={KIND_DESCRIPTIONS[info.getValue()]}>{KIND_LABELS[info.getValue()]}</span>
         ),
       }),
       pagesColumnHelper.display({
         id: "sources",
         header: "Comes from",
+        size: 420,
         cell: (info) => {
           const { sources, rootSource, reuseDepth } = info.row.original;
-          if (sources.length === 0) return <span className="text-neutral-600">—</span>;
+          if (sources.length === 0) return <span className="block py-2 text-neutral-600">—</span>;
           return (
-            <ul className="m-0 list-none space-y-1 p-0">
+            <ul className="m-0 list-none space-y-1 px-0 py-2">
               {sources.map((source) => {
                 const status = STATUS_BADGES[source.status];
                 return (
@@ -204,6 +212,7 @@ const ContentSources: React.FC = () => {
       }),
       pagesColumnHelper.display({
         id: "chain",
+        size: 110,
         header: () => <span className="sr-only">Reuse chain</span>,
         cell: (info) => (
           <Button
@@ -452,7 +461,6 @@ const ContentSources: React.FC = () => {
                     onChange={(e) => {
                       const value = e.target.value;
                       setKindFilter(value === ALL_KINDS ? "" : (value as PageNodeKind));
-                      setTablePage(1);
                     }}
                   />
                   <Switch
@@ -461,37 +469,33 @@ const ContentSources: React.FC = () => {
                     checked={attentionOnly}
                     onChange={(checked) => {
                       setAttentionOnly(checked);
-                      setTablePage(1);
                     }}
                   />
                 </div>
-                <DataTable<ContentSourcesPage>
-                  data={pages?.pages ?? []}
-                  columns={columns}
-                  caption="This book's pages and where their content comes from"
-                  aria-label="Pages and their content sources"
-                  loading={pagesQuery.isLoading}
-                  density="compact"
-                  striped
-                  emptyState={
-                    <Text className="block p-4 text-neutral-700">
-                      {attentionOnly ? "No page needs attention." : "No pages match."}
-                    </Text>
-                  }
-                  tableOptions={{ getRowId: (row) => row.id }}
-                />
+                {pagesQuery.isLoading && <Spinner text="Loading pages" />}
+                {/* RowHeaderDataTable, not Davis DataTable: DataTable's maxHeight
+                    puts a scroll area inside another (two scrollbars), pending
+                    a Davis fix. This one has a single scroll area. */}
                 {pages && (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                    <Text size="sm" className="text-neutral-700">
-                      {plural(pages.total, "page")}
-                    </Text>
-                    <Pagination
-                      page={tablePage}
-                      totalPages={totalTablePages}
-                      onChange={setTablePage}
-                      size="sm"
-                    />
-                  </div>
+                  <RowHeaderDataTable<ContentSourcesPage>
+                    data={pages.pages}
+                    columns={columns}
+                    rowHeaderColumnId="title"
+                    caption="This book's pages and where their content comes from"
+                    getRowId={(row) => row.id}
+                    maxHeightClassName="md:max-h-[65vh]"
+                    emptyState={
+                      <Text className="block p-4 text-neutral-700">
+                        {attentionOnly ? "No page needs attention." : "No pages match."}
+                      </Text>
+                    }
+                  />
+                )}
+                {pages && (
+                  <Text size="sm" className="mt-3 block text-neutral-700">
+                    {plural(pages.total, "page")}
+                    {pages.truncated && " shown; the book is larger than one view can list."}
+                  </Text>
                 )}
               </section>
             </Card.Body>

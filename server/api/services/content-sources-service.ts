@@ -12,6 +12,7 @@ import { pageNodeId, type ReuseEdgeType } from "../../util/provenance-graph.js";
 import {
   collectIds,
   groupUnscannedSources,
+  orderBookTree,
   toViewRef,
   type UnscannedSourceGroup,
   type ViewRef,
@@ -173,6 +174,8 @@ export type PageSourceView = ViewRef & {
 
 export type ContentPageView = ViewRef & {
   pageID: number;
+  /** Nesting in the book: 0 = cover, 1 = top-level pages, ... */
+  depth: number;
   kind: PageNodeKind;
   /** 0 = own content, 1 = direct reuse, 2+ = through a chain. */
   reuseDepth: number;
@@ -186,13 +189,16 @@ export type ContentPagesQuery = {
   kind?: PageNodeKind;
   /** Only pages with a source that changed or broke. */
   attention?: boolean;
-  page?: number;
-  limit?: number;
 };
+
+/** Pages returned in one response; far above any real book's size. */
+export const MAX_CONTENT_PAGES = 5000;
 
 type NodeRow = {
   nodeID: string;
   pageID: number;
+  parentID?: number | null;
+  path?: string | null;
   title?: string;
   kind: PageNodeKind;
   reuseDepth?: number;
@@ -200,45 +206,60 @@ type NodeRow = {
   reuseCycle?: boolean;
 };
 
-/** The book's pages with their direct sources, a page at a time. */
+/**
+ * The book's pages with their direct sources, in table-of-contents order and
+ * with each page's depth, so the view can indent the book's levels. The whole
+ * book in one response (up to {@link MAX_CONTENT_PAGES}); filters keep the
+ * matching pages in place.
+ */
 export const listContentPages = async (
   bookID: string,
-  { kind, attention = false, page = 1, limit = 50 }: ContentPagesQuery = {},
-): Promise<{ total: number; page: number; limit: number; pages: ContentPageView[] }> => {
-  const filter: Record<string, unknown> = { bookID: { $eq: bookID }, deletedAt: null };
-  if (kind) filter.kind = { $eq: kind };
-  if (attention) {
-    const targets = await PageReuseEdge.distinct("target", {
-      targetBook: { $eq: bookID },
-      status: { $in: ATTENTION_STATUSES },
-    });
-    filter.nodeID = { $in: targets };
-  }
-
-  const [total, nodes] = await Promise.all([
-    PageNode.countDocuments(filter),
-    PageNode.find(filter, {
+  { kind, attention = false }: ContentPagesQuery = {},
+): Promise<{ total: number; truncated: boolean; pages: ContentPageView[] }> => {
+  const coverPageID = Number(bookID.slice(bookID.lastIndexOf("-") + 1));
+  const all = await PageNode.find(
+    { bookID: { $eq: bookID }, deletedAt: null },
+    {
       _id: 0,
       nodeID: 1,
       pageID: 1,
+      parentID: 1,
+      path: 1,
       title: 1,
       kind: 1,
       reuseDepth: 1,
       rootSource: 1,
       reuseCycle: 1,
-    })
-      .sort({ pageID: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean<NodeRow[]>(),
-  ]);
+    },
+  )
+    .limit(MAX_CONTENT_PAGES + 1)
+    .lean<NodeRow[]>();
+  const truncated = all.length > MAX_CONTENT_PAGES;
+  const book = truncated ? all.slice(0, MAX_CONTENT_PAGES) : all;
+  const places = orderBookTree(book, coverPageID);
 
-  const edges = nodes.length
-    ? await PageReuseEdge.find(
-        { target: { $in: nodes.map((n) => n.nodeID) }, status: { $in: VISIBLE_EDGE_STATUSES } },
+  let attentionTargets: Set<string> | null = null;
+  if (attention) {
+    const targets = await PageReuseEdge.distinct("target", {
+      targetBook: { $eq: bookID },
+      status: { $in: ATTENTION_STATUSES },
+    });
+    attentionTargets = new Set(targets as string[]);
+  }
+  const nodes = book
+    .filter((n) => (!kind || n.kind === kind) && (!attentionTargets || attentionTargets.has(n.nodeID)))
+    .sort((a, b) => (places.get(a.nodeID)?.order ?? 0) - (places.get(b.nodeID)?.order ?? 0));
+
+  const edges: { target: string; source: string; type: ReuseEdgeType; origin: ReuseEdgeOrigin; status: ReuseEdgeStatus }[] = [];
+  for (let i = 0; i < nodes.length; i += 1000) {
+    const batch = nodes.slice(i, i + 1000).map((n) => n.nodeID);
+    edges.push(
+      ...(await PageReuseEdge.find(
+        { target: { $in: batch }, status: { $in: VISIBLE_EDGE_STATUSES } },
         { _id: 0, target: 1, source: 1, type: 1, origin: 1, status: 1 },
-      ).lean<{ target: string; source: string; type: ReuseEdgeType; origin: ReuseEdgeOrigin; status: ReuseEdgeStatus }[]>()
-    : [];
+      ).lean<typeof edges>()),
+    );
+  }
 
   const titles = await loadTitles(
     collectIds(edges.map((e) => e.source), nodes.map((n) => n.rootSource)),
@@ -253,15 +274,15 @@ export const listContentPages = async (
   }
 
   return {
-    total,
-    page,
-    limit,
+    total: nodes.length,
+    truncated,
     pages: nodes.map((node) => {
       const sources = byTarget.get(node.nodeID) ?? [];
       const direct = new Set(sources.map((s) => s.id));
       return {
         ...toViewRef(node.nodeID, titles),
         pageID: node.pageID,
+        depth: places.get(node.nodeID)?.depth ?? 1,
         kind: node.kind,
         reuseDepth: node.reuseDepth ?? 0,
         rootSource:

@@ -56,6 +56,7 @@ const overview = (extra: Partial<ContentSourcesOverview> = {}): ContentSourcesOv
 const pageRow = {
   ...ref("dev-10622", "5: Chapters"),
   pageID: 10622,
+  depth: 2,
   kind: "transclude" as const,
   reuseDepth: 1,
   rootSource: null,
@@ -83,7 +84,7 @@ describe("ContentSources", () => {
     Object.values(api).forEach((fn) => fn.mockReset());
     api.getContentSourcesPages.mockResolvedValue({
       err: false,
-      data: { total: 1, page: 1, limit: 25, pages: [pageRow] },
+      data: { total: 1, truncated: false, pages: [pageRow] },
     });
     api.getContentSourcesLineage.mockResolvedValue({
       err: false,
@@ -115,6 +116,10 @@ describe("ContentSources", () => {
     expect(await screen.findByText("Summary")).toBeTruthy();
     expect(screen.getByRole("link", { name: /Lab Experiments/ })).toBeTruthy();
     expect(await screen.findByRole("link", { name: /5: Chapters/ })).toBeTruthy();
+    // Indented by its level, which is also announced.
+    const level = screen.getByText("Level 2:");
+    expect((level.parentElement as HTMLElement).style.paddingLeft).toBe("2.5rem");
+    expect(api.getContentSourcesPages).toHaveBeenCalledWith("cbHAlG9FKc", { kind: undefined, attention: false });
   });
 
   it("warns when reused pages were deleted", async () => {

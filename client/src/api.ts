@@ -3560,10 +3560,10 @@ class API {
     return res.data;
   }
 
-  /** The project book's pages and their direct sources, a page at a time. */
+  /** The project book's pages, in table-of-contents order, with their direct sources. */
   async getContentSourcesPages(
     projectID: string,
-    params: { kind?: PageNodeKind; attention?: boolean; page?: number; limit?: number } = {},
+    params: { kind?: PageNodeKind; attention?: boolean } = {},
   ) {
     const res = await axios.get<
       { data: ContentSourcesPagesResult } & ConductorBaseResponse

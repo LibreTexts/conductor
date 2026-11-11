@@ -170,3 +170,44 @@ export const buildBookGraph = (
 
   return { nodes, edges: kept, omittedEdges: all.length - kept.length };
 };
+
+/** A page's place in its book: reading order and nesting depth (cover = 0). */
+export type TreePlace = { order: number; depth: number };
+
+type TreeNode = { nodeID: string; pageID: number; parentID?: number | null; path?: string | null; title?: string | null };
+
+const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+
+/**
+ * Orders a book's pages as its table of contents reads: depth-first from the
+ * cover, siblings by path (numbering prefixes like `1.03:` sort naturally).
+ * Pages whose parent isn't in the book (moved, or not scanned yet) follow at
+ * depth 1, so every page gets a place.
+ */
+export const orderBookTree = (nodes: TreeNode[], coverPageID: number): Map<string, TreePlace> => {
+  const byPageID = new Map(nodes.map((n) => [n.pageID, n]));
+  const children = new Map<number, TreeNode[]>();
+  for (const node of nodes) {
+    if (node.pageID === coverPageID) continue;
+    const parent = node.parentID ?? null;
+    const key = parent !== null && byPageID.has(parent) ? parent : -1;
+    const list = children.get(key) ?? [];
+    list.push(node);
+    children.set(key, list);
+  }
+  const sortKey = (n: TreeNode) => n.path ?? n.title ?? String(n.pageID);
+  for (const list of children.values()) list.sort((a, b) => collator.compare(sortKey(a), sortKey(b)));
+
+  const places = new Map<string, TreePlace>();
+  const visit = (node: TreeNode, depth: number) => {
+    if (places.has(node.nodeID)) return; // Guards a parent loop.
+    places.set(node.nodeID, { order: places.size, depth });
+    for (const child of children.get(node.pageID) ?? []) visit(child, depth + 1);
+  };
+  const cover = byPageID.get(coverPageID);
+  if (cover) visit(cover, 0);
+  for (const orphan of children.get(-1) ?? []) visit(orphan, 1);
+  // Anything left sits in a parent loop with no way in from the cover.
+  for (const node of nodes) if (!places.has(node.nodeID)) visit(node, 1);
+  return places;
+};
