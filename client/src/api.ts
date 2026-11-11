@@ -1,4 +1,10 @@
 import axios, { AxiosRequestConfig } from "axios";
+import type {
+  ContentSourcesLineage,
+  ContentSourcesOverview,
+  ContentSourcesPagesResult,
+  PageNodeKind,
+} from "./types/ContentSources";
 import {
   Announcement,
   ActivityMetadataInput,
@@ -3524,6 +3530,52 @@ class API {
         };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference`, data);
+    return res.data;
+  }
+
+  /** The project book's provenance overview (Content Sources). */
+  async getContentSources(projectID: string) {
+    const res = await axios.get<
+      { data: ContentSourcesOverview } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources`);
+    return res.data;
+  }
+
+  /** The project book's pages and their direct sources, a page at a time. */
+  async getContentSourcesPages(
+    projectID: string,
+    params: { kind?: PageNodeKind; attention?: boolean; page?: number; limit?: number } = {},
+  ) {
+    const res = await axios.get<
+      { data: ContentSourcesPagesResult } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/pages`, {
+      params: {
+        ...params,
+        attention: params.attention ? "true" : undefined,
+      },
+    });
+    return res.data;
+  }
+
+  /** One page's reuse chain: `up` = where it comes from, `down` = who reuses it. */
+  async getContentSourcesLineage(
+    projectID: string,
+    pageID: number,
+    direction: "up" | "down" = "up",
+  ) {
+    const res = await axios.get<
+      { data: ContentSourcesLineage } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/pages/${pageID}/lineage`, {
+      params: { direction },
+    });
+    return res.data;
+  }
+
+  /** Turns the leads' source-change emails on or off for the project. */
+  async updateContentSourcesNotifications(projectID: string, enabled: boolean) {
+    const res = await axios.put<
+      { data: { notifySourceChanges: boolean } } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/notifications`, { enabled });
     return res.data;
   }
 

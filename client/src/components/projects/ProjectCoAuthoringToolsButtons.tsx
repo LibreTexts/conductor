@@ -149,6 +149,16 @@ const ProjectCoAuthoringToolsButtons: React.FC<
                     <Icon name="external alternate" className="!ml-2" />
                   </Button>
                 )}
+              <Button
+                onClick={() =>
+                  window.open(`/projects/${projectID}/content-sources`, "_blank")
+                }
+                color="blue"
+                size="small"
+              >
+                Content Sources
+                <Icon name="external alternate" className="!ml-2" />
+              </Button>
             </>
             )}
         </div>

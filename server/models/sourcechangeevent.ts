@@ -77,6 +77,8 @@ SourceChangeEventSchema.index(
 );
 // The notification job's queue.
 SourceChangeEventSchema.index({ notifiedAt: 1, changedAt: 1 });
+// A book's recent changes, for the project Content Sources view.
+SourceChangeEventSchema.index({ "affected.bookID": 1, changedAt: -1 });
 SourceChangeEventSchema.index(
   { changedAt: 1 },
   { expireAfterSeconds: SOURCE_CHANGE_EVENT_TTL_SECONDS },

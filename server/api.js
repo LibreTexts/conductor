@@ -63,6 +63,8 @@ import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
 import * as provenanceValidators from "./api/validators/provenance.js";
 import provenanceAPI from "./api/provenance.js";
+import * as contentSourcesValidators from "./api/validators/content-sources.js";
+import contentSourcesAPI from "./api/content-sources.js";
 import * as supportQueueValidators from "./api/validators/supportqueues.js";
 import * as ProjectValidators from "./api/validators/projects.js";
 import * as ProjectFileValidators from "./api/validators/projectfiles.js";
@@ -3949,6 +3951,44 @@ router.route('/projects/:projectID/restacker/license/bulk').patch(
   middleware.validateZod(RestackerValidators.BulkUpdateRestackerLicenseSchema),
   restackerAPI.bulkUpdateRestackerLicense
 );
+
+// Project Content Sources: where the project's book takes its content from,
+// who reuses it, and what changed (provenance graph, read-only).
+router
+  .route("/project/:projectID/content-sources")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetContentSourcesSchema),
+    contentSourcesAPI.getContentSources,
+  );
+
+router
+  .route("/project/:projectID/content-sources/pages")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetContentPagesSchema),
+    contentSourcesAPI.getContentPages,
+  );
+
+router
+  .route("/project/:projectID/content-sources/pages/:pageID/lineage")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetContentPageLineageSchema),
+    contentSourcesAPI.getContentPageLineage,
+  );
+
+router
+  .route("/project/:projectID/content-sources/notifications")
+  .put(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.UpdateContentSourcesNotificationsSchema),
+    contentSourcesAPI.updateContentSourcesNotifications,
+  );
 
 router.route('/projects/:projectID/reference')
 .get(
