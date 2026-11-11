@@ -1224,6 +1224,26 @@ router
     provenanceAPI.runScanJob,
   );
 
+// LibreTexts staff: library-wide reuse totals and the book connection graph.
+router
+  .route("/provenance/stats")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin", "support"]),
+    provenanceAPI.getStats,
+  );
+
+router
+  .route("/provenance/graph")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin", "support"]),
+    middleware.validateZod(provenanceValidators.GetProvenanceGraphSchema),
+    provenanceAPI.getGraph,
+  );
+
 // Daily, triggered externally: one email per project lead about reused pages
 // that changed or were deleted since the last run.
 router

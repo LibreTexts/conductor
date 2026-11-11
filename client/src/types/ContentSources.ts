@@ -118,3 +118,47 @@ export type ContentSourcesLineage = {
   steps: ContentSourcesLineageStep[];
   truncated: boolean;
 };
+
+/** Reuse totals and scan progress for one library (LibreTexts staff view). */
+export type LibraryReuseStats = {
+  library: string;
+  books: number;
+  totals: ContentSourcesTotals;
+  booksReusing: number;
+  booksReused: number;
+  scan: {
+    phase: string;
+    lastRunAt: string | null;
+    lastCompletedAt: string | null;
+    running: boolean;
+    stats: {
+      scanned: number;
+      skipped: number;
+      edgesAdded: number;
+      edgesRemoved: number;
+      errors: number;
+    } | null;
+  } | null;
+  brokenLinks: number;
+};
+
+export type BookGraphNode = ContentSourcesRef & {
+  /** `library` stands for every not-yet-scanned book of one library. */
+  kind: "book" | "library";
+  pages: number | null;
+  degree: number;
+};
+
+/** `target` reuses `pages` pages from `source`. */
+export type BookGraphEdge = {
+  source: string;
+  target: string;
+  pages: number;
+  types: ReuseEdgeType[];
+};
+
+export type BookGraph = {
+  nodes: BookGraphNode[];
+  edges: BookGraphEdge[];
+  omittedEdges: number;
+};

@@ -37,7 +37,7 @@ const UNSCANNED_EDGE_LIMIT = 5000;
  * nodeID, so page nodes name books too; the Commons `Book` record covers
  * books whose cover was never scanned.
  */
-const loadTitles = async (ids: string[]): Promise<Map<string, string>> => {
+export const loadTitles = async (ids: string[]): Promise<Map<string, string>> => {
   const titles = new Map<string, string>();
   if (ids.length === 0) return titles;
   const nodes = await PageNode.find(

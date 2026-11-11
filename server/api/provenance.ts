@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { childLogger } from "../logger.js";
 import { conductor500Err } from "../util/errorutils.js";
 import type {
+  GetProvenanceGraphRequest,
   RunProvenanceNotifyRequest,
   RunProvenanceScanRequest,
 } from "./validators/provenance.js";
@@ -10,6 +11,10 @@ import {
   isProvenanceScanRunning,
   runProvenanceScan,
 } from "./services/provenance-scan-service.js";
+import {
+  getBookGraph,
+  getLibraryReuseStats,
+} from "./services/provenance-insights-service.js";
 import {
   isProvenanceNotifyRunning,
   runSourceChangeNotifications,
@@ -90,7 +95,35 @@ async function runNotifyJob(req: Request, res: Response) {
   }
 }
 
+const insightsLog = childLogger("provenance-insights");
+
+/** Reuse totals and scan progress per library, for LibreTexts staff. */
+async function getStats(_req: Request, res: Response) {
+  try {
+    const libraries = await getLibraryReuseStats();
+    return res.send({ err: false, data: { libraries } });
+  } catch (err) {
+    insightsLog.error({ err }, "getStats failed");
+    return conductor500Err(res);
+  }
+}
+
+/** The book connection graph, for LibreTexts staff. */
+async function getGraph(req: Request, res: Response) {
+  try {
+    const { library, minPages, limit } =
+      req.query as unknown as GetProvenanceGraphRequest["query"];
+    const data = await getBookGraph({ library, minPages, limit });
+    return res.send({ err: false, data });
+  } catch (err) {
+    insightsLog.error({ err }, "getGraph failed");
+    return conductor500Err(res);
+  }
+}
+
 export default {
   runScanJob,
   runNotifyJob,
+  getStats,
+  getGraph,
 };

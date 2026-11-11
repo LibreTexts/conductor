@@ -1,5 +1,7 @@
 import axios, { AxiosRequestConfig } from "axios";
 import type {
+  BookGraph,
+  LibraryReuseStats,
   ContentSourcesLineage,
   ContentSourcesOverview,
   ContentSourcesPagesResult,
@@ -3530,6 +3532,23 @@ class API {
         };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference`, data);
+    return res.data;
+  }
+
+  /** Reuse totals and scan progress per library (LibreTexts staff). */
+  async getProvenanceStats() {
+    const res = await axios.get<
+      { data: { libraries: LibraryReuseStats[] } } & ConductorBaseResponse
+    >("/provenance/stats");
+    return res.data;
+  }
+
+  /** The book connection graph, optionally for one library (LibreTexts staff). */
+  async getProvenanceGraph(params: { library?: string; minPages?: number; limit?: number } = {}) {
+    const res = await axios.get<{ data: BookGraph } & ConductorBaseResponse>(
+      "/provenance/graph",
+      { params },
+    );
     return res.data;
   }
 

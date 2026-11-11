@@ -87,3 +87,86 @@ export const collectIds = (...lists: (string | null | undefined)[][]): string[] 
   for (const list of lists) for (const id of list) if (id) ids.add(id);
   return [...ids];
 };
+
+/** A book's links as stored on its summary. */
+export type SummaryLinks = {
+  bookID: string;
+  lib: string;
+  pages: number;
+  upstream: { bookID: string; pages: number; types: ReuseEdgeType[] }[];
+  downstream: { bookID: string; pages: number; types: ReuseEdgeType[] }[];
+};
+
+/** One book-to-book reuse link: `target` reuses `pages` pages from `source`. */
+export type BookGraphEdge = {
+  source: string;
+  target: string;
+  pages: number;
+  types: ReuseEdgeType[];
+};
+
+export type BookGraphNode = {
+  id: string;
+  lib: string | null;
+  /** The book's page count, when its summary is known. */
+  pages: number | null;
+  /** Links to and from this book within the returned graph. */
+  degree: number;
+};
+
+export type BookGraph = {
+  nodes: BookGraphNode[];
+  edges: BookGraphEdge[];
+  /** Links left out by `minPages` or `limit`. */
+  omittedEdges: number;
+};
+
+/**
+ * The book connection graph from book summaries. Each summary lists both
+ * directions, so a link between two summarized books is seen twice; it is
+ * merged by (source, target) keeping the larger page count. Heaviest links
+ * first, capped at `limit`, so a library-wide view stays drawable.
+ */
+export const buildBookGraph = (
+  summaries: SummaryLinks[],
+  { minPages = 1, limit = 300 }: { minPages?: number; limit?: number } = {},
+): BookGraph => {
+  const edges = new Map<string, BookGraphEdge>();
+  const add = (source: string, target: string, pages: number, types: ReuseEdgeType[]) => {
+    if (source === target) return;
+    const key = `${source}>${target}`;
+    const existing = edges.get(key);
+    if (!existing) {
+      edges.set(key, { source, target, pages, types: [...new Set(types)].sort() });
+      return;
+    }
+    existing.pages = Math.max(existing.pages, pages);
+    existing.types = [...new Set([...existing.types, ...types])].sort();
+  };
+  for (const summary of summaries) {
+    for (const link of summary.upstream) add(link.bookID, summary.bookID, link.pages, link.types);
+    for (const link of summary.downstream) add(summary.bookID, link.bookID, link.pages, link.types);
+  }
+
+  const all = [...edges.values()].sort(
+    (a, b) => b.pages - a.pages || a.source.localeCompare(b.source) || a.target.localeCompare(b.target),
+  );
+  const kept = all.filter((e) => e.pages >= minPages).slice(0, limit);
+
+  const pagesByBook = new Map(summaries.map((s) => [s.bookID, s.pages]));
+  const degree = new Map<string, number>();
+  for (const edge of kept) {
+    degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
+    degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
+  }
+  const nodes = [...degree.entries()]
+    .map(([id, d]) => ({
+      id,
+      lib: parsePageNodeId(id)?.lib ?? null,
+      pages: pagesByBook.get(id) ?? null,
+      degree: d,
+    }))
+    .sort((a, b) => b.degree - a.degree || a.id.localeCompare(b.id));
+
+  return { nodes, edges: kept, omittedEdges: all.length - kept.length };
+};

@@ -13,6 +13,11 @@ import { CXOneFetch } from "../../util/librariesclient.js";
 import MindTouch from "../../util/CXOne/index.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
 import { classifyPageContent } from "../../util/page-classifier.js";
+import {
+  compareFingerprints,
+  fingerprintPage,
+  type PageFingerprint,
+} from "../../util/content-fingerprint.js";
 import { edgeTypeForRef, pageNodeId } from "../../util/provenance-graph.js";
 import {
   flattenPageTree,
@@ -314,6 +319,50 @@ type PageScanResult = {
   reconcile: { target: string; scan: string[] };
 } | null;
 
+/**
+ * The page a former whole-page transclusion was copied from, if its current
+ * text matches the source it used to transclude. Reads each candidate
+ * source's content once; a source that can't be read or fingerprinted never
+ * matches, so the page is then treated as original.
+ */
+const findForkSource = async (
+  ctx: ScanContext,
+  targetId: string,
+  fingerprint: PageFingerprint,
+): Promise<{ source: string; confidence: number; match: string; revision?: number } | null> => {
+  const previous = await PageReuseEdge.find(
+    {
+      target: { $eq: targetId },
+      type: { $in: ["transclude-same", "transclude-cross"] },
+      status: { $in: CURRENT_EDGE_STATUSES },
+    },
+    { _id: 0, source: 1 },
+  ).lean<{ source: string }[]>();
+
+  for (const { source } of previous) {
+    const parts = splitNodeId(source);
+    if (!parts) continue;
+    const res = await fetchLibraryPage(
+      ctx.throttle,
+      parts.lib,
+      parts.pageID,
+      MindTouch.API.Page.GET_page_RawContents,
+    );
+    if (!res.ok) continue;
+    const raw = await res.text();
+    const result = compareFingerprints(fingerprint, fingerprintPage(raw));
+    if (result.match === "none") continue;
+    const revision = parseInt(/"@revision"\s*:\s*"?(\d+)/.exec(raw)?.[1] ?? "", 10);
+    return {
+      source,
+      confidence: result.confidence,
+      match: result.match,
+      revision: Number.isFinite(revision) ? revision : undefined,
+    };
+  }
+  return null;
+};
+
 /** Reads one changed page and works out its node and edges. Null on a read failure. */
 const scanPage = async (
   ctx: ScanContext,
@@ -353,6 +402,30 @@ const scanPage = async (
   let kind: PageNodeKind = classification.kind;
   if (kind === "original" && (previousKind === "fork" || previousKind === "full")) {
     kind = previousKind;
+  }
+
+  // A transclusion that lost its markup and now holds its source's text was
+  // forked in place (the library's Forker bot, or a copy-paste). Keep the
+  // lineage as a frozen fork edge instead of calling the page original.
+  if (kind === "original" && previousKind === "transclude" && edges.length === 0) {
+    const forkedFrom = await findForkSource(ctx, targetId, classification.fingerprint);
+    if (forkedFrom) {
+      kind = "fork";
+      scanSources.push(forkedFrom.source);
+      edges.push({
+        target: targetId,
+        source: forkedFrom.source,
+        targetBook: bookID,
+        type: "fork",
+        origin: "scan",
+        confidence: forkedFrom.confidence,
+        linkedRevision: forkedFrom.revision,
+      });
+      scanLog.info(
+        { target: targetId, source: forkedFrom.source, match: forkedFrom.match },
+        "Transclusion became a fork",
+      );
+    }
   }
 
   const ownsContent = OWN_CONTENT_KINDS.includes(kind);

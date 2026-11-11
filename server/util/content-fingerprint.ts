@@ -208,3 +208,34 @@ export const fingerprintPage = (rawContents: string): PageFingerprint => {
     simBands: simhash ? toSimBands(simhash) : null,
   };
 };
+
+/**
+ * Most SimHash bits two pages may differ by and still count as copies of each
+ * other (a fork with light edits). Unrelated pages differ by ~32 bits.
+ */
+export const NEAR_COPY_MAX_DISTANCE = 8;
+
+export type FingerprintMatch =
+  | { match: "exact"; distance: 0; confidence: 1 }
+  | { match: "near"; distance: number; confidence: number }
+  | { match: "none"; distance: number | null; confidence: 0 };
+
+/**
+ * Whether two pages' own text is the same (identical normalized text) or a
+ * near copy (SimHash within {@link NEAR_COPY_MAX_DISTANCE} bits). Pages too
+ * short to fingerprint never match: their text says too little.
+ */
+export const compareFingerprints = (a: PageFingerprint, b: PageFingerprint): FingerprintMatch => {
+  if (a.wordCount < MIN_FINGERPRINT_WORDS || b.wordCount < MIN_FINGERPRINT_WORDS) {
+    return { match: "none", distance: null, confidence: 0 };
+  }
+  if (a.contentHash && b.contentHash && a.contentHash.equals(b.contentHash)) {
+    return { match: "exact", distance: 0, confidence: 1 };
+  }
+  const sa = a.simBands ? fromSimBands(a.simBands) : null;
+  const sb = b.simBands ? fromSimBands(b.simBands) : null;
+  if (!sa || !sb) return { match: "none", distance: null, confidence: 0 };
+  const distance = simhashDistance(sa, sb);
+  if (distance > NEAR_COPY_MAX_DISTANCE) return { match: "none", distance, confidence: 0 };
+  return { match: "near", distance, confidence: Number((1 - distance / 64).toFixed(3)) };
+};

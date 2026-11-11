@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  compareFingerprints,
   contentHash,
   fingerprintPage,
   fromSimBands,
@@ -111,5 +112,30 @@ describe("fingerprintPage", () => {
       contentHash: null,
       simBands: null,
     });
+  });
+});
+
+describe("compareFingerprints", () => {
+  const page = (text: string) => fingerprintPage(`<p>${text}</p>`);
+
+  it("calls identical own text an exact copy, whatever the markup", () => {
+    const a = fingerprintPage(`<div><p>${PARAGRAPH}</p></div>`);
+    const b = fingerprintPage(`<section><p class="x">${PARAGRAPH}</p></section>`);
+    assert.deepEqual(compareFingerprints(a, b), { match: "exact", distance: 0, confidence: 1 });
+  });
+
+  it("calls a lightly edited copy a near copy", () => {
+    const edited = PARAGRAPH.replace("laboratory setting", "lab setting");
+    const result = compareFingerprints(page(PARAGRAPH), page(edited));
+    assert.equal(result.match, "near");
+    assert.ok(result.confidence > 0.85);
+  });
+
+  it("does not match unrelated pages", () => {
+    assert.equal(compareFingerprints(page(PARAGRAPH), page(OTHER_PARAGRAPH)).match, "none");
+  });
+
+  it("never matches pages too short to fingerprint", () => {
+    assert.equal(compareFingerprints(page("Short."), page("Short.")).match, "none");
   });
 });
