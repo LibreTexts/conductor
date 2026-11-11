@@ -1,12 +1,19 @@
 import type { Request, Response } from "express";
 import { childLogger } from "../logger.js";
 import { conductor500Err } from "../util/errorutils.js";
-import type { RunProvenanceScanRequest } from "./validators/provenance.js";
+import type {
+  RunProvenanceNotifyRequest,
+  RunProvenanceScanRequest,
+} from "./validators/provenance.js";
 import {
   DEFAULT_SCAN_BUDGET_MS,
   isProvenanceScanRunning,
   runProvenanceScan,
 } from "./services/provenance-scan-service.js";
+import {
+  isProvenanceNotifyRunning,
+  runSourceChangeNotifications,
+} from "./services/provenance-notify-service.js";
 
 const log = childLogger("provenance-scan");
 
@@ -48,6 +55,42 @@ async function runScanJob(req: Request, res: Response) {
   }
 }
 
+const notifyLog = childLogger("provenance-notify");
+
+/**
+ * Emails each project lead one digest of the reused pages that changed or
+ * were deleted since the last run. Triggered externally, daily. Answers 202
+ * right away and sends in the background; `?dryRun=true` instead answers with
+ * the digests it would send, without sending or changing anything.
+ */
+async function runNotifyJob(req: Request, res: Response) {
+  try {
+    const { dryRun } = req.query as unknown as RunProvenanceNotifyRequest["query"];
+
+    if (dryRun) {
+      const outcome = await runSourceChangeNotifications({ dryRun: true });
+      return res.send({ err: false, ...outcome });
+    }
+
+    if (isProvenanceNotifyRunning()) {
+      return res.status(202).send({
+        err: false,
+        started: false,
+        msg: "Source-change notifications are already running on this instance.",
+      });
+    }
+
+    void runSourceChangeNotifications().catch((err) =>
+      notifyLog.error({ err }, "Source-change notification run failed"),
+    );
+    return res.status(202).send({ err: false, started: true });
+  } catch (err) {
+    notifyLog.error({ err }, "runNotifyJob failed");
+    return conductor500Err(res);
+  }
+}
+
 export default {
   runScanJob,
+  runNotifyJob,
 };

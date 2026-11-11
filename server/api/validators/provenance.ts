@@ -30,3 +30,16 @@ export const RunProvenanceScanSchema = z.object({
 });
 
 export type RunProvenanceScanRequest = z.infer<typeof RunProvenanceScanSchema>;
+
+/** `PUT /provenance/automation/notify`: email leads about changed sources. */
+export const RunProvenanceNotifySchema = z.object({
+  query: z.object({
+    /** Return the digests that would be sent; send nothing, change nothing. */
+    dryRun: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => value === "true"),
+  }),
+});
+
+export type RunProvenanceNotifyRequest = z.infer<typeof RunProvenanceNotifySchema>;

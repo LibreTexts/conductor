@@ -1222,6 +1222,16 @@ router
     provenanceAPI.runScanJob,
   );
 
+// Daily, triggered externally: one email per project lead about reused pages
+// that changed or were deleted since the last run.
+router
+  .route("/provenance/automation/notify")
+  .put(
+    middleware.checkLibreAPIKey,
+    middleware.validateZod(provenanceValidators.RunProvenanceNotifySchema),
+    provenanceAPI.runNotifyJob,
+  );
+
 router
   .route("/activities/:activityID")
   .patch(

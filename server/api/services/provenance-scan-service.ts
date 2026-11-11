@@ -626,6 +626,11 @@ export const checkReusedSources = async ({
 
       const revision = parseInt(String(info?.["@revision"] ?? ""), 10);
       const toRev = Number.isFinite(revision) ? revision : undefined;
+      // Sources outside every scanned book only ever get read here, so this is
+      // where they pick up a title and path for change emails.
+      const title = typeof info?.title === "string" ? info.title : undefined;
+      const rawPath = info?.path?.["#text"] ?? info?.path;
+      const path = typeof rawPath === "string" && rawPath ? rawPath : undefined;
       if (node.revision !== undefined && toRev !== undefined && toRev !== node.revision) {
         const { recorded } = await recordSourceChange({
           sourceId: node.nodeID,
@@ -647,6 +652,8 @@ export const checkReusedSources = async ({
           $set: {
             sourceCheckedAt: checkedAt,
             ...(toRev !== undefined ? { revision: toRev } : {}),
+            ...(title ? { title } : {}),
+            ...(path ? { path } : {}),
             ...(stillReused ? {} : { isSource: false }),
           },
         },

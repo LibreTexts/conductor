@@ -193,9 +193,9 @@ describe("summarizeAffectedBooks", () => {
     ]);
     const walk = await walkDownstream("A", outgoing(edges));
     assert.deepEqual(summarizeAffectedBooks(walk.hits), [
-      { bookID: "book-B", pages: 2, minHops: 1, via: [], frozen: false },
-      { bookID: "book-D", pages: 1, minHops: 1, via: [], frozen: true },
-      { bookID: "book-C", pages: 1, minHops: 2, via: ["B"], frozen: false },
+      { bookID: "book-B", pages: 2, minHops: 1, via: [], frozen: false, examples: ["B", "B2"] },
+      { bookID: "book-D", pages: 1, minHops: 1, via: [], frozen: true, examples: ["D"] },
+      { bookID: "book-C", pages: 1, minHops: 2, via: ["B"], frozen: false, examples: ["C"] },
     ]);
   });
 

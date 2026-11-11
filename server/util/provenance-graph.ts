@@ -198,12 +198,17 @@ export type AffectedBook = {
   via: string[];
   /** Every affected page in the book is a fork/full copy (out of date, not changed). */
   frozen: boolean;
+  /** Up to {@link AFFECTED_EXAMPLE_PAGES} affected pages, nearest the source first. */
+  examples: string[];
 };
+
+/** How many affected pages each book names, so an email can point at them. */
+export const AFFECTED_EXAMPLE_PAGES = 5;
 
 /**
  * Groups a downstream walk by book, so one change produces one line per
- * affected book (and, in Phase 6, one email line per project) however many
- * of its pages reuse the source. Pages outside any known book are left out:
+ * affected book (and one email line per project) however many of its pages
+ * reuse the source. Pages outside any known book are left out:
  * no project can be notified about them.
  */
 export const summarizeAffectedBooks = (hits: DownstreamHit[]): AffectedBook[] => {
@@ -218,10 +223,12 @@ export const summarizeAffectedBooks = (hits: DownstreamHit[]): AffectedBook[] =>
         minHops: hit.hops,
         via: [...hit.via],
         frozen: hit.frozen,
+        examples: [hit.target],
       });
       continue;
     }
     existing.pages += 1;
+    if (existing.examples.length < AFFECTED_EXAMPLE_PAGES) existing.examples.push(hit.target);
     existing.frozen = existing.frozen && hit.frozen;
     if (hit.hops < existing.minHops) {
       existing.minHops = hit.hops;

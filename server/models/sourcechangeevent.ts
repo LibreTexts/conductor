@@ -17,6 +17,8 @@ export type SourceChangeAffectedBook = {
   via: string[];
   /** Reached only through a fork/full copy: the copy is out of date. */
   frozen: boolean;
+  /** A few of the affected pages (nodeIDs), nearest the source first. */
+  examples: string[];
 };
 
 /**
@@ -46,6 +48,7 @@ const AffectedBookSchema = new Schema<SourceChangeAffectedBook>(
     minHops: { type: Number, required: true },
     via: { type: [String], default: [] },
     frozen: { type: Boolean, default: false },
+    examples: { type: [String], default: [] },
   },
   { _id: false },
 );
