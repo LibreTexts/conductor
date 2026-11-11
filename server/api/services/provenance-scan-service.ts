@@ -28,6 +28,7 @@ import type { ReuseRef } from "../../util/transclusion.js";
 import { createThrottle } from "./library-sync-service.js";
 import {
   fillEdgeSourceBooks,
+  findNeighborBooks,
   deletePageWithNotice,
   recordSourceChange,
   rebuildBookSummary,
@@ -771,6 +772,8 @@ export const checkReusedSources = async ({
 /** Pages to compute chain roots for. */
 const ROOTS_PREFIX = "roots:";
 const SUMMARIES_PREFIX = "summaries:";
+/** Other libraries' books linked to this one's, whose summaries go stale. */
+const NEIGHBORS_PREFIX = "neighbors:";
 
 export type LibraryScanStatus = "busy" | "up-to-date" | "budget" | "complete" | "error";
 
@@ -890,16 +893,33 @@ const scanLibrary = async (
           .limit(BOOK_PAGE_SIZE)
           .lean<{ bookID: string }[]>();
         if (books.length === 0) {
-          phase = "complete";
-          cursor = "";
-          await lease.save({ phase, cursor: null, lastCompletedAt: new Date() });
-          scanLog.info({ library: lib }, "Provenance scan pass complete");
+          cursor = NEIGHBORS_PREFIX;
+          await lease.save({ cursor });
           break;
         }
         for (const { bookID } of books) {
           await rebuildBookSummary(bookID);
         }
         cursor = `${SUMMARIES_PREFIX}${books[books.length - 1].bookID}`;
+        await lease.save({ cursor });
+      }
+
+      // Books elsewhere that reuse this library's books, or that it reuses:
+      // their upstream/downstream lists changed with this pass.
+      while (cursor.startsWith(NEIGHBORS_PREFIX) && !outOfTime(ctx)) {
+        const after = cursor.slice(NEIGHBORS_PREFIX.length);
+        const next = (await findNeighborBooks({ libPrefix: `${lib}-` }))
+          .filter((bookID) => bookID > after)
+          .slice(0, BOOK_PAGE_SIZE);
+        if (next.length === 0) {
+          phase = "complete";
+          cursor = "";
+          await lease.save({ phase, cursor: null, lastCompletedAt: new Date() });
+          scanLog.info({ library: lib }, "Provenance scan pass complete");
+          break;
+        }
+        for (const bookID of next) await rebuildBookSummary(bookID);
+        cursor = `${NEIGHBORS_PREFIX}${next[next.length - 1]}`;
         await lease.save({ cursor });
       }
     }
@@ -987,6 +1007,11 @@ const scanSpecificBooks = async (
       ).lean<{ nodeID: string }[]>();
       await mapWithConcurrency(reusePages, 8, (node) => refreshChainRoot(node.nodeID));
       for (const bookID of scannedBooks) await rebuildBookSummary(bookID);
+      // Their neighbours' lists of who reuses whom changed too.
+      for (const bookID of await findNeighborBooks({ bookIDs: scannedBooks })) {
+        if (outOfTime(ctx)) break;
+        await rebuildBookSummary(bookID);
+      }
 
       outcomes.push({
         library: lib,

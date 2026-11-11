@@ -35,6 +35,20 @@ const notifyLog = childLogger("provenance-notify");
 
 /** Oldest unsent events handled per run. */
 const MAX_EVENTS_PER_RUN = 1000;
+/**
+ * A claim with no `sentAt` older than this was left by a run that died
+ * between claiming and sending; it is released so the email goes out.
+ * Far longer than any send takes, so a live run's claim is never stolen.
+ */
+const STALE_CLAIM_MS = 30 * 60 * 1000;
+
+/** Claims that still count: sent, or claimed recently by a run that may be sending. */
+const liveClaimFilter = () => ({
+  $or: [
+    { sentAt: { $ne: null } },
+    { claimedAt: { $gt: new Date(Date.now() - STALE_CLAIM_MS) } },
+  ],
+});
 const OR_QUERY_CHUNK = 200;
 
 type EventRow = SourceChangeEventInterface & { _id: Types.ObjectId };
@@ -170,6 +184,13 @@ const claimEvents = async (
 ): Promise<Set<string>> => {
   if (eventIDs.length === 0) return new Set();
   const claimedAt = new Date();
+  // Release this lead's stale claims first, so the upsert below can take them.
+  await ProvenanceNotificationLog.deleteMany({
+    eventID: { $in: eventIDs.map((id) => new Types.ObjectId(id)) },
+    recipient: { $eq: recipient },
+    sentAt: null,
+    claimedAt: { $lte: new Date(Date.now() - STALE_CLAIM_MS) },
+  });
   const ops = eventIDs.map((id) => {
     const eventID = new Types.ObjectId(id);
     return {
@@ -253,7 +274,11 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
   const eventIDs = events.map((e) => e.eventID);
   const already = new Map<string, Set<string>>();
   const logs = await ProvenanceNotificationLog.find(
-    { eventID: { $in: eventIDs }, recipient: { $in: reachable.map((d) => d.recipient) } },
+    {
+      eventID: { $in: eventIDs },
+      recipient: { $in: reachable.map((d) => d.recipient) },
+      ...liveClaimFilter(),
+    },
     { _id: 0, eventID: 1, recipient: 1 },
   ).lean<{ eventID: Types.ObjectId; recipient: string }[]>();
   for (const log of logs) {

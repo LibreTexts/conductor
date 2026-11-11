@@ -68,7 +68,8 @@ export const getLibraryReuseStats = async (): Promise<LibraryReuseStats[]> => {
     ).lean(),
     // Broken links per target library; the target book's prefix is its library.
     PageReuseEdge.aggregate<{ _id: string; n: number }>([
-      { $match: { status: "broken", targetBook: { $ne: null } } },
+      // `status: "broken"` lets this use the partial broken-links index.
+      { $match: { status: "broken", targetBook: { $type: "string" } } },
       { $group: { _id: { $arrayElemAt: [{ $split: ["$targetBook", "-"] }, 0] }, n: { $sum: 1 } } },
     ]),
   ]);

@@ -98,6 +98,11 @@ PageReuseEdgeSchema.index({ source: 1, status: 1 });
 // Book-level graph aggregation.
 PageReuseEdgeSchema.index({ sourceBook: 1, targetBook: 1 });
 PageReuseEdgeSchema.index({ targetBook: 1 });
+// Broken links per library (Content Reuse stats): only broken edges, so tiny.
+PageReuseEdgeSchema.index(
+  { targetBook: 1 },
+  { name: "broken_by_targetBook", partialFilterExpression: { status: "broken" } },
+);
 
 const PageReuseEdge = model<PageReuseEdgeInterface>(
   "PageReuseEdge",

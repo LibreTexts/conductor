@@ -454,6 +454,43 @@ export const fillEdgeSourceBooks = async (
   return updated;
 };
 
+/**
+ * Books that share a reuse link with the given books (or with any book of a
+ * library), in either direction, and already have a summary. Their
+ * upstream/downstream lists go stale when the given books are scanned, so
+ * the scanner rebuilds them. Books never summarized are left alone, so a
+ * rebuild doesn't make an unscanned book look scanned.
+ */
+export const findNeighborBooks = async ({
+  bookIDs,
+  libPrefix,
+}: {
+  bookIDs?: string[];
+  /** e.g. `chem-`: every book of that library. */
+  libPrefix?: string;
+}): Promise<string[]> => {
+  const own = libPrefix
+    ? { $regex: new RegExp(`^${libPrefix.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")}`) }
+    : { $in: bookIDs ?? [] };
+  const [sources, targets] = await Promise.all([
+    PageReuseEdge.distinct("sourceBook", { targetBook: own, sourceBook: { $ne: null } }),
+    PageReuseEdge.distinct("targetBook", { sourceBook: own, targetBook: { $ne: null } }),
+  ]);
+  const isOwn = (id: string) =>
+    libPrefix ? id.startsWith(libPrefix) : (bookIDs ?? []).includes(id);
+  const candidates = [...new Set([...sources, ...targets] as string[])].filter((id) => id && !isOwn(id));
+  if (candidates.length === 0) return [];
+  const summarized: string[] = [];
+  for (const batch of chunk(candidates, IN_QUERY_CHUNK)) {
+    const rows = await BookReuseSummary.find(
+      { bookID: { $in: batch } },
+      { _id: 0, bookID: 1 },
+    ).lean<{ bookID: string }[]>();
+    summarized.push(...rows.map((r) => r.bookID));
+  }
+  return summarized.sort();
+};
+
 /** Breaks every current edge onto a source that no longer exists. */
 export const markSourceBroken = async (source: string): Promise<number> => {
   const res = await PageReuseEdge.updateMany(
