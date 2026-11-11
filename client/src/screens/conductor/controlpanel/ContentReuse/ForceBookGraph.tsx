@@ -9,6 +9,10 @@ import {
   type SimulationNodeDatum,
 } from "d3";
 import type { BookGraph } from "../../../../types/ContentSources";
+import {
+  estimateTextWidth,
+  truncateLabel,
+} from "../../../../components/projects/ContentSources/svgText";
 
 /**
  * The book connection graph as a force-directed layout. The layout is
@@ -48,8 +52,7 @@ const colorFor = (lib: string | null) => {
   return PALETTE[hash % PALETTE.length];
 };
 
-const truncate = (text: string, max = 28) =>
-  text.length > max ? `${text.slice(0, max - 1)}…` : text;
+const LABEL_PX = 11;
 
 const ForceBookGraph: React.FC<{ graph: BookGraph; summary: string }> = ({ graph, summary }) => {
   const layout = useMemo(() => {
@@ -75,23 +78,40 @@ const ForceBookGraph: React.FC<{ graph: BookGraph; summary: string }> = ({ graph
       .stop();
     for (let i = 0; i < 300; i += 1) simulation.tick();
 
-    // Fit whatever the simulation produced into the view.
-    const pad = 40;
-    const xs = nodes.map((n) => n.x ?? 0);
-    const ys = nodes.map((n) => n.y ?? 0);
-    const minX = Math.min(...xs) - pad;
-    const minY = Math.min(...ys) - pad;
-    const w = Math.max(...xs) - minX + pad;
-    const h = Math.max(...ys) - minY + pad;
-
     const labelled = new Set(
       [...graph.nodes].sort((a, b) => b.degree - a.degree).slice(0, LABELS).map((n) => n.id),
     );
-    return { nodes, links, maxLink, viewBox: `${minX} ${minY} ${Math.max(w, 200)} ${Math.max(h, 160)}`, labelled };
+
+    // Fit what the simulation produced into the view, labels included: a
+    // label runs to the right of its dot, so it widens the area instead of
+    // being cut off.
+    const pad = 20;
+    const rightEdges = nodes.map(
+      (n) =>
+        (n.x ?? 0) +
+        n.radius +
+        (labelled.has(n.id) ? 4 + estimateTextWidth(truncateLabel(n.title), LABEL_PX) : 0),
+    );
+    const minX = Math.min(...nodes.map((n) => (n.x ?? 0) - n.radius)) - pad;
+    const minY = Math.min(...nodes.map((n) => (n.y ?? 0) - n.radius)) - pad;
+    const w = Math.max(...rightEdges) - minX + pad;
+    const h = Math.max(...nodes.map((n) => (n.y ?? 0) + n.radius)) - minY + pad;
+    const width = Math.max(w, 200);
+    const height = Math.max(h, 160);
+    return { nodes, links, maxLink, viewBox: `${minX} ${minY} ${width} ${height}`, width, height, labelled };
   }, [graph]);
 
   return (
-    <svg role="img" aria-label={summary} viewBox={layout.viewBox} className="h-auto w-full max-w-full">
+    // Drawn at its natural size (one layout unit = one pixel): it may shrink
+    // to fit, never grow, so a small graph isn't blown up on a wide screen.
+    <svg
+      role="img"
+      aria-label={summary}
+      viewBox={layout.viewBox}
+      width={layout.width}
+      height={layout.height}
+      className="mx-auto block h-auto max-w-full"
+    >
       <defs>
         <marker id="cr-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" className="fill-neutral-400" />
@@ -139,7 +159,7 @@ const ForceBookGraph: React.FC<{ graph: BookGraph; summary: string }> = ({ graph
               y={(node.y ?? 0) + 4}
               className="fill-neutral-800 text-[11px]"
             >
-              {truncate(node.title)}
+              {truncateLabel(node.title)}
             </text>
           )}
         </g>
