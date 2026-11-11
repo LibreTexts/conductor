@@ -2,7 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   flattenPageTree,
-  parseConductorSource,
   structuralTagsFor,
 } from "./provenance-tree.js";
 
@@ -25,12 +24,11 @@ const tree = {
         "@revision": "7",
         path: { "#text": "Bookshelves/Chem/Book/1:_Atoms" },
         title: "1: Atoms",
+        // A single (non-array) property is a plain object in the response.
         properties: {
           property: {
-            "@name": "urn:custom.mindtouch.com#conductor-source",
-            contents: {
-              "#text": JSON.stringify({ source: "bio-55", type: "fork", revision: 4 }),
-            },
+            "@name": "mindtouch.page#articleType",
+            contents: { "#text": "topic-guide" },
           },
         },
         subpages: {
@@ -68,9 +66,9 @@ describe("flattenPageTree", () => {
     assert.equal(pages[2].path, "Bookshelves/Chem/Book/1:_Atoms/1.1");
   });
 
-  it("reads the Conductor source property on a copied page", () => {
-    assert.deepEqual(pages[1].conductorSource, { source: "bio-55", type: "fork", revision: 4 });
-    assert.equal(pages[3].conductorSource, null);
+  it("reads a property given as a single object, not an array", () => {
+    assert.equal(pages[1].articleType, "topic-guide");
+    assert.equal(pages[3].articleType, undefined);
   });
 
   it("handles an empty response", () => {
@@ -78,11 +76,51 @@ describe("flattenPageTree", () => {
   });
 });
 
-describe("parseConductorSource", () => {
-  it("rejects malformed or foreign values", () => {
-    assert.equal(parseConductorSource("not json"), null);
-    assert.equal(parseConductorSource(JSON.stringify({ source: "bio-55", type: "transclude-same" })), null);
-    assert.equal(parseConductorSource(JSON.stringify({ source: "$where", type: "fork" })), null);
-    assert.equal(parseConductorSource(undefined), null);
+describe("generated matter", () => {
+  // Shape of dev book 9213: matter under the cover, and a second copy nested
+  // under a wrapper chapter "Chapters" (renamed "1: InfoPage" by Remixer).
+  const page = (id: string, title: string, path: string, children: any[] = []) => ({
+    "@id": id,
+    title,
+    path: { "#text": `Workbench/book/${path}` },
+    ...(children.length ? { subpages: { page: children } } : {}),
+  });
+  const book = page("9213", "Book", "", [
+    page("10862", "Front Matter", "00:_Front_Matter", [
+      page("10863", "TitlePage", "00:_Front_Matter/01:_TitlePage"),
+      page("10871", "Info abc", "00:_Front_Matter/02.01:_Info_abc"),
+    ]),
+    page("10940", "Chapters", "01:_Chapters", [
+      page("10941", "Front Matter", "01:_Chapters/1.01:_Front_Matter", [
+        page("10982", "1: InfoPage", "01:_Chapters/1.01:_Front_Matter/01:_InfoPage"),
+      ]),
+      page("10623", "1: iVoices Media Collections", "01:_Chapters/1.01:_iVoices"),
+      page("11049", "6: Back Matter", "01:_Chapters/zz:_Back_Matter", [
+        page("11050", "Index", "01:_Chapters/zz:_Back_Matter/10:_Index"),
+      ]),
+    ]),
+    page("9220", "Back Matter", "zz:_Back_Matter", [
+      page("9221", "Index", "zz:_Back_Matter/10:_Index"),
+      page("9227", "Tiling the Plane", "zz:_Back_Matter/11:_Tiling_the_Plane"),
+    ]),
+  ]);
+  const byId = new Map(flattenPageTree(book).map((p) => [String(p.pageID), p]));
+  const matter = (id: string) => byId.get(id)?.isGeneratedMatter;
+
+  it("flags containers and their default pages at any depth", () => {
+    for (const id of ["10862", "10863", "10941", "10982", "11049", "11050", "9220", "9221"]) {
+      assert.equal(matter(id), true, `page ${id}`);
+    }
+  });
+
+  it("keeps the cover, chapters and custom pages inside matter as content", () => {
+    for (const id of ["9213", "10940", "10623", "10871", "9227"]) {
+      assert.equal(matter(id), false, `page ${id}`);
+    }
+  });
+
+  it("never invents tags: only the library's own values are reported", () => {
+    assert.deepEqual(structuralTagsFor(byId.get("10982")!), []);
   });
 });
+

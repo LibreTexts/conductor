@@ -1,5 +1,5 @@
 import { childLogger } from "../../logger.js";
-import { addPageProperty, getPage } from "../../util/librariesclient.js";
+import { getPage } from "../../util/librariesclient.js";
 import { extractPagePath } from "../../util/remixerutils.js";
 import {
   pageNodeId,
@@ -89,8 +89,8 @@ export type RecordReuseParams = {
 
 /**
  * Records one reuse as it is created: both page nodes, the edge, and the
- * target's chain root. For a copy, also writes the source onto the copied
- * page as a page property, so the lineage survives even outside Conductor.
+ * target's chain root, all in Conductor's own collections. Nothing is written
+ * to the library; it is only read (the source's current revision).
  *
  * Never throws.
  */
@@ -160,27 +160,9 @@ export const recordReuse = async ({
       },
     ]);
 
+    // Lineage lives only in Conductor's own collections: nothing about it is
+    // ever written to the library (no tags, no page properties).
     await refreshChainRoot(targetId);
-
-    if (type === "fork" || type === "full") {
-      const recorded = await addPageProperty(
-        target.lib,
-        targetPageID,
-        "ConductorSource",
-        JSON.stringify({
-          source: sourceId,
-          revision: linkedRevision ?? null,
-          type,
-          at: new Date().toISOString(),
-        }),
-      );
-      if (!recorded) {
-        captureLog.warn(
-          { targetId, sourceId },
-          "Could not write the source property on a copied page",
-        );
-      }
-    }
   } catch (err) {
     captureLog.warn(
       { err, targetId, sourceId, type },

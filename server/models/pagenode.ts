@@ -26,8 +26,8 @@ export const PAGE_NODE_KINDS = [
 export type PageNodeKind = (typeof PAGE_NODE_KINDS)[number];
 
 export interface PageNodeInterface {
-  /** `${lib}-${pageID}`; see `pageNodeId`. */
-  _id: string;
+  /** `${lib}-${pageID}`, the page's key across the graph; see `pageNodeId`. */
+  nodeID: string;
   lib: string;
   pageID: number;
   /** The book (coverpage) the page belongs to, `${lib}-${coverID}`. */
@@ -58,7 +58,7 @@ export interface PageNodeInterface {
 
 const PageNodeSchema = new Schema<PageNodeInterface>(
   {
-    _id: { type: String, required: true },
+    nodeID: { type: String, required: true, unique: true },
     lib: { type: String, required: true },
     pageID: { type: Number, required: true },
     bookID: { type: String, default: null },

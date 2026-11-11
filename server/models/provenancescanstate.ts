@@ -16,7 +16,7 @@ export type ProvenanceScanPhase = (typeof PROVENANCE_SCAN_PHASES)[number];
  */
 export interface ProvenanceScanStateInterface {
   /** Library subdomain. */
-  _id: string;
+  library: string;
   phase: ProvenanceScanPhase;
   /** Resume point within the current phase (e.g. the last bookID finished). */
   cursor?: string | null;
@@ -41,7 +41,7 @@ const count = { type: Number, default: 0 };
 
 const ProvenanceScanStateSchema = new Schema<ProvenanceScanStateInterface>(
   {
-    _id: { type: String, required: true },
+    library: { type: String, required: true, unique: true },
     phase: { type: String, enum: PROVENANCE_SCAN_PHASES, default: "idle" },
     cursor: { type: String, default: null },
     changesSince: { type: Date, default: null },

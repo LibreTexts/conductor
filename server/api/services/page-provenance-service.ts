@@ -1,3 +1,4 @@
+import type { Types } from "mongoose";
 import { childLogger } from "../../logger.js";
 import PageNode, {
   type PageNodeInterface,
@@ -18,7 +19,6 @@ import {
   MAX_CHAIN_DEPTH,
   pageNodeId,
   resolveChainRoot,
-  reuseEdgeId,
   walkDownstream,
   type ChainRoot,
   type DownstreamWalk,
@@ -31,8 +31,11 @@ import {
  * and per-book rollups. Graph rules (what a chain is, what a change reaches)
  * live in `util/provenance-graph.ts`; this module only reads and writes them.
  *
- * Every write is an idempotent upsert keyed by a natural `_id`, batched, and
- * unordered, so scanners can re-run or resume without creating duplicates.
+ * Documents use ObjectId `_id`s like the rest of the application, plus a
+ * business key with a unique index: `nodeID` on pages, `(target, source)` on
+ * edges, `bookID` on summaries. Every write is an idempotent upsert on that
+ * key, batched and unordered, so scanners can re-run or resume without
+ * creating duplicates.
  */
 
 const provenanceLog = childLogger("page-provenance");
@@ -64,7 +67,7 @@ const chunk = <T>(items: T[], size: number): T[][] => {
 
 /** Fields to write for one page; anything left undefined is not touched. */
 export type PageNodeUpsert = Pick<PageNodeInterface, "lib" | "pageID"> &
-  Partial<Omit<PageNodeInterface, "_id" | "lib" | "pageID">>;
+  Partial<Omit<PageNodeInterface, "nodeID" | "lib" | "pageID">>;
 
 /**
  * Creates or updates page nodes. Fields left undefined keep their stored
@@ -85,7 +88,7 @@ export const upsertPageNodes = async (
       if (set.reuseCount === undefined) setOnInsert.reuseCount = 0;
       return {
         updateOne: {
-          filter: { _id: pageNodeId(node.lib, node.pageID) },
+          filter: { nodeID: pageNodeId(node.lib, node.pageID) },
           update: {
             $set: set,
             ...(Object.keys(setOnInsert).length > 0
@@ -108,7 +111,7 @@ export const markPageDeleted = async (
   deletedAt: Date = new Date(),
 ): Promise<{ removed: number; broken: number }> => {
   await PageNode.updateOne(
-    { _id: { $eq: nodeId } },
+    { nodeID: { $eq: nodeId } },
     { $set: { deletedAt } },
   );
   const removed = await reconcileTargetEdges(nodeId, [], null);
@@ -161,7 +164,7 @@ export const upsertReuseEdges = async (
 
       return {
         updateOne: {
-          filter: { _id: reuseEdgeId(edge.target, edge.source) },
+          filter: { target: edge.target, source: edge.source },
           update: [
             {
               $set: {
@@ -291,34 +294,35 @@ export const fillEdgeSourceBooks = async (
 ): Promise<number> => {
   const prefixRe = new RegExp(`^${sourcePrefix.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")}`);
   let updated = 0;
-  let lastId = "";
+  let lastId: Types.ObjectId | null = null;
 
   for (;;) {
     if (shouldStop?.()) break;
-    const edges = await PageReuseEdge.find(
-      {
-        source: { $regex: prefixRe },
-        sourceBook: null,
-        _id: { $gt: lastId },
-      },
-      { _id: 1, source: 1 },
-    )
-      .sort({ _id: 1 })
-      .limit(BULK_BATCH_SIZE)
-      .lean<{ _id: string; source: string }[]>();
+    const edges: { _id: Types.ObjectId; source: string }[] =
+      await PageReuseEdge.find(
+        {
+          source: { $regex: prefixRe },
+          sourceBook: null,
+          ...(lastId ? { _id: { $gt: lastId } } : {}),
+        },
+        { _id: 1, source: 1 },
+      )
+        .sort({ _id: 1 })
+        .limit(BULK_BATCH_SIZE)
+        .lean<{ _id: Types.ObjectId; source: string }[]>();
     if (edges.length === 0) break;
     lastId = edges[edges.length - 1]._id;
 
     const sources = [...new Set(edges.map((e) => e.source))];
     const nodes = await PageNode.find(
-      { _id: { $in: sources }, bookID: { $ne: null } },
-      { _id: 1, bookID: 1 },
-    ).lean<{ _id: string; bookID: string }[]>();
+      { nodeID: { $in: sources }, bookID: { $ne: null } },
+      { _id: 0, nodeID: 1, bookID: 1 },
+    ).lean<{ nodeID: string; bookID: string }[]>();
     if (nodes.length === 0) continue;
 
     const ops: PageReuseEdgeBulkOps = nodes.map((node) => ({
       updateMany: {
-        filter: { source: { $eq: node._id }, sourceBook: null },
+        filter: { source: { $eq: node.nodeID }, sourceBook: null },
         update: { $set: { sourceBook: node.bookID } },
       },
     }));
@@ -340,7 +344,7 @@ export const markSourceBroken = async (source: string): Promise<number> => {
 // ── Graph walks ──────────────────────────────────────────────────────────────
 
 const GRAPH_EDGE_PROJECTION = {
-  _id: 1,
+  _id: 0,
   source: 1,
   target: 1,
   type: 1,
@@ -387,7 +391,7 @@ export const findChainRoot = async (nodeId: string): Promise<ChainRoot> =>
 export const refreshChainRoot = async (nodeId: string): Promise<ChainRoot> => {
   const root = await findChainRoot(nodeId);
   await PageNode.updateOne(
-    { _id: { $eq: nodeId } },
+    { nodeID: { $eq: nodeId } },
     {
       $set: {
         rootSource: root.root,
@@ -400,7 +404,6 @@ export const refreshChainRoot = async (nodeId: string): Promise<ChainRoot> => {
 };
 
 export type LineageEdge = {
-  _id: string;
   source: string;
   target: string;
   sourceBook: string | null;
@@ -438,11 +441,11 @@ export const getLineage = async (
   if (liveOnly) restrict.type = { $in: LIVE_EDGE_TYPES };
 
   const [result] = await PageNode.aggregate<{ edges: LineageEdge[] }>([
-    { $match: { _id: { $eq: nodeId } } },
+    { $match: { nodeID: { $eq: nodeId } } },
     {
       $graphLookup: {
         from: PageReuseEdge.collection.name,
-        startWith: "$_id",
+        startWith: "$nodeID",
         connectFromField: direction === "up" ? "source" : "target",
         connectToField: direction === "up" ? "target" : "source",
         as: "edges",
@@ -457,7 +460,6 @@ export const getLineage = async (
 
   const edges = (result?.edges ?? [])
     .map((edge) => ({
-      _id: edge._id,
       source: edge.source,
       target: edge.target,
       sourceBook: edge.sourceBook ?? null,
@@ -467,7 +469,12 @@ export const getLineage = async (
       status: edge.status,
       hops: Number(edge.hops) + 1,
     }))
-    .sort((a, b) => a.hops - b.hops || a._id.localeCompare(b._id));
+    .sort(
+      (a, b) =>
+        a.hops - b.hops ||
+        a.target.localeCompare(b.target) ||
+        a.source.localeCompare(b.source),
+    );
 
   return {
     edges: edges.slice(0, limit),
@@ -546,14 +553,14 @@ export const rebuildBookSummary = async (
   totals.viaChain = viaChain;
 
   const summary: BookReuseSummaryInterface = {
-    _id: bookID,
+    bookID,
     lib,
     totals,
     upstream,
     downstream,
     computedAt: new Date(),
   };
-  await BookReuseSummary.replaceOne({ _id: { $eq: bookID } }, summary, {
+  await BookReuseSummary.replaceOne({ bookID: { $eq: bookID } }, summary, {
     upsert: true,
   });
   return summary;

@@ -131,7 +131,7 @@ class ScanLease {
   static async acquire(lib: string): Promise<ScanLease | null> {
     try {
       await ProvenanceScanState.updateOne(
-        { _id: { $eq: lib } },
+        { library: lib },
         { $setOnInsert: { phase: "idle" } },
         { upsert: true },
       );
@@ -144,7 +144,7 @@ class ScanLease {
     const leaseID = randomUUID();
     const res = await ProvenanceScanState.updateOne(
       {
-        _id: { $eq: lib },
+        library: { $eq: lib },
         $or: [{ lockedUntil: null }, { lockedUntil: { $lt: now } }],
       },
       {
@@ -167,7 +167,7 @@ class ScanLease {
     if (this.lost) return;
     try {
       const res = await ProvenanceScanState.updateOne(
-        { _id: { $eq: this.lib }, leaseID: { $eq: this.leaseID } },
+        { library: { $eq: this.lib }, leaseID: { $eq: this.leaseID } },
         { $set: { lockedUntil: new Date(Date.now() + LEASE_MS) } },
       );
       if (res.matchedCount === 0) {
@@ -195,7 +195,7 @@ class ScanLease {
         }
       : undefined;
     const res = await ProvenanceScanState.updateOne(
-      { _id: { $eq: this.lib }, leaseID: { $eq: this.leaseID } },
+      { library: { $eq: this.lib }, leaseID: { $eq: this.leaseID } },
       { $set: set, ...(inc ? { $inc: inc } : {}) },
     );
     if (res.matchedCount === 0) this.lost = true;
@@ -205,7 +205,7 @@ class ScanLease {
   async release(): Promise<void> {
     this.stopTimer();
     await ProvenanceScanState.updateOne(
-      { _id: { $eq: this.lib }, leaseID: { $eq: this.leaseID } },
+      { library: { $eq: this.lib }, leaseID: { $eq: this.leaseID } },
       { $set: { leaseID: null, lockedUntil: null } },
     ).catch((err) =>
       scanLog.warn({ err, library: this.lib }, "Failed to release the provenance scan lease"),
@@ -227,6 +227,11 @@ type ScanContext = {
   lease: ScanLease;
   /** `${lib}:${path}` → page id, or null for a path that does not resolve. */
   pathCache: Map<string, number | null>;
+  /**
+   * Re-read every page even when its revision is unchanged. For when the
+   * classification rules change and stored results need redoing.
+   */
+  rescanContent: boolean;
 };
 
 const outOfTime = (ctx: ScanContext): boolean =>
@@ -293,7 +298,7 @@ const resolveRef = async (ctx: ScanContext, ref: ReuseRef): Promise<string | nul
 type PageScanResult = {
   node: PageNodeUpsert;
   edges: ReuseEdgeUpsert[];
-  reconcile: { target: string; scan: string[]; property: string[] };
+  reconcile: { target: string; scan: string[] };
 } | null;
 
 /** Reads one changed page and works out its node and edges. Null on a read failure. */
@@ -309,7 +314,9 @@ const scanPage = async (
   if (!res.ok) return null;
   const raw = await res.text();
 
-  const classification = classifyPageContent(raw, structuralTagsFor(page));
+  const classification = classifyPageContent(raw, structuralTagsFor(page), {
+    generatedMatter: page.isGeneratedMatter,
+  });
   const edges: ReuseEdgeUpsert[] = [];
   const scanSources: string[] = [];
   for (const ref of classification.refs) {
@@ -328,28 +335,11 @@ const scanPage = async (
     });
   }
 
-  const propertySources: string[] = [];
-  const copiedFrom = page.conductorSource;
-  if (copiedFrom && copiedFrom.source !== targetId) {
-    propertySources.push(copiedFrom.source);
-    if (!scanSources.includes(copiedFrom.source)) {
-      edges.push({
-        target: targetId,
-        source: copiedFrom.source,
-        targetBook: bookID,
-        type: copiedFrom.type,
-        origin: "property",
-        linkedRevision: copiedFrom.revision,
-      });
-    }
-  }
-
-  // Markup can't show a copy. Keep "fork"/"full" when the property or an
-  // earlier Remixer record says the page is one.
+  // Markup can't show a copy. Keep "fork"/"full" when Conductor already
+  // recorded the page as one (Remixer, or a fingerprint match).
   let kind: PageNodeKind = classification.kind;
-  if (kind === "original") {
-    if (copiedFrom) kind = copiedFrom.type;
-    else if (previousKind === "fork" || previousKind === "full") kind = previousKind;
+  if (kind === "original" && (previousKind === "fork" || previousKind === "full")) {
+    kind = previousKind;
   }
 
   const ownsContent = OWN_CONTENT_KINDS.includes(kind);
@@ -369,7 +359,7 @@ const scanPage = async (
       ...(ownsContent ? { rootSource: null, reuseDepth: 0, reuseCycle: false } : {}),
     },
     edges,
-    reconcile: { target: targetId, scan: scanSources, property: propertySources },
+    reconcile: { target: targetId, scan: scanSources },
   };
 };
 
@@ -385,9 +375,9 @@ const reconcileMissingPages = async (
   stats: ScanStats,
 ): Promise<void> => {
   const missing = await PageNode.find(
-    { bookID: { $eq: bookID }, deletedAt: null, _id: { $nin: seenIds } },
-    { _id: 1, pageID: 1 },
-  ).lean<{ _id: string; pageID: number }[]>();
+    { bookID: { $eq: bookID }, deletedAt: null, nodeID: { $nin: seenIds } },
+    { _id: 0, nodeID: 1, pageID: 1 },
+  ).lean<{ nodeID: string; pageID: number }[]>();
 
   for (const node of missing) {
     if (outOfTime(ctx)) return;
@@ -401,10 +391,10 @@ const reconcileMissingPages = async (
     }
 
     if (gone) {
-      await markPageDeleted(node._id);
+      await markPageDeleted(node.nodeID);
       stats.deleted += 1;
     } else {
-      await PageNode.updateOne({ _id: { $eq: node._id } }, { $set: { bookID: null } });
+      await PageNode.updateOne({ nodeID: { $eq: node.nodeID } }, { $set: { bookID: null } });
     }
   }
 };
@@ -431,10 +421,10 @@ const scanBook = async (
 
   const ids = pages.map((p) => pageNodeId(ctx.lib, p.pageID));
   const stored = await PageNode.find(
-    { _id: { $in: ids } },
-    { _id: 1, revision: 1, kind: 1, scannedAt: 1 },
-  ).lean<{ _id: string; revision?: number; kind?: PageNodeKind; scannedAt?: Date }[]>();
-  const storedById = new Map(stored.map((n) => [n._id, n]));
+    { nodeID: { $in: ids } },
+    { _id: 0, nodeID: 1, revision: 1, kind: 1, scannedAt: 1 },
+  ).lean<{ nodeID: string; revision?: number; kind?: PageNodeKind; scannedAt?: Date }[]>();
+  const storedById = new Map(stored.map((n) => [n.nodeID, n]));
 
   const baseFor = (page: TreePageInfo): PageNodeUpsert => ({
     lib: ctx.lib,
@@ -452,6 +442,7 @@ const scanBook = async (
   for (const page of pages) {
     const prev = storedById.get(pageNodeId(ctx.lib, page.pageID));
     const unchanged =
+      !ctx.rescanContent &&
       prev?.scannedAt &&
       prev.kind !== "unknown" &&
       page.revision !== undefined &&
@@ -488,10 +479,11 @@ const scanBook = async (
     stats.scanned += 1;
     nodes.push(result.node);
     edges.push(...result.edges);
-    reconcile.push(
-      { target: result.reconcile.target, presentSources: result.reconcile.scan, origins: ["scan"] },
-      { target: result.reconcile.target, presentSources: result.reconcile.property, origins: ["property"] },
-    );
+    reconcile.push({
+      target: result.reconcile.target,
+      presentSources: result.reconcile.scan,
+      origins: ["scan"],
+    });
     for (const edge of result.edges) {
       const parts = splitNodeId(edge.source);
       if (parts && !sourceShells.has(edge.source)) sourceShells.set(edge.source, parts);
@@ -536,11 +528,12 @@ const scanLibrary = async (
     deadline,
     lease,
     pathCache: new Map(),
+    rescanContent: force,
   };
   const bookPrefix = new RegExp(`^${escapeRegex(lib)}-`);
 
   try {
-    const state = await ProvenanceScanState.findById(lib).lean();
+    const state = await ProvenanceScanState.findOne({ library: { $eq: lib } }).lean();
     let phase = state?.phase ?? "idle";
     let cursor = state?.cursor ?? "";
 
@@ -603,17 +596,17 @@ const scanLibrary = async (
       while (cursor.startsWith(ROOTS_PREFIX) && !outOfTime(ctx)) {
         const after = cursor.slice(ROOTS_PREFIX.length);
         const reusePages = await PageNode.find(
-          { lib: { $eq: lib }, kind: { $in: REUSE_KINDS }, deletedAt: null, _id: { $gt: after } },
-          { _id: 1 },
+          { lib: { $eq: lib }, kind: { $in: REUSE_KINDS }, deletedAt: null, nodeID: { $gt: after } },
+          { _id: 0, nodeID: 1 },
         )
-          .sort({ _id: 1 })
+          .sort({ nodeID: 1 })
           .limit(ROOT_BATCH_SIZE)
-          .lean<{ _id: string }[]>();
+          .lean<{ nodeID: string }[]>();
         if (reusePages.length === 0) {
           cursor = SUMMARIES_PREFIX;
         } else {
-          await mapWithConcurrency(reusePages, 8, (node) => refreshChainRoot(node._id));
-          cursor = `${ROOTS_PREFIX}${reusePages[reusePages.length - 1]._id}`;
+          await mapWithConcurrency(reusePages, 8, (node) => refreshChainRoot(node.nodeID));
+          cursor = `${ROOTS_PREFIX}${reusePages[reusePages.length - 1].nodeID}`;
         }
         await lease.save({ cursor });
       }
@@ -668,12 +661,99 @@ let scanRunning = false;
 /** True while this server instance is running a scan. */
 export const isProvenanceScanRunning = (): boolean => scanRunning;
 
+/**
+ * Scans the named books directly, outside the library walk: no Book record or
+ * sync-enabled library is needed, and the library's resumable phase/cursor is
+ * left alone. Each library's lease is still taken, so a targeted run can't
+ * race a full scan of the same library. Afterwards the books' source books,
+ * chain roots and summaries are brought up to date.
+ */
+const scanSpecificBooks = async (
+  bookIDs: string[],
+  deadline: number,
+  force: boolean,
+): Promise<LibraryScanOutcome[]> => {
+  const byLib = new Map<string, string[]>();
+  for (const bookID of bookIDs) {
+    const parts = splitNodeId(bookID);
+    if (!parts) continue;
+    const list = byLib.get(parts.lib) ?? [];
+    list.push(bookID);
+    byLib.set(parts.lib, list);
+  }
+
+  const outcomes: LibraryScanOutcome[] = [];
+  for (const [lib, books] of byLib) {
+    const stats = emptyStats();
+    const lease = await ScanLease.acquire(lib);
+    if (!lease) {
+      outcomes.push({ library: lib, status: "busy", stats });
+      continue;
+    }
+    const ctx: ScanContext = {
+      lib,
+      throttle: createThrottle(REQUEST_INTERVAL_MS),
+      deadline,
+      lease,
+      pathCache: new Map(),
+      rescanContent: force,
+    };
+    try {
+      const scannedBooks: string[] = [];
+      for (const bookID of books) {
+        if (outOfTime(ctx)) break;
+        try {
+          await scanBook(ctx, bookID, stats);
+          scannedBooks.push(bookID);
+        } catch (err) {
+          stats.errors += 1;
+          scanLog.warn({ err, bookID }, "Failed to scan book");
+        }
+      }
+
+      await fillEdgeSourceBooks(`${lib}-`, { shouldStop: () => outOfTime(ctx) });
+      const reusePages = await PageNode.find(
+        { bookID: { $in: scannedBooks }, kind: { $in: REUSE_KINDS }, deletedAt: null },
+        { _id: 0, nodeID: 1 },
+      ).lean<{ nodeID: string }[]>();
+      await mapWithConcurrency(reusePages, 8, (node) => refreshChainRoot(node.nodeID));
+      for (const bookID of scannedBooks) await rebuildBookSummary(bookID);
+
+      outcomes.push({
+        library: lib,
+        status: scannedBooks.length === books.length ? "complete" : "budget",
+        phase: "targeted",
+        stats,
+      });
+    } catch (err) {
+      scanLog.error({ err, library: lib }, "Targeted provenance scan failed");
+      outcomes.push({
+        library: lib,
+        status: "error",
+        stats,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      await lease.release();
+    }
+  }
+  return outcomes;
+};
+
 export type ProvenanceScanOptions = {
   /** Library subdomains to scan; defaults to every synced library. */
   libraries?: string[];
+  /**
+   * Specific books (`${lib}-${coverID}`) to scan instead of walking
+   * libraries. For testing and for re-scanning a book on demand.
+   */
+  books?: string[];
   /** How long this run may work before yielding. */
   budgetMs?: number;
-  /** Re-scan libraries that completed recently. */
+  /**
+   * Re-scan libraries that completed recently, and re-read every page even
+   * when its revision is unchanged (use after classification rules change).
+   */
   force?: boolean;
 };
 
@@ -683,6 +763,7 @@ export type ProvenanceScanOptions = {
  */
 export const runProvenanceScan = async ({
   libraries,
+  books,
   budgetMs = DEFAULT_SCAN_BUDGET_MS,
   force = false,
 }: ProvenanceScanOptions = {}): Promise<LibraryScanOutcome[]> => {
@@ -694,6 +775,17 @@ export const runProvenanceScan = async ({
   const deadline = Date.now() + Math.min(Math.max(budgetMs, 60_000), MAX_SCAN_BUDGET_MS);
 
   try {
+    if (books?.length) {
+      const outcomes = await scanSpecificBooks(books, deadline, force);
+      for (const outcome of outcomes) {
+        scanLog.info(
+          { library: outcome.library, status: outcome.status, bookIDs: books, ...outcome.stats },
+          "Targeted provenance scan finished",
+        );
+      }
+      return outcomes;
+    }
+
     const synced = await Library.find(
       { hidden: false, syncSupported: true },
       { _id: 0, subdomain: 1 },

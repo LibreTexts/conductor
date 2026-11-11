@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   edgeTypeForRef,
   resolveChainRoot,
-  reuseEdgeId,
   walkDownstream,
   type GraphEdge,
   type ReuseEdgeType,
@@ -12,7 +11,6 @@ import {
 /** Builds edges from `[target, source, type]` triples; book = first letter. */
 const graph = (triples: [string, string, ReuseEdgeType][]): GraphEdge[] =>
   triples.map(([target, source, type]) => ({
-    _id: reuseEdgeId(target, source),
     target,
     source,
     type,

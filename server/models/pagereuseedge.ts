@@ -4,12 +4,15 @@ import {
   type ReuseEdgeType,
 } from "../util/provenance-graph.js";
 
-/** How an edge was learned. The first origin recorded is kept. */
+/**
+ * How an edge was learned. The first origin recorded is kept. All of these
+ * are Conductor's own records; nothing is read from or written to library
+ * page properties or tags for provenance.
+ */
 export const REUSE_EDGE_ORIGINS = [
   "remixer",
   "scan",
   "fingerprint",
-  "property",
   "manual",
 ] as const;
 export type ReuseEdgeOrigin = (typeof REUSE_EDGE_ORIGINS)[number];
@@ -40,9 +43,9 @@ export const CURRENT_EDGE_STATUSES: readonly ReuseEdgeStatus[] = [
  * their direct links only and walked when needed; see provenance-graph.
  */
 export interface PageReuseEdgeInterface {
-  /** `${target}<${source}`; see `reuseEdgeId`. */
-  _id: string;
+  /** PageNode `nodeID` of the reusing page. With `source`, unique per edge. */
   target: string;
+  /** PageNode `nodeID` of the reused page. */
   source: string;
   /** Denormalized for the book-level graph. */
   targetBook?: string | null;
@@ -69,7 +72,6 @@ export interface PageReuseEdgeInterface {
 
 const PageReuseEdgeSchema = new Schema<PageReuseEdgeInterface>(
   {
-    _id: { type: String, required: true },
     target: { type: String, required: true },
     source: { type: String, required: true },
     targetBook: { type: String, default: null },
@@ -88,10 +90,11 @@ const PageReuseEdgeSchema = new Schema<PageReuseEdgeInterface>(
   { versionKey: false },
 );
 
+// One edge per (target, source); also serves lineage and reconciliation of
+// one page's own reuse, which query by `target`.
+PageReuseEdgeSchema.index({ target: 1, source: 1 }, { unique: true });
 // Fan-out when a source changes: "who reuses this page?"
 PageReuseEdgeSchema.index({ source: 1, status: 1 });
-// Lineage and reconciliation of one page's own reuse.
-PageReuseEdgeSchema.index({ target: 1 });
 // Book-level graph aggregation.
 PageReuseEdgeSchema.index({ sourceBook: 1, targetBook: 1 });
 PageReuseEdgeSchema.index({ targetBook: 1 });

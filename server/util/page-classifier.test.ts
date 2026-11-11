@@ -45,4 +45,26 @@ describe("classifyPageContent", () => {
     );
     assert.equal(classifyPageContent("<p>  </p>").kind, "structural");
   });
+
+  it("treats generated matter as structural, with no fingerprint", () => {
+    // Detailed Licensing / InfoPage carry real text, identical in every book.
+    const result = classifyPageContent(`<p>${TEXT}</p>`, [], { generatedMatter: true });
+    assert.equal(result.kind, "structural");
+    assert.equal(result.fingerprint.contentHash, null);
+    assert.equal(result.fingerprint.simBands, null);
+  });
+
+  it("does not record reuse for generated matter that transcludes a shared page", () => {
+    // The standard InfoPage is a cross-library stub (dev-10864 → chem-170365).
+    const infoPage = RemixerTemplates.POST_TranscludeCrossLibrary(
+      "chem",
+      170365,
+      "https://chem.libretexts.org/x",
+      [],
+    );
+    const result = classifyPageContent(infoPage, [], { generatedMatter: true });
+    assert.equal(result.kind, "structural");
+    assert.equal(result.isStub, false);
+    assert.deepEqual(result.refs, []);
+  });
 });

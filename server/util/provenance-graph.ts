@@ -45,13 +45,13 @@ export const isLiveEdgeType = (type: ReuseEdgeType): boolean =>
 /** Same guard as Remixer's `resolveTranscludeSource`. */
 export const MAX_CHAIN_DEPTH = 20;
 
-/** `${lib}-${pageID}`, the `_id` of a PageNode. */
+/**
+ * `${lib}-${pageID}`, a PageNode's `nodeID`: the same `${lib}-${id}` form as a
+ * Commons `bookID`, built straight from what MindTouch reports. Edges refer to
+ * pages by this key, so no lookup is needed to write one.
+ */
 export const pageNodeId = (lib: string, pageID: number | string): string =>
   `${lib}-${pageID}`;
-
-/** `${target}<${source}`, the `_id` of a PageReuseEdge. */
-export const reuseEdgeId = (target: string, source: string): string =>
-  `${target}<${source}`;
 
 /**
  * The stored edge type for a reuse ref found in a target page. A ref in a pure
@@ -70,9 +70,8 @@ export const edgeTypeForRef = (
     : "transclude-same";
 };
 
-/** The fields of an edge the graph walks need. */
+/** The fields of an edge the graph walks need. An edge is identified by (target, source). */
 export type GraphEdge = {
-  _id: string;
   source: string;
   target: string;
   type: ReuseEdgeType;
@@ -82,8 +81,8 @@ export type GraphEdge = {
 export type DownstreamHit = {
   target: string;
   targetBook: string | null;
-  /** The edge that reached `target`. */
-  edge: string;
+  /** The page `target` reuses directly; with `target`, the edge that reached it. */
+  source: string;
   /** Edges between the changed source and `target` (1 = direct reuse). */
   hops: number;
   /** Intermediate pages, nearest the source first. Empty for direct reuse. */
@@ -159,7 +158,7 @@ export const walkDownstream = async (
       hitsByTarget.set(edge.target, {
         target: edge.target,
         targetBook: edge.targetBook ?? null,
-        edge: edge._id,
+        source: edge.source,
         hops: depth,
         via,
         frozen: !live,

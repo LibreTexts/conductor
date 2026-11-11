@@ -21,7 +21,7 @@ const log = childLogger("provenance-scan");
  */
 async function runScanJob(req: Request, res: Response) {
   try {
-    const { library, minutes, force } =
+    const { library, book, minutes, force } =
       req.query as unknown as RunProvenanceScanRequest["query"];
 
     if (isProvenanceScanRunning()) {
@@ -35,7 +35,9 @@ async function runScanJob(req: Request, res: Response) {
     const libraries = library ? library.split(",") : undefined;
     const budgetMs = minutes ? minutes * 60 * 1000 : DEFAULT_SCAN_BUDGET_MS;
 
-    void runProvenanceScan({ libraries, budgetMs, force }).catch((err) =>
+    const books = book ? book.split(",") : undefined;
+
+    void runProvenanceScan({ libraries, books, budgetMs, force }).catch((err) =>
       log.error({ err }, "Provenance scan run failed"),
     );
 

@@ -19,7 +19,7 @@ export type BookReuseLink = {
  */
 export interface BookReuseSummaryInterface {
   /** The Commons bookID, `${lib}-${coverID}`. */
-  _id: string;
+  bookID: string;
   lib: string;
   totals: {
     pages: number;
@@ -53,7 +53,7 @@ const count = { type: Number, default: 0 };
 
 const BookReuseSummarySchema = new Schema<BookReuseSummaryInterface>(
   {
-    _id: { type: String, required: true },
+    bookID: { type: String, required: true, unique: true },
     lib: { type: String, required: true },
     totals: {
       pages: count,
