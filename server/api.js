@@ -4002,6 +4002,24 @@ router
   );
 
 router
+  .route("/project/:projectID/content-sources/changes/:eventID/revisions")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetSourceChangeRevisionsSchema),
+    contentSourcesAPI.getChangeRevisions,
+  );
+
+router
+  .route("/project/:projectID/content-sources/changes/:eventID/review")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.ReviewSourceChangeSchema),
+    contentSourcesAPI.reviewSourceChange,
+  );
+
+router
   .route("/project/:projectID/content-sources/notifications")
   .put(
     authAPI.verifyRequest,

@@ -10,12 +10,15 @@ import {
 import {
   getContentPageLineage,
   getContentSourcesOverview,
+  getSourceChangeRevisions,
   listContentPages,
+  markSourceChangeReviewed,
 } from "./services/content-sources-service.js";
 import type {
   GetContentPageLineageRequest,
   GetContentPagesRequest,
   GetContentSourcesRequest,
+  ReviewSourceChangeRequest,
   UpdateContentSourcesNotificationsRequest,
 } from "./validators/content-sources.js";
 
@@ -103,6 +106,49 @@ async function getContentPageLineageHandler(
   }
 }
 
+/** The library revisions a source change spans, with the diff. Any member. */
+async function getChangeRevisions(
+  req: ZodReqWithUser<ReviewSourceChangeRequest>,
+  res: Response,
+) {
+  try {
+    const { bookID } = await loadForMember(req.params.projectID, req.user);
+    if (!bookID) return res.status(400).send({ err: true, errMsg: NO_BOOK_MSG });
+
+    const data = await getSourceChangeRevisions(bookID, req.params.eventID);
+    if (!data) {
+      return res.status(404).send({ err: true, errMsg: "Change not found for this book." });
+    }
+    return res.send({ err: false, data });
+  } catch (err) {
+    return sendError(res, err, "getChangeRevisions");
+  }
+}
+
+/** Marks a source change reviewed for the project's book. Leads and liaisons only. */
+async function reviewSourceChange(
+  req: ZodReqWithUser<ReviewSourceChangeRequest>,
+  res: Response,
+) {
+  try {
+    const { projectID, eventID } = req.params;
+    const ctx = await ProjectContext.load(projectID, { select: [] });
+    if (!ctx.canAdmin(req.user)) throw new ProjectError("unauthorized");
+    const bookID = ctx.getLinkedBook();
+    if (!bookID) return res.status(400).send({ err: true, errMsg: NO_BOOK_MSG });
+
+    const reviewer = req.user?.decoded?.uuid ?? "";
+    const result = await markSourceChangeReviewed(bookID, eventID, reviewer);
+    if (!result) {
+      return res.status(404).send({ err: true, errMsg: "Change not found for this book." });
+    }
+    log.info({ projectID, eventID, ...result }, "Source change marked reviewed");
+    return res.send({ err: false, data: result });
+  } catch (err) {
+    return sendError(res, err, "reviewSourceChange");
+  }
+}
+
 async function updateContentSourcesNotifications(
   req: ZodReqWithUser<UpdateContentSourcesNotificationsRequest>,
   res: Response,
@@ -128,5 +174,7 @@ export default {
   getContentSources,
   getContentPages,
   getContentPageLineage: getContentPageLineageHandler,
+  reviewSourceChange,
+  getChangeRevisions,
   updateContentSourcesNotifications,
 };

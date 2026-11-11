@@ -19,6 +19,10 @@ export type SourceChangeAffectedBook = {
   frozen: boolean;
   /** A few of the affected pages (nodeIDs), nearest the source first. */
   examples: string[];
+  /** When this book's project marked the change reviewed; unset until then. */
+  reviewedAt?: Date | null;
+  /** UUID of who marked it reviewed. */
+  reviewedBy?: string | null;
 };
 
 /**
@@ -49,6 +53,8 @@ const AffectedBookSchema = new Schema<SourceChangeAffectedBook>(
     via: { type: [String], default: [] },
     frozen: { type: Boolean, default: false },
     examples: { type: [String], default: [] },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: { type: String, default: null },
   },
   { _id: false },
 );

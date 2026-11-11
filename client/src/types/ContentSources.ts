@@ -46,6 +46,8 @@ export type ContentSourcesUnscannedGroup = {
 };
 
 export type ContentSourcesRecentChange = {
+  /** The change event, for marking it reviewed. */
+  eventID: string;
   source: ContentSourcesRef;
   fromRev?: number;
   toRev?: number;
@@ -120,6 +122,29 @@ export type ContentSourcesLineage = {
   page: ContentSourcesRef;
   steps: ContentSourcesLineageStep[];
   truncated: boolean;
+};
+
+/** One library revision of a changed source page. */
+export type ContentSourcesRevision = {
+  revision: number;
+  editedAt: string | null;
+  author: string | null;
+  /** The library's edit summary, e.g. "5 words added". */
+  summary: string;
+  /** The page as it was at this revision. */
+  url: string | null;
+};
+
+/** The revisions a source change spans, and the diff between its two ends. */
+export type ContentSourcesChangeRevisions = {
+  source: ContentSourcesRef;
+  fromRev?: number;
+  toRev?: number;
+  deleted: boolean;
+  /** Newest first. */
+  revisions: ContentSourcesRevision[];
+  /** Sanitized HTML with <ins>/<del> marks; null when unavailable. */
+  diffHtml: string | null;
 };
 
 /** Reuse totals and scan progress for one library (LibreTexts staff view). */

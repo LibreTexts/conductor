@@ -9,6 +9,7 @@ import {
   Card,
   EmptyState,
   Heading,
+  IconButton,
   Link,
   Select,
   Spinner,
@@ -21,7 +22,7 @@ import { createColumnHelper } from "@libretexts/davis-react-table";
 import RowHeaderDataTable from "../../util/RowHeaderDataTable";
 import { DonutChart } from "@tremor/react";
 import { format, parseISO } from "date-fns";
-import { IconExternalLink, IconRoute, IconSitemap } from "@tabler/icons-react";
+import { IconCheck, IconExternalLink, IconHistory, IconRoute, IconSitemap } from "@tabler/icons-react";
 import api from "../../../api";
 import useProject from "../../../hooks/useProject";
 import { useNotifications } from "../../../context/NotificationContext";
@@ -29,11 +30,13 @@ import type {
   ContentSourcesBookLink,
   ContentSourcesOverview,
   ContentSourcesPage,
+  ContentSourcesRecentChange,
   ContentSourcesRef,
   PageNodeKind,
 } from "../../../types/ContentSources";
 import BookConnections from "./BookConnections";
 import LineageDrawer from "./LineageDrawer";
+import RevisionsDrawer from "./RevisionsDrawer";
 import {
   EDGE_TYPE_LABELS,
   KIND_DESCRIPTIONS,
@@ -111,6 +114,7 @@ const ContentSources: React.FC = () => {
   const [kindFilter, setKindFilter] = useState<PageNodeKind | "">("");
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [lineagePage, setLineagePage] = useState<ContentSourcesPage | null>(null);
+  const [revisionsChange, setRevisionsChange] = useState<ContentSourcesRecentChange | null>(null);
 
   const overviewQuery = useQuery({
     queryKey: [OVERVIEW_QUERY_KEY, id],
@@ -153,6 +157,22 @@ const ContentSources: React.FC = () => {
       });
     },
     onError: () => addNotification({ type: "error", message: "Couldn't save the email setting." }),
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: (change: ContentSourcesRecentChange) =>
+      api.reviewContentSourcesChange(id, change.eventID),
+    onSuccess: (_res, change) => {
+      // The overview drops the change and the warning count; the pages
+      // table loses its "Source changed" badges.
+      queryClient.invalidateQueries([OVERVIEW_QUERY_KEY, id]);
+      queryClient.invalidateQueries(["contentSourcesPages", id]);
+      addNotification({
+        type: "success",
+        message: `Marked "${change.source.title}" reviewed.`,
+      });
+    },
+    onError: () => addNotification({ type: "error", message: "Couldn't mark the change reviewed." }),
   });
 
   const columns = useMemo(
@@ -418,9 +438,10 @@ const ContentSources: React.FC = () => {
                   <ul className="m-0 list-none space-y-3 p-0">
                     {overview.recentChanges.map((change) => (
                       <li
-                        key={`${change.source.id}-${change.toRev ?? "deleted"}-${change.changedAt}`}
-                        className="border-b border-neutral-200 pb-3"
+                        key={change.eventID}
+                        className="flex items-start gap-3 border-b border-neutral-200 pb-3"
                       >
+                        <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge
                             label={change.deleted ? "Deleted" : change.frozen ? "Copy may be out of date" : "Edited"}
@@ -437,6 +458,31 @@ const ContentSources: React.FC = () => {
                             : ""}
                           {change.notified ? " · leads emailed" : " · email pending"}
                         </Text>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {!change.deleted && (
+                            <IconButton
+                              icon={<IconHistory size={16} aria-hidden="true" />}
+                              aria-label={`Show revisions: ${change.source.title}`}
+                              tooltip="Show revisions"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setRevisionsChange(change)}
+                            />
+                          )}
+                          {overview.canManage && (
+                            <IconButton
+                              icon={<IconCheck size={16} aria-hidden="true" />}
+                              aria-label={`Mark reviewed: ${change.source.title}`}
+                              tooltip="Mark reviewed"
+                              variant="ghost"
+                              size="sm"
+                              loading={reviewMutation.isLoading && reviewMutation.variables?.eventID === change.eventID}
+                              disabled={reviewMutation.isLoading}
+                              onClick={() => reviewMutation.mutate(change)}
+                            />
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -532,6 +578,11 @@ const ContentSources: React.FC = () => {
       )}
 
       <LineageDrawer projectID={id} page={lineagePage} onClose={() => setLineagePage(null)} />
+      <RevisionsDrawer
+        projectID={id}
+        change={revisionsChange}
+        onClose={() => setRevisionsChange(null)}
+      />
     </Stack>
   );
 };

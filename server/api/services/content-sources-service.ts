@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import PageNode, { type PageNodeKind } from "../../models/pagenode.js";
 import PageReuseEdge, {
   type ReuseEdgeOrigin,
@@ -18,6 +19,14 @@ import {
   type ViewRef,
 } from "../../util/content-sources-view.js";
 import { getLineage } from "./page-provenance-service.js";
+import { CXOneFetch } from "../../util/librariesclient.js";
+import {
+  revisionsBetween,
+  sanitizeRevisionDiff,
+  type RawRevision,
+  type RevisionView,
+} from "../../util/revision-diff.js";
+import { parsePageNodeId } from "../../util/provenance-graph.js";
 
 /**
  * Read side of the provenance graph for one book, as the project Content
@@ -61,6 +70,8 @@ export const loadTitles = async (ids: string[]): Promise<Map<string, string>> =>
 export type BookLinkView = ViewRef & { pages: number; types: ReuseEdgeType[] };
 
 export type RecentChangeView = {
+  /** The change event, for marking it reviewed. */
+  eventID: string;
   source: ViewRef;
   fromRev?: number;
   toRev?: number;
@@ -109,9 +120,10 @@ export const getContentSourcesOverview = async (
       { $match: { targetBook: { $eq: bookID }, status: { $in: ATTENTION_STATUSES } } },
       { $group: { _id: "$status", n: { $sum: 1 } } },
     ]),
+    // Changes this book's project hasn't marked reviewed yet.
     SourceChangeEvent.find(
-      { "affected.bookID": { $eq: bookID } },
-      { _id: 0, sourcePage: 1, fromRev: 1, toRev: 1, deleted: 1, changedAt: 1, affected: 1, notifiedAt: 1 },
+      { affected: { $elemMatch: { bookID: { $eq: bookID }, reviewedAt: null } } },
+      { _id: 1, sourcePage: 1, fromRev: 1, toRev: 1, deleted: 1, changedAt: 1, affected: 1, notifiedAt: 1 },
     )
       .sort({ changedAt: -1 })
       .limit(RECENT_CHANGES_LIMIT)
@@ -153,6 +165,7 @@ export const getContentSourcesOverview = async (
     recentChanges: events.map((event) => {
       const mine = event.affected?.find((a) => a.bookID === bookID);
       return {
+        eventID: String(event._id),
         source: toViewRef(event.sourcePage, titles),
         fromRev: event.fromRev,
         toRev: event.toRev,
@@ -164,6 +177,129 @@ export const getContentSourcesOverview = async (
       };
     }),
   };
+};
+
+/**
+ * Marks a source change reviewed for one book: that change and any older,
+ * unreviewed change of the same source for the same book leave the book's
+ * list and its leads' emails. The book's links onto the source go back to
+ * `active` (at the reviewed revision) unless a newer change of the source is
+ * still waiting for review. Other books reusing the source are unaffected.
+ *
+ * @returns null when the event doesn't exist or doesn't reach the book.
+ */
+export const markSourceChangeReviewed = async (
+  bookID: string,
+  eventID: string,
+  reviewer: string,
+): Promise<{ reviewed: number; edgesReset: number } | null> => {
+  if (!Types.ObjectId.isValid(eventID)) return null;
+  const event = await SourceChangeEvent.findOne(
+    { _id: { $eq: new Types.ObjectId(eventID) }, "affected.bookID": { $eq: bookID } },
+    { _id: 1, sourcePage: 1, changedAt: 1, toRev: 1, deleted: 1 },
+  ).lean();
+  if (!event) return null;
+
+  const reviewedAt = new Date();
+  const res = await SourceChangeEvent.updateMany(
+    {
+      sourcePage: { $eq: event.sourcePage },
+      changedAt: { $lte: event.changedAt },
+      affected: { $elemMatch: { bookID: { $eq: bookID }, reviewedAt: null } },
+    },
+    { $set: { "affected.$[book].reviewedAt": reviewedAt, "affected.$[book].reviewedBy": reviewer } },
+    { arrayFilters: [{ "book.bookID": bookID, "book.reviewedAt": null }] },
+  );
+
+  // A deletion's links are broken and need fixing, not acknowledging.
+  let edgesReset = 0;
+  const newerWaiting = await SourceChangeEvent.exists({
+    sourcePage: { $eq: event.sourcePage },
+    changedAt: { $gt: event.changedAt },
+    affected: { $elemMatch: { bookID: { $eq: bookID }, reviewedAt: null } },
+  });
+  if (!event.deleted && !newerWaiting) {
+    const reset = await PageReuseEdge.updateMany(
+      { source: { $eq: event.sourcePage }, targetBook: { $eq: bookID }, status: "source-changed" },
+      {
+        $set: {
+          status: "active",
+          ...(event.toRev !== undefined ? { seenRevision: event.toRev } : {}),
+        },
+      },
+    );
+    edgesReset = reset.modifiedCount;
+  }
+  return { reviewed: res.modifiedCount, edgesReset };
+};
+
+export type SourceChangeRevisions = {
+  source: ViewRef;
+  fromRev?: number;
+  toRev?: number;
+  deleted: boolean;
+  /** Newest first. */
+  revisions: RevisionView[];
+  /** What changed from `fromRev` to `toRev`, sanitized; null when unavailable. */
+  diffHtml: string | null;
+};
+
+/**
+ * The library revisions a source change spans, and the diff between its two
+ * ends, read live from the source's library (nothing is stored). Only for a
+ * change that reaches the given book. Read-only.
+ *
+ * @returns null when the event doesn't exist or doesn't reach the book.
+ */
+export const getSourceChangeRevisions = async (
+  bookID: string,
+  eventID: string,
+): Promise<SourceChangeRevisions | null> => {
+  if (!Types.ObjectId.isValid(eventID)) return null;
+  const event = await SourceChangeEvent.findOne(
+    { _id: { $eq: new Types.ObjectId(eventID) }, "affected.bookID": { $eq: bookID } },
+    { _id: 0, sourcePage: 1, fromRev: 1, toRev: 1, deleted: 1 },
+  ).lean();
+  if (!event) return null;
+
+  const titles = await loadTitles([event.sourcePage]);
+  const base = {
+    source: toViewRef(event.sourcePage, titles),
+    fromRev: event.fromRev,
+    toRev: event.toRev,
+    deleted: event.deleted,
+  };
+  const parts = parsePageNodeId(event.sourcePage);
+  if (!parts || event.deleted || event.toRev === undefined) {
+    return { ...base, revisions: [], diffHtml: null };
+  }
+
+  const read = (api: string) =>
+    CXOneFetch({ scope: "page", path: parts.pageID, api, subdomain: parts.lib, silentFail: true });
+  const [revRes, diffRes] = await Promise.all([
+    read("revisions?dream.out.format=json"),
+    event.fromRev !== undefined
+      ? read(
+          `diff?revision=${event.toRev}&previous=${event.fromRev}&format=html&dream.out.format=json`,
+        )
+      : Promise.resolve(null),
+  ]);
+
+  let revisions: RevisionView[] = [];
+  if (revRes.ok) {
+    const body = (await revRes.json().catch(() => null)) as { page?: RawRevision | RawRevision[] } | null;
+    const raw = body?.page ? ([] as RawRevision[]).concat(body.page) : [];
+    revisions = revisionsBetween(raw, event.fromRev, event.toRev);
+  }
+
+  let diffHtml: string | null = null;
+  if (diffRes?.ok) {
+    const body = (await diffRes.json().catch(() => null)) as { "#text"?: string } | string | null;
+    const html = typeof body === "string" ? body : body?.["#text"];
+    if (html) diffHtml = sanitizeRevisionDiff(html);
+  }
+
+  return { ...base, revisions, diffHtml };
 };
 
 export type PageSourceView = ViewRef & {

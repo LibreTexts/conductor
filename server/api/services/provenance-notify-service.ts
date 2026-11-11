@@ -149,11 +149,14 @@ const toDigestEvent = (row: EventRow): DigestEvent => ({
   toRev: row.toRev,
   deleted: row.deleted,
   changedAt: row.changedAt,
-  affected: (row.affected ?? []).map((book) => ({
-    ...book,
-    via: book.via ?? [],
-    examples: book.examples ?? [],
-  })),
+  // A book whose project already reviewed the change needs no email about it.
+  affected: (row.affected ?? [])
+    .filter((book) => !book.reviewedAt)
+    .map((book) => ({
+      ...book,
+      via: book.via ?? [],
+      examples: book.examples ?? [],
+    })),
 });
 
 /**

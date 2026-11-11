@@ -10,6 +10,8 @@ const api = vi.hoisted(() => ({
   getContentSourcesPages: vi.fn(),
   getContentSourcesLineage: vi.fn(),
   updateContentSourcesNotifications: vi.fn(),
+  reviewContentSourcesChange: vi.fn(),
+  getContentSourcesChangeRevisions: vi.fn(),
 }));
 
 vi.mock("../../../api", () => ({ default: api }));
@@ -141,6 +143,72 @@ describe("ContentSources", () => {
     api.getContentSources.mockResolvedValue({ err: false, data: overview({ canManage: true }) });
     renderPage();
     expect(await screen.findByRole("switch", { name: /Email this project's leads/ })).toBeTruthy();
+  });
+
+  it("lets a project admin mark a source change reviewed", async () => {
+    const change = {
+      eventID: "65a1b2c3d4e5f60718293a4b",
+      source: ref("dev-8998", "2: Chapters"),
+      fromRev: 8, toRev: 10, deleted: false, changedAt: "2026-11-11T18:41:24.029Z",
+      pages: 1, frozen: false, notified: false,
+    };
+    api.getContentSources.mockResolvedValue({
+      err: false,
+      data: overview({ canManage: true, recentChanges: [change] }),
+    });
+    api.reviewContentSourcesChange.mockResolvedValue({ err: false, data: { reviewed: 1, edgesReset: 1 } });
+    renderPage();
+    fireEvent.click(await screen.findByLabelText("Mark reviewed: 2: Chapters"));
+    await vi.waitFor(() =>
+      expect(api.reviewContentSourcesChange).toHaveBeenCalledWith("cbHAlG9FKc", change.eventID),
+    );
+  });
+
+  it("shows a change's revisions and what changed", async () => {
+    const change = {
+      eventID: "65a1b2c3d4e5f60718293a4b",
+      source: ref("dev-8998", "2: Chapters"),
+      fromRev: 8, toRev: 10, deleted: false, changedAt: "2026-11-11T18:41:24.029Z",
+      pages: 1, frozen: false, notified: false,
+    };
+    api.getContentSources.mockResolvedValue({ err: false, data: overview({ recentChanges: [change] }) });
+    api.getContentSourcesChangeRevisions.mockResolvedValue({
+      err: false,
+      data: {
+        source: change.source, fromRev: 8, toRev: 10, deleted: false,
+        revisions: [
+          { revision: 10, editedAt: "2026-11-11T18:40:53.000Z", author: "Ada Lovelace", summary: "5 words added", url: "https://dev.libretexts.org/P?revision=10" },
+          { revision: 9, editedAt: "2026-11-11T18:23:35.000Z", author: "Ada Lovelace", summary: "1 words added", url: "https://dev.libretexts.org/P?revision=9" },
+        ],
+        diffHtml: "<p><ins>New text</ins><script>alert(1)</script></p>",
+      },
+    });
+    renderPage();
+    fireEvent.click(await screen.findByLabelText("Show revisions: 2: Chapters"));
+    expect(await screen.findByText("Revision 8 → 10")).toBeTruthy();
+    expect(screen.getByText(/5 words added · by Ada Lovelace/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /View revision 9/ })).toBeTruthy();
+    const added = screen.getByText("New text");
+    expect(added.tagName).toBe("INS");
+    // Scripts never reach the DOM, even if the server let one through.
+    expect(document.querySelector("script")).toBeNull();
+    expect(api.getContentSourcesChangeRevisions).toHaveBeenCalledWith("cbHAlG9FKc", change.eventID);
+  });
+
+  it("hides the review button from members who can't manage", async () => {
+    api.getContentSources.mockResolvedValue({
+      err: false,
+      data: overview({
+        canManage: false,
+        recentChanges: [{
+          eventID: "65a1b2c3d4e5f60718293a4b", source: ref("dev-8998", "2: Chapters"),
+          deleted: false, changedAt: "2026-11-11T18:41:24.029Z", pages: 1, frozen: false, notified: true,
+        }],
+      }),
+    });
+    renderPage();
+    expect(await screen.findByText(/leads emailed/)).toBeTruthy();
+    expect(screen.queryByLabelText("Mark reviewed: 2: Chapters")).toBeNull();
   });
 
   it("opens a page's reuse chain", async () => {

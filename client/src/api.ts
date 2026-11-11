@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig } from "axios";
 import type {
   BookGraph,
+  ContentSourcesChangeRevisions,
   LibraryReuseStats,
   ContentSourcesLineage,
   ContentSourcesOverview,
@@ -3587,6 +3588,22 @@ class API {
     >(`/project/${projectID}/content-sources/pages/${pageID}/lineage`, {
       params: { direction },
     });
+    return res.data;
+  }
+
+  /** The library revisions a source change spans, with the diff between its ends. */
+  async getContentSourcesChangeRevisions(projectID: string, eventID: string) {
+    const res = await axios.get<
+      { data: ContentSourcesChangeRevisions } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/changes/${eventID}/revisions`);
+    return res.data;
+  }
+
+  /** Marks a source change reviewed for the project's book (leads and liaisons). */
+  async reviewContentSourcesChange(projectID: string, eventID: string) {
+    const res = await axios.post<
+      { data: { reviewed: number; edgesReset: number } } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/changes/${eventID}/review`);
     return res.data;
   }
 

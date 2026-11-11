@@ -33,6 +33,16 @@ export const GetContentPageLineageSchema = z.object({
   }),
 });
 
+/** `POST /project/:projectID/content-sources/changes/:eventID/review`: mark a source change reviewed. */
+export const ReviewSourceChangeSchema = z.object({
+  params: ProjectParams.extend({
+    eventID: z.string().regex(/^[a-f0-9]{24}$/i, "Expected a change ID."),
+  }),
+});
+
+/** `GET /project/:projectID/content-sources/changes/:eventID/revisions`: a change's revisions and diff. */
+export const GetSourceChangeRevisionsSchema = ReviewSourceChangeSchema;
+
 /** `PUT /project/:projectID/content-sources/notifications`: turn source-change emails on or off. */
 export const UpdateContentSourcesNotificationsSchema = z.object({
   params: ProjectParams,
@@ -44,6 +54,7 @@ export const UpdateContentSourcesNotificationsSchema = z.object({
 export type GetContentSourcesRequest = z.infer<typeof GetContentSourcesSchema>;
 export type GetContentPagesRequest = z.infer<typeof GetContentPagesSchema>;
 export type GetContentPageLineageRequest = z.infer<typeof GetContentPageLineageSchema>;
+export type ReviewSourceChangeRequest = z.infer<typeof ReviewSourceChangeSchema>;
 export type UpdateContentSourcesNotificationsRequest = z.infer<
   typeof UpdateContentSourcesNotificationsSchema
 >;
