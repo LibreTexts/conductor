@@ -2,7 +2,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   edgeTypeForRef,
+  pageNodeId,
+  parsePageNodeId,
   resolveChainRoot,
+  summarizeAffectedBooks,
   walkDownstream,
   type GraphEdge,
   type ReuseEdgeType,
@@ -176,5 +179,50 @@ describe("edgeTypeForRef", () => {
       edgeTypeForRef({ ...same, section: "Intro" }, { targetLib: "chem", targetIsStub: true }),
       "section",
     );
+  });
+});
+
+describe("summarizeAffectedBooks", () => {
+  it("gives one line per book with the shortest chain, from a real walk", async () => {
+    // A → B (book b) → C (book c), and A → D (book d, a fork), A → B2 (book b).
+    const edges = graph([
+      ["B", "A", "transclude-same"],
+      ["B2", "A", "section"],
+      ["C", "B", "transclude-cross"],
+      ["D", "A", "fork"],
+    ]);
+    const walk = await walkDownstream("A", outgoing(edges));
+    assert.deepEqual(summarizeAffectedBooks(walk.hits), [
+      { bookID: "book-B", pages: 2, minHops: 1, via: [], frozen: false },
+      { bookID: "book-D", pages: 1, minHops: 1, via: [], frozen: true },
+      { bookID: "book-C", pages: 1, minHops: 2, via: ["B"], frozen: false },
+    ]);
+  });
+
+  it("leaves out pages that belong to no known book", () => {
+    assert.deepEqual(
+      summarizeAffectedBooks([
+        { target: "X", targetBook: null, source: "A", hops: 1, via: [], frozen: false },
+      ]),
+      [],
+    );
+  });
+
+  it("marks a book frozen only when every affected page in it is a copy", () => {
+    const [book] = summarizeAffectedBooks([
+      { target: "X", targetBook: "b", source: "A", hops: 1, via: [], frozen: true },
+      { target: "Y", targetBook: "b", source: "A", hops: 1, via: [], frozen: false },
+    ]);
+    assert.equal(book.frozen, false);
+    assert.equal(book.pages, 2);
+  });
+});
+
+describe("pageNodeId / parsePageNodeId", () => {
+  it("round-trips and rejects malformed ids", () => {
+    assert.deepEqual(parsePageNodeId(pageNodeId("chem", 12345)), { lib: "chem", pageID: 12345 });
+    assert.equal(parsePageNodeId("chem"), null);
+    assert.equal(parsePageNodeId("-12"), null);
+    assert.equal(parsePageNodeId("chem-abc"), null);
   });
 });

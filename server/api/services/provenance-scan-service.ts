@@ -4,6 +4,7 @@ import { childLogger } from "../../logger.js";
 import Book from "../../models/book.js";
 import Library from "../../models/library.js";
 import PageNode, { type PageNodeKind } from "../../models/pagenode.js";
+import PageReuseEdge, { CURRENT_EDGE_STATUSES } from "../../models/pagereuseedge.js";
 import ProvenanceScanState, {
   type ProvenanceScanStateInterface,
 } from "../../models/provenancescanstate.js";
@@ -22,7 +23,8 @@ import type { ReuseRef } from "../../util/transclusion.js";
 import { createThrottle } from "./library-sync-service.js";
 import {
   fillEdgeSourceBooks,
-  markPageDeleted,
+  deletePageWithNotice,
+  recordSourceChange,
   rebuildBookSummary,
   reconcileTargetEdgesBulk,
   refreshChainRoot,
@@ -90,6 +92,8 @@ export type ScanStats = {
   edgesWritten: number;
   edgesRemoved: number;
   deleted: number;
+  /** Change events queued for reused pages that changed or were deleted. */
+  sourceChanges: number;
   errors: number;
 };
 
@@ -100,6 +104,7 @@ const emptyStats = (): ScanStats => ({
   edgesWritten: 0,
   edgesRemoved: 0,
   deleted: 0,
+  sourceChanges: 0,
   errors: 0,
 });
 
@@ -245,15 +250,23 @@ const PAGE_REQUEST_RETRY_MS = 1000;
  * A throttled page request that retries 5xx and 429 responses with a growing
  * delay. Never throws on an HTTP status; the caller reads `res.status`.
  */
-const fetchPage = async (
+const fetchPage = (
   ctx: ScanContext,
+  path: string | number,
+  api: string,
+): Promise<Response> => fetchLibraryPage(ctx.throttle, ctx.lib, path, api);
+
+/** {@link fetchPage} without a scan context: any library, any throttle. */
+const fetchLibraryPage = async (
+  throttle: Throttle,
+  lib: string,
   path: string | number,
   api: string,
 ): Promise<Response> => {
   let res: Response | undefined;
   for (let attempt = 1; attempt <= PAGE_REQUEST_ATTEMPTS; attempt += 1) {
-    res = await ctx.throttle(() =>
-      CXOneFetch({ scope: "page", path, api, subdomain: ctx.lib, silentFail: true }),
+    res = await throttle(() =>
+      CXOneFetch({ scope: "page", path, api, subdomain: lib, silentFail: true }),
     );
     const retryable = res.status >= 500 || res.status === 429;
     if (!retryable || attempt === PAGE_REQUEST_ATTEMPTS) break;
@@ -391,7 +404,7 @@ const reconcileMissingPages = async (
     }
 
     if (gone) {
-      await markPageDeleted(node.nodeID);
+      await deletePageWithNotice(node.nodeID);
       stats.deleted += 1;
     } else {
       await PageNode.updateOne({ nodeID: { $eq: node.nodeID } }, { $set: { bookID: null } });
@@ -439,8 +452,22 @@ const scanBook = async (
 
   const nodes: PageNodeUpsert[] = [];
   const changed: TreePageInfo[] = [];
+  // Pages whose revision moved since the graph last saw them. Only a known
+  // previous revision counts: a first sighting is a baseline, not a change.
+  const revisionChanges: { nodeID: string; fromRev: number; toRev: number }[] = [];
   for (const page of pages) {
     const prev = storedById.get(pageNodeId(ctx.lib, page.pageID));
+    if (
+      prev?.revision !== undefined &&
+      page.revision !== undefined &&
+      prev.revision !== page.revision
+    ) {
+      revisionChanges.push({
+        nodeID: pageNodeId(ctx.lib, page.pageID),
+        fromRev: prev.revision,
+        toRev: page.revision,
+      });
+    }
     const unchanged =
       !ctx.rescanContent &&
       prev?.scannedAt &&
@@ -496,7 +523,169 @@ const scanBook = async (
   stats.edgesWritten += await upsertReuseEdges(edges);
   stats.edgesRemoved += await reconcileTargetEdgesBulk(reconcile);
   await reconcileMissingPages(ctx, bookID, ids, stats);
+  stats.sourceChanges += await queueSourceChanges(revisionChanges);
   stats.books += 1;
+};
+
+/**
+ * Change events for pages whose revision moved, but only those something
+ * reuses: most pages are reused by nothing, and the existence check is one
+ * indexed read where a downstream walk would be several.
+ *
+ * @returns Events queued.
+ */
+const queueSourceChanges = async (
+  changes: { nodeID: string; fromRev: number; toRev: number }[],
+): Promise<number> => {
+  let queued = 0;
+  for (const change of changes) {
+    const reused = await PageReuseEdge.exists({
+      source: { $eq: change.nodeID },
+      status: { $in: CURRENT_EDGE_STATUSES },
+    });
+    if (!reused) continue;
+    const { recorded } = await recordSourceChange({
+      sourceId: change.nodeID,
+      fromRev: change.fromRev,
+      toRev: change.toRev,
+    });
+    if (recorded) queued += 1;
+  }
+  return queued;
+};
+
+/** How often each reused page's revision is re-read by the source check. */
+const SOURCE_CHECK_INTERVAL_MS = envInt("PROVENANCE_SOURCE_CHECK_INTERVAL_MS", 60 * 60 * 1000);
+/** Reused pages read per batch of the source check. */
+const SOURCE_CHECK_BATCH = 200;
+
+export type SourceCheckOutcome = {
+  checked: number;
+  changed: number;
+  deleted: number;
+  errors: number;
+};
+
+/**
+ * Watches every reused page for changes, in any library and whether or not
+ * its book is ever scanned: one page-info read per page, least recently
+ * checked first, until the deadline. The book walk catches changes to pages
+ * inside scanned books too, but only on its daily pass; this is the hourly
+ * path, and the only one for sources outside every scanned book.
+ *
+ * Idempotent and lease-free: a change seen twice queues one event (the event
+ * store is unique per source revision).
+ */
+export const checkReusedSources = async ({
+  deadline,
+  onlyNodeIDs,
+}: {
+  deadline: number;
+  /** Check exactly these pages, now, whatever their last check time. */
+  onlyNodeIDs?: string[];
+}): Promise<SourceCheckOutcome> => {
+  const outcome: SourceCheckOutcome = { checked: 0, changed: 0, deleted: 0, errors: 0 };
+  const throttles = new Map<string, Throttle>();
+  const throttleFor = (lib: string) => {
+    let throttle = throttles.get(lib);
+    if (!throttle) {
+      throttle = createThrottle(REQUEST_INTERVAL_MS);
+      throttles.set(lib, throttle);
+    }
+    return throttle;
+  };
+
+  const checkOne = async (node: { nodeID: string; lib: string; pageID: number; revision?: number }) => {
+    try {
+      const res = await fetchLibraryPage(
+        throttleFor(node.lib),
+        node.lib,
+        node.pageID,
+        MindTouch.API.Page.GET_Page_Info,
+      );
+      const checkedAt = new Date();
+      if (res.status === 404) {
+        await deletePageWithNotice(node.nodeID, checkedAt);
+        await PageNode.updateOne({ nodeID: { $eq: node.nodeID } }, { $set: { sourceCheckedAt: checkedAt } });
+        outcome.deleted += 1;
+        return;
+      }
+      if (!res.ok) {
+        // Transient: try again next interval rather than hammering it now.
+        await PageNode.updateOne({ nodeID: { $eq: node.nodeID } }, { $set: { sourceCheckedAt: checkedAt } });
+        outcome.errors += 1;
+        return;
+      }
+      const info = await res.json().catch(() => null);
+      if (String(info?.["@deleted"]) === "true") {
+        await deletePageWithNotice(node.nodeID, checkedAt);
+        await PageNode.updateOne({ nodeID: { $eq: node.nodeID } }, { $set: { sourceCheckedAt: checkedAt } });
+        outcome.deleted += 1;
+        return;
+      }
+
+      const revision = parseInt(String(info?.["@revision"] ?? ""), 10);
+      const toRev = Number.isFinite(revision) ? revision : undefined;
+      if (node.revision !== undefined && toRev !== undefined && toRev !== node.revision) {
+        const { recorded } = await recordSourceChange({
+          sourceId: node.nodeID,
+          fromRev: node.revision,
+          toRev,
+          changedAt: checkedAt,
+        });
+        if (recorded) outcome.changed += 1;
+      }
+
+      // Nothing reuses it any more: stop watching it.
+      const stillReused = await PageReuseEdge.exists({
+        source: { $eq: node.nodeID },
+        status: { $in: CURRENT_EDGE_STATUSES },
+      });
+      await PageNode.updateOne(
+        { nodeID: { $eq: node.nodeID } },
+        {
+          $set: {
+            sourceCheckedAt: checkedAt,
+            ...(toRev !== undefined ? { revision: toRev } : {}),
+            ...(stillReused ? {} : { isSource: false }),
+          },
+        },
+      );
+      outcome.checked += 1;
+    } catch (err) {
+      outcome.errors += 1;
+      scanLog.warn({ err, nodeID: node.nodeID }, "Failed to check reused page");
+    }
+  };
+
+  const projection = { _id: 0, nodeID: 1, lib: 1, pageID: 1, revision: 1 } as const;
+  type SourceRow = { nodeID: string; lib: string; pageID: number; revision?: number };
+
+  if (onlyNodeIDs?.length) {
+    const nodes = await PageNode.find({ nodeID: { $in: onlyNodeIDs } }, projection).lean<SourceRow[]>();
+    await mapWithConcurrency(nodes, CONTENT_CONCURRENCY, checkOne);
+    return outcome;
+  }
+
+  while (Date.now() < deadline) {
+    const dueBefore = new Date(Date.now() - SOURCE_CHECK_INTERVAL_MS);
+    const due = await PageNode.find(
+      {
+        isSource: true,
+        deletedAt: null,
+        $or: [{ sourceCheckedAt: null }, { sourceCheckedAt: { $lt: dueBefore } }],
+      },
+      projection,
+    )
+      .sort({ sourceCheckedAt: 1 })
+      .limit(SOURCE_CHECK_BATCH)
+      .lean<SourceRow[]>();
+    if (due.length === 0) break;
+    await mapWithConcurrency(due, CONTENT_CONCURRENCY, async (node) => {
+      if (Date.now() < deadline) await checkOne(node);
+    });
+  }
+  return outcome;
 };
 
 /** Pages to compute chain roots for. */
@@ -795,6 +984,15 @@ export const runProvenanceScan = async ({
       const wanted = new Set(libraries.map((l) => l.toLowerCase()));
       targets = targets.filter((s) => wanted.has(s.toLowerCase()));
     }
+
+    // Change detection first, with up to a third of the budget: it is the
+    // hourly path to lead emails, and the backfill below can fill any slice.
+    const sourceDeadline = Math.min(
+      deadline,
+      Date.now() + Math.max(60_000, Math.floor((deadline - Date.now()) / 3)),
+    );
+    const sourceOutcome = await checkReusedSources({ deadline: sourceDeadline });
+    scanLog.info({ ...sourceOutcome }, "Reused-source check finished");
 
     const outcomes: LibraryScanOutcome[] = [];
     for (const lib of targets) {

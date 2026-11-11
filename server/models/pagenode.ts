@@ -54,6 +54,13 @@ export interface PageNodeInterface {
   modifiedAt?: Date;
   scannedAt?: Date;
   deletedAt?: Date | null;
+  /**
+   * Some page reuses this one. Set when an edge onto it is written; cleared by
+   * the source check once nothing reuses it any more. Drives change detection.
+   */
+  isSource?: boolean;
+  /** When the source check last read this page's revision from the library. */
+  sourceCheckedAt?: Date | null;
 }
 
 const PageNodeSchema = new Schema<PageNodeInterface>(
@@ -77,6 +84,8 @@ const PageNodeSchema = new Schema<PageNodeInterface>(
     modifiedAt: { type: Date },
     scannedAt: { type: Date },
     deletedAt: { type: Date, default: null },
+    isSource: { type: Boolean },
+    sourceCheckedAt: { type: Date, default: null },
   },
   { versionKey: false },
 );
@@ -89,6 +98,11 @@ PageNodeSchema.index({ lib: 1, modifiedAt: -1 });
 PageNodeSchema.index({ contentHash: 1 }, { sparse: true });
 // Near-copy candidates (LSH buckets). Multikey over the four bands.
 PageNodeSchema.index({ simBands: 1 }, { sparse: true });
+// The source check's queue: reused pages, least recently checked first.
+PageNodeSchema.index(
+  { isSource: 1, sourceCheckedAt: 1 },
+  { partialFilterExpression: { isSource: true } },
+);
 // "Which pages ultimately come from X?"
 PageNodeSchema.index({ rootSource: 1 }, { sparse: true });
 

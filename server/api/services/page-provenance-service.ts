@@ -13,12 +13,15 @@ import BookReuseSummary, {
   type BookReuseLink,
   type BookReuseSummaryInterface,
 } from "../../models/bookreusesummary.js";
+import SourceChangeEvent from "../../models/sourcechangeevent.js";
 import { getLibraryAndPageFromBookID } from "../../util/bookutils.js";
 import {
   LIVE_EDGE_TYPES,
   MAX_CHAIN_DEPTH,
   pageNodeId,
+  parsePageNodeId,
   resolveChainRoot,
+  summarizeAffectedBooks,
   walkDownstream,
   type ChainRoot,
   type DownstreamWalk,
@@ -212,7 +215,126 @@ export const upsertReuseEdges = async (
     const res = await PageReuseEdge.bulkWrite(ops, { ordered: false });
     written += res.upsertedCount + res.modifiedCount;
   }
+  await markSources(edges.map((edge) => edge.source));
   return written;
+};
+
+/**
+ * Flags pages as reused so the source check watches them for changes, and
+ * gives sources outside any scanned book a node to hang that state on.
+ */
+const markSources = async (sourceIDs: string[]): Promise<void> => {
+  const unique = [...new Set(sourceIDs)];
+  for (const batch of chunk(unique, BULK_BATCH_SIZE)) {
+    const ops: PageNodeBulkOps = [];
+    for (const nodeID of batch) {
+      const parts = parsePageNodeId(nodeID);
+      if (!parts) continue;
+      ops.push({
+        updateOne: {
+          filter: { nodeID },
+          update: {
+            $set: { isSource: true },
+            $setOnInsert: { lib: parts.lib, pageID: parts.pageID, kind: "unknown", reuseCount: 0 },
+          },
+          upsert: true,
+        },
+      });
+    }
+    if (ops.length > 0) await PageNode.bulkWrite(ops, { ordered: false });
+  }
+};
+
+// ── Change events ────────────────────────────────────────────────────────────
+
+export type SourceChangeParams = {
+  sourceId: string;
+  /** Revision the graph last knew. */
+  fromRev?: number;
+  /** Revision now in the library; absent for a deletion. */
+  toRev?: number;
+  deleted?: boolean;
+  changedAt?: Date;
+};
+
+/**
+ * Records that a reused page changed (or was deleted): walks every page its
+ * change reaches (live chains; copies as the last hop), groups them by book,
+ * and queues one `SourceChangeEvent` for the notification job. Direct edges
+ * onto the source are marked `source-changed` until their leads are told.
+ *
+ * Call it *before* marking a deleted source's edges broken, or the walk will
+ * not find them.
+ *
+ * @returns Whether an event was queued, and how many pages it reaches.
+ */
+export const recordSourceChange = async ({
+  sourceId,
+  fromRev,
+  toRev,
+  deleted = false,
+  changedAt = new Date(),
+}: SourceChangeParams): Promise<{ recorded: boolean; affectedPages: number }> => {
+  const walk = await findAffectedByChange(sourceId);
+  if (walk.hits.length === 0) return { recorded: false, affectedPages: 0 };
+
+  const affected = summarizeAffectedBooks(walk.hits);
+  const source = await PageNode.findOne(
+    { nodeID: { $eq: sourceId } },
+    { _id: 0, bookID: 1 },
+  ).lean<{ bookID?: string | null }>();
+
+  if (!deleted) {
+    await PageReuseEdge.updateMany(
+      { source: { $eq: sourceId }, status: "active" },
+      { $set: { status: "source-changed" } },
+    );
+  }
+
+  try {
+    await SourceChangeEvent.create({
+      sourcePage: sourceId,
+      sourceBook: source?.bookID ?? null,
+      fromRev,
+      toRev,
+      deleted,
+      changedAt,
+      affected,
+      affectedPageCount: walk.hits.length,
+      truncated: walk.truncated,
+    });
+  } catch (err) {
+    // Same source revision already queued (a re-poll); nothing new to say.
+    if ((err as { code?: number })?.code === 11000) {
+      return { recorded: false, affectedPages: walk.hits.length };
+    }
+    throw err;
+  }
+
+  provenanceLog.info(
+    {
+      sourceId,
+      fromRev,
+      toRev,
+      deleted,
+      books: affected.length,
+      pages: walk.hits.length,
+    },
+    deleted ? "Reused page deleted" : "Reused page changed",
+  );
+  return { recorded: true, affectedPages: walk.hits.length };
+};
+
+/**
+ * A page is gone from the library: queue a change event for everything that
+ * reuses it, then mark it deleted (its own edges removed, edges onto it broken).
+ */
+export const deletePageWithNotice = async (
+  nodeId: string,
+  deletedAt: Date = new Date(),
+): Promise<{ removed: number; broken: number }> => {
+  await recordSourceChange({ sourceId: nodeId, deleted: true, changedAt: deletedAt });
+  return markPageDeleted(nodeId, deletedAt);
 };
 
 /**

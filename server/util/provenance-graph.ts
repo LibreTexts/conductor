@@ -53,6 +53,18 @@ export const MAX_CHAIN_DEPTH = 20;
 export const pageNodeId = (lib: string, pageID: number | string): string =>
   `${lib}-${pageID}`;
 
+/** Inverse of {@link pageNodeId}. Null for anything that isn't `${lib}-${number}`. */
+export const parsePageNodeId = (
+  nodeID: string,
+): { lib: string; pageID: number } | null => {
+  const dash = nodeID.lastIndexOf("-");
+  if (dash <= 0) return null;
+  const pageID = parseInt(nodeID.slice(dash + 1), 10);
+  return Number.isFinite(pageID) && pageID > 0
+    ? { lib: nodeID.slice(0, dash), pageID }
+    : null;
+};
+
 /**
  * The stored edge type for a reuse ref found in a target page. A ref in a pure
  * pointer page is a whole-page transclusion; a ref inside an authored page is
@@ -173,6 +185,52 @@ export const walkDownstream = async (
     cycle,
     truncated: frontier.length > 0,
   };
+};
+
+/** One book reached by a change, as stored on a SourceChangeEvent. */
+export type AffectedBook = {
+  bookID: string;
+  /** Affected pages in this book. */
+  pages: number;
+  /** Shortest chain from the changed source into this book (1 = direct). */
+  minHops: number;
+  /** Intermediate pages of that shortest chain, nearest the source first. */
+  via: string[];
+  /** Every affected page in the book is a fork/full copy (out of date, not changed). */
+  frozen: boolean;
+};
+
+/**
+ * Groups a downstream walk by book, so one change produces one line per
+ * affected book (and, in Phase 6, one email line per project) however many
+ * of its pages reuse the source. Pages outside any known book are left out:
+ * no project can be notified about them.
+ */
+export const summarizeAffectedBooks = (hits: DownstreamHit[]): AffectedBook[] => {
+  const byBook = new Map<string, AffectedBook>();
+  for (const hit of hits) {
+    if (!hit.targetBook) continue;
+    const existing = byBook.get(hit.targetBook);
+    if (!existing) {
+      byBook.set(hit.targetBook, {
+        bookID: hit.targetBook,
+        pages: 1,
+        minHops: hit.hops,
+        via: [...hit.via],
+        frozen: hit.frozen,
+      });
+      continue;
+    }
+    existing.pages += 1;
+    existing.frozen = existing.frozen && hit.frozen;
+    if (hit.hops < existing.minHops) {
+      existing.minHops = hit.hops;
+      existing.via = [...hit.via];
+    }
+  }
+  return [...byBook.values()].sort(
+    (a, b) => a.minHops - b.minHops || a.bookID.localeCompare(b.bookID),
+  );
 };
 
 export type ChainRoot = {

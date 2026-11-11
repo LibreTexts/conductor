@@ -8,7 +8,7 @@ import {
 import type { ReuseEdgeOrigin } from "../../models/pagereuseedge.js";
 import type { PageNodeKind } from "../../models/pagenode.js";
 import {
-  markPageDeleted,
+  deletePageWithNotice,
   rebuildBookSummary,
   refreshChainRoot,
   upsertPageNodes,
@@ -221,7 +221,9 @@ export const syncBookStructure = async ({
     for (const raw of deletedPageIDs) {
       const pageID = toPageID(raw);
       if (!pageID) continue;
-      const result = await markPageDeleted(pageNodeId(lib, pageID));
+      // Queues a change event for every book that reuses the page first, so
+      // their leads hear that it is gone, then breaks the edges onto it.
+      const result = await deletePageWithNotice(pageNodeId(lib, pageID));
       broken += result.broken;
     }
     if (broken > 0) {
