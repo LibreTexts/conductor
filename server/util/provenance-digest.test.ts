@@ -143,7 +143,7 @@ describe("describeDigestLine", () => {
   it("does not treat a deleted source of copies as urgent", () => {
     const item = describeDigestLine(line({ status: "deleted", frozen: true }), resolve);
     assert.equal(item.urgent, false);
-    assert.match(item.summary, /keep their content/);
+    assert.match(item.summary, /are copied from it and keep their content/);
   });
 
   it("names the revisions and says a copy does not update", () => {
@@ -157,6 +157,17 @@ describe("describeDigestLine", () => {
     assert.deepEqual(
       describeDigestLine(line({ minHops: 2, via: ["mid"] }), resolve).through,
       [{ title: "T:mid", url: "u/mid" }],
+    );
+  });
+
+  it("words a single page in the singular", () => {
+    assert.match(
+      describeDigestLine(line({ pages: 1, examples: ["p1"] }), resolve).summary,
+      /1 page in your book reuses it and already shows the new content\. Review it\./,
+    );
+    assert.match(
+      describeDigestLine(line({ status: "out-of-date", pages: 1 }), resolve).summary,
+      /1 page in your book is a copy of it and does not update on its own/,
     );
   });
 

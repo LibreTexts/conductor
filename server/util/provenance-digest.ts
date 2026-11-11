@@ -227,20 +227,22 @@ export const describeDigestLine = (
   line: DigestLine,
   resolve: (nodeID: string) => DigestPageRef,
 ): DigestItem => {
-  const pages = plural(line.pages, "page");
+  const one = line.pages === 1;
+  const pages = `${plural(line.pages, "page")} in your book ${one ? "is" : "are"}`;
+  const reuse = `${plural(line.pages, "page")} in your book ${one ? "reuses" : "reuse"} it`;
   let label: string;
   let summary: string;
   if (line.status === "deleted") {
     label = line.frozen ? "Source deleted" : "Source deleted: content missing";
     summary = line.frozen
-      ? `This page was deleted. ${pages} in your book were copied from it and keep their content, but no longer have a source to compare against.`
-      : `This page was deleted. ${pages} in your book reuse it and now show nothing where its content was. Replace or remove the reuse.`;
+      ? `This page was deleted. ${pages} copied from it and ${one ? "keeps its" : "keep their"} content, but no longer ${one ? "has" : "have"} a source to compare against.`
+      : `This page was deleted. ${reuse} and now ${one ? "shows" : "show"} nothing where its content was. Replace or remove the reuse.`;
   } else if (line.status === "out-of-date") {
     label = "Copy may be out of date";
-    summary = `This page was edited${revisionText(line)}. ${pages} in your book are copies of it and do not update on their own. Check whether they need the change.`;
+    summary = `This page was edited${revisionText(line)}. ${pages} ${one ? "a copy" : "copies"} of it and ${one ? "does" : "do"} not update on ${one ? "its" : "their"} own. Check whether ${one ? "it needs" : "they need"} the change.`;
   } else {
     label = "Source edited";
-    summary = `This page was edited${revisionText(line)}. ${pages} in your book reuse it and already show the new content. Review them.`;
+    summary = `This page was edited${revisionText(line)}. ${reuse} and already ${one ? "shows" : "show"} the new content. Review ${one ? "it" : "them"}.`;
   }
   const examples = line.examples.slice(0, line.pages);
   return {
