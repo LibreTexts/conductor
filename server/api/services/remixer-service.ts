@@ -36,7 +36,7 @@ import GlossaryService from "./glossary-service";
 import { importPageReferences } from "./references-service.js";
 import { rewriteCitationKeys } from "../../util/referenceCitations.js";
 import {
-  recordReuse,
+  recordReuseBatch,
   syncBookStructure,
   type RecordReuseParams,
 } from "./provenance-capture-service.js";
@@ -1511,7 +1511,13 @@ const handleImportedPage = async (
   importGlossaryTerms?: boolean,
   addedBy?: string,
   importReferences?: boolean,
-): Promise<{ pageID: string; pageURI: string; warnings: string[] }> => {
+): Promise<{
+  pageID: string;
+  pageURI: string;
+  warnings: string[];
+  /** What the page reuses, for the provenance graph; recorded after the job. */
+  reuse?: RecordReuseParams;
+}> => {
   // Per-page, non-fatal notes (skipped attachments, file-copy fallback) that the
   // caller folds into the job log so they reach the publish panel, not just pino.
   const warnings: string[] = [];
@@ -1856,24 +1862,25 @@ const handleImportedPage = async (
       }
     }
 
-    // Provenance: where this page's content comes from. Best-effort; it
-    // never throws, so it can't fail an import that already succeeded.
-    if (reuseRecord) {
-      await recordReuse({
-        ...reuseRecord,
-        origin: "remixer",
-        target: {
-          lib: subdomain,
-          pageID,
-          uri: pageURI,
-          title,
-          bookID: coverId ? `${subdomain}-${coverId}` : null,
-          parentID: parent["@id"],
-        },
-      });
-    }
+    // Provenance: where this page's content comes from. Only described here;
+    // the job records every page's reuse in one batch once it has finished,
+    // so the import isn't slowed.
+    const reuse: RecordReuseParams | undefined = reuseRecord
+      ? {
+          ...reuseRecord,
+          origin: "remixer",
+          target: {
+            lib: subdomain,
+            pageID,
+            uri: pageURI,
+            title,
+            bookID: coverId ? `${subdomain}-${coverId}` : null,
+            parentID: parent["@id"],
+          },
+        }
+      : undefined;
 
-    return { pageID, pageURI, warnings };
+    return { pageID, pageURI, warnings, reuse };
   } catch (error) {
     return failAfterCreate(
       error,
@@ -2184,6 +2191,11 @@ const runRemixerJob = async ({
     lastJobFlushAt = Date.now();
   };
 
+  /**
+   * What each imported page reuses. Recorded in the job's `finally`, so the
+   * pages a job did import are captured even when it fails partway.
+   */
+  const reuseRecords: RecordReuseParams[] = [];
   try {
     if (job.status === "pending") {
       // Stay queued while the CXOne breaker is open so a publish never starts into a block.
@@ -2510,7 +2522,7 @@ const runRemixerJob = async ({
                 ? { titleOverride: placeholder, pathSegmentOverride: placeholder }
                 : undefined;
               const oldPageId = page["@id"];
-              const { pageID, pageURI, warnings } = await withRetryOnTransient(
+              const { pageID, pageURI, warnings, reuse } = await withRetryOnTransient(
                 () =>
                   handleImportedPage(
                     page,
@@ -2529,6 +2541,7 @@ const runRemixerJob = async ({
               );
               await adoptCreatedPageId(oldPageId, page, pageID, pageURI);
               placedPages.add(page);
+              if (reuse) reuseRecords.push(reuse);
               // The page itself imported fine; these are per-file degradations
               // that would otherwise only exist in the server log.
               for (const warning of warnings) {
@@ -3070,6 +3083,15 @@ const runRemixerJob = async ({
     });
     throw error;
   } finally {
+    // Provenance: record what the imported pages reuse, in one batch, in the
+    // background, whether the job succeeded or stopped partway: the pages it
+    // did import exist in the library either way. Not awaited, so it never
+    // delays the job; a restart before it completes is repaired by the next
+    // library scan. Never throws.
+    if (reuseRecords.length > 0) {
+      void recordReuseBatch(reuseRecords);
+    }
+
     // A failed run can still have changed the book, so refresh either way.
     void BookService.invalidatePublicTOC(`${subdomain}-${coverId}`);
   }

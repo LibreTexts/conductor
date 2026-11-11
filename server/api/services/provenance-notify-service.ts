@@ -4,7 +4,6 @@ import mailAPI from "../mail.js";
 import Project from "../../models/project.js";
 import User from "../../models/user.js";
 import PageNode from "../../models/pagenode.js";
-import PageReuseEdge from "../../models/pagereuseedge.js";
 import SourceChangeEvent, {
   type SourceChangeEventInterface,
 } from "../../models/sourcechangeevent.js";
@@ -83,7 +82,6 @@ export type NotifyOutcome = {
   /** Leads with no Conductor user or email address. */
   unreachable: number;
   eventsCompleted: number;
-  edgesReset: number;
   /** Only on a dry run. */
   preview?: PreparedDigest[];
 };
@@ -221,7 +219,7 @@ export const isProvenanceNotifyRunning = (): boolean => notifyRunning;
 
 /**
  * Sends one digest per lead for the oldest unsent events, then marks the
- * events that every lead has heard about and resets their edges to `active`.
+ * events that every lead has heard about.
  */
 export const runSourceChangeNotifications = async ({
   dryRun = false,
@@ -246,7 +244,6 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
     failed: 0,
     unreachable: 0,
     eventsCompleted: 0,
-    edgesReset: 0,
   };
 
   const rows = await SourceChangeEvent.find({ notifiedAt: null })
@@ -353,7 +350,6 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
       failed: outcome.failed,
       unreachable: outcome.unreachable,
       eventsCompleted: outcome.eventsCompleted,
-      edgesReset: outcome.edgesReset,
     },
     "Source-change notifications finished",
   );
@@ -362,8 +358,8 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
 
 /**
  * Marks events whose every reachable lead has been emailed (or that reach no
- * one), then resets the edges they flagged once no newer unsent event for
- * the same source is waiting.
+ * one). The links they flagged stay `source-changed` until each book's
+ * project marks the change reviewed.
  */
 const completeEvents = async (
   rows: EventRow[],
@@ -404,27 +400,6 @@ const completeEvents = async (
   );
   outcome.eventsCompleted = done.length;
 
-  // A deletion's edges are already `broken`; only edits flag edges.
-  const latestRev = new Map<string, number | undefined>();
-  for (const row of done) {
-    if (row.deleted) continue;
-    const prev = latestRev.get(row.sourcePage);
-    latestRev.set(
-      row.sourcePage,
-      prev === undefined ? row.toRev : Math.max(prev, row.toRev ?? prev),
-    );
-  }
-  for (const [sourcePage, toRev] of latestRev) {
-    // A newer change nobody has been told about yet keeps the flag up.
-    const waiting = await SourceChangeEvent.exists({
-      sourcePage: { $eq: sourcePage },
-      notifiedAt: null,
-    });
-    if (waiting) continue;
-    const res = await PageReuseEdge.updateMany(
-      { source: { $eq: sourcePage }, status: "source-changed" },
-      { $set: { status: "active", ...(toRev !== undefined ? { seenRevision: toRev } : {}) } },
-    );
-    outcome.edgesReset += res.modifiedCount;
-  }
+  // Links stay `source-changed` after the email: only a lead or liaison
+  // marking the change reviewed on Content Sources clears them, per book.
 };

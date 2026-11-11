@@ -1,4 +1,6 @@
 import { childLogger } from "../../logger.js";
+import { mapWithConcurrency } from "../../util/concurrency.js";
+import { createThrottle } from "./library-sync-service.js";
 import { getPage } from "../../util/librariesclient.js";
 import { extractPagePath } from "../../util/remixerutils.js";
 import {
@@ -87,89 +89,135 @@ export type RecordReuseParams = {
   via?: CapturedPageRef[];
 };
 
+/** Spacing between reads of source pages while recording a batch. */
+const SOURCE_READ_INTERVAL_MS = 250;
+/** Source pages read at once while recording a batch. */
+const SOURCE_READ_CONCURRENCY = 4;
+
 /**
- * Records one reuse as it is created: both page nodes, the edge, and the
- * target's chain root, all in Conductor's own collections. Nothing is written
- * to the library; it is only read (the source's current revision).
+ * Records the reuse a Remixer job created, all at once: both page nodes of
+ * every link, the links, each target's chain root, and the affected books'
+ * summaries. Everything goes to Conductor's own collections; the library is
+ * only read (each source's current revision, title and path, throttled).
+ *
+ * Meant to run after the job has finished, in the background, so it never
+ * slows an import. If the process stops first, the next library scan finds
+ * the same links from the pages' markup (and forks of former transclusions
+ * from their content), so nothing is lost for good.
  *
  * Never throws.
  */
-export const recordReuse = async ({
-  target,
-  source,
-  type,
-  origin,
-  via = [],
-}: RecordReuseParams): Promise<void> => {
-  const targetPageID = toPageID(target.pageID);
-  const sourcePageID = toPageID(source.pageID);
-  if (!targetPageID || !sourcePageID) {
-    captureLog.warn(
-      { target: target.pageID, source: source.pageID },
-      "Skipping provenance record without numeric page ids",
-    );
-    return;
+export const recordReuseBatch = async (records: RecordReuseParams[]): Promise<void> => {
+  type Prepared = {
+    record: RecordReuseParams;
+    targetPageID: number;
+    sourcePageID: number;
+    targetId: string;
+    sourceId: string;
+  };
+  const prepared: Prepared[] = [];
+  for (const record of records) {
+    const targetPageID = toPageID(record.target.pageID);
+    const sourcePageID = toPageID(record.source.pageID);
+    if (!targetPageID || !sourcePageID) {
+      captureLog.warn(
+        { target: record.target.pageID, source: record.source.pageID },
+        "Skipping provenance record without numeric page ids",
+      );
+      continue;
+    }
+    prepared.push({
+      record,
+      targetPageID,
+      sourcePageID,
+      targetId: pageNodeId(record.target.lib, targetPageID),
+      sourceId: pageNodeId(record.source.lib, sourcePageID),
+    });
   }
-
-  const targetId = pageNodeId(target.lib, targetPageID);
-  const sourceId = pageNodeId(source.lib, sourcePageID);
+  if (prepared.length === 0) return;
 
   try {
-    const sourceInfo = await getPage(sourcePageID, source.lib);
-    const linkedRevision = readRevision(sourceInfo);
+    // One read per distinct source page, however many pages reuse it.
+    const throttle = createThrottle(SOURCE_READ_INTERVAL_MS);
+    const sources = new Map<string, Prepared>();
+    for (const p of prepared) if (!sources.has(p.sourceId)) sources.set(p.sourceId, p);
+    const sourceInfo = new Map<string, { revision?: number; info: any }>();
+    await mapWithConcurrency([...sources.values()], SOURCE_READ_CONCURRENCY, async (p) => {
+      try {
+        const info = await throttle(() => getPage(p.sourcePageID, p.record.source.lib));
+        sourceInfo.set(p.sourceId, { revision: readRevision(info), info });
+      } catch (err) {
+        // The link is still worth recording; the source check reads it later.
+        captureLog.warn({ err, sourceId: p.sourceId }, "Couldn't read reused page");
+      }
+    });
 
-    const viaIds = via
-      .map((page) => {
-        const id = toPageID(page.pageID);
-        return id ? pageNodeId(page.lib, id) : null;
-      })
-      .filter(
-        (id): id is string => id !== null && id !== sourceId && id !== targetId,
+    const nodes: PageNodeUpsert[] = [];
+    const edges: Parameters<typeof upsertReuseEdges>[0] = [];
+    for (const p of prepared) {
+      const { record } = p;
+      const source = sourceInfo.get(p.sourceId);
+      const viaIds = (record.via ?? [])
+        .map((page) => {
+          const id = toPageID(page.pageID);
+          return id ? pageNodeId(page.lib, id) : null;
+        })
+        .filter((id): id is string => id !== null && id !== p.sourceId && id !== p.targetId);
+
+      nodes.push(
+        {
+          lib: record.target.lib,
+          pageID: p.targetPageID,
+          bookID: record.target.bookID,
+          // No parentID: the job's structure sync owns the tree, and the
+          // parent id captured mid-import can be a temporary one.
+          path: toPagePath(record.target.uri),
+          title: record.target.title,
+          kind: NODE_KIND_FOR_EDGE[record.type],
+          reuseCount: 1,
+          deletedAt: null,
+        },
+        {
+          lib: record.source.lib,
+          pageID: p.sourcePageID,
+          path: toPagePath(record.source.uri ?? source?.info?.["uri.ui"]),
+          title: record.source.title ?? source?.info?.title,
+          revision: source?.revision,
+        },
       );
-
-    await upsertPageNodes([
-      {
-        lib: target.lib,
-        pageID: targetPageID,
-        bookID: target.bookID,
-        parentID: toPageID(target.parentID),
-        path: toPagePath(target.uri),
-        title: target.title,
-        kind: NODE_KIND_FOR_EDGE[type],
-        reuseCount: 1,
-        deletedAt: null,
-      },
-      {
-        lib: source.lib,
-        pageID: sourcePageID,
-        path: toPagePath(source.uri ?? sourceInfo?.["uri.ui"]),
-        title: source.title ?? sourceInfo?.title,
-        revision: linkedRevision,
-      },
-    ]);
-
-    await upsertReuseEdges([
-      {
-        target: targetId,
-        source: sourceId,
-        targetBook: target.bookID,
-        type,
-        origin,
+      edges.push({
+        target: p.targetId,
+        source: p.sourceId,
+        targetBook: record.target.bookID,
+        type: record.type,
+        origin: record.origin,
         via: viaIds,
-        linkedRevision,
-      },
-    ]);
+        linkedRevision: source?.revision,
+      });
+    }
 
+    await upsertPageNodes(nodes);
+    await upsertReuseEdges(edges);
     // Lineage lives only in Conductor's own collections: nothing about it is
     // ever written to the library (no tags, no page properties).
-    await refreshChainRoot(targetId);
-  } catch (err) {
-    captureLog.warn(
-      { err, targetId, sourceId, type },
-      "Failed to record page reuse",
+    const targets = [...new Set(prepared.map((p) => p.targetId))];
+    await mapWithConcurrency(targets, 8, (id) => refreshChainRoot(id));
+    // The books' summaries were built before these links existed.
+    const books = [...new Set(prepared.map((p) => p.record.target.bookID).filter((b): b is string => !!b))];
+    for (const bookID of books) await rebuildBookSummary(bookID);
+
+    captureLog.info(
+      { links: edges.length, sources: sources.size, books: books.length },
+      "Recorded Remixer reuse",
     );
+  } catch (err) {
+    captureLog.warn({ err, links: prepared.length }, "Failed to record Remixer reuse");
   }
 };
+
+/** {@link recordReuseBatch} for a single link. Never throws. */
+export const recordReuse = (record: RecordReuseParams): Promise<void> =>
+  recordReuseBatch([record]);
 
 /** One page of a published book, as the capture hooks know it. */
 export type CapturedBookPage = {

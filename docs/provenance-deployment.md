@@ -100,6 +100,10 @@ Running a job twice is harmless:
 4. **Dry-run notifications:** call `…/notify?dryRun=true` and check the returned emails look right.
 5. **Schedule the notify job last.** Only now do leads start getting emails. Projects can opt out on their Content Sources page ("Email notifications"), and only leads and liaisons can change that setting.
 
+**What leads see after a change:** emails only tell leads about a change; they don't clear it. A reusing page stays marked "Source changed", and the change stays in **Recent source changes**, until a lead or liaison marks it reviewed on that book's Content Sources page. Each book is reviewed separately. Deletions stay "Source deleted" until the reuse is fixed.
+
+**Remixer:** a Remixer job records what its imported pages reuse in one batch after the job ends, in the background, whether it succeeded or failed partway. It doesn't slow the import. If the server restarts before the batch finishes, the next scan of that library finds the same links.
+
 ---
 
 ## 5. Monitoring

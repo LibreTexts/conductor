@@ -324,7 +324,7 @@ const ContentSources: React.FC = () => {
             <Alert
               variant="warning"
               title="Sources changed"
-              message={`${plural(overview.attention.sourceChanged, "page")} in this book reuse content that was edited since the leads were last told.`}
+              message={`${plural(overview.attention.sourceChanged, "page")} in this book reuse content that changed and hasn't been marked reviewed yet. Review the changes under Recent source changes.`}
             />
           )}
 
