@@ -55,6 +55,7 @@ Optional tuning, all with safe defaults:
 | `PROVENANCE_SCAN_INTERVAL_MS` | `250` | Gap between requests to one library (throttle). Raise it if a library's API is under strain. |
 | `PROVENANCE_RESCAN_AFTER_MS` | `86400000` (24 h) | How long a library that finished a full scan waits before it's scanned again. |
 | `PROVENANCE_SOURCE_CHECK_INTERVAL_MS` | `3600000` (1 h) | How often each reused page's revision is re-checked for changes. |
+| `PROVENANCE_EXCLUDED_LIBRARIES` | `dev` | Comma-separated libraries the backfill never walks. Their pages that books elsewhere reuse are still tracked; `?book=` scans of their books still run. Set it to empty to exclude none. |
 
 ---
 
@@ -76,6 +77,8 @@ curl -X PUT -H "Authorization: Bearer $LIBRE_API_KEY" \
 curl -X PUT -H "Authorization: Bearer $LIBRE_API_KEY" \
   "https://<conductor-host>/api/v1/provenance/automation/notify"
 ```
+
+**Which libraries are scanned:** every library with `hidden: false` and `syncSupported: true`, except those in `PROVENANCE_EXCLUDED_LIBRARIES` (default `dev`). The **dev library is not backfilled in production**: only its pages that books elsewhere reuse are tracked, and the source check reads just those pages.
 
 Useful query options:
 - **Scan:**

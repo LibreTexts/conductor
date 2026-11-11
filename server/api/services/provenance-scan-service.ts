@@ -79,6 +79,19 @@ export const DEFAULT_SCAN_BUDGET_MS = 10 * 60 * 1000;
 export const MAX_SCAN_BUDGET_MS = 55 * 60 * 1000;
 /** A completed library is scanned again after this long. */
 const RESCAN_AFTER_MS = envInt("PROVENANCE_RESCAN_AFTER_MS", 24 * 60 * 60 * 1000);
+/**
+ * Libraries the backfill never walks, whatever their sync settings: their own
+ * books aren't scanned. Pages in them that books elsewhere reuse are still
+ * tracked (the source check reads just those pages), and a targeted
+ * `?book=` scan of one of their books still runs, since that is explicit.
+ * Comma-separated; `PROVENANCE_EXCLUDED_LIBRARIES=` (empty) excludes none.
+ */
+export const EXCLUDED_LIBRARIES = new Set(
+  (process.env.PROVENANCE_EXCLUDED_LIBRARIES ?? "dev")
+    .split(",")
+    .map((lib) => lib.trim().toLowerCase())
+    .filter(Boolean),
+);
 /** Books per Mongo read while walking a library. */
 const BOOK_PAGE_SIZE = 50;
 /** Nodes per batch in the chain-root pass. */
@@ -1085,7 +1098,9 @@ export const runProvenanceScan = async ({
       { hidden: false, syncSupported: true },
       { _id: 0, subdomain: 1 },
     ).lean<{ subdomain: string }[]>();
-    let targets = synced.map((l) => l.subdomain);
+    let targets = synced
+      .map((l) => l.subdomain)
+      .filter((lib) => !EXCLUDED_LIBRARIES.has(lib.toLowerCase()));
     if (libraries?.length) {
       const wanted = new Set(libraries.map((l) => l.toLowerCase()));
       targets = targets.filter((s) => wanted.has(s.toLowerCase()));
