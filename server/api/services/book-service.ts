@@ -1298,7 +1298,8 @@ export default class BookService {
   async updatePageDetails(
     pageID: string,
     summary?: string,
-    tags?: string[]
+    tags?: string[],
+    options?: { preserveExisting?: boolean }
   ): Promise<["location" | "internal" | null, boolean]> {
     let error = null;
     let success = false;
@@ -1345,6 +1346,37 @@ export default class BookService {
         const systemTagValues = Array.from(
           new Set<string>([...systemTags.map((tag) => tag["@value"])])
         );
+
+        // preserveExisting: `tags` is a set of additions, not the page's full
+        // tag list. Keep every existing tag (PUT replaces the whole set), except
+        // those sharing a system prefix with an incoming tag, which the incoming
+        // tag supersedes.
+        if (options?.preserveExisting) {
+          const incomingPrefixes = this.DISABLED_PAGE_TAG_PREFIXES.filter(
+            (prefix) => tags.some((t) => t.startsWith(prefix))
+          );
+          const kept = currentPageTags
+            .map((tag) => tag["@value"])
+            .filter(
+              (v) => !incomingPrefixes.some((prefix) => v.startsWith(prefix))
+            );
+          const merged = Array.from(new Set<string>([...kept, ...tags]));
+          const mergedRes = await CXOneFetch({
+            scope: "page",
+            path: parseInt(pageID),
+            api: MindTouch.API.Page.PUT_Page_Tags,
+            subdomain: this._library,
+            options: {
+              method: "PUT",
+              headers: { "Content-Type": "application/xml" },
+              body: MindTouch.Templates.PUT_PageTags(merged),
+            },
+          });
+          if (!mergedRes.ok) {
+            throw new Error("internal");
+          }
+          return [null, true];
+        }
 
         const withNewTags = [...systemTagValues, ...tags];
 

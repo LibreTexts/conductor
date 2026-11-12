@@ -755,7 +755,17 @@ const applyArticleKindToPage = async (
     bookID: `${subdomain}-${coverId}`,
   });
   const tag = kind === "topic" ? "article:topic" : (`article:${kind}` as const);
-  await bookService.updatePageDetails(pageID, undefined, [tag]);
+  // preserveExisting: this only swaps the article:* tag; without it the PUT
+  // would wipe every non-system tag on the page.
+  const [tagErr, tagOk] = await bookService.updatePageDetails(
+    pageID,
+    undefined,
+    [tag],
+    { preserveExisting: true },
+  );
+  if (!tagOk) {
+    remixerLog.warn({ pageID, tag, tagErr }, "Failed to apply article kind tag");
+  }
   await bookService.activateShowOrg(
     pageID,
     kind === "topic-guide" || kind === "topic-category",
