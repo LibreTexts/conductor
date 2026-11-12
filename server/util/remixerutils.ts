@@ -84,11 +84,25 @@ export const sanitizeRemixerUriEnding = (
  * MindTouch path leaf matching Workbench URLs such as `3.04%3A_New_Page`
  * (`3.04:_New_Page` before URL encoding).
  */
+/**
+ * The Back Matter container's fixed URL leaf (`zz%3A_Back_Matter` once
+ * encoded). Library features locate it by this exact name, and it sorts last
+ * alphabetically, so it must never follow the chapter-count numbering.
+ */
+export const BACK_MATTER_PATH_SEGMENT = "zz:_Back_Matter";
+/** The Front Matter container's fixed URL leaf (`00%3A_Front_Matter`). */
+export const FRONT_MATTER_PATH_SEGMENT = "00:_Front_Matter";
+
 export const buildRemixerPagePathSegment = (
   page: RemixerPathNumbering,
   rawTitle: string,
   siblingTitleIndex: number | undefined,
+  fixedSegment?: string,
 ): string => {
+  // Front/Back Matter containers are fixed: ignore pathNumber (the back one tracks the chapter count), URL-ending
+  // overrides and sibling-title suffixes.
+  if (fixedSegment) return fixedSegment;
+
   // An explicit URL-ending override replaces the auto-numbered/slugified
   // segment entirely. siblingTitleIndex is intentionally not appended here —
   // a collision from an explicit override is the user's responsibility and

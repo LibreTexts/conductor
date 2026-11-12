@@ -17,6 +17,8 @@ import {
   assertLibraryPagePath,
   bookRootPathSegment,
   buildRemixerPagePathSegment,
+  BACK_MATTER_PATH_SEGMENT,
+  FRONT_MATTER_PATH_SEGMENT,
   toCanonicalPageUrl,
   extractLibretextsSubdomain,
   extractPagePath,
@@ -493,6 +495,20 @@ const isBackMatterNode = (
   return uri.includes("back_matter") && uri.includes("zz");
 };
 
+/** Fixed URL leaf for the Front/Back Matter containers; undefined for any other page. */
+const fixedMatterSegment = (
+  page: RemixerSubPageState,
+  coverId?: string,
+): string | undefined => {
+  if (!isBookRootChild(page, coverId)) return undefined;
+  const title = stripLeadingNumbering(
+    page["@title"] || page.title || "",
+  ).toLowerCase();
+  if (title === "front matter") return FRONT_MATTER_PATH_SEGMENT;
+  if (title === "back matter") return BACK_MATTER_PATH_SEGMENT;
+  return undefined;
+};
+
 /**
  * Moves Back Matter to the end of its sibling list via CXOne's page order API.
  *
@@ -849,7 +865,12 @@ const handleNewPage = async (
   // matching CXOneFetch's encodeURIComponent(encodeURIComponent(path)) convention.
   const segment =
     options?.pathSegmentOverride ||
-    buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
+    buildRemixerPagePathSegment(
+      page,
+      rawTitle,
+      page.siblingTitleIndex,
+      fixedMatterSegment(page, coverId),
+    );
 
   const parentUri = await resolveUiUri(parent, subdomain);
   // uri.ui already has %3A-encoded colons; decode once so the combined path
@@ -911,12 +932,18 @@ const remixerPagePaddedSlug = (
   page: RemixerSubPageState,
   displayTitle: string,
   isBookRoot: boolean = false,
+  coverId?: string,
 ): string => {
   const rawTitle = page["@title"] || page.title || displayTitle;
   if (isBookRoot) {
     return bookRootPathSegment(rawTitle);
   }
-  return buildRemixerPagePathSegment(page, rawTitle, page.siblingTitleIndex);
+  return buildRemixerPagePathSegment(
+    page,
+    rawTitle,
+    page.siblingTitleIndex,
+    fixedMatterSegment(page, coverId),
+  );
 };
 
 const handleDeletedPage = async (
@@ -1027,7 +1054,7 @@ const handleModifiedPage = async (
     const leaf =
       currentPathSegments.length > 0
         ? safeDecPath(currentPathSegments[currentPathSegments.length - 1]!)
-        : remixerPagePaddedSlug(page, title, isBookRoot);
+        : remixerPagePaddedSlug(page, title, isBookRoot, coverId);
     const parentPath = safeDecPath(
       extractPagePath(await resolveUiUri(parent!, subdomain)),
     );
@@ -1036,7 +1063,7 @@ const handleModifiedPage = async (
     const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
     moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
   } else if (isRenamed && !isMoved) {
-    const padded = remixerPagePaddedSlug(page, title, isBookRoot);
+    const padded = remixerPagePaddedSlug(page, title, isBookRoot, coverId);
     const nameEnc = encodeURIComponent(padded);
 
     moveUrl = `${base}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
@@ -1044,7 +1071,7 @@ const handleModifiedPage = async (
     const parentPath = safeDecPath(
       extractPagePath(await resolveUiUri(parent!, subdomain)),
     );
-    const padded = remixerPagePaddedSlug(page, title, isBookRoot);
+    const padded = remixerPagePaddedSlug(page, title, isBookRoot, coverId);
     const newPathRaw = `${parentPath}/${padded}`;
     assertLibraryPagePath(newPathRaw);
     const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
@@ -1171,6 +1198,7 @@ const renamePageToIntended = async (
   page: RemixerSubPageState,
   title: string,
   subdomain: string,
+  coverId?: string,
 ): Promise<void> => {
   const pid = parseInt(page["@id"], 10);
   if (Number.isNaN(pid)) return;
@@ -1182,7 +1210,7 @@ const renamePageToIntended = async (
     );
   }
 
-  const padded = remixerPagePaddedSlug(page, title, false);
+  const padded = remixerPagePaddedSlug(page, title, false, coverId);
   const nameEnc = encodeURIComponent(padded);
   const titleEnc = encodeURIComponent(title);
   const moveUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${pid}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
@@ -2534,7 +2562,7 @@ const runRemixerJob = async ({
       // placeholder in place, say so, and let the rest of the run finish.
       try {
         await withRetryOnTransient(() =>
-          renamePageToIntended(pending.page, pending.intendedTitle, subdomain),
+          renamePageToIntended(pending.page, pending.intendedTitle, subdomain, coverId),
         );
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
