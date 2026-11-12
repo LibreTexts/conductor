@@ -376,11 +376,14 @@ class RestackerService {
       );
       if (!transcludedTag) {
         // if not add it to the page on cxone
-        const existingTags = tags?.map((tag) => tag["@value"]) ?? [];
-        const newTags = existingTags.includes("transcluded:yes")
-          ? existingTags
-          : existingTags.concat("transcluded:yes");
-        await bookService.updatePageDetails(pageID, undefined, newTags);
+        // The tag cache can be missing or stale, and a replace-write from it
+        // would wipe the page's other tags. Merge into the live tags instead.
+        await bookService.updatePageDetails(
+          pageID,
+          undefined,
+          ["transcluded:yes"],
+          { preserveExisting: true },
+        );
       }
 
       const sourceTags =

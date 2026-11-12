@@ -2429,6 +2429,13 @@ export class PressBookScraper {
       subdomain: this.subdomain,
     });
     let existingTagValues: string[] = [];
+    // PUT replaces the whole tag set, so a failed read must not fall through
+    // as "no tags" and wipe them. A 404 means there is nothing to read.
+    if (!existingTagsRes.ok && existingTagsRes.status !== 404) {
+      throw new Error(
+        `Could not read tags for page ${numericId} (${existingTagsRes.status}); skipping tag write`,
+      );
+    }
     if (existingTagsRes.ok) {
       const data = await existingTagsRes.json();
       // MindTouch returns a single object when there is exactly one tag,
