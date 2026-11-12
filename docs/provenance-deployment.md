@@ -6,6 +6,7 @@ scheduled jobs, environment settings, database changes and migrations, plus a sa
 Provenance tracks where every library page's content comes from (original, transcluded, forked or copied, including chains A → B → C). It emails project leads when a page their book reuses changes, and backs the project **Content Sources** page and the Control Panel **Content Reuse** tool.
 
 Two rules hold throughout:
+
 - **Nothing is written to the libraries.** Provenance only reads from CXone/MindTouch and stores everything in Conductor's own MongoDB collections.
 - **Nothing runs until it's scheduled.** The automation routes are inert until an external scheduler calls them, so deploying the code alone changes nothing for users except the two new pages.
 
@@ -14,6 +15,7 @@ Two rules hold throughout:
 ## 1. Database
 
 ### Migrations
+
 **No data migration is required.** All provenance data lives in new collections that start empty and are filled by the scanner.
 
 | Migration | Status | Notes |
@@ -21,6 +23,7 @@ Two rules hold throughout:
 | Seed reuse links from past Remixer history (`ProjectRemixerJob` / saved Remixer states) | Planned, not written yet | Optional. Without it, older remixed books are still found by the scanner: transclusions from their markup, and forks only as Phase 4 fingerprinting lands. |
 
 ### New collections
+
 These are created automatically on first write, with their indexes built by Mongoose at server startup (`autoIndex` is on by default and isn't disabled in this codebase):
 
 | Collection | What it holds | Size | Expiry |
@@ -35,13 +38,15 @@ These are created automatically on first write, with their indexes built by Mong
 If `autoIndex` is ever turned off for production, run `syncIndexes()` once for the six models above (`server/models/{pagenode,pagereuseedge,bookreusesummary,provenancescanstate,sourcechangeevent,provenancenotificationlog}.ts`).
 
 ### Change to an existing collection
-- **`projects`** gains one optional field, `notifySourceChanges`. Unset means emails are on, and only `false` opts a project out. No backfill and no new index.
+
+- `projects` gains one optional field, `notifySourceChanges`. Unset means emails are on, and only `false` opts a project out. No backfill and no new index.
 
 ---
 
 ## 2. Environment
 
 No new required variables. These already exist and must be set as they are today:
+
 - `LIBRE_API_KEY`: the bearer token the schedulers send.
 - The AWS/SSM library credentials, used read-only for every library call.
 - `MAILGUN_*`.
@@ -81,6 +86,7 @@ curl -X PUT -H "Authorization: Bearer $LIBRE_API_KEY" \
 **Which libraries are scanned:** every library with `hidden: false` and `syncSupported: true`, except those in `PROVENANCE_EXCLUDED_LIBRARIES` (default `dev`). The **dev library is not backfilled in production**: only its pages that books elsewhere reuse are tracked, and the source check reads just those pages.
 
 Useful query options:
+
 - **Scan:**
   - `?library=chem,bio` limits a run to those libraries.
   - `?book=chem-12345` scans specific books, which also works for libraries that aren't sync-enabled.
@@ -88,6 +94,7 @@ Useful query options:
 - **Notify:** `?dryRun=true` returns the emails it would send, and sends and changes nothing.
 
 Running a job twice is harmless:
+
 - **Scan:** each library has a lease, so two runs can't scan the same library at once.
 - **Notify:** a lead is never emailed twice about the same change, even if two instances run it, and a failed send is retried on the next run.
 
