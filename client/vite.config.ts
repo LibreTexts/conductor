@@ -13,6 +13,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // visual-tests/ holds Playwright specs, which run via `npm run test:visual`
+    include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
     setupFiles: ['./src/setupTests.ts'],
     css: false,
   },

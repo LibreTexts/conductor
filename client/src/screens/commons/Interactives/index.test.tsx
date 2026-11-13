@@ -2,8 +2,11 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
+import { Provider } from "react-redux";
+import { createStore } from "redux";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import CommonsInteractives from "./index";
+import rootReducer from "../../../state/reducer.js";
 import { CommonsActivitySummary } from "../../../types";
 
 const mockGetActivities = vi.hoisted(() => vi.fn());
@@ -29,11 +32,13 @@ function reply(activities: CommonsActivitySummary[], total = activities.length) 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/interactives"]}>
-        <CommonsInteractives />
-      </MemoryRouter>
-    </QueryClientProvider>
+    <Provider store={createStore(rootReducer)}>
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/interactives"]}>
+          <CommonsInteractives />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </Provider>
   );
 }
 

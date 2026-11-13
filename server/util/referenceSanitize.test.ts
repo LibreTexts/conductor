@@ -10,7 +10,7 @@ import {
 
 describe("sanitizeReferenceText", () => {
   const injections: [string, string][] = [
-    ["Intro<script>alert(1)</script> to Bio", "Introalert(1) to Bio"],
+    ["Intro<script>alert(1)</script> to Bio", "Intro to Bio"],
     ["<img src=x onerror=alert(1)>Title", "Title"],
     ["<svg/onload=alert(1)>X", "X"],
     ["Title <img src=x onerror=alert(1)", "Title"],
