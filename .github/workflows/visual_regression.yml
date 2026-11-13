@@ -2,10 +2,17 @@ name: Visual Regression
 
 on:
   pull_request:
+    paths: &visual_paths
+      - "client/**"
+      # Client source imports JSON from shared/
+      - "shared/**"
+      - ".nvmrc"
+      - ".github/workflows/visual_regression.yml"
   push:
     branches:
       - staging
       - master
+    paths: *visual_paths
 
 jobs:
   visual_regression:
