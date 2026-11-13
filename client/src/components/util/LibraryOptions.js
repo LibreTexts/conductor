@@ -1,7 +1,3 @@
-//
-// LibreTexts Conductor
-// LibraryOptions.js
-//
 
 const libraries = [
     { key: 'bio',       text: 'Biology',        value: 'bio' },
@@ -82,7 +78,7 @@ const getLibGlyphAltText = (library) => {
         case 'math':
             return 'Mathematics';
         case 'med':
-            return 'Medicine';
+            return 'Health';
         case 'phys':
             return 'Physics';
         case 'socialsci':
