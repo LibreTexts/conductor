@@ -1,5 +1,6 @@
 # Stage 1: Build client
 # sha256:546f76c5ef8161c2c37932978a63c89eb7ea61062537e5865361603d9d3af668 = 22.23.4-alpine3.23
+# Keep this version in sync with /.nvmrc (used by CI and local dev).
 FROM node@sha256:546f76c5ef8161c2c37932978a63c89eb7ea61062537e5865361603d9d3af668 AS client-builder
 WORKDIR /usr/src/conductor/client
 

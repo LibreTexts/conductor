@@ -24,7 +24,7 @@ server/     Express + TypeScript, native ESM
 
 ## Getting started
 
-Requires Node 22 and access to a MongoDB instance (Atlas in every deployed environment).
+Requires the Node version pinned in `.nvmrc` (currently 22.23.4) and access to a MongoDB instance (Atlas in every deployed environment). Run `nvm use` (or `fnm use`) from the repo root first. Each package sets `engine-strict`, so `npm install` refuses to run on any other Node major version.
 
 ```bash
 cd server && npm install
@@ -51,7 +51,7 @@ Copy `client/.env.dist` to `client/.env` and fill it in. The server reads `serve
 | `npm test` | Vitest (jsdom + Testing Library) |
 | `npm run test:watch` | Vitest in watch mode |
 
-Run a single client test with `npm test -- src/path/to/file.test.tsx` or `npx vitest run -t "test name"`. There is currently no server test suite.
+Run a single client test with `npm test -- src/path/to/file.test.tsx` or `npx vitest run -t "test name"`. Server tests (`server/util/**/*.test.ts`) run with `npm test` in `server/` on the built-in `node:test` runner.
 
 ---
 

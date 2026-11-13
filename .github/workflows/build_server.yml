@@ -12,10 +12,37 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
       - name: Install dependencies
-        run: npm install --legacy-peer-deps --prefer-offline --no-audit
+        run: npm ci --no-audit
+        working-directory: ./server
+      - name: Run tests
+        run: npm test
         working-directory: ./server
       - name: Run build
         run: npm run build
+        working-directory: ./server
+
+  # tsup does not type-check, so build_server passes with type errors.
+  # Not yet a required check: staging carries existing errors to burn down.
+  # Mark required in branch protection once this job is green.
+  typecheck_server:
+    name: typecheck_server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install dependencies
+        run: npm ci --no-audit
+        working-directory: ./server
+      - name: Run typecheck
+        run: npm run typecheck
         working-directory: ./server

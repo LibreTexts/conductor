@@ -4,6 +4,10 @@
   "description": "The LibreTexts Conductor platform server.",
   "main": "server.ts",
   "type": "module",
+  "engines": {
+    "node": ">=22.23.4 <23"
+  },
+  "packageManager": "npm@10.9.8",
   "scripts": {
     "dev": "tsx watch --clear-screen=false server.ts | pino-pretty",
     "build": "tsup server.ts --format esm --dts --out-dir dist && tsc-alias",
