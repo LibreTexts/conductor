@@ -54,6 +54,7 @@ const NODE_KIND_FOR_EDGE: Record<ReuseEdgeType, PageNodeKind> = {
   section: "mixed",
   fork: "fork",
   full: "full",
+  excerpt: "mixed",
 };
 
 /** A source revision number from a page-info response, if it has one. */

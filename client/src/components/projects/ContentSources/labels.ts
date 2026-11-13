@@ -33,6 +33,7 @@ export const EDGE_TYPE_LABELS: Record<ReuseEdgeType, string> = {
   section: "Embedded section",
   fork: "Forked copy",
   full: "Full copy",
+  excerpt: "Copied excerpt",
 };
 
 /** Live reuse follows the source; copies don't. */

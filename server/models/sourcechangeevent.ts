@@ -19,6 +19,8 @@ export type SourceChangeAffectedBook = {
   frozen: boolean;
   /** A few of the affected pages (nodeIDs), nearest the source first. */
   examples: string[];
+  /** Only copied excerpts of the source reach this book (no whole-page copies). */
+  excerptOnly?: boolean;
   /** When this book's project marked the change reviewed; unset until then. */
   reviewedAt?: Date | null;
   /** UUID of who marked it reviewed. */
@@ -53,6 +55,7 @@ const AffectedBookSchema = new Schema<SourceChangeAffectedBook>(
     via: { type: [String], default: [] },
     frozen: { type: Boolean, default: false },
     examples: { type: [String], default: [] },
+    excerptOnly: { type: Boolean, default: false },
     reviewedAt: { type: Date, default: null },
     reviewedBy: { type: String, default: null },
   },

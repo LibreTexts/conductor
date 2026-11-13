@@ -124,6 +124,24 @@ describe("ContentSources", () => {
     expect(api.getContentSourcesPages).toHaveBeenCalledWith("cbHAlG9FKc", { kind: undefined, attention: false });
   });
 
+  it("labels copied excerpts with their block count", async () => {
+    api.getContentSources.mockResolvedValue({ err: false, data: overview() });
+    api.getContentSourcesPages.mockResolvedValue({
+      err: false,
+      data: {
+        total: 1,
+        truncated: false,
+        pages: [{
+          ...pageRow,
+          kind: "mixed",
+          sources: [{ ...ref("math-2479", "Trig functions"), type: "excerpt", origin: "scan", status: "active", blocks: 3 }],
+        }],
+      },
+    });
+    renderPage();
+    expect(await screen.findByText(/Copied excerpt, 3 blocks/)).toBeTruthy();
+  });
+
   it("warns when reused pages were deleted", async () => {
     api.getContentSources.mockResolvedValue({
       err: false,

@@ -62,6 +62,8 @@ export interface PageReuseEdgeInterface {
   via?: string[];
   /** Source revision when the reuse was created. */
   linkedRevision?: number;
+  /** For an `excerpt`: how many blocks of the target were copied from the source. */
+  blocks?: number;
   /** Last source revision the target's leads have been told about. */
   seenRevision?: number;
   status: ReuseEdgeStatus;
@@ -86,6 +88,7 @@ const PageReuseEdgeSchema = new Schema<PageReuseEdgeInterface>(
     createdAt: { type: Date, required: true },
     verifiedAt: { type: Date },
     removedAt: { type: Date },
+    blocks: { type: Number },
   },
   { versionKey: false },
 );

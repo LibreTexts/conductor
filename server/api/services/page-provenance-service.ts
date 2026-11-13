@@ -135,6 +135,8 @@ export type ReuseEdgeUpsert = {
   confidence?: number;
   via?: string[];
   linkedRevision?: number;
+  /** For an `excerpt`: blocks of the target copied from the source. */
+  blocks?: number;
 };
 
 /**
@@ -191,6 +193,8 @@ export const upsertReuseEdges = async (
                   edge.linkedRevision === undefined
                     ? "$linkedRevision"
                     : { $ifNull: ["$linkedRevision", edge.linkedRevision] },
+                blocks:
+                  edge.blocks === undefined ? "$blocks" : { $literal: edge.blocks },
                 createdAt: { $ifNull: ["$createdAt", now] },
                 verifiedAt: now,
                 // Every expression in one $set reads the *stored* document,
@@ -491,10 +495,19 @@ export const findNeighborBooks = async ({
   return summarized.sort();
 };
 
-/** Breaks every current edge onto a source that no longer exists. */
+/**
+ * Breaks the live edges onto a source that no longer exists: a transclusion
+ * or embedded section of it now renders nothing. Copies (fork, full,
+ * excerpt) keep their content, so their edges stay as they are; the deletion
+ * event still tells their leads.
+ */
 export const markSourceBroken = async (source: string): Promise<number> => {
   const res = await PageReuseEdge.updateMany(
-    { source: { $eq: source }, status: { $in: CURRENT_EDGE_STATUSES } },
+    {
+      source: { $eq: source },
+      status: { $in: CURRENT_EDGE_STATUSES },
+      type: { $in: LIVE_EDGE_TYPES },
+    },
     { $set: { status: "broken" } },
   );
   return res.modifiedCount;

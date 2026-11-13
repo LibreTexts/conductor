@@ -116,6 +116,19 @@ Running a job twice is harmless:
 
 ---
 
+### Upgrading an existing deployment: copied excerpts
+Pages are now also checked for blocks copied from other pages: `lt-{library}-{pageID}` classes in the raw content, recorded as "Copied excerpt" links. The page's own class never counts.
+
+Pages scanned before this change were classified without excerpts, and an unchanged page isn't re-read. So, once after deploying, re-read every page with a forced pass per library:
+```bash
+curl -X PUT -H "Authorization: Bearer $LIBRE_API_KEY"   "https://<conductor-host>/api/v1/provenance/automation/scan?library=<lib>&force=true&minutes=30"
+```
+Repeat until Content Reuse shows that library as complete again. A first deployment needs nothing extra.
+
+Also in this change:
+- **Deleting a source no longer marks copies broken.** Forks, full copies and excerpts keep their content, so only transclusions and embedded sections become "Source deleted". Leads are still told about the deletion.
+- **The Restacker's remixing percentage is always measured.** It's the share of text blocks carrying another page's `lt-` class. A page's own class counts as its own content, and only a whole-page transclusion stub is 100%.
+
 ## 5. Monitoring
 
 - **Logs** (Pino, queryable by `component`):

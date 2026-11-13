@@ -168,6 +168,7 @@ const toDigestEvent = (row: EventRow): DigestEvent => ({
       ...book,
       via: book.via ?? [],
       examples: book.examples ?? [],
+      excerptOnly: book.excerptOnly ?? false,
     })),
 });
 

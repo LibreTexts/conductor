@@ -40,6 +40,8 @@ export type DigestLine = {
   status: DigestLineStatus;
   /** Live reuse that a deletion broke vs. copies left without a source. */
   frozen: boolean;
+  /** The book's copies are only excerpts (copied blocks), not whole pages. */
+  excerptOnly: boolean;
   fromRev?: number;
   toRev?: number;
   pages: number;
@@ -86,6 +88,7 @@ const mergeLine = (line: DigestLine, event: DigestEvent, book: AffectedBook) => 
   if (event.deleted) {
     line.status = "deleted";
     line.frozen = book.frozen;
+    line.excerptOnly = book.excerptOnly;
   } else if (line.status !== "deleted" && !book.frozen) {
     line.status = "changed";
   }
@@ -140,6 +143,7 @@ export const buildLeadDigests = (
           bookID: book.bookID,
           status: event.deleted ? "deleted" : book.frozen ? "out-of-date" : "changed",
           frozen: book.frozen,
+          excerptOnly: book.excerptOnly,
           fromRev: event.fromRev,
           toRev: event.toRev,
           pages: book.pages,
@@ -239,7 +243,9 @@ export const describeDigestLine = (
       : `This page was deleted. ${reuse} and now ${one ? "shows" : "show"} nothing where its content was. Replace or remove the reuse.`;
   } else if (line.status === "out-of-date") {
     label = "Copy may be out of date";
-    summary = `This page was edited${revisionText(line)}. ${pages} ${one ? "a copy" : "copies"} of it and ${one ? "does" : "do"} not update on ${one ? "its" : "their"} own. Check whether ${one ? "it needs" : "they need"} the change.`;
+    summary = line.excerptOnly
+      ? `This page was edited${revisionText(line)}. ${plural(line.pages, "page")} in your book ${one ? "contains" : "contain"} text copied from it, which doesn't update on its own. Check whether ${one ? "it needs" : "they need"} the change.`
+      : `This page was edited${revisionText(line)}. ${pages} ${one ? "a copy" : "copies"} of it and ${one ? "does" : "do"} not update on ${one ? "its" : "their"} own. Check whether ${one ? "it needs" : "they need"} the change.`;
   } else {
     label = "Source edited";
     summary = `This page was edited${revisionText(line)}. ${reuse} and already ${one ? "shows" : "show"} the new content. Review ${one ? "it" : "them"}.`;

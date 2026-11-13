@@ -15,6 +15,7 @@ const book = (bookID: string, extra: Partial<AffectedBook> = {}): AffectedBook =
   minHops: 1,
   via: [],
   frozen: false,
+  excerptOnly: false,
   examples: [`${bookID}-page`],
   ...extra,
 });
@@ -124,6 +125,7 @@ describe("describeDigestLine", () => {
     bookID: "chem-1",
     status: "changed",
     frozen: false,
+    excerptOnly: false,
     fromRev: 7,
     toRev: 8,
     pages: 3,
@@ -150,6 +152,12 @@ describe("describeDigestLine", () => {
     const item = describeDigestLine(line({ status: "out-of-date" }), resolve);
     assert.match(item.summary, /revision 7 → 8/);
     assert.match(item.summary, /do not update/);
+  });
+
+  it("says copied text, not copies, when the book only holds excerpts", () => {
+    const item = describeDigestLine(line({ status: "out-of-date", frozen: true, excerptOnly: true, pages: 2 }), resolve);
+    assert.match(item.summary, /2 pages in your book contain text copied from it/);
+    assert.equal(item.label, "Copy may be out of date");
   });
 
   it("shows the chain only when the book is reached indirectly", () => {

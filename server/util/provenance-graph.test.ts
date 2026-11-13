@@ -193,16 +193,16 @@ describe("summarizeAffectedBooks", () => {
     ]);
     const walk = await walkDownstream("A", outgoing(edges));
     assert.deepEqual(summarizeAffectedBooks(walk.hits), [
-      { bookID: "book-B", pages: 2, minHops: 1, via: [], frozen: false, examples: ["B", "B2"] },
-      { bookID: "book-D", pages: 1, minHops: 1, via: [], frozen: true, examples: ["D"] },
-      { bookID: "book-C", pages: 1, minHops: 2, via: ["B"], frozen: false, examples: ["C"] },
+      { bookID: "book-B", pages: 2, minHops: 1, via: [], frozen: false, excerptOnly: false, examples: ["B", "B2"] },
+      { bookID: "book-D", pages: 1, minHops: 1, via: [], frozen: true, excerptOnly: false, examples: ["D"] },
+      { bookID: "book-C", pages: 1, minHops: 2, via: ["B"], frozen: false, excerptOnly: false, examples: ["C"] },
     ]);
   });
 
   it("leaves out pages that belong to no known book", () => {
     assert.deepEqual(
       summarizeAffectedBooks([
-        { target: "X", targetBook: null, source: "A", hops: 1, via: [], frozen: false },
+        { target: "X", targetBook: null, source: "A", hops: 1, via: [], frozen: false, type: "section" },
       ]),
       [],
     );
@@ -210,11 +210,43 @@ describe("summarizeAffectedBooks", () => {
 
   it("marks a book frozen only when every affected page in it is a copy", () => {
     const [book] = summarizeAffectedBooks([
-      { target: "X", targetBook: "b", source: "A", hops: 1, via: [], frozen: true },
-      { target: "Y", targetBook: "b", source: "A", hops: 1, via: [], frozen: false },
+      { target: "X", targetBook: "b", source: "A", hops: 1, via: [], frozen: true, type: "fork" },
+      { target: "Y", targetBook: "b", source: "A", hops: 1, via: [], frozen: false, type: "section" },
     ]);
     assert.equal(book.frozen, false);
     assert.equal(book.pages, 2);
+  });
+});
+
+describe("excerpt edges", () => {
+  it("stop a downstream walk like a fork, and mark the book excerpt-only", async () => {
+    const edges = graph([
+      ["P", "A", "excerpt"],
+      ["Q", "P", "transclude-same"],
+    ]);
+    const walk = await walkDownstream("A", outgoing(edges));
+    assert.deepEqual(
+      walk.hits.map(({ target, frozen, type }) => ({ target, frozen, type })),
+      [{ target: "P", frozen: true, type: "excerpt" }],
+    );
+    assert.equal(summarizeAffectedBooks(walk.hits)[0].excerptOnly, true);
+  });
+
+  it("are not excerpt-only when the book also holds a whole-page copy", async () => {
+    const edges = graph([
+      ["P", "A", "excerpt"],
+      ["P2", "A", "fork"],
+    ]);
+    const [book] = summarizeAffectedBooks((await walkDownstream("A", outgoing(edges))).hits);
+    assert.equal(book.frozen, true);
+    assert.equal(book.excerptOnly, false);
+  });
+
+  it("never set a page's chain root", async () => {
+    const edges = graph([["P", "A", "excerpt"]]);
+    const root = await resolveChainRoot("P", incoming(edges));
+    assert.equal(root.root, null);
+    assert.equal(root.depth, 0);
   });
 });
 

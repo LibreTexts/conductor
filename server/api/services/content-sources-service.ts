@@ -306,6 +306,8 @@ export type PageSourceView = ViewRef & {
   type: ReuseEdgeType;
   origin: ReuseEdgeOrigin;
   status: ReuseEdgeStatus;
+  /** For a copied excerpt: how many of the page's blocks came from the source. */
+  blocks?: number;
 };
 
 export type ContentPageView = ViewRef & {
@@ -386,13 +388,13 @@ export const listContentPages = async (
     .filter((n) => (!kind || n.kind === kind) && (!attentionTargets || attentionTargets.has(n.nodeID)))
     .sort((a, b) => (places.get(a.nodeID)?.order ?? 0) - (places.get(b.nodeID)?.order ?? 0));
 
-  const edges: { target: string; source: string; type: ReuseEdgeType; origin: ReuseEdgeOrigin; status: ReuseEdgeStatus }[] = [];
+  const edges: { target: string; source: string; type: ReuseEdgeType; origin: ReuseEdgeOrigin; status: ReuseEdgeStatus; blocks?: number }[] = [];
   for (let i = 0; i < nodes.length; i += 1000) {
     const batch = nodes.slice(i, i + 1000).map((n) => n.nodeID);
     edges.push(
       ...(await PageReuseEdge.find(
         { target: { $in: batch }, status: { $in: VISIBLE_EDGE_STATUSES } },
-        { _id: 0, target: 1, source: 1, type: 1, origin: 1, status: 1 },
+        { _id: 0, target: 1, source: 1, type: 1, origin: 1, status: 1, blocks: 1 },
       ).lean<typeof edges>()),
     );
   }
@@ -405,7 +407,13 @@ export const listContentPages = async (
   const byTarget = new Map<string, PageSourceView[]>();
   for (const edge of edges) {
     const list = byTarget.get(edge.target) ?? [];
-    list.push({ ...toViewRef(edge.source, titles), type: edge.type, origin: edge.origin, status: edge.status });
+    list.push({
+      ...toViewRef(edge.source, titles),
+      type: edge.type,
+      origin: edge.origin,
+      status: edge.status,
+      ...(edge.blocks ? { blocks: edge.blocks } : {}),
+    });
     byTarget.set(edge.target, list);
   }
 

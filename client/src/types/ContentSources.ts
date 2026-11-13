@@ -8,7 +8,9 @@ export type ReuseEdgeType =
   | "transclude-cross"
   | "section"
   | "fork"
-  | "full";
+  | "full"
+  /** Blocks copied from the source (`lt-{lib}-{id}` classes); frozen like a fork. */
+  | "excerpt";
 
 export type ReuseEdgeStatus = "active" | "source-changed" | "broken" | "removed";
 
@@ -89,6 +91,8 @@ export type ContentSourcesPageSource = ContentSourcesRef & {
   type: ReuseEdgeType;
   origin: ReuseEdgeOrigin;
   status: ReuseEdgeStatus;
+  /** For a copied excerpt: how many of the page's blocks came from the source. */
+  blocks?: number;
 };
 
 export type ContentSourcesPage = ContentSourcesRef & {

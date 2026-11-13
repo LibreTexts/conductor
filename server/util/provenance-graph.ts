@@ -21,6 +21,12 @@ export const REUSE_EDGE_TYPES = [
   "fork",
   /** One-time copy including attachments (Remixer Copy-Full). */
   "full",
+  /**
+   * Blocks copied from the source into a page that has other content too,
+   * known from their `lt-{lib}-{id}` class. A partial, one-time copy: frozen
+   * like a fork, but never the page's whole content.
+   */
+  "excerpt",
 ] as const;
 export type ReuseEdgeType = (typeof REUSE_EDGE_TYPES)[number];
 
@@ -100,10 +106,12 @@ export type DownstreamHit = {
   /** Intermediate pages, nearest the source first. Empty for direct reuse. */
   via: string[];
   /**
-   * Reached through a fork/full copy. The copy is now out of date, but its
-   * content did not change, so nothing beyond it is affected.
+   * Reached through a copy (fork, full or excerpt). The copy is now out of
+   * date, but its content did not change, so nothing beyond it is affected.
    */
   frozen: boolean;
+  /** The type of the edge that reached `target`. */
+  type: ReuseEdgeType;
 };
 
 export type DownstreamWalk = {
@@ -160,6 +168,7 @@ export const walkDownstream = async (
         // means its content does change, so upgrade it and keep walking.
         if (existing.frozen && live) {
           existing.frozen = false;
+          existing.type = edge.type;
           next.push(edge.target);
         }
         continue;
@@ -174,6 +183,7 @@ export const walkDownstream = async (
         hops: depth,
         via,
         frozen: !live,
+        type: edge.type,
       });
       if (live) next.push(edge.target);
     }
@@ -196,8 +206,13 @@ export type AffectedBook = {
   minHops: number;
   /** Intermediate pages of that shortest chain, nearest the source first. */
   via: string[];
-  /** Every affected page in the book is a fork/full copy (out of date, not changed). */
+  /** Every affected page in the book is a copy (out of date, not changed). */
   frozen: boolean;
+  /**
+   * Every affected page in the book only has copied excerpts of the source
+   * (not whole-page copies), so emails can say "contain text copied from it".
+   */
+  excerptOnly: boolean;
   /** Up to {@link AFFECTED_EXAMPLE_PAGES} affected pages, nearest the source first. */
   examples: string[];
 };
@@ -223,6 +238,7 @@ export const summarizeAffectedBooks = (hits: DownstreamHit[]): AffectedBook[] =>
         minHops: hit.hops,
         via: [...hit.via],
         frozen: hit.frozen,
+        excerptOnly: hit.frozen && hit.type === "excerpt",
         examples: [hit.target],
       });
       continue;
@@ -230,6 +246,7 @@ export const summarizeAffectedBooks = (hits: DownstreamHit[]): AffectedBook[] =>
     existing.pages += 1;
     if (existing.examples.length < AFFECTED_EXAMPLE_PAGES) existing.examples.push(hit.target);
     existing.frozen = existing.frozen && hit.frozen;
+    existing.excerptOnly = existing.excerptOnly && hit.frozen && hit.type === "excerpt";
     if (hit.hops < existing.minHops) {
       existing.minHops = hit.hops;
       existing.via = [...hit.via];

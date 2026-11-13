@@ -68,3 +68,29 @@ describe("classifyPageContent", () => {
     assert.deepEqual(result.refs, []);
   });
 });
+
+describe("classifyPageContent excerpts", () => {
+  const own = { lib: "dev", pageID: 1000 };
+  const text = (cls: string) =>
+    `<p class="${cls}">The mole is the amount of substance of a system which contains as many elementary entities as there are atoms in twelve grams of carbon.</p>`;
+
+  it("records blocks copied from other pages and makes the page mixed", () => {
+    const body = `${text("lt-chem-2000")}${text("lt-chem-3000")}<p>My own words about the topic, written for this book, long enough to count as text here.</p>`;
+    const result = classifyPageContent(body, [], { own });
+    assert.equal(result.kind, "mixed");
+    assert.deepEqual(result.excerpts, [
+      { lib: "chem", pageID: 2000, blocks: 1 },
+      { lib: "chem", pageID: 3000, blocks: 1 },
+    ]);
+  });
+
+  it("treats the page's own lt- class as its own content", () => {
+    const result = classifyPageContent(text("lt-dev-1000"), [], { own });
+    assert.equal(result.kind, "original");
+    assert.deepEqual(result.excerpts, []);
+  });
+
+  it("records no excerpts for generated matter or a stub", () => {
+    assert.deepEqual(classifyPageContent(text("lt-chem-2000"), [], { own, generatedMatter: true }).excerpts, []);
+  });
+});

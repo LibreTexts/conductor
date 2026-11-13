@@ -213,7 +213,10 @@ const ContentSources: React.FC = () => {
                 return (
                   <li key={source.id}>
                     <RefLink item={source} />{" "}
-                    <span className="text-neutral-600">({EDGE_TYPE_LABELS[source.type]})</span>{" "}
+                    <span className="text-neutral-600">
+                      ({EDGE_TYPE_LABELS[source.type]}
+                      {source.blocks ? `, ${plural(source.blocks, "block")}` : ""})
+                    </span>{" "}
                     {source.status !== "active" && (
                       <Badge label={status.label} variant={status.variant} size="sm" />
                     )}

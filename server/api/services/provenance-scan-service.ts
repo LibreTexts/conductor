@@ -392,6 +392,8 @@ const scanPage = async (
 
   const classification = classifyPageContent(raw, structuralTagsFor(page), {
     generatedMatter: page.isGeneratedMatter,
+    // The page's own `lt-` class is its own content, not a copy.
+    own: { lib: ctx.lib, pageID: page.pageID },
   });
   const edges: ReuseEdgeUpsert[] = [];
   const scanSources: string[] = [];
@@ -410,12 +412,42 @@ const scanPage = async (
       origin: "scan",
     });
   }
+  // Blocks copied from other pages (`lt-{lib}-{id}` classes in the raw
+  // content). The class carries the page id, so nothing needs resolving. A
+  // source also reused live above keeps that, stronger, edge.
+  for (const excerpt of classification.excerpts) {
+    const source = pageNodeId(excerpt.lib, excerpt.pageID);
+    if (source === targetId || scanSources.includes(source)) continue;
+    scanSources.push(source);
+    edges.push({
+      target: targetId,
+      source,
+      targetBook: bookID,
+      type: "excerpt",
+      origin: "scan",
+      blocks: excerpt.blocks,
+    });
+  }
 
   // Markup can't show a copy. Keep "fork"/"full" when Conductor already
   // recorded the page as one (Remixer, or a fingerprint match).
   let kind: PageNodeKind = classification.kind;
   if (kind === "original" && (previousKind === "fork" || previousKind === "full")) {
     kind = previousKind;
+    // The copy's own whole-page edge can't show in markup either, so it counts
+    // as present: otherwise reconciling against the markup would drop it on
+    // every re-read and the page would keep its kind but lose its source.
+    const copies = await PageReuseEdge.find(
+      {
+        target: { $eq: targetId },
+        type: { $in: ["fork", "full"] },
+        status: { $in: CURRENT_EDGE_STATUSES },
+      },
+      { _id: 0, source: 1 },
+    ).lean<{ source: string }[]>();
+    for (const { source } of copies) {
+      if (!scanSources.includes(source)) scanSources.push(source);
+    }
   }
 
   // A transclusion that lost its markup and now holds its source's text was

@@ -4,9 +4,8 @@ import Restacker, { RestackerInterface, RestackerStatus } from "../models/restac
 import { PageTag } from "../types/Book";
 import { randomUUID } from "node:crypto";
 import { sleep } from "./helpers";
-import { libraryKeys } from "./libraries";
-import * as cheerio from "cheerio";
-import { containsReuseMarkup, detectTranscludeStub } from "./transclusion.js";
+import { detectTranscludeStub } from "./transclusion.js";
+import { parseLtClasses, quotationRate as ltQuotationRate } from "./lt-classes.js";
 const restackerLog = childLogger("restacker");
 
 export type RestackerRefreshMode = "content" | "page";
@@ -17,8 +16,6 @@ class RestackerService {
   constructor() {
     this.pageTags = new Map<string, PageTag[]>();
   }
-
-  ltRegex = new RegExp(`\\blt-(${libraryKeys})-\\d+\\b`, "g");
 
   // Persist progress every N pages so a pollable status endpoint reflects near-real-time
   // progress instead of a single all-or-nothing write at the end of the run.
@@ -339,18 +336,10 @@ class RestackerService {
     library: string,
   ): Promise<{
     isTranscluded: boolean;
-    /**
-     * The page carries reuse markup of any kind, stub or embedded. Broader than
-     * `isTranscluded` and kept separate because the quotation rate treats any
-     * reused content as quoted, while tagging and license inheritance apply
-     * only to a page that is wholly someone else's.
-     */
-    reusesContent: boolean;
     sourceLicense: { label: string; raw: string; version: string } | undefined;
   }> {
-    const notTranscluded = (reusesContent = false) => ({
+    const notTranscluded = () => ({
       isTranscluded: false,
-      reusesContent,
       sourceLicense: undefined,
     });
 
@@ -366,7 +355,7 @@ class RestackerService {
       // block's license would both be wrong.
       const stub = detectTranscludeStub(rawContents);
       if (!stub) {
-        return notTranscluded(containsReuseMarkup(rawContents));
+        return notTranscluded();
       }
 
       const tags = this.pageTags.get(this.pageTagsKey(library, pageID));
@@ -408,7 +397,6 @@ class RestackerService {
       if (licenseTag) {
         return {
           isTranscluded: true,
-          reusesContent: true,
           sourceLicense: {
             label: licenseTag["@value"],
             raw: licenseVersionTag?.["@value"] ?? "",
@@ -417,33 +405,20 @@ class RestackerService {
         };
       }
 
-      return { isTranscluded: true, reusesContent: true, sourceLicense: undefined };
+      return { isTranscluded: true, sourceLicense: undefined };
     } catch (error) {
       return notTranscluded();
     }
   }
 
-  private getQuotationRate(content: string): number {
+  /**
+   * Share of the page's text blocks that come from other pages: blocks with
+   * another page's `lt-` class ÷ all text blocks. Blocks without one, or with
+   * the page's own class (`lt-dev-1000` on `dev-1000`), are its own content.
+   */
+  private getQuotationRate(content: string, library: string, pageID: string): number {
     try {
-      const $ = cheerio.load(content);
-      const ltRegex = new RegExp(this.ltRegex.source, this.ltRegex.flags);
-
-      const textTags = $("p, h1, h2, h3, h4, h5, h6");
-      const total = textTags.length;
-      if (total === 0) {
-        return 0;
-      }
-
-      let quotedCount = 0;
-      textTags.each((_, el) => {
-        const classes = $(el).attr("class") ?? "";
-        ltRegex.lastIndex = 0;
-        if (ltRegex.test(classes)) {
-          quotedCount++;
-        }
-      });
-
-      return quotedCount / total;
+      return ltQuotationRate(content, { lib: library, pageID: Number(pageID) });
     } catch (error) {
       return -1;
     }
@@ -467,32 +442,26 @@ class RestackerService {
       return { contentLicenses: undefined, quotationRate: -1, sourceLicense: undefined };
     }
  
-    const $ = cheerio.load(page);
-    const html = $.html();
-
-    const ltRegex = new RegExp(this.ltRegex.source, this.ltRegex.flags);
-    const uniqueClassnames = new Set(
-      [...html.matchAll(ltRegex)].map((m) => m[0]),
-    );
+    // Other pages this page's content is attributed to. Its own `lt-` class
+    // (`lt-dev-1000` on `dev-1000`) is not reuse, so its own license isn't
+    // listed as a content license.
+    const sources = parseLtClasses(page, { own: { lib: library, pageID: Number(pageID) } });
 
     const licenses: { label: string; raw: string; version: string }[] = [];
 
-    for (const classname of uniqueClassnames) {
-      const parts = classname.split("-");
-      const refLibrary = parts[1];
-      const refPageID = parts[2];
-      const license = await this.getPagelicense(refPageID, refLibrary, coverID,true);
+    for (const source of sources) {
+      const license = await this.getPagelicense(String(source.pageID), source.lib, coverID, true);
       if (license) {
         licenses.push(license);
       }
     }
     const transcludedInfo = await this.isTranscluded(pageID, library);
-    // A page built entirely from someone else's content is 100% quotation.
-    // getQuotationRate only counts lt-<library>-<id> classed text nodes, so it
-    // reads reuse widgets as 0 — hence the pin for any page carrying them.
-    const quotationRate = transcludedInfo.reusesContent
+    // Always the measured share, from the rendered content (where MindTouch
+    // stamps embedded sections with their source's class). Only a page that is
+    // wholly a pointer at another page is 100% by definition.
+    const quotationRate = transcludedInfo.isTranscluded
       ? 1
-      : this.getQuotationRate(page);
+      : this.getQuotationRate(page, library, pageID);
 
     const licenseMap = new Map<string, { label: string; raw: string; version: string }>();
     for (const license of licenses) {
