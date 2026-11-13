@@ -1,3 +1,5 @@
+import { encodeXML } from "entities";
+
 const RemixerTemplates = {
   // ── New blank pages ──────────────────────────────────────────────────────────
 
@@ -113,7 +115,7 @@ const RemixerTemplates = {
 
   PUT_PageTags: (tags: string[]) =>
     `<tags>
-    ${tags.map((t) => `<tag value="${t}" />`).join("\n  ")}
+    ${tags.map((t) => `<tag value="${encodeXML(t)}" />`).join("\n  ")}
   </tags>`,
 
   // ── Properties ───────────────────────────────────────────────────────────────

@@ -1874,9 +1874,8 @@ export class PressBookScraper {
    * - Names are cleaned via `stripAcademicTitles` so honorifics ("Dr.",
    *   "Prof.") and credentials ("MD", "Ph.D.", "Esq.") are removed before
    *   the @-value is built.
-   * - XML-reserved characters in the cleaned name are escaped so the tag
-   *   survives MindTouch's `<tag value="..."/>` serialization (see
-   *   `MindTouch.Templates.PUT_PageTags`).
+   * - Values stay raw. `MindTouch.Templates.PUT_PageTags` XML-escapes them,
+   *   so escaping here would double-encode (`&` stored as `&amp;`).
    * - The list is deduped on the cleaned value so two contributor records
    *   that resolve to the same legal name (e.g. one with "PhD" and one
    *   without) only emit a single tag.
@@ -1997,7 +1996,7 @@ export class PressBookScraper {
       const key = cleaned.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      tags.push(`${type}@${this.escapeXmlAttr(cleaned)}`);
+      tags.push(`${type}@${cleaned}`);
     }
     return tags;
   }
@@ -2160,21 +2159,6 @@ export class PressBookScraper {
     }
 
     return s.length > 0 ? s : name.trim();
-  }
-
-  /**
-   * Minimal XML attribute-value escaper. `MindTouch.Templates.PUT_PageTags`
-   * interpolates tag values into a `<tag value="..."/>` attribute without
-   * escaping, so names that include `&`, `<`, `>`, `"`, or `'` would
-   * otherwise produce invalid XML and be rejected by MindTouch.
-   */
-  private escapeXmlAttr(s: string): string {
-    return s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&apos;");
   }
 
   /**

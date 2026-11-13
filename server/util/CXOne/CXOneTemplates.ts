@@ -200,8 +200,10 @@ const CXOneTemplates = {
     "templatePath": "MindTouch/IDF3/Views/Topic_hierarchy",
     "guid": "fc488b5c-f7e1-1cad-1a9a-343d5c8641f5"
   }]`,
+  // Callers pass raw tag values (often round-tripped from GET); escape here so
+  // `&`, `<` or `"` in one tag can't invalidate the PUT or inject extra tags.
   PUT_PageTags: (tags: string[]) => `<tags>
-    ${tags.map((tag) => `<tag value="${tag}" />`).join("")}
+    ${tags.map((tag) => `<tag value="${escapeHtml(tag)}" />`).join("")}
   </tags>`,
   PUT_SetSemiPrivatePermissions: (userID: string, devGroupID?: string) =>
     `<security>
