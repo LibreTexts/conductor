@@ -491,22 +491,18 @@ const EditFile: React.FC<EditFileProps> = ({
                       ref={authorsFormRef}
                       mode="file"
                       currentPrimaryAuthor={getValues("primaryAuthor")}
-                      currentAuthors={getValues("authors")}
-                      currentCorrespondingAuthor={getValues(
-                        "correspondingAuthor"
-                      )}
                     />
                     <CtlTextInput
-                      name="publisher.name"
+                      name="originalPublisher.name"
                       control={control}
-                      label="Publisher Name"
+                      label="Original Publisher Name"
                       placeholder="John Doe"
                       className=""
                     />
                     <CtlTextInput
-                      name="publisher.url"
+                      name="originalPublisher.url"
                       control={control}
-                      label="Publisher URL"
+                      label="Original Publisher URL"
                       placeholder="https://example.com"
                       className="mt-2"
                     />
