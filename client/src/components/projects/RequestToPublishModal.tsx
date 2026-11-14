@@ -1,6 +1,7 @@
-import { Button, Loader, Modal } from "semantic-ui-react";
-import { useModals } from "../../context/ModalContext";
 import { useState } from "react";
+import { Button, Modal, Spinner, Text } from "@libretexts/davis-react";
+import { IconSend } from "@tabler/icons-react";
+import { useModals } from "../../context/ModalContext";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 import { useNotifications } from "../../context/NotificationContext";
@@ -47,26 +48,38 @@ const RequestToPublishModal: React.FC<RequestToPublishModalProps> = ({
   }
 
   return (
-    <Modal open={true} onClose={closeAllModals}>
-      <Modal.Header>Request to Publish</Modal.Header>
-      <Modal.Content>
+    <Modal open={true} onClose={(v) => !v && closeAllModals()} size="sm">
+      <Modal.Header>
+        <Modal.Title>Request to Publish</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
         {loading ? (
-          <Loader active inline="centered" />
+          <div className="flex justify-center py-6">
+            <Spinner size="md" />
+          </div>
         ) : (
-          <p>
+          <Text size="sm" className="text-slate-700">
             Are you sure you want to request publishing? This will send a
             request to the LibreTexts team.
-          </p>
+          </Text>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button color="grey" onClick={closeAllModals}>
-          Cancel
-        </Button>
-        <Button color="blue" onClick={handleRequestToPublish} loading={loading}>
-          Confirm
-        </Button>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={closeAllModals} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            icon={<IconSend size={15} />}
+            iconClassName="items-center justify-center"
+            onClick={handleRequestToPublish}
+            loading={loading}
+          >
+            Confirm
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };

@@ -1,7 +1,20 @@
 import React from "react";
-import { useFieldArray, Controller, Control, useWatch, UseFormSetValue } from "react-hook-form";
-import { Dropdown, Button, Table, Input, Icon } from "semantic-ui-react";
-import CtlTextInput from "../ControlledInputs/CtlTextInput";
+import {
+  useFieldArray,
+  Controller,
+  Control,
+  useWatch,
+  UseFormSetValue,
+} from "react-hook-form";
+import {
+  Button,
+  Heading,
+  IconButton,
+  Input,
+  Select,
+  Text,
+} from "@libretexts/davis-react";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 
 interface ISBNEntry {
   medium: string;
@@ -15,24 +28,24 @@ interface ISBNsTableProps {
 }
 
 const mediumOptions = [
-  { value: "Audio", text: "Audio" },
-  { value: "E-Book", text: "E-Book" },
-  { value: "Print", text: "Print" },
+  { value: "Audio", label: "Audio" },
+  { value: "E-Book", label: "E-Book" },
+  { value: "Print", label: "Print" },
 ];
 
-const formatOptions: Record<string, { value: string; text: string }[]> = {
+const formatOptions: Record<string, { value: string; label: string }[]> = {
   Audio: [
-    { value: "CD Audio", text: "CD Audio" },
-    { value: "DVD Audio", text: "DVD Audio" },
-    { value: "Downloadable Audio File", text: "Downloadable Audio File" },
+    { value: "CD Audio", label: "CD Audio" },
+    { value: "DVD Audio", label: "DVD Audio" },
+    { value: "Downloadable Audio File", label: "Downloadable Audio File" },
   ],
   "E-Book": [
-    { value: "Digital online", text: "Digital online" },
-    { value: "Electronic book text", text: "Electronic book text" },
+    { value: "Digital online", label: "Digital online" },
+    { value: "Electronic book text", label: "Electronic book text" },
   ],
   Print: [
-    { value: "Hardback", text: "Hardback" },
-    { value: "Paperback", text: "Paperback" },
+    { value: "Hardback", label: "Hardback" },
+    { value: "Paperback", label: "Paperback" },
   ],
 };
 
@@ -42,127 +55,164 @@ const ISBNsTable: React.FC<ISBNsTableProps> = ({ control, setValue }) => {
     name: "isbns",
   });
 
-  const isbns = useWatch({ control, name: "isbns" }) as ISBNEntry[] || [];
+  const isbns = (useWatch({ control, name: "isbns" }) as ISBNEntry[]) || [];
 
   const getFormats = (medium: string) => formatOptions[medium] || [];
 
-    const isFormatUsed = (medium: string, format: string, idx: number) =>
-        isbns.some(
-            (row, i) =>
-            i !== idx &&
-            row.medium === medium &&
-            row.format === format &&
-            medium &&
-            format
-        );
+  const isFormatUsed = (medium: string, format: string, idx: number) =>
+    isbns.some(
+      (row, i) =>
+        i !== idx &&
+        row.medium === medium &&
+        row.format === format &&
+        medium &&
+        format
+    );
 
   return (
-    <div className="w-full">
-      <h3 className="font-bold">ISBN's</h3>
-      <Table celled fluid compact striped className="!mt-0.5 !mb-0">
-        <Table.Header>
-          <Table.Row>
-            <Table.HeaderCell>Medium</Table.HeaderCell>
-            <Table.HeaderCell>Format</Table.HeaderCell>
-            <Table.HeaderCell>ISBN</Table.HeaderCell>
-            <Table.HeaderCell>Actions</Table.HeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {fields.map((field, idx) => (
-            <Table.Row key={field.id}>
-              <Table.Cell>
-                    <Controller
-                        control={control}
-                        name={`isbns.${idx}.medium`}
-                        render={({ field }) => (
-                            <Dropdown
-                            compact
-                            selection
-                            options={mediumOptions}
-                            placeholder="Select Medium"
-                            className="w-full"
-                            value={field.value}
-                            onChange={(_, data) => {
-                                field.onChange(data.value);
-                                if (
-                                isbns[idx]?.format &&
-                                !getFormats(data.value as string).some(
-                                    (f) => f.value === isbns[idx].format
-                                )
-                                ) {
-                                setValue(`isbns.${idx}.format`, "");
-                                }
-                            }}
-                            onBlur={field.onBlur}
-                            />
-                        )}
-                    />
-              </Table.Cell>
-              <Table.Cell>
-                <Controller
+    <div className="w-full space-y-2">
+      <Heading level={4} className="m-0! text-sm font-bold text-slate-900">
+        ISBNs
+      </Heading>
+
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <table className="w-full border-collapse text-left text-sm">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Medium
+              </th>
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Format
+              </th>
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                ISBN
+              </th>
+              <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 text-right">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {fields.map((fieldItem, idx) => (
+              <tr key={fieldItem.id}>
+                <td className="px-3 py-2 min-w-[140px]">
+                  <Controller
+                    control={control}
+                    name={`isbns.${idx}.medium`}
+                    render={({ field }) => (
+                      <div className="timeline-granularity-select">
+                        <Select
+                          name={field.name}
+                          label="Medium"
+                          labelClassName="sr-only"
+                          size="sm"
+                          placeholder="Select Medium"
+                          options={mediumOptions}
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            const nextMedium = e.target.value;
+                            field.onChange(nextMedium);
+                            if (
+                              isbns[idx]?.format &&
+                              !getFormats(nextMedium).some(
+                                (f) => f.value === isbns[idx].format
+                              )
+                            ) {
+                              setValue(`isbns.${idx}.format`, "");
+                            }
+                          }}
+                          onBlur={field.onBlur}
+                        />
+                      </div>
+                    )}
+                  />
+                </td>
+                <td className="px-3 py-2 min-w-[160px]">
+                  <Controller
                     control={control}
                     name={`isbns.${idx}.format`}
                     render={({ field }) => {
-                    const formatDropdownOptions = getFormats(isbns[idx]?.medium).map(opt => ({
-                        ...opt,
-                        disabled: isFormatUsed(isbns[idx]?.medium, opt.value, idx),
-                    }));
-                    return (
-                        <Dropdown
-                        compact
-                        selection
-                        options={formatDropdownOptions}
-                        placeholder="Select Format"
-                        className="w-full"
-                        value={field.value}
-                        onChange={(_, data) => field.onChange(data.value)}
-                        onBlur={field.onBlur}
-                        disabled={!isbns[idx]?.medium}
-                        style={{ minWidth: 120 }}
-                        />
-                    );
+                      const availableFormats = getFormats(
+                        isbns[idx]?.medium
+                      ).filter(
+                        (opt) =>
+                          opt.value === field.value ||
+                          !isFormatUsed(isbns[idx]?.medium, opt.value, idx)
+                      );
+                      return (
+                        <div className="timeline-granularity-select">
+                          <Select
+                            name={field.name}
+                            label="Format"
+                            labelClassName="sr-only"
+                            size="sm"
+                            placeholder="Select Format"
+                            options={availableFormats}
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value)}
+                            onBlur={field.onBlur}
+                            disabled={!isbns[idx]?.medium}
+                          />
+                        </div>
+                      );
                     }}
-                />
-              </Table.Cell>
-              <Table.Cell style={{ minWidth: 120 }}>
-                <Controller
-                  control={control}
-                  name={`isbns.${idx}.isbn`}
-                  disabled={!isbns[idx]?.format}
-                  render={({ field }) => (
-                    <Input {...field} placeholder="Digits only - no dashes" className="w-full"/>
-                  )}
-                />
-              </Table.Cell>
-              <Table.Cell>
-                <Button
-                  color="red"
-                  icon
-                  onClick={() => remove(idx)}
-                >
-                  <Icon name="trash" />
-                </Button>
-              </Table.Cell>
-            </Table.Row>
-          ))}
-          {fields.length === 0 && (
-            <Table.Row>
-              <Table.Cell colSpan={4} textAlign="center">
-                <em>No ISBNs added yet. Click "Add Format" to get started.</em>
-              </Table.Cell>
-            </Table.Row>
-          )}
-        </Table.Body>
-      </Table>
+                  />
+                </td>
+                <td className="px-3 py-2 min-w-[160px]">
+                  <Controller
+                    control={control}
+                    name={`isbns.${idx}.isbn`}
+                    render={({ field }) => (
+                      <div className="task-search-input">
+                        <Input
+                          name={field.name}
+                          label="ISBN"
+                          labelClassName="sr-only"
+                          size="sm"
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          disabled={!isbns[idx]?.format}
+                          placeholder="Digits only - no dashes"
+                        />
+                      </div>
+                    )}
+                  />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <IconButton
+                    icon={<IconTrash size={15} />}
+                    iconClassName="items-center justify-center"
+                    aria-label="Remove ISBN row"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => remove(idx)}
+                  />
+                </td>
+              </tr>
+            ))}
+            {fields.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-3 py-4 text-center">
+                  <Text size="sm" color="muted">
+                    No ISBNs added yet. Click &ldquo;Add Format&rdquo; to get
+                    started.
+                  </Text>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
       <Button
-        color="blue"
-        icon
-        labelPosition="left"
+        variant="primary"
+        size="sm"
+        icon={<IconPlus size={15} />}
+        iconClassName="items-center justify-center"
         onClick={() => append({ medium: "", format: "", isbn: "" })}
-        className="!mt-2"
       >
-        <Icon name="plus" />
         Add Format
       </Button>
     </div>

@@ -3,8 +3,8 @@ import {
   UseFormSetValue,
   UseFormWatch,
 } from "react-hook-form";
-
-import { Button, Checkbox } from "semantic-ui-react";
+import { IconButton, Switch, Text } from "@libretexts/davis-react";
+import { IconArrowDown, IconArrowUp } from "@tabler/icons-react";
 import { Project, ProjectModule, ProjectModuleSettings } from "../../types";
 import { capitalizeFirstLetter } from "../util/HelperFunctions";
 
@@ -25,34 +25,45 @@ const ModuleRow = ({
 }) => {
   const isFirstItem = index === 0;
   const isLastItem = index === 2;
+  const label =
+    title === "files" ? "Assets" : capitalizeFirstLetter(title);
+
   return (
     <div
-      className={`bg-white border h-14 px-4 w-full ${
-        isFirstItem && "rounded-t-md"
-      } ${isLastItem && "rounded-b-md"}`}
+      className={`bg-white border border-slate-200 px-4 py-3 w-full ${
+        isFirstItem ? "rounded-t-md" : ""
+      } ${isLastItem ? "rounded-b-md" : ""}`}
     >
-      <div className="flex flex-row justify-between items-center h-full">
-        <p className="font-bold">
-          {title === "files" ? "Assets" : capitalizeFirstLetter(title)}
-        </p>
-        <div className="flex flex-row items-center">
-          <Button.Group size="tiny">
-            <Button
-              icon="arrow up"
+      <div className="flex flex-row justify-between items-center gap-3">
+        <Text size="sm" weight="bold" className="text-slate-900">
+          {label}
+        </Text>
+        <div className="flex flex-row items-center gap-2">
+          <div className="flex items-center gap-1">
+            <IconButton
+              icon={<IconArrowUp size={15} />}
+              iconClassName="items-center justify-center"
+              aria-label={`Move ${label} up`}
+              variant="outline"
+              size="sm"
               onClick={() => onMoveUp(index)}
               disabled={isFirstItem}
             />
-            <Button
-              icon="arrow down"
+            <IconButton
+              icon={<IconArrowDown size={15} />}
+              iconClassName="items-center justify-center"
+              aria-label={`Move ${label} down`}
+              variant="outline"
+              size="sm"
               onClick={() => onMoveDown(index)}
               disabled={isLastItem}
             />
-          </Button.Group>
-          <Checkbox
-            toggle
-            onChange={() => onToggle(title)}
+          </div>
+          <Switch
+            name={`module-toggle-${title}`}
             checked={enabled}
-            className="ml-2"
+            size="sm"
+            onChange={() => onToggle(title)}
           />
         </div>
       </div>
@@ -79,11 +90,11 @@ const ProjectModulesControl: React.FC<ProjectModulesControlProps> = ({
     const temp = newModules[idx];
     newModules[idx] = newModules[idx - 1];
     newModules[idx - 1] = temp;
-    const newModulesObj = newModules.reduce((acc, [key, value], idx) => {
+    const newModulesObj = newModules.reduce((acc, [key, value], i) => {
       // @ts-ignore
       acc[key] = value;
       // @ts-ignore
-      acc[key].order = idx;
+      acc[key].order = i;
       return acc;
     }, {});
     setValue("projectModules", newModulesObj as ProjectModuleSettings);
@@ -96,11 +107,11 @@ const ProjectModulesControl: React.FC<ProjectModulesControlProps> = ({
     const temp = newModules[idx];
     newModules[idx] = newModules[idx + 1];
     newModules[idx + 1] = temp;
-    const newModulesObj = newModules.reduce((acc, [key, value], idx) => {
+    const newModulesObj = newModules.reduce((acc, [key, value], i) => {
       // @ts-ignore
       acc[key] = value;
       // @ts-ignore
-      acc[key].order = idx;
+      acc[key].order = i;
       return acc;
     }, {});
     setValue("projectModules", newModulesObj as ProjectModuleSettings);
@@ -115,25 +126,21 @@ const ProjectModulesControl: React.FC<ProjectModulesControlProps> = ({
   }
 
   return (
-    <div className="bg-slate-100 p-2" {...rest}>
+    <div className="rounded-md bg-slate-100 p-2 space-y-1" {...rest}>
       {Object.entries(watch("projectModules") ?? {})
-        .filter(([key, value]) =>
-          ["discussion", "files", "tasks"].includes(key)
-        )
+        .filter(([key]) => ["discussion", "files", "tasks"].includes(key))
         .sort((a, b) => a[1].order - b[1].order)
-        .map(([key, value], idx) => {
-          return (
-            <ModuleRow
-              index={idx}
-              key={key}
-              title={key as ProjectModule}
-              enabled={value.enabled}
-              onMoveUp={onMoveUp}
-              onMoveDown={onMoveDown}
-              onToggle={onToggle}
-            />
-          );
-        })}
+        .map(([key, value], idx) => (
+          <ModuleRow
+            index={idx}
+            key={key}
+            title={key as ProjectModule}
+            enabled={value.enabled}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onToggle={onToggle}
+          />
+        ))}
     </div>
   );
 };
