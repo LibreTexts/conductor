@@ -84,6 +84,7 @@ export default function EditNoteModal({
           rows={6}
           maxLength={MAX_NOTE_LENGTH}
           showCharacterCount
+          textareaClassName="focus:ring-0!"
           error={!!errors.content}
           errorMessage={errors.content?.message}
           {...register("content", { required: "Note content is required." })}
@@ -94,7 +95,8 @@ export default function EditNoteModal({
           {note && (
             <Button
               variant="destructive"
-              icon={<IconTrash />}
+              icon={<IconTrash size={17} />}
+              iconClassName="items-center justify-center"
               onClick={handleDelete}
               loading={loading}
             >
@@ -104,15 +106,17 @@ export default function EditNoteModal({
         </div>
         <div className="flex gap-2">
           <Button
-            variant="secondary"
-            icon={<IconX />}
+            variant="outline"
+            icon={<IconX size={17} />}
+            iconClassName="items-center justify-center"
             onClick={() => onClose(false)}
             disabled={loading}
           >
             {note && !isDirty ? "Close" : "Cancel"}
           </Button>
           <Button
-            icon={<IconDeviceFloppy />}
+            icon={<IconDeviceFloppy size={17} />}
+            iconClassName="items-center justify-center"
             onClick={handleSave}
             loading={loading}
             disabled={!canSave}

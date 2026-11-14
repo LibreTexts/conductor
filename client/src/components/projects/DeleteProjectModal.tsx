@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Button, Icon, Modal, ModalProps } from "semantic-ui-react";
+import { Alert, Button, Modal, Text } from "@libretexts/davis-react";
+import { IconTrash } from "@tabler/icons-react";
 import api from "../../api";
 import useGlobalError from "../error/ErrorHooks";
 
-interface DeleteProjectModalProps extends ModalProps {
+interface DeleteProjectModalProps {
   show: boolean;
   projectID: string;
   onCancel: () => void;
@@ -13,7 +14,6 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
   show,
   projectID,
   onCancel,
-  ...rest
 }) => {
   const { handleGlobalError } = useGlobalError();
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,6 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
       setLoading(true);
       if (!projectID) return;
       const res = await api.deleteProject(projectID);
-
       if (res.data.err) {
         throw new Error(res.data.err);
       }
@@ -40,26 +39,36 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
   }
 
   return (
-    <Modal open={show} closeOnDimmerClick={false} {...rest}>
-      <Modal.Header>Confirm Project Deletion</Modal.Header>
-      <Modal.Content>
-        <p>
-          Are you sure you want to delete this project?{" "}
-          <strong>This cannot be undone.</strong>
-        </p>
-        <Button
-          color="red"
-          fluid
-          loading={loading}
-          onClick={submitDeleteProject}
-        >
-          <Icon name="trash alternate" />
-          Delete Project
-        </Button>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={() => onCancel()}>Cancel</Button>
-      </Modal.Actions>
+    <Modal open={show} onClose={() => {}} size="sm">
+      <Modal.Header>
+        <Modal.Title>Confirm Project Deletion</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Alert
+          variant="warning"
+          message="Are you sure you want to delete this project? This cannot be undone."
+        />
+        <Text size="xs" color="muted" className="mt-2 block">
+          All project tasks, discussions, and metadata associated with this
+          project will be permanently removed.
+        </Text>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => onCancel()} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            icon={<IconTrash size={15} />}
+            iconClassName="items-center justify-center"
+            loading={loading}
+            onClick={submitDeleteProject}
+          >
+            Delete Project
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };

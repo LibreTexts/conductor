@@ -4,18 +4,21 @@ import CopyButton from "./CopyButton";
 import { useNotifications } from "../../context/NotificationContext";
 
 /** Copy-to-clipboard affordance. Focusable, unlike the `<Icon onClick>` it replaces. */
-const CopyValueButton: React.FC<{ value: string; label: string }> = ({
-  value,
-  label,
-}) => {
+const CopyValueButton: React.FC<{
+  value: string;
+  label: string;
+  tooltipPosition?: "top" | "bottom" | "left" | "right";
+}> = ({ value, label, tooltipPosition = "right" }) => {
   const { addNotification } = useNotifications();
   return (
     <CopyButton val={value}>
       {({ copied, copy }) => (
         <IconButton
-          icon={copied ? <IconCheck /> : <IconCopy />}
+          icon={copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
+          iconClassName="items-center justify-center"
           aria-label={label}
           tooltip={label}
+          tooltipPosition={tooltipPosition}
           variant="ghost"
           size="sm"
           onClick={() => {
