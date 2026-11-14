@@ -1,5 +1,5 @@
 import { Button, Tooltip } from "@libretexts/davis-react";
-import { IconBook, IconExternalLink, IconPlus, IconSend } from "@tabler/icons-react";
+import { IconBook, IconConfetti, IconExternalLink, IconPackageExport, IconPlus, IconSend } from "@tabler/icons-react";
 import { isEmptyString, normalizeURL } from "../util/HelperFunctions";
 import {
   buildCommonsUrl,
