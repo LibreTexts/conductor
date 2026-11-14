@@ -1599,7 +1599,7 @@ const ProjectView = (props) => {
                     More Tools
                   </span>
                 </Menu.Button>
-                <Menu.Items>
+                <Menu.Items className="w-[var(--button-width)]! min-w-0! py-0! overflow-hidden">
                   {userProjectMember && (
                     <Menu.Item onClick={() => hasFlag ? openFlagModal('clear') : openFlagModal('set')}>
                       {hasFlag ? 'Clear Flag' : 'Flag Project'}
