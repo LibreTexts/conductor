@@ -365,17 +365,22 @@ const Chat: FC<Chatinterface>= ({
             label="Notification setting"
             labelClassName="sr-only"
             placeholder="Notify..."
+            size="sm"
             options={notificationSelectOptions}
             value={notifySetting}
             onChange={handleNotifySettingChange}
-            selectClassName="text-sm"
+            className="min-w-[180px]"
+            selectClassName="h-9! py-1! text-sm!"
           />
           <Button
             id="replycontainer-sendbutton"
             variant="primary"
+            size="sm"
+            className="h-9! px-4!"
             disabled={activeThread === '' || messageCompose === '' || messageCompose.length > 2000}
             loading={messageSending}
             onClick={sendMessage}
+            iconClassName="items-center justify-center"
             icon={<IconSend size={15} />}
           >
             Send
