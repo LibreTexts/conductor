@@ -13,10 +13,12 @@ import {
   Input,
   Menu,
   Modal,
+  Progress,
   Spinner,
   Stepper,
   Stack,
   Tabs,
+  Text,
   Tooltip,
 } from '@libretexts/davis-react';
 import {
@@ -124,6 +126,7 @@ const ProjectView = (props) => {
   const [showReviewerCrumb, setShowReviewerCrumb] = useState(false);
   const [showJoinComingSoon, setShowJoinComingSoon] = useState(false);
   const [showAllTeamMembers, setShowAllTeamMembers] = useState(false);
+  const [showAllRoadmapStepsMobile, setShowAllRoadmapStepsMobile] = useState(false);
 
   // Project Data
   const [projectID, setProjectID] = useState('');
@@ -1733,18 +1736,65 @@ const ProjectView = (props) => {
                 )}
               </div>
 
-              {/* Construction step stepper (horizontal) */}
-              {project.rdmpCurrentStep && !isEmptyString(project.rdmpCurrentStep) && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 block mb-3">Construction Step</span>
-                  <Stepper
-                    steps={roadmapStepsSimple.map((s) => ({ label: s.text }))}
-                    currentStep={Math.max(0, roadmapStepsSimple.findIndex((s) => s.name === project.rdmpCurrentStep))}
-                    orientation="horizontal"
-                    size="sm"
-                  />
-                </div>
-              )}
+              {/* Construction step stepper (responsive: horizontal on desktop, compact milestone + expandable vertical stepper on smaller screens) */}
+              {project.rdmpCurrentStep && !isEmptyString(project.rdmpCurrentStep) && (() => {
+                const activeStepIdx = Math.max(
+                  0,
+                  roadmapStepsSimple.findIndex((s) => s.name === project.rdmpCurrentStep)
+                );
+                const activeStepObj = roadmapStepsSimple[activeStepIdx] || roadmapStepsSimple[0];
+                const stepPct = Math.round(((activeStepIdx + 1) / roadmapStepsSimple.length) * 100);
+
+                return (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          Construction Step
+                        </span>
+                        <Badge
+                          label={`Step ${activeStepIdx + 1} of ${roadmapStepsSimple.length}: ${activeStepObj.text}`}
+                          variant="primary"
+                          size="sm"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="lg:hidden!"
+                        onClick={() => setShowAllRoadmapStepsMobile((prev) => !prev)}
+                      >
+                        {showAllRoadmapStepsMobile ? 'Hide Steps' : 'View All Steps'}
+                      </Button>
+                    </div>
+
+                    {/* Desktop horizontal stepper */}
+                    <div className="hidden lg:block overflow-x-auto pb-1">
+                      <Stepper
+                        steps={roadmapStepsSimple.map((s) => ({ label: s.text }))}
+                        currentStep={activeStepIdx}
+                        orientation="horizontal"
+                        size="sm"
+                      />
+                    </div>
+
+                    {/* Mobile / Tablet compact progress + optional vertical stepper */}
+                    <div className="lg:hidden space-y-3">
+                      <Progress value={stepPct} size="sm" showValue />
+                      {showAllRoadmapStepsMobile && (
+                        <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                          <Stepper
+                            steps={roadmapStepsSimple.map((s) => ({ label: s.text }))}
+                            currentStep={activeStepIdx}
+                            orientation="vertical"
+                            size="sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Links + tools row */}
               <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col gap-4">
@@ -1806,7 +1856,7 @@ const ProjectView = (props) => {
               <Card variant="outline" padding="lg">
                 <Card.Body>
                   <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Notes</Heading>
-                  <p
+                  <div
                     className="project-notes-body prose prose-code:before:hidden prose-code:after:hidden max-w-full text-sm"
                     dangerouslySetInnerHTML={{
                       __html: DOMPurify.sanitize(marked(project.notes, { breaks: true }))

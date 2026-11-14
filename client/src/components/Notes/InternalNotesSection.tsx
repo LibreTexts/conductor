@@ -77,15 +77,17 @@ export default function InternalNotesSection({
   }
 
   return (
-    <Card>
+    <Card className="overflow-visible!">
       <Card.Header>
         <div className="flex items-center justify-between gap-2">
           <Heading level={3}>Internal Notes (Newest First)</Heading>
           {canEdit && (
             <IconButton
-              icon={<IconPlus />}
+              icon={<IconPlus size={16} />}
+              iconClassName="items-center justify-center"
               aria-label="Add internal note"
               tooltip="Add internal note"
+              tooltipPosition="left"
               size="sm"
               onClick={openNewNoteModal}
             />
