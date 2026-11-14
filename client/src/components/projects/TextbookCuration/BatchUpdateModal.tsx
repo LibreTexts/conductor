@@ -1,4 +1,5 @@
-import { Button, Icon, Modal } from "semantic-ui-react";
+import { Button, Modal } from "@libretexts/davis-react";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 import EventFeed from "../../util/EventFeed";
 import useProject from "../../../hooks/useProject";
 import api from "../../../api";
@@ -27,10 +28,7 @@ const BatchUpdateModal: React.FC<BatchUpdateModalProps> = (props) => {
   async function updatePages() {
     try {
       if (!props.pages || props.pages.length === 0) return;
-
-      if (!bookID) {
-        throw new Error("Book ID is not available");
-      }
+      if (!bookID) throw new Error("Book ID is not available");
 
       const eventSource = api.batchUpdateBookMetadata(bookID, props.pages);
       if (!eventSource) return;
@@ -40,10 +38,7 @@ const BatchUpdateModal: React.FC<BatchUpdateModalProps> = (props) => {
         setMessages([]);
         setDidSubmit(true);
         mutations.refreshActiveJobStatus.mutate();
-        addNotification({
-          type: "success",
-          message: "Started bulk update job.",
-        });
+        addNotification({ type: "success", message: "Started bulk update job." });
       };
 
       eventSource.onmessage = (event) => {
@@ -67,9 +62,11 @@ const BatchUpdateModal: React.FC<BatchUpdateModalProps> = (props) => {
   }
 
   return (
-    <Modal size="large" open={props.open} onClose={props.onClose}>
-      <Modal.Header>Batch Update Progress</Modal.Header>
-      <Modal.Content>
+    <Modal size="lg" open={props.open} onClose={(v) => !v && props.onClose()}>
+      <Modal.Header>
+        <Modal.Title>Batch Update Progress</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
         {!didSubmit ? (
           <p className="text-lg mb-4">
             Are you sure you want to save these changes? This will update the
@@ -92,18 +89,17 @@ const BatchUpdateModal: React.FC<BatchUpdateModalProps> = (props) => {
             />
           </>
         )}
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={props.onClose}>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={props.onClose}>
           {!didSubmit ? "Cancel" : "Close"}
         </Button>
         {!didSubmit && (
-          <Button onClick={updatePages} color="green">
-            <Icon name="save outline" />
+          <Button variant="primary" icon={<IconDeviceFloppy size={14} />} onClick={updatePages}>
             Save
           </Button>
         )}
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };

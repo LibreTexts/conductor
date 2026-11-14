@@ -15,13 +15,13 @@ const ConfirmSetOrgDefault: React.FC<ConfirmSetOrgDefaultProps> = ({
   onConfirm,
 }) => {
   return (
-    <Modal open={show} onClose={() => onClose()} size="md">
+    <Modal open={show} onClose={onClose} size="md">
       <Modal.Header>
         <Modal.Title>Set Default Framework</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <p className="text-gray-700">
-          Are you sure you want to set this organization as the campus default?
+        <p>
+          Are you sure you want to set this framework as the campus default?
           Users will be prompted to populate these tags by default when editing a
           file.
         </p>
@@ -29,6 +29,13 @@ const ConfirmSetOrgDefault: React.FC<ConfirmSetOrgDefaultProps> = ({
       <Modal.Footer>
         <Button variant="outline" onClick={onClose}>
           Cancel
+        </Button>
+        <Button
+          variant="primary"
+          icon={<IconCheck size={16} />}
+          onClick={() => onConfirm(selectedUUID)}
+        >
+          Yes
         </Button>
         <Button
           variant="primary"

@@ -130,9 +130,11 @@ const makeOrganizationColumns = (
     header: "Actions",
     cell: ({ row }) => (
       <IconButton
-        icon={<IconTrash />}
+        icon={<IconTrash size={15} />}
+        iconClassName="items-center justify-center"
         aria-label={`Remove organization ${row.original.name}`}
         tooltip="Remove organization"
+        tooltipPosition="left"
         variant="destructive"
         size="sm"
         onClick={() => onRemove(row.original.id.toString())}
@@ -183,9 +185,11 @@ const makeAppLicenseColumns = (
     header: "Actions",
     cell: ({ row }) => (
       <IconButton
-        icon={<IconTrash />}
+        icon={<IconTrash size={15} />}
+        iconClassName="items-center justify-center"
         aria-label={`Revoke license ${row.original.application_license.name}`}
         tooltip="Revoke license"
+        tooltipPosition="left"
         variant="destructive"
         size="sm"
         disabled={row.original.revoked}
@@ -204,9 +208,11 @@ const makeUserAppColumns = (
     header: "Actions",
     cell: ({ row }) => (
       <IconButton
-        icon={<IconTrash />}
+        icon={<IconTrash size={15} />}
+        iconClassName="items-center justify-center"
         aria-label={`Remove application ${row.original.name}`}
         tooltip="Remove application"
+        tooltipPosition="left"
         variant="destructive"
         size="sm"
         onClick={() => onRemove(row.original.id.toString())}
@@ -626,7 +632,7 @@ const CentralIdentityUserView = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* Left column */}
           <Stack direction="vertical" gap="lg" className="min-w-0">
-            <Card>
+            <Card className="overflow-visible!">
               <Card.Body>
                 <Stack direction="vertical" gap="md">
                   <div className="flex flex-wrap items-start justify-between gap-4">
@@ -637,7 +643,8 @@ const CentralIdentityUserView = () => {
                         size="xl"
                       />
                       <IconButton
-                        icon={<IconBan />}
+                        icon={<IconBan size={15} />}
+                        iconClassName="items-center justify-center"
                         aria-label="Reset to default avatar"
                         tooltip="Reset to default avatar"
                         variant="ghost"
@@ -656,7 +663,8 @@ const CentralIdentityUserView = () => {
                         <Button
                           variant="secondary"
                           size="sm"
-                          icon={<IconPencil />}
+                          icon={<IconPencil size={15} />}
+                          iconClassName="items-center justify-center"
                           loading={loading}
                           softDisabled={!!externalIdp}
                           onClick={() => {
@@ -683,7 +691,8 @@ const CentralIdentityUserView = () => {
                         <Button
                           variant="secondary"
                           size="sm"
-                          icon={<IconKey />}
+                          icon={<IconKey size={15} />}
+                          iconClassName="items-center justify-center"
                           loading={loading}
                           softDisabled={!!externalIdp}
                           onClick={() => {
@@ -704,7 +713,8 @@ const CentralIdentityUserView = () => {
                         <Button
                           variant="warning"
                           size="sm"
-                          icon={<IconRefresh />}
+                          icon={<IconRefresh size={15} />}
+                          iconClassName="items-center justify-center"
                           loading={loading}
                           onClick={handleReEnableUser}
                         >
@@ -714,7 +724,8 @@ const CentralIdentityUserView = () => {
                         <Button
                           variant="destructive"
                           size="sm"
-                          icon={<IconBan />}
+                          icon={<IconBan size={15} />}
+                          iconClassName="items-center justify-center"
                           loading={loading}
                           onClick={handleOpenDisableUserModal}
                         >
@@ -725,7 +736,8 @@ const CentralIdentityUserView = () => {
                         <Button
                           variant="destructive"
                           size="sm"
-                          icon={<IconTrash />}
+                          icon={<IconTrash size={15} />}
+                          iconClassName="items-center justify-center"
                           loading={deleteLoading}
                           onClick={() => setShowDeleteUserModal(true)}
                         >
@@ -737,13 +749,20 @@ const CentralIdentityUserView = () => {
 
                   <dl className="m-0">
                     <DetailRow label="Email">
-                      <span className="inline-flex items-center gap-1 break-all">
-                        {email}
-                        <CopyValueButton
-                          value={email ?? ""}
-                          label="Copy email address"
-                        />
-                      </span>
+                      {email ? (
+                        <span className="inline-flex items-center gap-1 break-all">
+                          {email}
+                          <CopyValueButton
+                            value={email}
+                            label="Copy email address"
+                            tooltipPosition="right"
+                          />
+                        </span>
+                      ) : (
+                        <Text size="sm" color="muted">
+                          {userLoading ? "Loading..." : "Not set"}
+                        </Text>
+                      )}
                     </DetailRow>
                   </dl>
 
@@ -828,14 +847,16 @@ const CentralIdentityUserView = () => {
               <Card.Footer className="flex justify-between">
                 <Button
                   variant="secondary"
-                  icon={<IconX />}
+                  icon={<IconX size={17} />}
+                  iconClassName="items-center justify-center"
                   onClick={loadUser}
                   loading={userLoading}
                 >
                   Cancel
                 </Button>
                 <Button
-                  icon={<IconDeviceFloppy />}
+                  icon={<IconDeviceFloppy size={17} />}
+                  iconClassName="items-center justify-center"
                   onClick={handleSave}
                   loading={loading}
                   disabled={!formState.isDirty}
@@ -845,20 +866,27 @@ const CentralIdentityUserView = () => {
               </Card.Footer>
             </Card>
 
-            <Card>
+            <Card className="overflow-visible!">
               <Card.Header>
                 <Heading level={3}>Authentication &amp; Security Data</Heading>
               </Card.Header>
               <Card.Body>
                 <dl className="flex flex-col gap-4 m-0">
                   <DetailRow label="UUID">
-                    <span className="inline-flex items-center gap-1 font-mono break-all">
-                      {userUuid}
-                      <CopyValueButton
-                        value={userUuid ?? ""}
-                        label="Copy user UUID"
-                      />
-                    </span>
+                    {userUuid ? (
+                      <span className="inline-flex items-center gap-1 font-mono break-all">
+                        {userUuid}
+                        <CopyValueButton
+                          value={userUuid}
+                          label="Copy user UUID"
+                          tooltipPosition="right"
+                        />
+                      </span>
+                    ) : (
+                      <Text size="sm" color="muted">
+                        {userLoading ? "Loading..." : "Not set"}
+                      </Text>
+                    )}
                   </DetailRow>
                   <DetailRow label="Authentication Source">
                     {externalIdp
@@ -899,14 +927,16 @@ const CentralIdentityUserView = () => {
 
           {/* Right column */}
           <Stack direction="vertical" gap="lg" className="min-w-0">
-            <Card>
+            <Card className="overflow-visible!">
               <Card.Header>
                 <div className="flex items-center justify-between gap-2">
                   <Heading level={3}>Organizations</Heading>
                   <IconButton
-                    icon={<IconPlus />}
+                    icon={<IconPlus size={16} />}
+                    iconClassName="items-center justify-center"
                     aria-label="Add organization"
                     tooltip="Add organization"
+                    tooltipPosition="left"
                     size="sm"
                     onClick={() => setShowAddOrgModal(true)}
                   />
@@ -929,14 +959,16 @@ const CentralIdentityUserView = () => {
               <CampusAdminRolesSection uuid={userLocalID} />
             )}
 
-            <Card>
+            <Card className="overflow-visible!">
               <Card.Header>
                 <div className="flex items-center justify-between gap-2">
                   <Heading level={3}>Application Licenses</Heading>
                   <IconButton
-                    icon={<IconPlus />}
+                    icon={<IconPlus size={16} />}
+                    iconClassName="items-center justify-center"
                     aria-label="Add application license"
                     tooltip="Add application license"
+                    tooltipPosition="left"
                     size="sm"
                     onClick={handleAddUserAppLicense}
                   />
@@ -955,14 +987,16 @@ const CentralIdentityUserView = () => {
               </Card.Body>
             </Card>
 
-            <Card>
+            <Card className="overflow-visible!">
               <Card.Header>
                 <div className="flex items-center justify-between gap-2">
                   <Heading level={3}>Application Security Access</Heading>
                   <IconButton
-                    icon={<IconPlus />}
+                    icon={<IconPlus size={16} />}
+                    iconClassName="items-center justify-center"
                     aria-label="Add application security access"
                     tooltip="Add application security access"
+                    tooltipPosition="left"
                     size="sm"
                     onClick={() => setShowAddAppModal(true)}
                   />
@@ -981,14 +1015,16 @@ const CentralIdentityUserView = () => {
               </Card.Body>
             </Card>
 
-            <Card>
+            <Card className="overflow-visible!">
               <Card.Header>
                 <div className="flex items-center justify-between gap-2">
                   <Heading level={3}>Academy Online</Heading>
                   <IconButton
-                    icon={<IconPencil />}
+                    icon={<IconPencil size={15} />}
+                    iconClassName="items-center justify-center"
                     aria-label="Edit Academy Online access"
                     tooltip="Edit Academy Online access"
+                    tooltipPosition="left"
                     size="sm"
                     onClick={() => setShowAcademyAccessModal(true)}
                   />

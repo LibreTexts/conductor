@@ -1,43 +1,55 @@
-import { Button, Icon, Modal, ModalProps } from "semantic-ui-react";
-import "./Projects.css";
+import { Button, Card, Modal, Stack, Text } from "@libretexts/davis-react";
+import { IconCheck } from "@tabler/icons-react";
 
-interface AboutProjectClassificationsModalProps extends ModalProps {
+interface AboutProjectClassificationsModalProps {
   show: boolean;
   onClose: () => void;
 }
 
 const AboutProjectClassificationsModal: React.FC<
   AboutProjectClassificationsModalProps
-> = ({ show, onClose, ...rest }) => {
+> = ({ show, onClose }) => {
   return (
-    <Modal size="fullscreen" open={show} {...rest}>
-      <Modal.Header>About Project Classifications</Modal.Header>
-      <Modal.Content>
-        <p>
-          Project classifications are primarily used to organize and categorize
-          projects based on their content, purpose, and target audience. You are
-          free to select the classification that you feel best represents your
-          project. However, please note that some classifications may turn
-          on/off certain Conductor features. These classifications include:
-        </p>
-        <ul className="px-6 mt-4">
-          <li className="list-disc">
-            <span className="font-semibold">Mini-Repo:</span> Intended for
-            projects that center around assets only without an associated
-            textbook. Choosing this classification will automatically hide
-            textbook-related features in the project's Commons and Conductor
-            pages. Similarly, the project will be listed in the Mini-Repo
-            section of the Commons Catalog (assuming it's visibility is set to
-            "Public").
-          </li>
-        </ul>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose} labelPosition="left" icon color="green">
-          <Icon name="check" />
-          Done
-        </Button>
-      </Modal.Actions>
+    <Modal size="lg" open={show} onClose={(v) => !v && onClose()}>
+      <Modal.Header>
+        <Modal.Title>About Project Classifications</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Stack direction="vertical" gap="md">
+          <Text size="sm" className="text-slate-700">
+            Project classifications are primarily used to organize and categorize
+            projects based on their content, purpose, and target audience. You
+            are free to select the classification that you feel best represents
+            your project. However, please note that some classifications may
+            turn on/off certain Conductor features:
+          </Text>
+          <Card variant="outline" padding="sm" className="bg-slate-50">
+            <Text size="sm" weight="semibold" className="text-slate-900">
+              Mini-Repo
+            </Text>
+            <Text size="xs" color="muted" className="mt-1 block leading-relaxed">
+              Intended for projects that center around assets only without an
+              associated textbook. Choosing this classification will
+              automatically hide textbook-related features in the project&apos;s
+              Commons and Conductor pages. Similarly, the project will be listed
+              in the Mini-Repo section of the Commons Catalog (assuming its
+              visibility is set to &ldquo;Public&rdquo;).
+            </Text>
+          </Card>
+        </Stack>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end">
+          <Button
+            variant="primary"
+            icon={<IconCheck size={16} />}
+            iconClassName="items-center justify-center"
+            onClick={onClose}
+          >
+            Done
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };

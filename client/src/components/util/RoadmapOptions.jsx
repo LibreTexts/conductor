@@ -224,5 +224,6 @@ const getRoadmapStepName = (step) => {
 
 export {
     roadmapSteps,
+    roadmapStepsSimple,
     getRoadmapStepName
 }

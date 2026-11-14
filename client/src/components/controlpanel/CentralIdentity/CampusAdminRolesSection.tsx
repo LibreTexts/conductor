@@ -40,9 +40,11 @@ const makeColumns = (
     header: "Actions",
     cell: ({ row }) => (
       <IconButton
-        icon={<IconUserMinus />}
+        icon={<IconUserMinus size={15} />}
+        iconClassName="items-center justify-center"
         aria-label={`Remove campus admin role for ${row.original.org.name}`}
         tooltip="Remove campus admin role (demote to member)"
+        tooltipPosition="left"
         variant="destructive"
         size="sm"
         loading={removing}
@@ -149,7 +151,7 @@ const CampusAdminRolesSection: React.FC<Props> = ({ uuid }) => {
   const hasGrantableOrgs = !orgsLoading && grantableOrgs.length > 0;
 
   return (
-    <Card>
+    <Card className="overflow-visible!">
       <Card.Header>
         <Heading level={3}>Campus Admin Roles</Heading>
       </Card.Header>
@@ -190,7 +192,8 @@ const CampusAdminRolesSection: React.FC<Props> = ({ uuid }) => {
                 </Combobox.Options>
               </Combobox>
               <Button
-                icon={<IconPlus />}
+                icon={<IconPlus size={17} />}
+                iconClassName="items-center justify-center"
                 disabled={!selectedOrg}
                 loading={grantMutation.isLoading}
                 onClick={() =>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import axios from "axios";
-import { Modal, Form, Button, Icon } from "semantic-ui-react";
+import { Button, Input, Modal } from "@libretexts/davis-react";
+import { IconPlus } from "@tabler/icons-react";
 import useGlobalError from "../error/ErrorHooks";
 import api from "../../api";
 
@@ -29,15 +29,6 @@ const AddFolder = ({
   useEffect(() => {
     setFolderName("");
   }, [show, setFolderName]);
-
-  /**
-   * Updates the new folder name in state.
-   *
-   * @param {React.ChangeEvent} e - Event that activated the handler.
-   */
-  function handleFolderNameChange(e) {
-    setFolderName(e.target.value);
-  }
 
   /**
    * Prevents default actions if the modal form is submitted.
@@ -97,29 +88,41 @@ const AddFolder = ({
   }
 
   return (
-    <Modal open={show} onClose={onClose}>
-      <Modal.Header>New Folder</Modal.Header>
-      <Modal.Content>
-        <Form onSubmit={handleSubmit}>
-          <Form.Field error={nameError}>
-            <label htmlFor="foldername">Folder Name</label>
-            <input
-              id="foldername"
-              type="text"
-              placeholder="New Folder..."
-              value={folderName}
-              onChange={handleFolderNameChange}
-            />
-          </Form.Field>
-        </Form>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleAddFolder} color="green" loading={loading}>
-          <Icon name="add" />
+    <Modal open={show} onClose={() => onClose()} size="sm">
+      <Modal.Header>
+        <Modal.Title>New Folder</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <form onSubmit={handleSubmit}>
+          <Input
+            name="foldername"
+            label="Folder Name"
+            type="text"
+            placeholder="New Folder..."
+            value={folderName}
+            onChange={(e) => setFolderName(e.target.value)}
+            error={nameError}
+            errorMessage={
+              nameError
+                ? "Folder name must be between 1 and 100 characters."
+                : undefined
+            }
+          />
+        </form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleAddFolder}
+          loading={loading}
+          icon={<IconPlus size={16} />}
+        >
           Add Folder
         </Button>
-      </Modal.Actions>
+      </Modal.Footer>
     </Modal>
   );
 };
