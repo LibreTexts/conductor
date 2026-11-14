@@ -344,7 +344,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   function handleBulkEditMetadata() {
     if (!files || files.length === 0) return;
     // Include folders — they act as recursion entry points (server expands to descendant files).
-    const selected = files.filter((obj) => obj.checked);
+    const selected = selectedFiles;
     if (selected.length === 0) return;
 
     openModal(
