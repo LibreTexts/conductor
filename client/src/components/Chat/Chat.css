@@ -66,15 +66,14 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 0.5em;
+    gap: 0.5rem;
 }
 
-#replycontainer-notifydropdown {
-    flex: 1;
+#replycontainer-actions .mt-1\.5 {
+    margin-top: 0 !important;
 }
 
 #replycontainer-sendbutton {
     margin: 0;
-    height: 36px !important;
     flex-shrink: 0;
 }
