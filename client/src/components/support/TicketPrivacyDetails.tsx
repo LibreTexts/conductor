@@ -20,6 +20,7 @@ import {
 } from "../../utils/supportHelpers";
 
 type PrivacyFormValues = {
+  requestType: string;
   intakeChannel: string;
   dateReceived: string;
   verificationMethod: string;
@@ -32,6 +33,9 @@ type PrivacyFormValues = {
   extensionReason: string;
   extensionDueDate: string;
 };
+
+// Appeal type comes only from the appeal link, never an edit
+const EditableRequestTypeOptions = PrivacyRequestTypeOptions.filter((o) => o.value !== "appeal");
 
 const toDateInput = (iso?: string) => (iso ? iso.slice(0, 10) : "");
 const prettyDate = (iso?: string) => (iso ? format(parseISO(iso), "MMM d, yyyy") : "—");
@@ -52,6 +56,7 @@ const TicketPrivacyDetails: React.FC<{ ticket: SupportTicket }> = ({ ticket }) =
 
   const { register, watch, handleSubmit, formState, reset } = useForm<PrivacyFormValues>({
     values: {
+      requestType: privacy.requestType,
       intakeChannel: privacy.intakeChannel,
       dateReceived: toDateInput(privacy.dateReceived),
       verificationMethod: privacy.identityVerification?.method ?? "",
@@ -90,6 +95,7 @@ const TicketPrivacyDetails: React.FC<{ ticket: SupportTicket }> = ({ ticket }) =
     const dirty = formState.dirtyFields;
     const denialTouched = dirty.denialReason || dirty.denialNote || dirty.responseOutcome;
     return {
+      ...(dirty.requestType && v.requestType && { requestType: v.requestType }),
       ...(dirty.intakeChannel && { intakeChannel: v.intakeChannel }),
       ...(dirty.dateReceived && v.dateReceived && { dateReceived: v.dateReceived }),
       ...((dirty.verificationMethod || dirty.verificationDate) &&
@@ -197,6 +203,15 @@ const TicketPrivacyDetails: React.FC<{ ticket: SupportTicket }> = ({ ticket }) =
             <form onSubmit={(e) => e.preventDefault()} aria-label="Privacy inquiry details">
               <Stack gap="md">
                 <Divider />
+                {!privacy.appealOf && (
+                  <Select
+                    label="Request type"
+                    placeholder="Select a request type..."
+                    helperText="Changing this recalculates the due date unless an extension was recorded."
+                    options={EditableRequestTypeOptions}
+                    {...register("requestType")}
+                  />
+                )}
                 <Select
                   label="Channel"
                   placeholder="Select a channel..."

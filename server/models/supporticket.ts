@@ -219,6 +219,7 @@ const PrivacyTicketSchema = new Schema<PrivacyTicketFields>(
     appealUUIDs: [String],
     remindersSent: [Number],
     redactedAt: Date,
+    responseNotifiedAt: Date,
   },
   { _id: false },
 );

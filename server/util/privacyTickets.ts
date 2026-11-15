@@ -103,6 +103,7 @@ export interface PrivacyTicketFields {
   appealUUIDs?: string[];
   remindersSent?: number[];
   redactedAt?: Date;
+  responseNotifiedAt?: Date;
 }
 
 /** Client-correctable privacy ticket rule violation; controllers map it to a 400 */
