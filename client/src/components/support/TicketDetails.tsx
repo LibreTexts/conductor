@@ -247,7 +247,8 @@ const TicketDetails: React.FC<TicketDetailsProps> = ({ ticket }) => {
                 labelClassName="sr-only"
                 placeholder="Select a queue"
                 value={ticket.queue?.slug ?? ""}
-                disabled={editDisabled}
+                disabled={editDisabled || !!ticket.privacy}
+                helperText={ticket.privacy ? "Privacy inquiries stay in this queue. Close as Withdrawn if misfiled." : undefined}
                 options={(queues ?? []).map((q) => ({
                   value: q.slug,
                   label: q.ticket_descriptor || q.name,

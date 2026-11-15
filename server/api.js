@@ -3466,6 +3466,14 @@ router
   .route("/support/run-autoclose")
   .post(middleware.checkEventBridgeAPIKey, supportAPI.autoCloseTickets);
 
+router
+  .route("/support/privacy/deadline-reminders")
+  .post(middleware.checkEventBridgeAPIKey, supportAPI.sendPrivacyDeadlineReminders);
+
+router
+  .route("/support/privacy/retention-purge")
+  .post(middleware.checkEventBridgeAPIKey, supportAPI.purgeExpiredPrivacyTickets);
+
 router.route("/support/sync-with-search-index").post(
   middleware.checkLibreAPIKey,
   supportAPI.syncWithSearchIndex

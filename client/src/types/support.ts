@@ -45,7 +45,45 @@ export type SupportTicket = {
   autoCloseSilenced?: boolean;
   lastReplyAt?: string;
   metadata?: Record<string, any>;
+  privacy?: SupportTicketPrivacy;
   queue?: SupportQueue;
+};
+
+export type PrivacyRequestType =
+  | "access"
+  | "correction"
+  | "deletion"
+  | "marketing_opt_out"
+  | "parent_guardian"
+  | "legal_disclosure"
+  | "appeal"
+  | "general";
+
+export type PrivacyOutcome =
+  | "fulfilled"
+  | "partly_fulfilled"
+  | "denied"
+  | "referred"
+  | "withdrawn"
+  | "could_not_verify";
+
+export type SupportTicketPrivacy = {
+  dateReceived: string;
+  requestType: PrivacyRequestType;
+  intakeChannel: string;
+  actingForOther?: { isAgent: boolean; note?: string };
+  products?: string[];
+  schoolRecord?: { isSchoolRecord: boolean; institution?: string };
+  identityVerification?: { method: string; date?: string };
+  dueDate: string;
+  extension?: { reason: string; newDueDate: string; notifiedAt?: string };
+  responseDate?: string;
+  responseOutcome?: PrivacyOutcome;
+  responseSummary?: string;
+  denialBasis?: { reason: string; note?: string };
+  appealOf?: string;
+  appealUUIDs?: string[];
+  redactedAt?: string;
 };
 
 export type SupportTicketMessage = {

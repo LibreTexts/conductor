@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTypedSelector } from "../../state/hooks";
 import TicketCommentsContainer from "./TicketCommentsContainer";
+import { isPrivacyIdentityVerified } from "../../utils/supportHelpers";
 import { Button, Card, Divider, Heading, Stack, Text, Textarea } from "@libretexts/davis-react";
 import { IconSend, IconTrash } from "@tabler/icons-react";
 
@@ -82,6 +83,14 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
     try {
       if (!id) throw new Error("Invalid ticket ID");
       if (!getValues("message")) return;
+      if (
+        user.isSupport &&
+        ticket.privacy &&
+        !isPrivacyIdentityVerified(ticket.privacy) &&
+        !window.confirm("The requester's identity has not been verified. Send this reply anyway?")
+      ) {
+        return;
+      }
 
       const res = await axios.post(
         `/support/ticket/${id}/msg`,

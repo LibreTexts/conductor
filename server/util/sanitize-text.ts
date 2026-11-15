@@ -26,6 +26,18 @@ const STRIP_ALL_MARKUP: sanitizeHtml.IOptions = {
 };
 
 /**
+ * Strips every tag and returns *escaped* text, for values going into an HTML
+ * sink (`innerHTML`, email bodies). Unlike {@link sanitizeLibraryText}, the
+ * output is not decoded, so `A & B` stays `A &amp; B` and is safe to
+ * interpolate into markup. Text content only: quotes are not escaped, so don't
+ * use it for attribute values.
+ */
+export function sanitizeToHtmlText(value: string | null | undefined): string {
+  if (typeof value !== "string" || value.length === 0) return "";
+  return sanitizeHtml(value, STRIP_ALL_MARKUP);
+}
+
+/**
  * A `<` that an HTML parser would treat as opening a tag. Per the tokenizer
  * spec a `<` is only special when followed by a letter, `/`, `!`, or `?`;
  * anything else — `a < b`, `5 < 10` — is literal text and stays. `>` is never

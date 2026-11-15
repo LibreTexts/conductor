@@ -9,6 +9,7 @@ import formData from 'form-data';
 import { marked } from 'marked';
 import util from 'util';
 import { isEmptyString, truncateString } from '../util/helpers.js';
+import { sanitizeToHtmlText } from '../util/sanitize-text.js';
 import { format } from 'date-fns';
 
 let mailgun = null;
@@ -762,8 +763,9 @@ const sendBatchBookUpdateFinished = (recipientAddresses, projectID, jobID, updat
  * @param {string} ticketType - the type of ticket submitted
  * @param {string} recipientAddress - the user's email address
  * @param {string} ticketID - the ticket's uuid
+ * @param {Date} [dueDate] - date a response is due by (privacy inquiries)
  */
-const sendSupportTicketCreateConfirmation = (ticketType, recipientAddress, ticketID, params) => {
+const sendSupportTicketCreateConfirmation = (ticketType, recipientAddress, ticketID, params, dueDate) => {
     return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
         from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
         to: [recipientAddress],
@@ -771,6 +773,7 @@ const sendSupportTicketCreateConfirmation = (ticketType, recipientAddress, ticke
         html: `
             <p>Hi,</p>
             <p>We're just writing to let you know that your ${ticketType.toLowerCase()} has been created. You can view your ${ticketType.toLowerCase()} at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
+            ${dueDate ? `<p>Your ticket number is <strong>#${ticketID.slice(-7)}</strong>. We will respond by <strong>${format(dueDate, 'MMMM d, yyyy')}</strong>.</p>` : ''}
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
             ${autoGenNoticeHTML}
@@ -1117,6 +1120,83 @@ const sendSupportTicketCCedNotification = (recipientAddress, ticketID, ticketTit
     });
 }
 
+/**
+ * Sends the final response on a privacy inquiry to the requester.
+ * @param {string} recipientAddress - the requester's email address
+ * @param {string} ticketID - the ticket's uuid
+ * @param {string} outcome - human-readable outcome
+ * @param {string} summary - what was done or sent
+ * @param {string} params - any URL parameters to append to the ticket URL
+ * @param {string} [appealURL] - link to appeal the decision (denials only)
+ */
+const sendPrivacyResponseNotification = (recipientAddress, ticketID, outcome, summary, params, appealURL) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: [recipientAddress],
+        subject: `Response to Your Privacy Inquiry (#${ticketID.slice(-7)})`,
+        html: `
+            <p>Hi,</p>
+            <p>We have completed our response to your privacy inquiry.</p>
+            <p><strong>Outcome:</strong> ${sanitizeToHtmlText(outcome)}</p>
+            <p><strong>Details:</strong> ${sanitizeToHtmlText(summary)}</p>
+            ${appealURL ? `<p>If you disagree with this decision, you can appeal it at <a href="${appealURL}" target="_blank" rel="noopener noreferrer">Appeal this decision</a>. We will respond to appeals within 45 days.</p>` : ''}
+            <p>You can view your inquiry at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
+/**
+ * Tells the requester that the response to their privacy inquiry has been extended.
+ * @param {string} recipientAddress - the requester's email address
+ * @param {string} ticketID - the ticket's uuid
+ * @param {Date} newDueDate - the new response date
+ * @param {string} reason - why the extension is needed
+ * @param {string} params - any URL parameters to append to the ticket URL
+ */
+const sendPrivacyExtensionNotification = (recipientAddress, ticketID, newDueDate, reason, params) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: [recipientAddress],
+        subject: `Update on Your Privacy Inquiry (#${ticketID.slice(-7)})`,
+        html: `
+            <p>Hi,</p>
+            <p>We need more time to respond to your privacy inquiry. We will now respond by <strong>${format(newDueDate, 'MMMM d, yyyy')}</strong>.</p>
+            <p><strong>Reason:</strong> ${sanitizeToHtmlText(reason)}</p>
+            <p>You can view your inquiry at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
+/**
+ * Reminds assigned staff that a privacy inquiry response is coming due.
+ * @param {string[]} recipientAddresses - staff email addresses
+ * @param {string} ticketID - the ticket's uuid
+ * @param {string} subject - the ticket's subject
+ * @param {Date} dueDate - the response due date
+ */
+const sendPrivacyDeadlineReminder = (recipientAddresses, ticketID, subject, dueDate) => {
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: 'LibreTexts Support <conductor@noreply.libretexts.org>',
+        to: recipientAddresses,
+        subject: `Privacy Inquiry Due ${format(dueDate, 'MMM d')} (#${ticketID.slice(-7)})`,
+        html: `
+            <p>Hi,</p>
+            <p>A privacy inquiry assigned to you must be answered by <strong>${format(dueDate, 'MMMM d, yyyy')}</strong>: "${sanitizeToHtmlText(subject)}"</p>
+            <p>If more time is needed, record an extension and notify the requester before the due date.</p>
+            <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
+            <p>Sincerely,</p>
+            <p>The LibreTexts team</p>
+            ${autoGenNoticeHTML}
+        `,
+    });
+};
+
 export default {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -1155,5 +1235,8 @@ export default {
     sendStoreOrderShippedUpdate,
     sendZIPFileReadyNotification,
     sendProjectInvitation,
-    sendSupportTicketCCedNotification
+    sendSupportTicketCCedNotification,
+    sendPrivacyResponseNotification,
+    sendPrivacyExtensionNotification,
+    sendPrivacyDeadlineReminder,
 }

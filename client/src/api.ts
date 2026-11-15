@@ -2373,6 +2373,7 @@ class API {
       autoCloseSilenced?: boolean;
       category?: string;
       queue?: string; // queue slug
+      privacy?: Record<string, unknown>;
     },
   ) {
     return await axios.patch<{ ticket: SupportTicket } & ConductorBaseResponse>(

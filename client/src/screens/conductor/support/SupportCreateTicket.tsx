@@ -31,7 +31,7 @@ const SupportCreateTicket = () => {
       <Stack gap="xs" className='max-w-5xl mx-auto px-6'>
         <Stack gap="sm" align="center">
           <div>
-            <Heading level={1} className="text-4xl font-semibold">
+            <Heading level={1} className="text-4xl font-semibold text-center">
               Contact Support
             </Heading>
             <Text className="mt-2 text-gray-600">
