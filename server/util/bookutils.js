@@ -235,40 +235,6 @@ export const genPermalink = (bookID) => {
     return '';
 }
 
-/**
- * Makes a request to the LibreTexts API server to build an object consisting of the
- * Book's Table of Contents.
- * INTERNAL USE ONLY.
- * NOTE: This function should NOT be called directly from an API route.
- * @param {String} [bookID] - A standard `lib-coverID` LibreTexts identifier.
- * @param {String} [bookURL] - The URL of the LibreText to lookup.
- * @returns {Promise<Object|Error>} The Book's TOC object, or throws an error.
- */
-export const getBookTOCFromAPI = async (bookID, bookURL) => {
-    let bookAddr = bookURL;
-    if(!checkBookIDFormat(bookID)) throw new Error('bookid');
-
-    const book = await Book.findOne({ bookID: bookID }).lean();
-    if(book?.links?.online){
-        bookAddr = book.links?.online;
-    }
-
-    if (!bookAddr) throw new Error('tocretrieve');
-
-    const tocRes = await axios.get(`https://api.libretexts.org/endpoint/getTOC/${encodeURIComponent(bookAddr)}`, {
-        headers: { 'Origin': getProductionURL() }
-    });
-    if (!tocRes?.data?.toc?.structured) throw (new Error('tocretrieve'));
-
-    const buildStructure = (page) => ({
-        children: Array.isArray(page.subpages) ? page.subpages.map((s) => buildStructure(s)) : [],
-        id: page['@id'],
-        title: page.title,
-        url: page.url,
-    });
-    return buildStructure(tocRes.data.toc.structured);
-};
-
 export const deleteBookFromAPI = async (bookID) => {
     if (!process.env.LIBRE_API_ENDPOINT_ACCESS) {
         throw new Error('missing API key');

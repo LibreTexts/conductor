@@ -38,7 +38,6 @@ import {
 import {
   checkBookIDFormat,
   isValidLicense,
-  getBookTOCFromAPI,
 } from '../util/bookutils.js';
 import { validateA11YReviewSectionItem } from '../util/a11yreviewutils.js';
 import { isEmptyString, assembleUrl, getPaginationOffset, extractEmailDomain } from '../util/helpers.js';
@@ -2857,9 +2856,20 @@ const importA11YSectionsFromTOC = async (req, res) => {
         const bookID = getBookLinkedToProject(projectData);
         if (!bookID) throw new Error('bookid');
 
-        // getBookTOCFromAPI validates the ID and resolves the Book itself.
-        const toc = await getBookTOCFromAPI(bookID, projectData.projectURL);
-        if (!toc) throw new Error('notoc'); // handle as generic error below
+        if (!checkBookIDFormat(bookID)) throw new Error('bookid');
+
+        let toc;
+        try {
+            const bookService = new BookService({ bookID });
+            // Gated on checkProjectMemberPermission above. Workbench books are mostly
+            // restricted pages, so the unfiltered tree is required. Skip the shared
+            // cache so pages added moments ago show up.
+            toc = await bookService.getBookTOCNew({ includeRestricted: true, cache: false });
+        } catch (e) {
+            logger.error({ err: e, bookID }, "Failed to load book TOC for a11y import");
+            throw new Error('tocretrieve');
+        }
+        if (!toc) throw new Error('tocretrieve');
 
         const pages = recurseBuildPagesArray(toc.children);
         let pageObjs = pages.map((page) => ({
@@ -2914,7 +2924,6 @@ const importA11YSectionsFromTOC = async (req, res) => {
         if (err.message === 'notfound') errMsg = conductorErrors.err11;
         else if (err.message === 'unauth') errMsg = conductorErrors.err8;
         else if (err.message === 'bookid') errMsg = conductorErrors.err28;
-        else if (err.message === 'privateresource') errMsg = conductorErrors.err29;
         else if (err.message === 'tocretrieve') errMsg = conductorErrors.err22;
         return res.send({
             err: true,
