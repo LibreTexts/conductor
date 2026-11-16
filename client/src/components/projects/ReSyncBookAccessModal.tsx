@@ -10,6 +10,8 @@ interface ReSyncBookAccessModalProps {
   canOverwriteSubpages: boolean;
   onConfirm: (cascade: ReSyncCascade) => void;
   onCancel: () => void;
+  /** Applied to the Davis modal panel. */
+  className?: string;
 }
 
 const ReSyncBookAccessModal: React.FC<ReSyncBookAccessModalProps> = ({
@@ -17,12 +19,13 @@ const ReSyncBookAccessModal: React.FC<ReSyncBookAccessModalProps> = ({
   canOverwriteSubpages,
   onConfirm,
   onCancel,
+  className,
 }) => {
   const [overwriteSubpages, setOverwriteSubpages] = useState(false);
   const absolute = canOverwriteSubpages && overwriteSubpages;
 
   return (
-    <Modal open={open} onClose={onCancel} size="md">
+    <Modal open={open} onClose={onCancel} size="md" className={className}>
       <Modal.Header>
         <Modal.Title>Re-Sync Book Access</Modal.Title>
         <Modal.Close />

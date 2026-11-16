@@ -1389,6 +1389,16 @@ code {
     z-index: 50;
 }
 
+/*
+ * TEMP: Davis dialogs hardcode their root at z-50, below the Semantic UI
+ * dimmer (z-index 1000), so one opened from a Semantic modal renders behind
+ * it. Add `above-semantic-modal` to the Davis Modal's className to lift its
+ * root (the panel's grandparent). Remove once ManageTeamModal migrates to Davis.
+ */
+div:has(> div > .above-semantic-modal) {
+    z-index: 1001;
+}
+
 /* Hotfix for fullscreen modal centering */
 .ui.modal.fullscreen {
     left: 0 !important;

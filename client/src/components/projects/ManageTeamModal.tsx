@@ -34,7 +34,6 @@ import useDebounce from "../../hooks/useDebounce";
 import { useTypedSelector } from "../../state/hooks";
 import { extractEmailDomain } from "../../utils/misc";
 import api from "../../api";
-import { useModals } from "../../context/ModalContext";
 import ReSyncBookAccessModal, { ReSyncCascade } from "./ReSyncBookAccessModal";
 import { useNotifications } from "../../context/NotificationContext";
 import { Link } from "@libretexts/davis-react";
@@ -315,9 +314,9 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
   const { handleGlobalError } = useGlobalError();
   const { debounce } = useDebounce();
   const user = useTypedSelector((state) => state.user);
-  const { openModal, closeAllModals } = useModals();
   const { addNotification } = useNotifications();
   const [loading, setLoading] = useState<boolean>(false);
+  const [showReSyncModal, setShowReSyncModal] = useState<boolean>(false);
   const [hasNotSearched, setHasNotSearched] = useState<boolean>(true);
   const [searchString, setSearchString] = useState<string>("");
   const [inviteEmail, setInviteEmail] = useState<string>("");
@@ -638,20 +637,34 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
     ) {
       return;
     }
-    openModal(
-      <ReSyncBookAccessModal
-        canOverwriteSubpages={!!user.isSuperAdmin}
-        onConfirm={(cascade) => {
-          closeAllModals();
-          submitReSyncAccess(cascade);
-        }}
-        onCancel={closeAllModals}
-      />
-    );
+    setShowReSyncModal(true);
   };
 
+  // TEMP: ReSyncBookAccessModal is a Davis (Headless UI) dialog stacked on this
+  // Semantic modal. It renders inline rather than through useModals so this
+  // modal can stop treating clicks and Escape inside it as "outside" closes.
+  // Remove once this modal migrates to Davis.
   return (
-    <Modal open={show} onClose={handleClose} size="large" closeIcon>
+    <>
+    {showReSyncModal && (
+      <ReSyncBookAccessModal
+        className="above-semantic-modal"
+        canOverwriteSubpages={!!user.isSuperAdmin}
+        onConfirm={(cascade) => {
+          setShowReSyncModal(false);
+          submitReSyncAccess(cascade);
+        }}
+        onCancel={() => setShowReSyncModal(false)}
+      />
+    )}
+    <Modal
+      open={show}
+      onClose={handleClose}
+      size="large"
+      closeIcon
+      closeOnDimmerClick={!showReSyncModal}
+      closeOnEscape={!showReSyncModal}
+    >
       <Modal.Header className="!flex !flex-row !justify-between !items-center !w-full">
         <h2>Manage Project Team</h2>
         {project.libreLibrary &&
@@ -853,6 +866,7 @@ const ManageTeamModal: React.FC<ManageTeamModalProps> = ({
         <Button onClick={handleClose}>Close</Button>
       </Modal.Actions>
     </Modal>
+    </>
   );
 };
 
