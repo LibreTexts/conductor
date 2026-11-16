@@ -155,6 +155,12 @@ const TicketPrivacyDetails: React.FC<{ ticket: SupportTicket }> = ({ ticket }) =
               message={`Ticket content was redacted on ${prettyDate(privacy.redactedAt)} after the deletion request was fulfilled.`}
             />
           )}
+          {!isClosed && privacy.extension && !privacy.extension.notifiedAt && (
+            <Alert
+              variant="warning"
+              message="The extension notice hasn't reached the requester yet. It retries daily."
+            />
+          )}
           {!isClosed && !isPrivacyIdentityVerified(privacy) && (
             <Alert
               variant="warning"

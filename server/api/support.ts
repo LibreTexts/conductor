@@ -68,6 +68,7 @@ import {
   PRIVACY_QUEUE_SLUG,
   PrivacyTicketError,
   PrivacyTicketFields,
+  shouldRedactOnClose,
 } from "../util/privacyTickets";
 
 async function _isInternalSupportUser(
@@ -93,6 +94,16 @@ async function _isInternalSupportUser(
 // Privacy inquiries are support/superadmin only; harvesters count as internal elsewhere but not here
 const _isPrivacyStaff = (req: Parameters<typeof _isInternalSupportUser>[0]) =>
   _isInternalSupportUser(req, ["superadmin", "support"]);
+
+/*
+ * Keyed on close, not redactedAt: redactedAt is stamped last, so content added mid-redaction
+ * would survive. Once redactedAt is set nothing cleans the ticket again.
+ */
+function _rejectIfRedacted(ticket: { status?: string; privacy?: PrivacyTicketFields }, res: Response): boolean {
+  if (ticket.status !== "closed" || !shouldRedactOnClose(ticket.privacy)) return false;
+  res.status(400).send({ err: true, errMsg: "This privacy inquiry was redacted and can't take new messages, files, or CCs." });
+  return true;
+}
 
 function _sanitizeTicketForResponse(
   ticketService: SupportTicketService,
@@ -518,6 +529,7 @@ async function addTicketCC(
     const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } })
       .orFail()
       .populate(["assignedUsers", "user"]);
+    if (_rejectIfRedacted(ticket, res)) return;
 
     if (!ticket.ccedEmails) ticket.ccedEmails = [];
 
@@ -899,6 +911,7 @@ async function addTicketAttachments(
     const isInternal = await _isInternalSupportUser(req);
 
     const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
+    if (_rejectIfRedacted(ticket, res)) return;
 
     let foundUploaderName = "Unknown";
     if (userUUID) {
@@ -1244,6 +1257,7 @@ async function createGeneralMessage(
     const ticketService = new SupportTicketService();
 
     const ticket = await ticketService.resetAutoClose(uuid); // reset auto-close trigger
+    if (_rejectIfRedacted(ticket, res)) return;
 
     let foundSenderName = "Unknown";
     let foundSenderUUID: string | undefined;
@@ -1455,6 +1469,7 @@ async function createInternalMessage(
 
     const ticketService = new SupportTicketService();
     const ticket = await ticketService.resetAutoClose(uuid);
+    if (_rejectIfRedacted(ticket, res)) return;
     const foundUser = await User.findOne({ uuid: { $eq: userUUID } }).orFail();
 
     const ticketMessage = await SupportTicketMessage.create({

@@ -874,20 +874,23 @@ export default class SupportTicketService {
         return !!extension;
     }
 
-    /** Emails the requester about a saved extension; notifiedAt is only stamped once the email goes out. */
+    /** Emails the requester about a saved extension; notifiedAt is stamped once sent, or when there's no requester email. */
     async notifyPrivacyExtension(ticket: SupportTicketInterface): Promise<void> {
         const extension = ticket.privacy?.extension;
         if (!extension) return;
         try {
             const email = await this._getTicketAuthorEmail(ticket);
-            if (!email) return;
-            await mailAPI.sendPrivacyExtensionNotification(
-                email,
-                ticket.uuid,
-                extension.newDueDate,
-                extension.reason,
-                this._requesterLinkParams(ticket),
-            );
+            if (email) {
+                await mailAPI.sendPrivacyExtensionNotification(
+                    email,
+                    ticket.uuid,
+                    extension.newDueDate,
+                    extension.reason,
+                    this._requesterLinkParams(ticket),
+                );
+            } else {
+                supportTicketLog.warn(`No requester email for privacy ticket ${ticket.uuid}; extension notice not sent`);
+            }
             await SupportTicket.updateOne({ uuid: ticket.uuid }, { $set: { "privacy.extension.notifiedAt": new Date() } });
         } catch (err) {
             supportTicketLog.error({ err }, `Failed to send privacy extension notice for ticket ${ticket.uuid}`);
@@ -1027,6 +1030,16 @@ export default class SupportTicketService {
     }
 
     async sendPrivacyDeadlineReminders(now = new Date()): Promise<number> {
+        // Retry extension notices that failed when staff saved them
+        const unnotified = await SupportTicket.find({
+            status: { $ne: "closed" },
+            "privacy.extension.newDueDate": { $exists: true },
+            "privacy.extension.notifiedAt": { $exists: false },
+        });
+        for (const ticket of unnotified) {
+            await this.notifyPrivacyExtension(ticket);
+        }
+
         const tickets = await SupportTicket.find({
             "privacy.dueDate": { $exists: true },
             status: { $ne: "closed" },
