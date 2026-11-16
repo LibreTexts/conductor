@@ -771,6 +771,10 @@ export default class SupportTicketService {
             );
         }
         if (!ticket.privacy && toPrivacy) {
+            // Closed privacy tickets can't be edited or reopened, so it would arrive stuck without response fields
+            if (ticket.status === "closed") {
+                throw new PrivacyTicketError(`#${ticket.uuidShort} is closed; reopen it before moving it to the privacy queue`);
+            }
             return getDefaultPrivacyFields(ticket.timeOpened, !!ticket.userUUID);
         }
         return undefined;
@@ -891,7 +895,7 @@ export default class SupportTicketService {
             } else {
                 supportTicketLog.warn(`No requester email for privacy ticket ${ticket.uuid}; extension notice not sent`);
             }
-            await SupportTicket.updateOne({ uuid: ticket.uuid }, { $set: { "privacy.extension.notifiedAt": new Date() } });
+            await SupportTicket.updateOne({ uuid: { $eq: ticket.uuid } }, { $set: { "privacy.extension.notifiedAt": new Date() } });
         } catch (err) {
             supportTicketLog.error({ err }, `Failed to send privacy extension notice for ticket ${ticket.uuid}`);
         }
@@ -928,7 +932,7 @@ export default class SupportTicketService {
         const privacy = ticket.privacy!;
         if (!privacy.responseOutcome) return;
         const markNotified = () =>
-            SupportTicket.updateOne({ uuid: ticket.uuid }, { $set: { "privacy.responseNotifiedAt": new Date() } });
+            SupportTicket.updateOne({ uuid: { $eq: ticket.uuid } }, { $set: { "privacy.responseNotifiedAt": new Date() } });
 
         const email = await this._getTicketAuthorEmail(ticket);
         if (!email) {
@@ -1064,7 +1068,7 @@ export default class SupportTicketService {
                 if (emails.length === 0) continue;
 
                 await mailAPI.sendPrivacyDeadlineReminder(emails, ticket.uuid, ticket.title, privacy.dueDate);
-                await SupportTicket.updateOne({ uuid: ticket.uuid }, { $set: { "privacy.remindersSent": reached } });
+                await SupportTicket.updateOne({ uuid: { $eq: ticket.uuid } }, { $set: { "privacy.remindersSent": reached } });
                 sent++;
             } catch (err) {
                 supportTicketLog.error({ err }, `Failed to send privacy reminder for ticket ${ticket.uuid}`);

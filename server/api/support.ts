@@ -109,14 +109,11 @@ function _sanitizeTicketForResponse(
   ticketService: SupportTicketService,
   ticket: SupportTicketInterface,
   isInternal: boolean,
-  allowGuestAccessKey = false,
+  { allowGuestAccessKey = false, showPrivacy = false } = {},
 ): SupportTicketInterface {
   ticketService._removeAccessKeysFromResponse(ticket, allowGuestAccessKey);
-  if (!isInternal) {
-    ticketService._redactStatusFromResponse(ticket);
-    // Staff working notes (verification, denial notes, reminders); requesters get the outcome by email
-    ticket.privacy = undefined;
-  }
+  if (!isInternal) ticketService._redactStatusFromResponse(ticket);
+  if (!showPrivacy) ticket.privacy = undefined;
   return ticket;
 }
 
@@ -146,10 +143,11 @@ async function getTicket(
     }
 
     const isInternal = await _isInternalSupportUser(req);
+    const showPrivacy = !!ticket.privacy && (await _isPrivacyStaff(req));
 
     return res.send({
       err: false,
-      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
+      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal, { showPrivacy }),
     });
   } catch (err: any) {
     if (err.name === "DocumentNotFoundError") {
@@ -227,6 +225,7 @@ async function getRequestorOtherTickets(
       populateAssignedUsers: true,
       // Route is gated to support/harvester (checkHasRoleMiddleware), so callers are always internal.
       isInternal: true,
+      excludePrivacy: !(await _isPrivacyStaff(req)),
     });
 
     if (!results) {
@@ -261,6 +260,7 @@ async function _getUserTickets({
   populateAssignedUsers = false,
   queue,
   isInternal = false,
+  excludePrivacy = false,
 }: {
   uuid?: string;
   email?: string;
@@ -271,6 +271,7 @@ async function _getUserTickets({
   populateAssignedUsers?: boolean;
   queue?: string;
   isInternal?: boolean;
+  excludePrivacy?: boolean;
 }): Promise<{ tickets: SupportTicketInterface[]; total: number } | undefined> {
   try {
     const ticketService = new SupportTicketService();
@@ -301,6 +302,9 @@ async function _getUserTickets({
     const searchObj: Record<string, any> = uuid ? { userUUID: { $eq: uuid } } : { "guest.email": { $eq: email } };
     if (queueId) {
       searchObj["queue_id"] = { $eq: queueId };
+    }
+    if (excludePrivacy) {
+      searchObj["privacy"] = { $exists: false };
     }
 
     const query = SupportTicket.find(searchObj)
@@ -889,7 +893,7 @@ async function createTicket(
 
     return res.send({
       err: false,
-      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
+      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal, { allowGuestAccessKey: true }), // Allow guest access key to be returned here for attachments to be immediately uploaded
     });
   } catch (err) {
     logger.error({ err }, "createTicket failed");
