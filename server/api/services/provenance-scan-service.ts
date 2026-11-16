@@ -77,8 +77,11 @@ const LEASE_MS = 5 * 60 * 1000;
 const LEASE_RENEW_MS = 60 * 1000;
 export const DEFAULT_SCAN_BUDGET_MS = 10 * 60 * 1000;
 export const MAX_SCAN_BUDGET_MS = 55 * 60 * 1000;
-/** A completed library is scanned again after this long. */
-const RESCAN_AFTER_MS = envInt("PROVENANCE_RESCAN_AFTER_MS", 24 * 60 * 60 * 1000);
+/**
+ * A completed library is walked again after this long. The changes job
+ * (library change feeds) catches edits in between, so this is a safety net.
+ */
+const RESCAN_AFTER_MS = envInt("PROVENANCE_RESCAN_AFTER_MS", 7 * 24 * 60 * 60 * 1000);
 /**
  * Libraries the backfill never walks, whatever their sync settings: their own
  * books aren't scanned. Pages in them that books elsewhere reuse are still
@@ -143,7 +146,7 @@ const isDuplicateKeyError = (err: unknown): boolean =>
 // ── Lease ────────────────────────────────────────────────────────────────────
 
 /** Exclusive hold on one library's scan state, renewed while the scan runs. */
-class ScanLease {
+export class ScanLease {
   lost = false;
   private timer: NodeJS.Timeout | null = null;
 
@@ -276,7 +279,7 @@ const fetchPage = (
 ): Promise<Response> => fetchLibraryPage(ctx.throttle, ctx.lib, path, api);
 
 /** {@link fetchPage} without a scan context: any library, any throttle. */
-const fetchLibraryPage = async (
+export const fetchLibraryPage = async (
   throttle: Throttle,
   lib: string,
   path: string | number,
@@ -674,7 +677,9 @@ const queueSourceChanges = async (
 };
 
 /** How often each reused page's revision is re-read by the source check. */
-const SOURCE_CHECK_INTERVAL_MS = envInt("PROVENANCE_SOURCE_CHECK_INTERVAL_MS", 60 * 60 * 1000);
+// A safety net: the changes job reads each library's change feed, which
+// reports reused pages' edits without reading every page.
+const SOURCE_CHECK_INTERVAL_MS = envInt("PROVENANCE_SOURCE_CHECK_INTERVAL_MS", 24 * 60 * 60 * 1000);
 /** Reused pages read per batch of the source check. */
 const SOURCE_CHECK_BATCH = 200;
 
@@ -828,6 +833,8 @@ export type LibraryScanOutcome = {
   phase?: string;
   stats: ScanStats;
   error?: string;
+  /** Targeted scans: the books actually finished. */
+  scannedBooks?: string[];
 };
 
 const scanLibrary = async (
@@ -1003,7 +1010,7 @@ export const isProvenanceScanRunning = (): boolean => scanRunning;
  * race a full scan of the same library. Afterwards the books' source books,
  * chain roots and summaries are brought up to date.
  */
-const scanSpecificBooks = async (
+export const scanSpecificBooks = async (
   bookIDs: string[],
   deadline: number,
   force: boolean,
@@ -1064,6 +1071,7 @@ const scanSpecificBooks = async (
         status: scannedBooks.length === books.length ? "complete" : "budget",
         phase: "targeted",
         stats,
+        scannedBooks,
       });
     } catch (err) {
       scanLog.error({ err, library: lib }, "Targeted provenance scan failed");

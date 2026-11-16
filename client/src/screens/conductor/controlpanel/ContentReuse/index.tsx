@@ -173,7 +173,8 @@ const ContentReuse: React.FC = () => {
                         <th scope="col" className="py-2 pr-4 font-semibold">Copied</th>
                         <th scope="col" className="py-2 pr-4 font-semibold">Books reusing / reused</th>
                         <th scope="col" className="py-2 pr-4 font-semibold">Broken links</th>
-                        <th scope="col" className="py-2 font-semibold">Last run</th>
+                        <th scope="col" className="py-2 pr-4 font-semibold">Last run</th>
+                        <th scope="col" className="py-2 font-semibold">Change feed</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -194,7 +195,23 @@ const ContentReuse: React.FC = () => {
                               {lib.booksReusing.toLocaleString()} / {lib.booksReused.toLocaleString()}
                             </td>
                             <td className="py-2 pr-4">{lib.brokenLinks.toLocaleString()}</td>
-                            <td className="py-2">{shortDate(lib.scan?.lastRunAt ?? null)}</td>
+                            <td className="py-2 pr-4">{shortDate(lib.scan?.lastRunAt ?? null)}</td>
+                            <td className="py-2">
+                              {lib.feed?.polledAt ? shortDate(lib.feed.polledAt) : "Not read yet"}
+                              {lib.feed?.pendingBooks ? (
+                                <span className="block text-xs text-neutral-600">
+                                  {plural(lib.feed.pendingBooks, "book")} waiting to be re-read
+                                </span>
+                              ) : null}
+                              {lib.feed?.gapAt && (
+                                <Badge
+                                  label={`Gap ${shortDate(lib.feed.gapAt)}`}
+                                  variant="warning"
+                                  size="sm"
+                                  className="mt-1"
+                                />
+                              )}
+                            </td>
                           </tr>
                         );
                       })}

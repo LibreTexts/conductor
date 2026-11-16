@@ -172,6 +172,14 @@ export type LibraryReuseStats = {
     } | null;
   } | null;
   brokenLinks: number;
+  /** The changes job's reading of this library's change feed. */
+  feed: {
+    polledAt: string | null;
+    /** The last read skipped events; safety nets were queued. */
+    gapAt: string | null;
+    /** Books waiting to be re-read. */
+    pendingBooks: number;
+  } | null;
 };
 
 export type BookGraphNode = ContentSourcesRef & {

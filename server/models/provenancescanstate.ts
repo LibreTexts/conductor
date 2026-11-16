@@ -28,6 +28,17 @@ export interface ProvenanceScanStateInterface {
   lockedUntil?: Date | null;
   lastRunAt?: Date;
   lastCompletedAt?: Date;
+  /**
+   * Change feed (`events/page-hierarchy`): the newest event (`@mt-epoch`, ms)
+   * already applied. The changes job reads only events after it.
+   */
+  eventsCursor?: number | null;
+  /** When the changes job last read this library's feed. */
+  eventsPolledAt?: Date | null;
+  /** The last read hit its page limit before reaching the cursor: events were skipped. */
+  eventsGapAt?: Date | null;
+  /** Books the feed showed changes in, waiting to be re-read. */
+  pendingRescanBooks?: string[];
   stats: {
     scanned: number;
     skipped: number;
@@ -49,6 +60,10 @@ const ProvenanceScanStateSchema = new Schema<ProvenanceScanStateInterface>(
     lockedUntil: { type: Date, default: null },
     lastRunAt: { type: Date },
     lastCompletedAt: { type: Date },
+    eventsCursor: { type: Number, default: null },
+    eventsPolledAt: { type: Date, default: null },
+    eventsGapAt: { type: Date, default: null },
+    pendingRescanBooks: { type: [String], default: [] },
     stats: {
       scanned: count,
       skipped: count,

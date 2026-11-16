@@ -58,20 +58,22 @@ Optional tuning, all with safe defaults:
 | Variable | Default | Effect |
 |---|---|---|
 | `PROVENANCE_SCAN_INTERVAL_MS` | `250` | Gap between requests to one library (throttle). Raise it if a library's API is under strain. |
-| `PROVENANCE_RESCAN_AFTER_MS` | `86400000` (24 h) | How long a library that finished a full scan waits before it's scanned again. |
-| `PROVENANCE_SOURCE_CHECK_INTERVAL_MS` | `3600000` (1 h) | How often each reused page's revision is re-checked for changes. |
+| `PROVENANCE_RESCAN_AFTER_MS` | `604800000` (7 days) | How long a library that finished a full walk waits before it's walked again. A safety net: the changes job catches edits in between. |
+| `PROVENANCE_SOURCE_CHECK_INTERVAL_MS` | `86400000` (24 h) | How often each reused page's revision is re-read directly. A safety net behind the change feed. |
+| `PROVENANCE_EVENTS_MAX_PAGES` | `25` | Change-feed pages (200 events each) the changes job reads per library per run before calling it a gap. |
 | `PROVENANCE_EXCLUDED_LIBRARIES` | `dev` | Comma-separated libraries the backfill never walks. Their pages that books elsewhere reuse are still tracked; `?book=` scans of their books still run. Set it to empty to exclude none. |
 
 ---
 
 ## 3. Scheduled jobs
 
-Add these wherever `PUT /api/v1/alerts/processdaily` is already scheduled (cron or EventBridge). Both take the existing key, run on **one** server instance, and answer `202` immediately while the work continues in the background.
+Add these wherever `PUT /api/v1/alerts/processdaily` is already scheduled (cron or EventBridge). All three take the existing key, run on **one** server instance, and answer `202` immediately while the work continues in the background.
 
 | Job | Route | Schedule | What it does |
 |---|---|---|---|
-| **Scan** | `PUT /api/v1/provenance/automation/scan` | Every **15–60 min** | Checks reused pages for changes first, then continues the library backfill where it stopped. Each call works for up to `?minutes=` (default 10, max 55); pick a schedule interval longer than that budget. |
-| **Notify** | `PUT /api/v1/provenance/automation/notify` | **Daily**, some time after a scan | Sends each project lead one email covering the changes since the last run. |
+| **Scan** | `PUT /api/v1/provenance/automation/scan` | Every **15–60 min** | Continues the library backfill where it stopped, and runs the daily safety-net check of reused pages. Each call works for up to `?minutes=` (default 10, max 55); pick a schedule interval longer than that budget. |
+| **Changes** | `PUT /api/v1/provenance/automation/changes` | **Once to a few times a day**, before notify | Reads each library's change feed from where the last run stopped, applies it, and re-reads the books it showed changes in. See *Change feed* below. |
+| **Notify** | `PUT /api/v1/provenance/automation/notify` | **Daily**, after the changes job | Sends each project lead one email covering the changes since the last run. |
 
 ```bash
 # Scan: one 10-minute slice across all synced libraries
@@ -99,6 +101,30 @@ Running a job twice is harmless:
 - **Notify:** a lead is never emailed twice about the same change, even if two instances run it, and a failed send is retried on the next run.
 
 ---
+
+### Change feed
+Each library has a change feed: `GET https://{lib}.libretexts.org/@api/deki/events/page-hierarchy/home`, newest first, read with Conductor's server token. **Only the changes job reads it**; nothing on the library side calls Conductor, and no webhooks are needed.
+
+```bash
+# Changes: read every library's feed from its last position (10-minute budget)
+curl -X PUT -H "Authorization: Bearer $LIBRE_API_KEY"   "https://<conductor-host>/api/v1/provenance/automation/changes?minutes=10"
+
+# See what it would do, without writing anything or moving the cursors
+curl -X PUT -H "Authorization: Bearer $LIBRE_API_KEY"   "https://<conductor-host>/api/v1/provenance/automation/changes?library=chem&dryRun=true"
+```
+
+**Libraries covered:** every synced library, plus every library holding a page that books elsewhere reuse. That includes dev, whose own books still aren't backfilled.
+
+**What the job does with the events, per library:**
+- **A reused page outside any scanned book was edited:** records the change for its readers' leads.
+- **A page was deleted:** marks it deleted. Live reuse of it shows "Source deleted", and its readers' leads are told.
+- **A page was moved or renamed:** updates its path and title.
+- **A page in a scanned book was edited, created, restored or moved:** queues the book, and the job re-reads it. A re-read only fetches pages whose revision moved. Forks made in place, new or removed reuse, and new pages show up within hours instead of a week.
+
+**Cursors and gaps:**
+- **Per-library cursor:** each library keeps its own (`eventsCursor` in `provenancescanstates`). A run reads only what happened since, and a library the time budget didn't reach is first in line next run. Content Reuse → *By library* shows each feed's last read, and how many books are waiting to be re-read.
+- **First run:** the first run on a library only records where the feed is now. History is the backfill's job.
+- **Gap:** if a library had more than `PROVENANCE_EVENTS_MAX_PAGES` × 200 events since its last read, the job applies the newest and records a **gap**, shown as a warning badge on Content Reuse. It also makes that library's reused pages due for the direct check, and its next scan does a full re-walk, so nothing is lost for good. Schedule the job more often if gaps keep appearing.
 
 ## 4. Rollout order
 

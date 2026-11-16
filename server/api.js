@@ -1244,6 +1244,16 @@ router
     provenanceAPI.getGraph,
   );
 
+// Triggered externally once or a few times a day, before notify: reads each
+// library's change feed from where the last run stopped and applies it.
+router
+  .route("/provenance/automation/changes")
+  .put(
+    middleware.checkLibreAPIKey,
+    middleware.validateZod(provenanceValidators.RunProvenanceChangesSchema),
+    provenanceAPI.runChangesJob,
+  );
+
 // Daily, triggered externally: one email per project lead about reused pages
 // that changed or were deleted since the last run.
 router

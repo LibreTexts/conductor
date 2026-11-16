@@ -35,6 +35,14 @@ export type LibraryReuseStats = {
     running: boolean;
     stats: { scanned: number; skipped: number; edgesAdded: number; edgesRemoved: number; errors: number } | null;
   } | null;
+  /** The changes job's reading of this library's change feed. */
+  feed: {
+    polledAt: Date | null;
+    /** The last read skipped events (hit its page limit); safety nets were queued. */
+    gapAt: Date | null;
+    /** Books waiting to be re-read. */
+    pendingBooks: number;
+  } | null;
   /** Reuse links whose source page is now deleted. */
   brokenLinks: number;
 };
@@ -64,7 +72,7 @@ export const getLibraryReuseStats = async (): Promise<LibraryReuseStats[]> => {
     ]),
     ProvenanceScanState.find(
       {},
-      { _id: 0, library: 1, phase: 1, lastRunAt: 1, lastCompletedAt: 1, lockedUntil: 1, stats: 1 },
+      { _id: 0, library: 1, phase: 1, lastRunAt: 1, lastCompletedAt: 1, lockedUntil: 1, stats: 1, eventsPolledAt: 1, eventsGapAt: 1, pendingRescanBooks: 1 },
     ).lean(),
     // Broken links per target library; the target book's prefix is its library.
     PageReuseEdge.aggregate<{ _id: string; n: number }>([
@@ -99,6 +107,13 @@ export const getLibraryReuseStats = async (): Promise<LibraryReuseStats[]> => {
             }
           : null,
         brokenLinks: broken.find((b) => b._id === library)?.n ?? 0,
+        feed: state
+          ? {
+              polledAt: state.eventsPolledAt ?? null,
+              gapAt: state.eventsGapAt ?? null,
+              pendingBooks: state.pendingRescanBooks?.length ?? 0,
+            }
+          : null,
       };
     })
     .sort((a, b) => b.totals.pages - a.totals.pages || a.library.localeCompare(b.library));

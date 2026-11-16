@@ -56,3 +56,26 @@ export const GetProvenanceGraphSchema = z.object({
 });
 
 export type GetProvenanceGraphRequest = z.infer<typeof GetProvenanceGraphSchema>;
+
+/**
+ * `PUT /provenance/automation/changes`: read each library's change feed from
+ * where the last run stopped and apply it.
+ */
+export const RunProvenanceChangesSchema = z.object({
+  query: z.object({
+    /** Comma-separated library subdomains; defaults to every library provenance follows. */
+    library: z
+      .string()
+      .regex(/^[a-z0-9]+(,[a-z0-9]+)*$/i, "Expected comma-separated library subdomains.")
+      .optional(),
+    /** Minutes this run may work before yielding to the next one. */
+    minutes: z.coerce.number().int().min(1).max(55).optional(),
+    /** Read the feeds and return the planned actions; write nothing, keep the cursors. */
+    dryRun: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => value === "true"),
+  }),
+});
+
+export type RunProvenanceChangesRequest = z.infer<typeof RunProvenanceChangesSchema>;

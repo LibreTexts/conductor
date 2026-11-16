@@ -23,6 +23,7 @@ const stats = {
   booksReused: 0,
   scan: { phase: "idle", lastRunAt: "2026-11-11T16:15:57.350Z", lastCompletedAt: null, running: false, stats: null },
   brokenLinks: 0,
+  feed: { polledAt: "2026-11-16T10:00:00.000Z", gapAt: null, pendingBooks: 2 },
 };
 
 const graph = {
@@ -54,6 +55,7 @@ describe("ContentReuse", () => {
 
     expect(await screen.findByText("By library")).toBeTruthy();
     expect(screen.getByRole("rowheader", { name: "dev" })).toBeTruthy();
+    expect(screen.getByText("2 books waiting to be re-read")).toBeTruthy();
     expect(await screen.findByRole("img", { name: /Book connection graph: 2 nodes and 1 reuse link/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Remixer Book/ })).toBeTruthy();
   });

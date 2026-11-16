@@ -3,6 +3,7 @@ import { childLogger } from "../logger.js";
 import { conductor500Err } from "../util/errorutils.js";
 import type {
   GetProvenanceGraphRequest,
+  RunProvenanceChangesRequest,
   RunProvenanceNotifyRequest,
   RunProvenanceScanRequest,
 } from "./validators/provenance.js";
@@ -11,6 +12,11 @@ import {
   isProvenanceScanRunning,
   runProvenanceScan,
 } from "./services/provenance-scan-service.js";
+import {
+  DEFAULT_CHANGES_BUDGET_MS,
+  isProvenanceChangesRunning,
+  runLibraryChanges,
+} from "./services/provenance-events-service.js";
 import {
   getBookGraph,
   getLibraryReuseStats,
@@ -121,7 +127,45 @@ async function getGraph(req: Request, res: Response) {
   }
 }
 
+const changesLog = childLogger("provenance-events");
+
+/**
+ * Reads every library's change feed (`events/page-hierarchy`) from where the
+ * last run stopped, applies it, and re-reads the books it showed changes in.
+ * Triggered externally once or a few times a day, before notify. Answers 202
+ * and works in the background; `?dryRun=true` instead answers with the
+ * planned actions, writing nothing.
+ */
+async function runChangesJob(req: Request, res: Response) {
+  try {
+    const { library, minutes, dryRun } =
+      req.query as unknown as RunProvenanceChangesRequest["query"];
+    const libraries = library ? library.split(",") : undefined;
+    const budgetMs = minutes ? minutes * 60 * 1000 : DEFAULT_CHANGES_BUDGET_MS;
+
+    if (dryRun) {
+      const outcome = await runLibraryChanges({ libraries, budgetMs, dryRun: true });
+      return res.send({ err: false, ...outcome });
+    }
+    if (isProvenanceChangesRunning()) {
+      return res.status(202).send({
+        err: false,
+        started: false,
+        msg: "The changes job is already running on this instance.",
+      });
+    }
+    void runLibraryChanges({ libraries, budgetMs }).catch((err) =>
+      changesLog.error({ err }, "Changes job failed"),
+    );
+    return res.status(202).send({ err: false, started: true });
+  } catch (err) {
+    changesLog.error({ err }, "runChangesJob failed");
+    return conductor500Err(res);
+  }
+}
+
 export default {
+  runChangesJob,
   runScanJob,
   runNotifyJob,
   getStats,
