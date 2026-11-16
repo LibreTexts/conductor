@@ -47,7 +47,7 @@ export const LIBRARIES = [
   {
     href: "https://med.libretexts.org/",
     shortName: "med",
-    longName: "Medicine",
+    longName: "Health",
   },
   {
     href: "https://phys.libretexts.org/",
