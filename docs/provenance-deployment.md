@@ -124,7 +124,9 @@ curl -X PUT -H "Authorization: Bearer $LIBRE_API_KEY"   "https://<conductor-host
 **Cursors and gaps:**
 - **Per-library cursor:** each library keeps its own (`eventsCursor` in `provenancescanstates`). A run reads only what happened since, and a library the time budget didn't reach is first in line next run. Content Reuse → *By library* shows each feed's last read, and how many books are waiting to be re-read.
 - **First run:** the first run on a library only records where the feed is now. History is the backfill's job.
-- **Gap:** if a library had more than `PROVENANCE_EVENTS_MAX_PAGES` × 200 events since its last read, the job applies the newest and records a **gap**, shown as a warning badge on Content Reuse. It also makes that library's reused pages due for the direct check, and its next scan does a full re-walk, so nothing is lost for good. Schedule the job more often if gaps keep appearing.
+- **Gap:** if a library had more than `PROVENANCE_EVENTS_MAX_PAGES` × 200 events since its last read, the job applies the newest and records a **gap**, shown as a warning badge on Content Reuse. It also makes that library's reused pages due for the direct check, and its next scan does a full re-walk, so nothing is lost for good. Schedule the job more often if gaps keep appearing. The badge clears on the next read without a gap.
+- **Failed read:** if a feed page or a grouped event's detail can't be read before the job reaches the cursor, nothing is applied and the cursor stays. The library shows `failed` in the job's result and a `Change feed read incomplete` warning in the logs, and the next run reads the same span again. A library that fails run after run needs a look; nothing else catches up for it until its 24-hour source check.
+- **Off-host detail links:** a grouped event whose detail link isn't on `https://{lib}.libretexts.org` is never followed (the request would carry the library's token). Only its headline event is applied, and the job logs a warning.
 
 ## 4. Rollout order
 

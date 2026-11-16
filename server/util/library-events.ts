@@ -5,7 +5,10 @@
  *
  * Feed facts (probed on dev):
  * - newest first, up to `limit` summaries per call; `@since` of a response,
- *   passed back as `upto=`, returns the next older page;
+ *   passed back as `upto=`, returns the next older page. Paging is backward
+ *   only: `since=` is ignored (always the newest page), so a run reads back
+ *   from now to its cursor. `origin=mt-web` and `include=` change nothing
+ *   here (bot and API edits are already in the plain feed);
  * - every event has `@mt-epoch` (ms), a reliable numeric cursor;
  * - a summary with `@count` > 1 stands for several events, listed by its
  *   `@uri.detail` (a cascading delete is one per page).
@@ -245,8 +248,14 @@ export type FeedReadResult = {
   /** Hit the page limit before reading back past the cursor: events were skipped. */
   gap: boolean;
   pages: number;
-  /** The first page couldn't be read. */
+  /**
+   * The read stopped before reaching the cursor (a feed page or a group's
+   * detail couldn't be read). Nothing should be applied and the cursor must
+   * stay, so the next run reads the same span again.
+   */
   failed: boolean;
+  /** Grouped summaries whose detail link wasn't followed (not the library's host). */
+  skippedDetails: number;
 };
 
 /**
@@ -286,11 +295,22 @@ export const readFeed = async ({
   let pages = 0;
   let passedCursor = false;
   let gap = false;
+  let skippedDetails = 0;
+  const failed = (): FeedReadResult => ({
+    events: [],
+    newestEpoch,
+    gap: false,
+    pages,
+    failed: true,
+    skippedDetails,
+  });
 
   for (;;) {
     const json = await fetchPage(upto);
     if (!json) {
-      return { events: [...events.values()], newestEpoch, gap, pages, failed: pages === 0 };
+      // Past the cursor, only the overlap is missing: everything new was read.
+      if (pages > 0 && sinceEpoch !== null && passedCursor) break;
+      return failed();
     }
     pages += 1;
     const summaries = parseEventSummaries(json);
@@ -306,15 +326,19 @@ export const readFeed = async ({
         break;
       }
       if (!RELEVANT_EVENT_TYPES.has(summary.type)) continue;
-      if (summary.count > 1 && summary.detailUrl && isAllowedDetailUrl(summary.detailUrl)) {
-        const detail = await fetchDetail(summary.detailUrl);
-        if (detail) {
+      if (summary.count > 1 && summary.detailUrl) {
+        if (isAllowedDetailUrl(summary.detailUrl)) {
+          const detail = await fetchDetail(summary.detailUrl);
+          // Moving on with only the headline would lose the group's other
+          // events (e.g. every page of a cascading delete but the root).
+          if (!detail) return failed();
           for (const inner of parseEventSummaries(detail)) {
             seen(inner.epoch);
             if (inner.event) add(inner.event);
           }
           continue;
         }
+        skippedDetails += 1;
       }
       if (summary.event) add(summary.event);
     }
@@ -329,5 +353,5 @@ export const readFeed = async ({
     upto = next;
   }
 
-  return { events: [...events.values()], newestEpoch, gap, pages, failed: false };
+  return { events: [...events.values()], newestEpoch, gap, pages, failed: false, skippedDetails };
 };

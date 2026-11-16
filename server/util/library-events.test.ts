@@ -192,6 +192,65 @@ describe("readFeed", () => {
     assert.deepEqual(urls, []);
   });
 
+  it("fails, keeping the cursor, when a later page can't be read before the cursor", async () => {
+    const since = 10 * DAY;
+    const result = await readFeed({
+      sinceEpoch: since,
+      fetchPage: async (upto) => (upto ? null : { "@since": "p2", summary: [summary(raw(since + 3 * DAY, "page:delete", 1))] }),
+      fetchDetail: async () => null,
+      isAllowedDetailUrl: allowed,
+      maxPages: 5,
+    });
+    assert.equal(result.failed, true);
+    assert.deepEqual(result.events, [], "nothing is applied from a partial read");
+  });
+
+  it("succeeds when only the overlap margin past the cursor is unread", async () => {
+    const since = 10 * DAY;
+    const result = await readFeed({
+      sinceEpoch: since,
+      fetchPage: async (upto) => (upto ? null : {
+        "@since": "p2",
+        summary: [summary(raw(since + H, "page:delete", 1)), summary(raw(since - H, "page:delete", 2))],
+      }),
+      fetchDetail: async () => null,
+      isAllowedDetailUrl: allowed,
+      maxPages: 5,
+    });
+    assert.equal(result.failed, false);
+    assert.deepEqual(result.events.map((e) => e.pageID), [1]);
+  });
+
+  it("fails rather than keep only a group's headline when its detail can't be read", async () => {
+    const since = 10 * DAY;
+    const result = await readFeed({
+      sinceEpoch: since,
+      fetchPage: async () => ({
+        summary: [
+          summary(raw(since + H, "page:delete", 2), 6, "https://dev.libretexts.org/d/1"),
+          summary(raw(since - 2 * DAY, "page:delete", 3)),
+        ],
+      }),
+      fetchDetail: async () => null,
+      isAllowedDetailUrl: allowed,
+      maxPages: 5,
+    });
+    assert.equal(result.failed, true);
+  });
+
+  it("counts groups whose detail link is off the library's host", async () => {
+    const result = await readFeed({
+      sinceEpoch: 0,
+      fetchPage: async () => ({ summary: [summary(raw(5, "page:delete", 1), 3, "https://evil.example/x")] }),
+      fetchDetail: async () => null,
+      isAllowedDetailUrl: allowed,
+      maxPages: 1,
+    });
+    assert.equal(result.failed, false);
+    assert.equal(result.skippedDetails, 1);
+    assert.deepEqual(result.events.map((e) => e.pageID), [1], "the headline is still applied");
+  });
+
   it("reports a gap only when the page limit stops it before the cursor", async () => {
     const page = (n: number) => ({ "@since": `p${n + 1}`, summary: [summary(raw(100 * DAY - n * DAY, "page:delete", n))] });
     const gap = await readFeed({ sinceEpoch: 0, fetchPage: async (u) => page(u ? Number(u.slice(1)) : 0), fetchDetail: async () => null, isAllowedDetailUrl: allowed, maxPages: 2 });

@@ -165,7 +165,17 @@ export const applyLibraryFeed = async (
 
     const throttle = createThrottle(REQUEST_INTERVAL_MS);
     const read = await readLibraryFeed(lib, since, { throttle });
-    if (read.failed) return { library: lib, status: "failed" };
+    if (read.failed) {
+      // The cursor stays, so the next run reads the same span again.
+      eventsLog.warn({ library: lib, pages: read.pages }, "Change feed read incomplete; will retry next run");
+      return { library: lib, status: "failed" };
+    }
+    if (read.skippedDetails > 0) {
+      eventsLog.warn(
+        { library: lib, skippedDetails: read.skippedDetails },
+        "Grouped feed events with a detail link off the library's host were not expanded",
+      );
+    }
 
     const now = new Date();
     if (since === null) {
@@ -233,11 +243,12 @@ export const applyLibraryFeed = async (
       eventsCursor: read.newestEpoch ?? since,
       eventsPolledAt: now,
       pendingRescanBooks: pending,
+      // A clean read clears an earlier gap's warning; the log keeps its history.
+      eventsGapAt: read.gap ? now : null,
     };
     if (read.gap) {
       // Events between the cursor and what was read were skipped: let the
       // safety nets catch up now rather than on their slow schedules.
-      set.eventsGapAt = now;
       set.lastCompletedAt = new Date(0);
       await PageNode.updateMany(
         { lib: { $eq: lib }, isSource: true },
