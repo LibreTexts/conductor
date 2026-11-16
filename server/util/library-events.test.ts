@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   parseEventSummaries,
   planFeedActions,
+  readFeed,
   type FeedEvent,
   type TrackedPage,
 } from "./library-events.js";
@@ -137,5 +138,79 @@ describe("planFeedActions", () => {
       tracked([["dev-1", {}]]),
     );
     assert.deepEqual(plan.deletions, []);
+  });
+});
+
+describe("readFeed", () => {
+  const raw = (epoch: number, type: string, pageID: number) => ({
+    "@mt-epoch": String(epoch),
+    "@type": type,
+    page: { "@id": String(pageID) },
+  });
+  const summary = (event: object, count = 1, detail?: string) => ({
+    "@count": String(count),
+    ...(detail ? { "@uri.detail": detail } : {}),
+    event,
+  });
+  const H = 60 * 60 * 1000;
+  const DAY = 24 * H;
+  const allowed = (url: string) => url.startsWith("https://dev.libretexts.org/");
+
+  it("finds an event hidden in a group whose headline is older than the cursor", async () => {
+    const since = 10 * DAY;
+    const pages = [{
+      "@since": "p2",
+      summary: [
+        summary(raw(since + H, "page:delete", 1)),
+        // Headline before the cursor, but the group holds a newer edit.
+        summary(raw(since - H, "page.content:update", 2), 2, "https://dev.libretexts.org/d/1"),
+      ],
+    }, {
+      summary: [summary(raw(since - 2 * DAY, "page:delete", 3))],
+    }];
+    const result = await readFeed({
+      sinceEpoch: since,
+      fetchPage: async (upto) => (upto === "p2" ? pages[1] : pages[0]),
+      fetchDetail: async () => ({ summary: [{ event: raw(since + 2 * H, "page.content:update", 2) }, { event: raw(since - H, "page.content:update", 2) }] }),
+      isAllowedDetailUrl: allowed,
+      maxPages: 5,
+    });
+    assert.deepEqual(result.events.map((e) => [e.type, e.pageID]).sort(), [["page.content:update", 2], ["page:delete", 1]]);
+    assert.equal(result.newestEpoch, since + 2 * H, "the cursor comes from the newest event, inside groups too");
+    assert.equal(result.gap, false);
+  });
+
+  it("never sends the token to a detail URL on another host", async () => {
+    const urls: string[] = [];
+    await readFeed({
+      sinceEpoch: 0,
+      fetchPage: async () => ({ summary: [summary(raw(5, "page:delete", 1), 3, "https://evil.example/steal")] }),
+      fetchDetail: async (url) => (urls.push(url), null),
+      isAllowedDetailUrl: allowed,
+      maxPages: 1,
+    });
+    assert.deepEqual(urls, []);
+  });
+
+  it("reports a gap only when the page limit stops it before the cursor", async () => {
+    const page = (n: number) => ({ "@since": `p${n + 1}`, summary: [summary(raw(100 * DAY - n * DAY, "page:delete", n))] });
+    const gap = await readFeed({ sinceEpoch: 0, fetchPage: async (u) => page(u ? Number(u.slice(1)) : 0), fetchDetail: async () => null, isAllowedDetailUrl: allowed, maxPages: 2 });
+    assert.equal(gap.gap, true);
+    const noGap = await readFeed({ sinceEpoch: 99 * DAY + H, fetchPage: async (u) => page(u ? Number(u.slice(1)) : 0), fetchDetail: async () => null, isAllowedDetailUrl: allowed, maxPages: 2 });
+    assert.equal(noGap.gap, false, "passed the cursor; still inside the overlap margin");
+  });
+
+  it("with no cursor, reads one page to learn the newest epoch", async () => {
+    let calls = 0;
+    const result = await readFeed({
+      sinceEpoch: null,
+      fetchPage: async () => (calls++, { "@since": "x", summary: [summary(raw(42, "page:reorder", 1))] }),
+      fetchDetail: async () => null,
+      isAllowedDetailUrl: allowed,
+      maxPages: 5,
+    });
+    assert.equal(calls, 1);
+    assert.equal(result.newestEpoch, 42);
+    assert.deepEqual(result.events, []);
   });
 });

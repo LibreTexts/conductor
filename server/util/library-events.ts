@@ -227,3 +227,107 @@ export const planFeedActions = (
     newestEpoch,
   };
 };
+
+/**
+ * How far past the cursor to keep reading. A grouped summary can hold events
+ * newer than its headline event and its own date (seen on dev: 7 of 48
+ * groups), so the feed's order can't tell exactly where the cursor falls.
+ * Re-read events are filtered by epoch, so the overlap is harmless.
+ * In `@mt-epoch` units (milliseconds).
+ */
+export const CURSOR_OVERLAP_MS = 24 * 60 * 60 * 1000;
+
+export type FeedReadResult = {
+  /** Relevant events newer than the cursor, grouped summaries expanded, deduplicated. */
+  events: FeedEvent[];
+  /** Newest event seen anywhere, groups included: the next cursor. */
+  newestEpoch: number | null;
+  /** Hit the page limit before reading back past the cursor: events were skipped. */
+  gap: boolean;
+  pages: number;
+  /** The first page couldn't be read. */
+  failed: boolean;
+};
+
+/**
+ * Reads a change feed back to `sinceEpoch` (plus {@link CURSOR_OVERLAP_MS}).
+ * With no cursor it reads one page, only to learn the newest epoch.
+ *
+ * @param fetchPage - one feed page, newest first; `upto` is a previous page's `@since`.
+ * @param fetchDetail - a grouped summary's `@uri.detail`. Only called for URLs
+ *   `isAllowedDetailUrl` accepts, since the request carries the library's token.
+ */
+export const readFeed = async ({
+  sinceEpoch,
+  fetchPage,
+  fetchDetail,
+  isAllowedDetailUrl,
+  maxPages,
+  overlapMs = CURSOR_OVERLAP_MS,
+}: {
+  sinceEpoch: number | null;
+  fetchPage: (upto?: string) => Promise<any | null>;
+  fetchDetail: (url: string) => Promise<any | null>;
+  isAllowedDetailUrl: (url: string) => boolean;
+  maxPages: number;
+  overlapMs?: number;
+}): Promise<FeedReadResult> => {
+  const events = new Map<string, FeedEvent>();
+  const add = (event: FeedEvent) => {
+    if (sinceEpoch !== null && event.epoch <= sinceEpoch) return;
+    events.set(`${event.epoch}:${event.type}:${event.pageID}`, event);
+  };
+  let newestEpoch: number | null = null;
+  const seen = (epoch: number) => {
+    if (epoch > 0 && (newestEpoch === null || epoch > newestEpoch)) newestEpoch = epoch;
+  };
+
+  let upto: string | undefined;
+  let pages = 0;
+  let passedCursor = false;
+  let gap = false;
+
+  for (;;) {
+    const json = await fetchPage(upto);
+    if (!json) {
+      return { events: [...events.values()], newestEpoch, gap, pages, failed: pages === 0 };
+    }
+    pages += 1;
+    const summaries = parseEventSummaries(json);
+    if (summaries.length === 0) break;
+
+    let stop = false;
+    for (const summary of summaries) {
+      seen(summary.epoch);
+      if (sinceEpoch === null) continue;
+      if (summary.epoch <= sinceEpoch) passedCursor = true;
+      if (summary.epoch <= sinceEpoch - overlapMs) {
+        stop = true;
+        break;
+      }
+      if (!RELEVANT_EVENT_TYPES.has(summary.type)) continue;
+      if (summary.count > 1 && summary.detailUrl && isAllowedDetailUrl(summary.detailUrl)) {
+        const detail = await fetchDetail(summary.detailUrl);
+        if (detail) {
+          for (const inner of parseEventSummaries(detail)) {
+            seen(inner.epoch);
+            if (inner.event) add(inner.event);
+          }
+          continue;
+        }
+      }
+      if (summary.event) add(summary.event);
+    }
+
+    if (sinceEpoch === null || stop) break;
+    const next = typeof json["@since"] === "string" ? json["@since"] : undefined;
+    if (!next || next === upto) break;
+    if (pages >= maxPages) {
+      gap = !passedCursor;
+      break;
+    }
+    upto = next;
+  }
+
+  return { events: [...events.values()], newestEpoch, gap, pages, failed: false };
+};

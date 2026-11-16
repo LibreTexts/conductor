@@ -3,11 +3,12 @@ import Library from "../../models/library.js";
 import PageNode from "../../models/pagenode.js";
 import ProvenanceScanState from "../../models/provenancescanstate.js";
 import { generateAPIRequestHeaders } from "../../util/librariesclient.js";
+import { librariesOptions } from "../../util/libraries.js";
 import {
-  RELEVANT_EVENT_TYPES,
-  parseEventSummaries,
   planFeedActions,
+  readFeed,
   type FeedEvent,
+  type FeedReadResult,
   type FeedPlan,
   type TrackedPage,
 } from "../../util/library-events.js";
@@ -72,74 +73,34 @@ const feedUrl = (lib: string, upto?: string) =>
     upto ? `&upto=${encodeURIComponent(upto)}` : ""
   }`;
 
-export type FeedRead = {
-  /** Relevant events newer than the cursor, grouped summaries expanded. */
-  events: FeedEvent[];
-  /** Newest event in the feed (any type): the next cursor. */
-  newestEpoch: number | null;
-  /** Stopped at the page limit before reaching the cursor. */
-  gap: boolean;
-  pages: number;
-  /** The feed couldn't be read at all. */
-  failed: boolean;
+export type FeedRead = FeedReadResult;
+
+/** A detail link the library's token may be sent to: that library, over HTTPS. */
+const isLibraryUrl = (lib: string) => (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && parsed.hostname === `${lib}.libretexts.org`;
+  } catch {
+    return false;
+  }
 };
 
 /**
- * Reads a library's feed from the newest event back to `sinceEpoch`. With no
- * cursor it reads one page, only to learn the newest epoch (a baseline).
+ * Reads a library's feed from the newest event back past `sinceEpoch` (see
+ * `readFeed`). With no cursor it reads one page, to learn the newest epoch.
  */
-export const readLibraryFeed = async (
+export const readLibraryFeed = (
   lib: string,
   sinceEpoch: number | null,
   { maxPages = MAX_FEED_PAGES, throttle = createThrottle(REQUEST_INTERVAL_MS) } = {},
-): Promise<FeedRead> => {
-  const events: FeedEvent[] = [];
-  let newestEpoch: number | null = null;
-  let upto: string | undefined;
-  let pages = 0;
-  let gap = false;
-
-  for (;;) {
-    const json = await getFeedJson(throttle, lib, feedUrl(lib, upto));
-    if (!json) return { events, newestEpoch, gap, pages, failed: pages === 0 };
-    pages += 1;
-    const summaries = parseEventSummaries(json);
-    if (summaries.length === 0) break;
-
-    let reachedCursor = false;
-    for (const summary of summaries) {
-      if (newestEpoch === null || summary.epoch > newestEpoch) newestEpoch = summary.epoch;
-      if (sinceEpoch === null) continue;
-      if (summary.epoch <= sinceEpoch) {
-        reachedCursor = true;
-        break;
-      }
-      if (!RELEVANT_EVENT_TYPES.has(summary.type)) continue;
-      if (summary.count > 1 && summary.detailUrl) {
-        const detail = await getFeedJson(throttle, lib, withJsonFormat(summary.detailUrl));
-        const expanded = parseEventSummaries(detail)
-          .map((s) => s.event)
-          .filter((e): e is FeedEvent => !!e && e.epoch > sinceEpoch);
-        if (expanded.length > 0) {
-          events.push(...expanded);
-          continue;
-        }
-      }
-      if (summary.event) events.push(summary.event);
-    }
-
-    if (sinceEpoch === null || reachedCursor) break;
-    const next = typeof json["@since"] === "string" ? json["@since"] : undefined;
-    if (!next || next === upto) break;
-    if (pages >= maxPages) {
-      gap = true;
-      break;
-    }
-    upto = next;
-  }
-
-  return { events, newestEpoch, gap, pages, failed: false };
-};
+): Promise<FeedRead> =>
+  readFeed({
+    sinceEpoch,
+    maxPages,
+    fetchPage: (upto) => getFeedJson(throttle, lib, feedUrl(lib, upto)),
+    fetchDetail: (url) => getFeedJson(throttle, lib, withJsonFormat(url)),
+    isAllowedDetailUrl: isLibraryUrl(lib),
+  });
 
 export type LibraryChangesOutcome = {
   library: string;
@@ -190,16 +151,18 @@ export const applyLibraryFeed = async (
   lib: string,
   { dryRun = false }: { dryRun?: boolean } = {},
 ): Promise<LibraryChangesOutcome> => {
-  const state = await ProvenanceScanState.findOne(
-    { library: { $eq: lib } },
-    { _id: 0, eventsCursor: 1, pendingRescanBooks: 1 },
-  ).lean();
-  const since = state?.eventsCursor ?? null;
-
   const lease = dryRun ? null : await ScanLease.acquire(lib);
   if (!dryRun && !lease) return { library: lib, status: "busy" };
 
   try {
+    // Read under the lease, so a queue another run just emptied isn't
+    // written back from a stale copy.
+    const state = await ProvenanceScanState.findOne(
+      { library: { $eq: lib } },
+      { _id: 0, eventsCursor: 1, pendingRescanBooks: 1 },
+    ).lean();
+    const since = state?.eventsCursor ?? null;
+
     const throttle = createThrottle(REQUEST_INTERVAL_MS);
     const read = await readLibraryFeed(lib, since, { throttle });
     if (read.failed) return { library: lib, status: "failed" };
@@ -324,7 +287,10 @@ export const runLibraryChanges = async ({
     const deadline = Date.now() + budgetMs;
     const [synced, sourceLibs, states] = await Promise.all([
       Library.find({ hidden: false, syncSupported: true }, { _id: 0, subdomain: 1 }).lean<{ subdomain: string }[]>(),
-      PageNode.distinct("lib", { isSource: true }) as Promise<string[]>,
+      // One indexed lookup per known library, not a walk over every reused page.
+      Promise.all(
+        librariesOptions.map(async (lib) => ((await PageNode.exists({ lib, isSource: true })) ? lib : null)),
+      ).then((libs) => libs.filter((lib): lib is string => lib !== null)),
       ProvenanceScanState.find({}, { _id: 0, library: 1, eventsPolledAt: 1, pendingRescanBooks: 1 }).lean(),
     ]);
     let libs = [...new Set([...synced.map((l) => l.subdomain), ...sourceLibs])];
