@@ -101,7 +101,7 @@
     "typescript": "5.9.3",
     "usehooks-ts": "3.1.1",
     "world-countries": "5.1.0",
-    "zod": "3.25.76"
+    "zod": "4.6.6"
   },
   "eslintConfig": {
     "extends": [
