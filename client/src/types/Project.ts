@@ -207,6 +207,10 @@ export type Project = {
   publishing?: Partial<Record<PublishStepKey, PublishStepState>>;
   publicAssets?: number;
   instructorAssets?: number;
+  /** Computed by GET /project. */
+  hasCommonsBook?: boolean;
+  /** Computed by GET /project. */
+  hasTrafficAnalyticsConfigured?: boolean;
 };
 
 export type AddableProjectTeamMember = Pick<

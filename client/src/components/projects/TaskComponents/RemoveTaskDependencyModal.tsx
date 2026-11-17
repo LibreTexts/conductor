@@ -1,80 +1,72 @@
-import { Modal, Breadcrumb, Button, Icon } from "semantic-ui-react";
+import { Button, Modal } from "@libretexts/davis-react";
+import { IconCircleMinus } from "@tabler/icons-react";
+import useProjectTasks from "../../../hooks/useProjectTasks";
+import useProjectTaskMutations from "../../../hooks/useProjectTaskMutations";
+import { getDependencyIDs } from "../../../utils/projectTaskHelpers";
+import { ProjectTaskRef } from "../../../types";
+import TaskModalTitle from "./TaskModalTitle";
 
-interface RemoveTaskDepedencyModalProps {
-  show: boolean;
-  viewTaskData: any;
-  rtdLoading: boolean;
-  rtdTaskTitle: string;
-  openViewTaskModal: (id: string) => void;
-  getParentTaskName: (id: string) => string;
-  onRequestRemove: () => void;
+interface RemoveTaskDependencyModalProps {
+  projectID: string;
+  taskID: string;
+  dependency: ProjectTaskRef;
   onClose: () => void;
 }
 
-const RemoveTaskDepedencyModal: React.FC<RemoveTaskDepedencyModalProps> = ({
-  show,
-  viewTaskData,
-  rtdLoading,
-  rtdTaskTitle,
-  openViewTaskModal,
-  getParentTaskName,
-  onRequestRemove,
+const RemoveTaskDependencyModal: React.FC<RemoveTaskDependencyModalProps> = ({
+  projectID,
+  taskID,
+  dependency,
   onClose,
 }) => {
+  const { byID, getTaskTitle } = useProjectTasks(projectID);
+  const { updateTask } = useProjectTaskMutations(projectID);
+
+  const task = byID.get(taskID);
+  const title = task?.title ?? "Loading...";
+  const dependencyTitle = dependency.title || "Unknown Task";
+
+  const handleRemove = () => {
+    if (!task) return;
+    updateTask.mutate(
+      {
+        taskID,
+        dependencies: getDependencyIDs(task).filter((id) => id !== dependency.taskID),
+      },
+      { onSuccess: onClose }
+    );
+  };
+
   return (
-    <Modal open={show} onClose={onClose}>
-      <Modal.Header>
-        {viewTaskData.parent && viewTaskData.parent !== "" ? (
-          <Breadcrumb className="task-view-header-crumbs">
-            <Breadcrumb.Section
-              onClick={() => openViewTaskModal(viewTaskData.parent)}
-            >
-              {getParentTaskName(viewTaskData.parent)}
-            </Breadcrumb.Section>
-            <Breadcrumb.Divider icon="right chevron" />
-            <Breadcrumb.Section active>
-              <em>
-                {viewTaskData.hasOwnProperty("title")
-                  ? viewTaskData.title
-                  : "Loading..."}
-              </em>
-              : Remove Dependency
-            </Breadcrumb.Section>
-          </Breadcrumb>
-        ) : (
-          <Breadcrumb className="task-view-header-crumbs">
-            <Breadcrumb.Section active>
-              <em>
-                {viewTaskData.hasOwnProperty("title")
-                  ? viewTaskData.title
-                  : "Loading..."}
-              </em>
-              : Remove Dependency
-            </Breadcrumb.Section>
-          </Breadcrumb>
-        )}
-      </Modal.Header>
-      <Modal.Content>
-        <p>
-          Are you sure you want to remove <em>{rtdTaskTitle}</em> as a
-          dependency of{" "}
-          <em>
-            {viewTaskData.hasOwnProperty("title")
-              ? viewTaskData.title
-              : "Loading..."}
-          </em>
-          ?
+    <Modal open onClose={() => onClose()} size="lg">
+      <TaskModalTitle
+        parentTitle={task?.parent ? getTaskTitle(task.parent) : undefined}
+        taskTitle={title}
+        action="Remove Dependency"
+      />
+      <Modal.Body>
+        <p className="text-lg">
+          Are you sure you want to remove <em>{dependencyTitle}</em> as a dependency of{" "}
+          <em>{title}</em>?
         </p>
-      </Modal.Content>
-      <Modal.Actions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button loading={rtdLoading} color="red" onClick={onRequestRemove}>
-          <Icon name="remove circle" />
-          Remove Dependency
-        </Button>
-      </Modal.Actions>
+      </Modal.Body>
+      <Modal.Footer>
+        <div className="flex justify-end gap-4">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            loading={updateTask.isLoading}
+            onClick={handleRemove}
+            icon={<IconCircleMinus size={18} />}
+          >
+            Remove Dependency
+          </Button>
+        </div>
+      </Modal.Footer>
     </Modal>
   );
 };
 
-export default RemoveTaskDepedencyModal;
+export default RemoveTaskDependencyModal;

@@ -1,68 +1,53 @@
+import { useMemo, useState } from "react";
 import { Button, Modal, Select } from "@libretexts/davis-react";
-import { IconChevronRight, IconPlus } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
+import useProjectTasks from "../../../hooks/useProjectTasks";
+import useProjectTaskMutations from "../../../hooks/useProjectTaskMutations";
+import { getDependencyCandidates, getDependencyIDs } from "../../../utils/projectTaskHelpers";
+import TaskModalTitle from "./TaskModalTitle";
 
 interface AddTaskDependencyModalProps {
-  show: boolean;
-  viewTaskData: any;
-  atdTasks: any[];
-  atdLoading: boolean;
-  atdError: boolean;
-  atdTaskID: string;
-  setATDTaskID: (id: string) => void;
-  openViewTaskModal: (id: string) => void;
-  getParentTaskName: (id: string) => string;
-  onRequestAdd: () => void;
+  projectID: string;
+  taskID: string;
   onClose: () => void;
 }
 
 const AddTaskDependencyModal: React.FC<AddTaskDependencyModalProps> = ({
-  show,
-  viewTaskData,
-  atdTasks,
-  atdLoading,
-  atdError,
-  atdTaskID,
-  setATDTaskID,
-  openViewTaskModal,
-  getParentTaskName,
-  onRequestAdd,
+  projectID,
+  taskID,
   onClose,
 }) => {
-  const title = viewTaskData.hasOwnProperty("title")
-    ? viewTaskData.title
-    : "Loading...";
-  const parentTitle =
-    viewTaskData.parent && viewTaskData.parent !== ""
-      ? getParentTaskName(viewTaskData.parent)
-      : "";
-  const taskOptions = atdTasks.map((task) => ({
-    value: String(task.value),
-    label: String(task.text || task.label || task.value),
-  }));
+  const { byID, allTasks, getTaskTitle } = useProjectTasks(projectID);
+  const { updateTask } = useProjectTaskMutations(projectID);
+  const [selectedID, setSelectedID] = useState("");
+  const [showError, setShowError] = useState(false);
+
+  const task = byID.get(taskID);
+  const title = task?.title ?? "Loading...";
+  const options = useMemo(
+    () => (task ? getDependencyCandidates(task, allTasks) : []),
+    [task, allTasks]
+  );
+
+  const handleAdd = () => {
+    if (!task) return;
+    if (!selectedID) {
+      setShowError(true);
+      return;
+    }
+    updateTask.mutate(
+      { taskID, dependencies: [...getDependencyIDs(task), selectedID] },
+      { onSuccess: onClose }
+    );
+  };
 
   return (
-    <Modal open={show} onClose={() => onClose()} size="lg">
-      <Modal.Header>
-        <Modal.Title>
-          <span className="flex min-w-0 items-center gap-3">
-            {parentTitle && (
-              <>
-                <button
-                  type="button"
-                  className="truncate text-left text-blue-700 hover:underline"
-                  onClick={() => openViewTaskModal(viewTaskData.parent)}
-                >
-                  {parentTitle}
-                </button>
-                <IconChevronRight className="shrink-0 text-gray-400" size={30} />
-              </>
-            )}
-            <span className="truncate">
-              <em>{title}</em>: Add Dependency
-            </span>
-          </span>
-        </Modal.Title>
-      </Modal.Header>
+    <Modal open onClose={() => onClose()} size="lg">
+      <TaskModalTitle
+        parentTitle={task?.parent ? getTaskTitle(task.parent) : undefined}
+        taskTitle={title}
+        action="Add Dependency"
+      />
       <Modal.Body className="min-h-[18rem]">
         <p className="mb-6 text-lg">
           Select a task to add as a dependency for <em>{title}</em>.
@@ -72,11 +57,15 @@ const AddTaskDependencyModal: React.FC<AddTaskDependencyModalProps> = ({
           label="Task dependency"
           labelClassName="sr-only"
           placeholder="Select task..."
-          options={taskOptions}
-          value={atdTaskID}
-          onChange={(e) => setATDTaskID(e.target.value)}
-          disabled={atdLoading}
-          error={atdError}
+          options={options}
+          value={selectedID}
+          onChange={(e) => {
+            setSelectedID(e.target.value);
+            setShowError(false);
+          }}
+          disabled={updateTask.isLoading}
+          error={showError}
+          errorMessage={showError ? "Select a task." : undefined}
         />
       </Modal.Body>
       <Modal.Footer>
@@ -86,8 +75,8 @@ const AddTaskDependencyModal: React.FC<AddTaskDependencyModalProps> = ({
           </Button>
           <Button
             variant="primary"
-            loading={atdLoading}
-            onClick={onRequestAdd}
+            loading={updateTask.isLoading}
+            onClick={handleAdd}
             icon={<IconPlus size={18} />}
           >
             Add Dependency

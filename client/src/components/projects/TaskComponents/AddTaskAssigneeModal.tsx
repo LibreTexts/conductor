@@ -1,72 +1,59 @@
+import { useMemo, useState } from "react";
 import { Button, Checkbox, Modal, Select } from "@libretexts/davis-react";
-import { IconChevronRight, IconPlus } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
+import useProject from "../../../hooks/useProject";
+import useProjectTasks from "../../../hooks/useProjectTasks";
+import useProjectTaskMutations from "../../../hooks/useProjectTaskMutations";
+import { buildAssigneeOptions } from "../../../utils/projectTaskHelpers";
+import TaskModalTitle from "./TaskModalTitle";
 
 interface AddTaskAssigneeModalProps {
-  show: boolean;
-  viewTaskData: any;
-  ataUsers: any[];
-  ataLoading: boolean;
-  ataError: boolean;
-  ataUUID: string;
-  ataSubtasks: boolean;
-  setATASubtasks: (newVal: boolean) => void;
-  setATAUUID: (id: string) => void;
-  openViewTaskModal: (id: string) => void;
-  getParentTaskName: (id: string) => string;
-  onRequestAdd: () => void;
+  projectID: string;
+  taskID: string;
   onClose: () => void;
 }
 
 const AddTaskAssigneeModal: React.FC<AddTaskAssigneeModalProps> = ({
-  show,
-  viewTaskData,
-  ataUsers,
-  ataLoading,
-  ataError,
-  ataUUID,
-  ataSubtasks,
-  setATASubtasks,
-  setATAUUID,
-  openViewTaskModal,
-  getParentTaskName,
-  onRequestAdd,
+  projectID,
+  taskID,
   onClose,
 }) => {
-  const title = viewTaskData.hasOwnProperty("title")
-    ? viewTaskData.title
-    : "Loading...";
-  const parentTitle =
-    viewTaskData.parent && viewTaskData.parent !== ""
-      ? getParentTaskName(viewTaskData.parent)
-      : "";
-  const assigneeOptions = ataUsers.map((user) => ({
-    value: String(user.value),
-    label: String(user.text || user.label || user.value),
-  }));
+  const { project } = useProject(projectID);
+  const { byID, getTaskTitle } = useProjectTasks(projectID);
+  const { addAssignee } = useProjectTaskMutations(projectID);
+  const [assigneeUUID, setAssigneeUUID] = useState("");
+  const [includeSubtasks, setIncludeSubtasks] = useState(false);
+  const [showError, setShowError] = useState(false);
+
+  const task = byID.get(taskID);
+  const title = task?.title ?? "Loading...";
+  const isSubtask = !!task?.parent;
+  const options = useMemo(
+    () =>
+      project && task
+        ? buildAssigneeOptions(project, task).map(({ value, label }) => ({ value, label }))
+        : [],
+    [project, task]
+  );
+
+  const handleAdd = () => {
+    if (!assigneeUUID) {
+      setShowError(true);
+      return;
+    }
+    addAssignee.mutate(
+      { taskID, assignee: assigneeUUID, subtasks: includeSubtasks },
+      { onSuccess: onClose }
+    );
+  };
 
   return (
-    <Modal open={show} onClose={() => onClose()} size="lg">
-      <Modal.Header>
-        <Modal.Title>
-          <span className="flex min-w-0 items-center gap-3">
-            {parentTitle && (
-              <>
-                <button
-                  type="button"
-                  className="truncate text-left text-blue-700 hover:underline"
-                  onClick={() => openViewTaskModal(viewTaskData.parent)}
-                >
-                  {parentTitle}
-                </button>
-                <IconChevronRight className="shrink-0 text-gray-400" size={30} />
-              </>
-            )}
-            <span className="truncate">
-              <em>{title}</em>: Add Assignee
-            </span>
-          </span>
-        </Modal.Title>
-      </Modal.Header>
+    <Modal open onClose={() => onClose()} size="lg">
+      <TaskModalTitle
+        parentTitle={isSubtask ? getTaskTitle(task?.parent) : undefined}
+        taskTitle={title}
+        action="Add Assignee"
+      />
       <Modal.Body className="min-h-[18rem]">
         <p className="mb-6 text-lg">
           Select a user to assign to <em>{title}</em>.
@@ -76,18 +63,22 @@ const AddTaskAssigneeModal: React.FC<AddTaskAssigneeModalProps> = ({
           label="Task assignee"
           labelClassName="sr-only"
           placeholder="Select assignee..."
-          options={assigneeOptions}
-          value={ataUUID}
-          onChange={(e) => setATAUUID(e.target.value)}
-          disabled={ataLoading}
-          error={ataError}
-          className={!viewTaskData.parent || viewTaskData.parent === "" ? "mb-6" : "mb-4"}
+          options={options}
+          value={assigneeUUID}
+          onChange={(e) => {
+            setAssigneeUUID(e.target.value);
+            setShowError(false);
+          }}
+          disabled={addAssignee.isLoading}
+          error={showError}
+          errorMessage={showError ? "Select a user." : undefined}
+          className={isSubtask ? "mb-4" : "mb-6"}
         />
-        {(!viewTaskData.parent || viewTaskData.parent === "") && (
+        {!isSubtask && (
           <Checkbox
             name="assign-assignee-to-subtasks"
-            checked={ataSubtasks}
-            onChange={setATASubtasks}
+            checked={includeSubtasks}
+            onChange={setIncludeSubtasks}
             label="Assign to all subtasks"
           />
         )}
@@ -99,8 +90,8 @@ const AddTaskAssigneeModal: React.FC<AddTaskAssigneeModalProps> = ({
           </Button>
           <Button
             variant="primary"
-            loading={ataLoading}
-            onClick={onRequestAdd}
+            loading={addAssignee.isLoading}
+            onClick={handleAdd}
             icon={<IconPlus size={18} />}
           >
             Add Assignee

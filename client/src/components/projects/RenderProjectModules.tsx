@@ -19,6 +19,10 @@ import Messaging from "../Messaging";
 import FilesManager from "../FilesManager";
 import { useHistory } from "react-router-dom";
 import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
+import { Project, ProjectTaskView, User } from "../../types";
+import { ProjectPermissions } from "../../hooks/useProjectPermissions";
+import { TaskSearchResult } from "../../utils/projectTaskHelpers";
+import TaskStatusBadge from "./TaskComponents/TaskStatusBadge";
 import {
   IconArrowsDownUp,
   IconCalendarTime,
@@ -34,80 +38,69 @@ import {
 } from "@tabler/icons-react";
 
 interface RenderProjectModulesProps {
-  projectID: string;
-  project: any;
+  project: Project;
   url: string;
-  canViewDetails: boolean;
-  userProjectAdmin: boolean;
-  user: any;
-  projTasks: any;
-  taskSearchLoading: boolean;
-  taskSearchResults: any;
-  taskSearchQuery: string;
-  handleTaskSearch: (e: any, data: any) => void;
-  openViewTaskModal: (taskId: string) => void;
-  expandCollapseAllTasks: () => void;
-  openBatchModal: () => void;
-  openManageTaskModal: (
-    action: string,
-    taskId?: string,
-    parentId?: string
-  ) => void;
-  openDeleteTaskModal: (taskId: string) => void;
-  renderStatusIndicator: (status: string) => JSX.Element;
-  toggleTaskDetail: (taskId: string) => void;
-  userProjectMember: boolean;
-  loadingTasks: boolean;
-  defaultNotificationSetting?: string;
-  mngTaskLoading: boolean;
-  libreLibrary?: string;
-  libreCoverID?: string;
-  getTeamMemberOptions: (
-    projData: any
-  ) => { value: string; label: string; image?: string }[];
+  permissions: ProjectPermissions;
+  user: User;
+  tasks: (ProjectTaskView & { uiOpen: boolean })[];
+  tasksLoading: boolean;
+  searchQuery: string;
+  searchResults: TaskSearchResult[];
+  onSearchChange: (query: string) => void;
+  onToggleTask: (taskID: string) => void;
+  onToggleAllTasks: () => void;
+  onViewTask: (taskID: string) => void;
+  onAddTask: () => void;
+  onAddSubtask: (parentID: string) => void;
+  onDeleteTask: (taskID: string) => void;
+  onBatchAddTasks: () => void;
 }
 
+const getTeamMemberOptions = (project: Project) =>
+  [...project.leads, ...project.liaisons, ...project.members, ...project.auditors].map(
+    (item) => ({
+      image: `${item.avatar}`,
+      value: `${item.firstName} ${item.lastName}`,
+      label: `${item.firstName} ${item.lastName}`,
+    })
+  );
+
 const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
-  projectID,
   project,
   url,
-  canViewDetails,
-  userProjectAdmin,
+  permissions,
   user,
-  projTasks,
-  taskSearchResults,
-  taskSearchQuery,
-  handleTaskSearch,
-  openViewTaskModal,
-  expandCollapseAllTasks,
-  openBatchModal,
-  openManageTaskModal,
-  openDeleteTaskModal,
-  renderStatusIndicator,
-  toggleTaskDetail,
-  userProjectMember,
-  loadingTasks,
-  defaultNotificationSetting,
-  mngTaskLoading,
-  getTeamMemberOptions,
+  tasks: projTasks,
+  tasksLoading: loadingTasks,
+  searchQuery: taskSearchQuery,
+  searchResults: taskSearchResults,
+  onSearchChange,
+  onToggleTask: toggleTaskDetail,
+  onToggleAllTasks: expandCollapseAllTasks,
+  onViewTask: openViewTaskModal,
+  onAddTask,
+  onAddSubtask,
+  onDeleteTask: openDeleteTaskModal,
+  onBatchAddTasks: openBatchModal,
 }) => {
   const history = useHistory();
+  const projectID = project.projectID;
+  const defaultNotificationSetting = project.defaultChatNotification;
+  const {
+    canViewDetails,
+    isAdmin: userProjectAdmin,
+    isMember: userProjectMember,
+  } = permissions;
   const [showDiscussion, setShowDiscussion] = useState(true);
   const [showFiles, setShowFiles] = useState(true);
 
   const [selectedValue, setSelectedValue] = useState<string>("");
   const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
 
-  const taskAssigneeOptions = useMemo(() => {
-    if (!project || !Object.keys(project).length) {
-      return [{ value: "", label: "All assignees" }];
-    }
-
-    return [
-      { value: "", label: "All assignees" },
-      ...getTeamMemberOptions(project),
-    ];
-  }, [project, getTeamMemberOptions]);
+  const taskAssigneeOptions = useMemo<{ value: string; label: string; image?: string }[]>(
+    () => [{ value: "", label: "All assignees" }, ...getTeamMemberOptions(project)],
+    [project]
+  );
 
   const selectedAssigneeLabel =
     taskAssigneeOptions.find((option) => option.value === selectedValue)
@@ -308,9 +301,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                       placeholder="Search tasks..."
                       inputClassName="h-10!"
                       value={taskSearchQuery}
-                      onChange={(e) =>
-                        handleTaskSearch(e, { value: e.target.value })
-                      }
+                      onChange={(e) => onSearchChange(e.target.value)}
                       leftIcon={<IconSearch size={17} />}
                     />
                     {taskSearchResults.length > 0 && (
@@ -445,8 +436,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                   <DavisButton
                     variant="primary"
                     aria-label="Add Task"
-                    loading={mngTaskLoading}
-                    onClick={() => openManageTaskModal("add")}
+                    onClick={onAddTask}
                     disabled={!userProjectMember}
                     icon={<IconPlus size={17} />}
                     iconClassName="items-center justify-center mr-0! lg:mr-2!"
@@ -470,32 +460,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                 </div>
               ) : filteredTasks.length > 0 ? (
                 <ul className="divide-y divide-slate-100 list-none m-0 p-0">
-                  {filteredTasks.map((item: any) => {
-                    const today = new Date();
-                    let overdueTasks = false;
-                    if (
-                      item.endDateObj &&
-                      item.endDateObj instanceof Date &&
-                      item.endDateObj <= today &&
-                      item.status !== "completed"
-                    ) {
-                      overdueTasks = true;
-                    }
-                    if (item.subtasks && Array.isArray(item.subtasks)) {
-                      item.subtasks.forEach((subtask: any, sIdx: number) => {
-                        if (
-                          subtask.endDateObj &&
-                          subtask.endDateObj instanceof Date &&
-                          subtask.endDateObj <= today &&
-                          subtask.status !== "completed"
-                        ) {
-                          overdueTasks = true;
-                          item.subtasks[sIdx].overdue = true;
-                        }
-                      });
-                    }
-                    if (overdueTasks) item.overdue = true;
-
+                  {filteredTasks.map((item) => {
                     return (
                       <li key={item.taskID} className="py-3.5">
                         <div className="flex flex-col gap-2">
@@ -522,7 +487,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                               >
                                 {item.title}
                               </Text>
-                              {renderStatusIndicator(item.status)}
+                              <TaskStatusBadge status={item.status} />
                               {item.overdue === true && (
                                 <Badge
                                   label="OVERDUE"
@@ -554,9 +519,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                                 variant="primary"
                                 size="sm"
                                 disabled={!userProjectMember}
-                                onClick={() =>
-                                  openManageTaskModal("add", "", item.taskID)
-                                }
+                                onClick={() => onAddSubtask(item.taskID)}
                               />
                               <IconButton
                                 icon={<IconEye size={15} />}
@@ -575,7 +538,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                               {Array.isArray(item.subtasks) &&
                               item.subtasks.length > 0 ? (
                                 <ul className="divide-y divide-slate-200/70 list-none m-0 p-0">
-                                  {item.subtasks.map((subtask: any) => (
+                                  {item.subtasks.map((subtask) => (
                                     <li
                                       key={subtask.taskID}
                                       className="flex flex-wrap items-center justify-between gap-2 py-2"
@@ -588,7 +551,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
                                         >
                                           {subtask.title}
                                         </Text>
-                                        {renderStatusIndicator(subtask.status)}
+                                        <TaskStatusBadge status={subtask.status} />
                                         {subtask.overdue === true && (
                                           <Badge
                                             label="OVERDUE"
@@ -669,9 +632,15 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
     taskSearchQuery,
     loadingTasks,
     userProjectMember,
-    mngTaskLoading,
     canViewDetails,
     toggleTaskDetail,
+    expandCollapseAllTasks,
+    openViewTaskModal,
+    openDeleteTaskModal,
+    openBatchModal,
+    onAddTask,
+    onAddSubtask,
+    onSearchChange,
     selectedValue,
     filteredTasks,
     taskAssigneeOptions,
@@ -705,9 +674,9 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
       modules.push(TasksModule);
     }
 
-    const moduleOrder = Object.keys(moduleSettings).map((key) => ({
+    const moduleOrder = Object.entries(moduleSettings).map(([key, setting]) => ({
       key: key + "-module",
-      order: moduleSettings[key].order,
+      order: setting.order,
     }));
 
     modules.sort((a, b) => {

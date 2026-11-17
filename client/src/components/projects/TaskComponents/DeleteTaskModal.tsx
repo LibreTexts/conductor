@@ -1,55 +1,54 @@
 import React from "react";
 import { Button, Modal } from "@libretexts/davis-react";
-import { IconChevronRight, IconTrash } from "@tabler/icons-react";
+import { IconTrash } from "@tabler/icons-react";
+import useProjectTasks from "../../../hooks/useProjectTasks";
+import useProjectTaskMutations from "../../../hooks/useProjectTaskMutations";
+import TaskModalTitle from "./TaskModalTitle";
 
 interface DeleteTaskModalProps {
-  show: boolean;
-  delTaskSubtask: boolean;
-  delTaskParent: string;
-  delTaskData: any;
-  delTaskHasSubtasks: boolean;
-  delTaskLoading: boolean;
-  getParentTaskName: (id: string) => string;
-  onRequestDelete: () => void;
+  projectID: string;
+  taskID: string;
   onClose: () => void;
+  /** Called after a successful delete, in addition to onClose. */
+  onDeleted?: () => void;
 }
 
 const DeleteTaskModal: React.FC<DeleteTaskModalProps> = ({
-  show,
-  delTaskSubtask,
-  delTaskParent,
-  delTaskData,
-  delTaskHasSubtasks,
-  delTaskLoading,
-  getParentTaskName,
-  onRequestDelete,
+  projectID,
+  taskID,
   onClose,
+  onDeleted,
 }) => {
-  const title = delTaskData.title || "Loading...";
+  const { byID, getTaskTitle } = useProjectTasks(projectID);
+  const { deleteTask } = useProjectTaskMutations(projectID);
+
+  const task = byID.get(taskID);
+  const title = task?.title ?? "Loading...";
+  const isSubtask = !!task?.parent;
+  const hasSubtasks = (task?.subtasks?.length ?? 0) > 0;
+
+  const handleDelete = () => {
+    deleteTask.mutate(taskID, {
+      onSuccess: () => {
+        onClose();
+        onDeleted?.();
+      },
+    });
+  };
 
   return (
-    <Modal open={show} onClose={() => onClose()} size="lg">
-      <Modal.Header>
-        <Modal.Title>
-          <span className="flex min-w-0 items-center gap-3">
-            {delTaskSubtask && delTaskParent !== "" && (
-              <>
-                <em className="truncate">{getParentTaskName(delTaskParent)}</em>
-                <IconChevronRight className="shrink-0 text-gray-400" size={30} />
-              </>
-            )}
-            <span className="truncate">
-              Delete <em>{title}</em>
-            </span>
-          </span>
-        </Modal.Title>
-      </Modal.Header>
+    <Modal open onClose={() => onClose()} size="lg">
+      <TaskModalTitle
+        parentTitle={isSubtask ? getTaskTitle(task?.parent) : undefined}
+        taskTitle={title}
+        action="Delete"
+      />
       <Modal.Body>
         <p className="text-lg">
-          Are you sure you want to delete the <strong>{delTaskData.title}</strong>{" "}
-          <span className="muted-text">(ID: {delTaskData.taskID})</span> task?
+          Are you sure you want to delete the <strong>{title}</strong>{" "}
+          <span className="muted-text">(ID: {taskID})</span> task?
         </p>
-        {delTaskHasSubtasks && (
+        {hasSubtasks && (
           <p className="mt-4 text-center">
             <strong>All subtasks will also be deleted!</strong>
           </p>
@@ -62,11 +61,11 @@ const DeleteTaskModal: React.FC<DeleteTaskModalProps> = ({
           </Button>
           <Button
             variant="destructive"
-            loading={delTaskLoading}
-            onClick={onRequestDelete}
+            loading={deleteTask.isLoading}
+            onClick={handleDelete}
             icon={<IconTrash size={18} />}
           >
-            Delete{delTaskSubtask ? " Subtask" : " Task"}
+            Delete{isSubtask ? " Subtask" : " Task"}
           </Button>
         </div>
       </Modal.Footer>

@@ -1,71 +1,60 @@
+import { useState } from "react";
 import { Button, Checkbox, Modal } from "@libretexts/davis-react";
-import { IconChevronRight, IconPlus } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
+import useProjectTasks from "../../../hooks/useProjectTasks";
+import useProjectTaskMutations from "../../../hooks/useProjectTaskMutations";
+import TaskModalTitle from "./TaskModalTitle";
 
 interface AssignAllModalProps {
-  show: boolean;
-  viewTaskData: any;
-  assignAllError: boolean;
-  assignAllLoading: boolean;
-  assignAllSubtasks: boolean;
-  setAssignAllSubtasks: (newVal: boolean) => void;
-  openViewTaskModal: (id: string) => void;
-  getParentTaskName: (id: string) => string;
-  onRequestAssignAll: () => void;
+  projectID: string;
+  taskID: string;
   onClose: () => void;
+  /** Called after a successful assignment, in addition to onClose. */
+  onAssigned?: () => void;
 }
 
 const AssignAllModal: React.FC<AssignAllModalProps> = ({
-  show,
-  viewTaskData,
-  assignAllLoading,
-  assignAllSubtasks,
-  setAssignAllSubtasks,
-  openViewTaskModal,
-  getParentTaskName,
-  onRequestAssignAll,
+  projectID,
+  taskID,
   onClose,
+  onAssigned,
 }) => {
-  const title = viewTaskData.hasOwnProperty("title")
-    ? viewTaskData.title
-    : "Loading...";
-  const parentTitle =
-    viewTaskData.parent && viewTaskData.parent !== ""
-      ? getParentTaskName(viewTaskData.parent)
-      : "";
+  const { byID, getTaskTitle } = useProjectTasks(projectID);
+  const { addAllAssignees } = useProjectTaskMutations(projectID);
+  const [includeSubtasks, setIncludeSubtasks] = useState(false);
+
+  const task = byID.get(taskID);
+  const title = task?.title ?? "Loading...";
+  const isSubtask = !!task?.parent;
+
+  const handleAssignAll = () => {
+    addAllAssignees.mutate(
+      { taskID, subtasks: includeSubtasks },
+      {
+        onSuccess: () => {
+          onClose();
+          onAssigned?.();
+        },
+      }
+    );
+  };
 
   return (
-    <Modal open={show} onClose={() => onClose()} size="lg">
-      <Modal.Header>
-        <Modal.Title>
-          <span className="flex min-w-0 items-center gap-3">
-            {parentTitle && (
-              <>
-                <button
-                  type="button"
-                  className="truncate text-left text-blue-700 hover:underline"
-                  onClick={() => openViewTaskModal(viewTaskData.parent)}
-                >
-                  {parentTitle}
-                </button>
-                <IconChevronRight className="shrink-0 text-gray-400" size={30} />
-              </>
-            )}
-            <span className="truncate">
-              <em>{title}</em>: Assign All Members to Task
-            </span>
-          </span>
-        </Modal.Title>
-      </Modal.Header>
+    <Modal open onClose={() => onClose()} size="lg">
+      <TaskModalTitle
+        parentTitle={isSubtask ? getTaskTitle(task?.parent) : undefined}
+        taskTitle={title}
+        action="Assign All Members to Task"
+      />
       <Modal.Body>
         <p className="text-lg">
-          Are you sure you want to assign all members of this project to{" "}
-          <em>{title}</em>?
+          Are you sure you want to assign all members of this project to <em>{title}</em>?
         </p>
-        {(!viewTaskData.parent || viewTaskData.parent === "") && (
+        {!isSubtask && (
           <Checkbox
             name="assign-all-subtasks"
-            checked={assignAllSubtasks}
-            onChange={setAssignAllSubtasks}
+            checked={includeSubtasks}
+            onChange={setIncludeSubtasks}
             label="Assign to all subtasks"
             className="mt-6"
           />
@@ -78,8 +67,8 @@ const AssignAllModal: React.FC<AssignAllModalProps> = ({
           </Button>
           <Button
             variant="primary"
-            loading={assignAllLoading}
-            onClick={onRequestAssignAll}
+            loading={addAllAssignees.isLoading}
+            onClick={handleAssignAll}
             icon={<IconPlus size={18} />}
           >
             Assign All

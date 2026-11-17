@@ -93,6 +93,8 @@ import {
   Organization,
   GetCampusAdminResponse,
   UserTask,
+  ProjectTask,
+  TaskStatus,
   CreateMatterSelection,
 } from "./types";
 import {
@@ -1922,6 +1924,137 @@ class API {
     >("/project", {
       params: {
         projectID,
+      },
+    });
+    return res;
+  }
+
+  async flagProject(projectID: string, flagOption: string, flagDescrip?: string) {
+    const res = await axios.put<ConductorBaseResponse>("/project/flag", {
+      projectID,
+      flagOption,
+      ...(flagDescrip ? { flagDescrip } : {}),
+    });
+    return res;
+  }
+
+  async clearProjectFlag(projectID: string) {
+    const res = await axios.put<ConductorBaseResponse>("/project/flag/clear", {
+      projectID,
+    });
+    return res;
+  }
+
+  async getProjectTasks(projectID: string) {
+    const res = await axios.get<
+      {
+        tasks: ProjectTask[];
+      } & ConductorBaseResponse
+    >("/project/tasks", {
+      params: {
+        projectID,
+      },
+    });
+    return res;
+  }
+
+  async createTask(data: {
+    projectID: string;
+    title: string;
+    status: TaskStatus;
+    description?: string;
+    parent?: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const res = await axios.post<ConductorBaseResponse>("/project/task", data);
+    return res;
+  }
+
+  async updateTask(data: {
+    taskID: string;
+    projectID?: string;
+    title?: string;
+    description?: string;
+    status?: TaskStatus;
+    startDate?: string;
+    endDate?: string;
+    dependencies?: string[];
+  }) {
+    const res = await axios.put<ConductorBaseResponse>("/project/task", data);
+    return res;
+  }
+
+  async deleteTask(taskID: string) {
+    const res = await axios.delete<ConductorBaseResponse>("/project/task", {
+      data: {
+        taskID,
+      },
+    });
+    return res;
+  }
+
+  async batchAddTasks(data: {
+    projectID: string;
+    tasks: number;
+    titlePrefix: string;
+    addSubtasks?: boolean;
+    subtasks?: number;
+    subtitlePrefix?: string;
+  }) {
+    const res = await axios.post<ConductorBaseResponse>(
+      "/project/task/batchadd",
+      data
+    );
+    return res;
+  }
+
+  async addTaskAssignee(data: {
+    projectID: string;
+    taskID: string;
+    assignee: string;
+    subtasks: boolean;
+  }) {
+    const res = await axios.put<ConductorBaseResponse>(
+      "/project/task/assignees/add",
+      data
+    );
+    return res;
+  }
+
+  async addAllTaskAssignees(data: {
+    projectID: string;
+    taskID: string;
+    subtasks: boolean;
+  }) {
+    const res = await axios.put<ConductorBaseResponse>(
+      "/project/task/assignees/add-all",
+      data
+    );
+    return res;
+  }
+
+  async removeTaskAssignee(data: {
+    projectID: string;
+    taskID: string;
+    assignee: string;
+    subtasks: boolean;
+  }) {
+    const res = await axios.put<ConductorBaseResponse>(
+      "/project/task/assignees/remove",
+      data
+    );
+    return res;
+  }
+
+  async getTaskMessages(taskID: string) {
+    const res = await axios.get<
+      {
+        messages: any[];
+      } & ConductorBaseResponse
+    >("/project/task/messages", {
+      params: {
+        taskID,
       },
     });
     return res;
