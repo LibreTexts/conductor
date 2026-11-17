@@ -41,16 +41,9 @@ import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
-import FilesManager from '../FilesManager/FilesManager';
-import FileIcon from '../FileIcon';
-import ProjectProgressBar from './ProjectProgressBar';
 import TextArea from '../TextArea';
-import Messaging from '../Messaging';
-import Chat from '../Chat';
-import DateInput from '../DateInput/index.tsx';
 import ReaderResourcesManager from '../../components/ReaderResourcesManager/ReaderResourcesManager';
 import RenderProjectModules from './RenderProjectModules';
-import Breakpoint from '../util/Breakpoints';
 import NextGenInput from '../NextGenInputs/Input.jsx';
 import CoauthorToolsRenamedBanner from './CoauthorToolsRenamedBanner';
 
@@ -337,7 +330,7 @@ const ProjectView = (props) => {
     if (!project) return false;
     return project.classification === ProjectClassification.MINI_REPO;
   }, [project]);
- 
+
   /**
    * Retrieves the Project information via GET request
    * to the server and saves it to state.
@@ -1523,7 +1516,7 @@ const ProjectView = (props) => {
 
 
   return (
-    <div className="bg-white min-h-screen px-8 pt-8 pb-16">
+    <div className="min-h-screen px-8 pt-8 pb-16">
 
       {/* Page header + breadcrumb row */}
       <div className="flex items-start justify-between mb-2">
@@ -1663,7 +1656,7 @@ const ProjectView = (props) => {
           {/* Project Properties — full width */}
           {/* !overflow-visible: this Card hosts Tooltips (in ProjectLinkButtons) that need to
               escape the card's bounds — Card's default styling clips overflow for rounded corners. */}
-          <Card variant="outline" padding="lg" className="mb-6 !overflow-visible">
+          <Card variant="outline" padding="md" className="mb-6 !overflow-visible">
             <Card.Body>
               <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Project Properties</Heading>
               <div className="grid grid-cols-2 gap-x-12 gap-y-3">
@@ -1853,7 +1846,7 @@ const ProjectView = (props) => {
 
             {/* Notes card */}
             {hasNotes && (
-              <Card variant="outline" padding="lg">
+              <Card variant="outline" padding="md">
                 <Card.Body>
                   <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Notes</Heading>
                   <div
@@ -1868,7 +1861,7 @@ const ProjectView = (props) => {
 
             {/* Source Properties card */}
             {hasResourceInfo && (
-              <Card variant="outline" padding="lg">
+              <Card variant="outline" padding="md">
                 <Card.Body>
                   <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Source Properties</Heading>
                   <div className="flex flex-col gap-3">
@@ -1908,7 +1901,7 @@ const ProjectView = (props) => {
             )}
 
             {/* Team card */}
-            <Card variant="outline" padding="lg">
+            <Card variant="outline" padding="md">
               <Card.Body>
                 <Heading level={5} color="muted" className="mb-3 pb-2 border-b border-gray-200 uppercase tracking-wide">Team</Heading>
                 {Object.keys(project).length > 0 && renderTeamList(project, showAllTeamMembers)}
@@ -2077,7 +2070,7 @@ const ProjectView = (props) => {
           onRequestAdd={submitAddTaskAssignee}
           onClose={closeATAModal}
           />
-          <AssignAllModal 
+          <AssignAllModal
           show={showAssignAllModal}
           viewTaskData={viewTaskData}
           assignAllError={assignAllError}
@@ -2090,7 +2083,7 @@ const ProjectView = (props) => {
           onClose={handleCloseAssignAllModal}
           />
           {/* Remove Task Assignee Modal */}
-          <RemoveTaskAssigneeModal 
+          <RemoveTaskAssigneeModal
           show={showRMTAModal}
           viewTaskData={viewTaskData}
           rmtaName={rmtaName}
@@ -2103,7 +2096,7 @@ const ProjectView = (props) => {
           onClose={closeRMTAModal}
           />
           {/* Add Task Dependency Modal */}
-          <AddTaskDependencyModal 
+          <AddTaskDependencyModal
           show={showATDModal}
           viewTaskData={viewTaskData}
           atdTasks={atdTasks}
@@ -2117,7 +2110,7 @@ const ProjectView = (props) => {
           onClose={closeATDModal}
           />
           {/* Remove Task Dependency Modal */}
-          <RemoveTaskDepedencyModal 
+          <RemoveTaskDepedencyModal
           show={showRTDModal}
           viewTaskData={viewTaskData}
           rtdLoading={rtdLoading}
@@ -2128,7 +2121,7 @@ const ProjectView = (props) => {
           onClose={closeRTDModal}
           />
           {/* Delete Task Modal */}
-          <DeleteTaskModal 
+          <DeleteTaskModal
           show={showDelTaskModal}
           delTaskSubtask={delTaskSubtask}
           delTaskParent={delTaskParent}
@@ -2161,7 +2154,7 @@ const ProjectView = (props) => {
            onRequestSave={submitBatchAdd}
            />
           {/* Flag/Unflag Project Modal */}
-          <FlagProjectModal 
+          <FlagProjectModal
             show={showFlagModal}
             project={project}
             flagMode={flagMode}

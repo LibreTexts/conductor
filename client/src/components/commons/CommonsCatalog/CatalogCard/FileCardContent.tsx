@@ -1,7 +1,6 @@
 import { Icon, Popup } from "semantic-ui-react";
 import { ConductorSearchResponseFile } from "../../../../types";
 import { truncateString } from "../../../util/HelperFunctions";
-import RenderAssetTags from "../../../FilesManager/RenderAssetTags";
 import {
   downloadFile,
   getFileTypeIcon,

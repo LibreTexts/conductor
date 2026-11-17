@@ -4,6 +4,9 @@ import {
   Alert,
   Breadcrumb as DavisBreadcrumb,
   Button,
+  Card,
+  Divider,
+  Heading,
   Menu,
   Tooltip,
 } from "@libretexts/davis-react";
@@ -64,6 +67,12 @@ interface FilesManagerProps {
   allowBulkDownload?: boolean;
   projectHasDefaultLicense?: boolean;
   projectVisibility?: string;
+  /**
+   * "default" renders a standalone heading above a bordered table box.
+   * "card" renders everything inside a Davis Card with the heading in the
+   * card header, matching the other project modules.
+   */
+  variant?: "default" | "card";
 }
 
 type FileEntry = ProjectFile;
@@ -75,6 +84,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   allowBulkDownload = false,
   projectHasDefaultLicense = false,
   projectVisibility = "private",
+  variant = "default",
 }) => {
   const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
@@ -566,143 +576,139 @@ const FilesManager: React.FC<FilesManagerProps> = ({
 
   const allTableColumns = tableColumns;
 
-  return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-3 border-b border-gray-200 pb-2">
-        <h2 className="text-xl font-bold text-gray-900 leading-tight">Assets</h2>
-        <Button variant="outline" size="sm" onClick={toggleFilesManager}>
-          Hide
-        </Button>
-      </div>
+  const showPrivateNotice =
+    projectVisibility === "private" && !!files && files.length > 0;
+  const privateNoticeMessage =
+    "Heads up! Your project's visibility is set to 'Private', so assets shown here won't be visible in Commons even if their access is set to 'Public'.";
 
-      {projectVisibility === "private" && files && files.length > 0 && (
-        <Alert
-          variant="info"
-          message="Heads up! Your project's visibility is set to 'Private', so assets shown here won't be visible in Commons even if their access is set to 'Public'."
-          className="mb-3"
-        />
+  const hideButton = (
+    <Button variant="outline" size="sm" onClick={toggleFilesManager}>
+      Hide
+    </Button>
+  );
+
+  const tableContent = (
+    <>
+      {(canViewDetails || allowBulkDownload) && (
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          {canViewDetails && (
+            <p className="text-sm text-gray-600 mb-3">
+              If your project has supporting files, use this tool to upload and organize them.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {canViewDetails && (
+              <>
+                <Button
+                  variant="primary"
+                  icon={<IconUpload size={15} />}
+                  onClick={() => setShowUploader(true)}
+                >
+                  Upload
+                </Button>
+                <Button
+                  variant="primary"
+                  icon={<IconPlus size={15} />}
+                  onClick={() => setShowAddFolder(true)}
+                >
+                  New Folder
+                </Button>
+              </>
+            )}
+            {itemsChecked > 1 && (
+              <Button
+                variant="outline"
+                icon={!downloadLoading ? <IconDownload size={15} /> : undefined}
+                loading={downloadLoading}
+                onClick={handleDownloadRequest}
+                disabled={downloadLoading}
+              >
+                {downloadLoading ? "This may take a moment..." : "Download (ZIP)"}
+              </Button>
+            )}
+            {canViewDetails && itemsChecked > 1 && (
+              <Button
+                variant="outline"
+                icon={<IconArrowsMove size={15} />}
+                onClick={() => handleMoveFiles(selectedFiles)}
+              >
+                Move
+              </Button>
+            )}
+            {canViewDetails && itemsChecked > 0 && (
+              <Button
+                variant="outline"
+                icon={<IconLock size={15} />}
+                onClick={() => handleChangeAccess(selectedFiles)}
+              >
+                Change Access
+              </Button>
+            )}
+            {canViewDetails && canBulkTag && (
+              <Button
+                variant="outline"
+                icon={<IconTags size={15} />}
+                onClick={handleBulkTagFiles}
+              >
+                Bulk Tag
+              </Button>
+            )}
+            {canViewDetails && itemsChecked > 0 && (
+              <Button
+                variant="outline"
+                disabled={itemsChecked < 1}
+                icon={<IconEdit size={15} />}
+                onClick={handleBulkEditMetadata}
+              >
+                Bulk Edit
+              </Button>
+            )}
+            {canViewDetails && itemsChecked > 1 && (
+              <Button
+                variant="outline"
+                icon={<IconTrash size={15} />}
+                onClick={() => handleDeleteFiles(selectedFiles)}
+              >
+                Delete
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
-      {/* !overflow-visible: the Name column's info Tooltip needs to escape this container's
-          bounds — davis-react's Tooltip isn't portaled, so ancestor overflow-hidden clips it. */}
-      <div className="border border-gray-200 rounded-lg !overflow-visible mb-4">
-        {(canViewDetails || allowBulkDownload) && (
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            {canViewDetails && (
-              <p className="text-sm text-gray-600 mb-3">
-                If your project has supporting files, use this tool to upload and organize them.
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {canViewDetails && (
-                <>
-                  <Button
-                    variant="primary"
-                    icon={<IconUpload size={15} />}
-                    onClick={() => setShowUploader(true)}
-                  >
-                    Upload
-                  </Button>
-                  <Button
-                    variant="primary"
-                    icon={<IconPlus size={15} />}
-                    onClick={() => setShowAddFolder(true)}
-                  >
-                    New Folder
-                  </Button>
-                </>
-              )}
-              {itemsChecked > 1 && (
-                <Button
-                  variant="outline"
-                  icon={!downloadLoading ? <IconDownload size={15} /> : undefined}
-                  loading={downloadLoading}
-                  onClick={handleDownloadRequest}
-                  disabled={downloadLoading}
-                >
-                  {downloadLoading ? "This may take a moment..." : "Download (ZIP)"}
-                </Button>
-              )}
-              {canViewDetails && itemsChecked > 1 && (
-                <Button
-                  variant="outline"
-                  icon={<IconArrowsMove size={15} />}
-                  onClick={() => handleMoveFiles(selectedFiles)}
-                >
-                  Move
-                </Button>
-              )}
-              {canViewDetails && itemsChecked > 0 && (
-                <Button
-                  variant="outline"
-                  icon={<IconLock size={15} />}
-                  onClick={() => handleChangeAccess(selectedFiles)}
-                >
-                  Change Access
-                </Button>
-              )}
-              {canViewDetails && canBulkTag && (
-                <Button
-                  variant="outline"
-                  icon={<IconTags size={15} />}
-                  onClick={handleBulkTagFiles}
-                >
-                  Bulk Tag
-                </Button>
-              )}
-              {canViewDetails && itemsChecked > 0 && (
-                <Button
-                  variant="outline"
-                  disabled={itemsChecked < 1}
-                  icon={<IconEdit size={15} />}
-                  onClick={handleBulkEditMetadata}
-                >
-                  Bulk Edit
-                </Button>
-              )}
-              {canViewDetails && itemsChecked > 1 && (
-                <Button
-                  variant="outline"
-                  icon={<IconTrash size={15} />}
-                  onClick={() => handleDeleteFiles(selectedFiles)}
-                >
-                  Delete
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
+      {currDirectory !== "" && (
+        <div className="px-4 py-2 border-b border-gray-200 bg-gray-50">
+          <DirectoryBreadcrumbs />
+        </div>
+      )}
 
-        {currDirectory !== "" && (
-          <div className="px-4 py-2 border-b border-gray-200 bg-gray-50">
-            <DirectoryBreadcrumbs />
-          </div>
-        )}
+      <DataTable
+        data={files || []}
+        columns={allTableColumns}
+        enableRowSelection={canViewDetails || allowBulkDownload}
+        loading={filesLoading}
+        density="compact"
+        striped
+        emptyState={<em className="text-gray-400">No files found.</em>}
+        tableOptions={{
+          getRowId: (row) => row.fileID,
+          state: { rowSelection },
+          onRowSelectionChange: setRowSelection,
+        }}
+        // DataTable's own wrapper slot bakes in overflow-auto, which clips the
+        // Name column's info Tooltip whenever it renders near the top row
+        // (davis-react's Tooltip isn't portaled). Let it overlap instead.
+        classNames={{ wrapper: "!overflow-visible" }}
+      />
+      <p className="text-center text-xs text-gray-400 italic p-3 border-t border-gray-100">
+        Use caution when opening files/links from unknown sources.
+        LibreTexts is not responsible for the content of the files/links above.
+      </p>
+    </>
+  );
 
-        <DataTable
-          data={files || []}
-          columns={allTableColumns}
-          enableRowSelection={canViewDetails || allowBulkDownload}
-          loading={filesLoading}
-          density="compact"
-          striped
-          emptyState={<em className="text-gray-400">No files found.</em>}
-          tableOptions={{
-            getRowId: (row) => row.fileID,
-            state: { rowSelection },
-            onRowSelectionChange: setRowSelection,
-          }}
-          // DataTable's own wrapper slot bakes in overflow-auto, which clips the
-          // Name column's info Tooltip whenever it renders near the top row
-          // (davis-react's Tooltip isn't portaled). Let it overlap instead.
-          classNames={{ wrapper: "!overflow-visible" }}
-        />
-        <p className="text-center text-xs text-gray-400 italic p-3 border-t border-gray-100">
-          Use caution when opening files/links from unknown sources.
-          LibreTexts is not responsible for the content of the files/links above.
-        </p>
-      </div>
-
+  const modals = (
+    <>
       <FilesUploader
         show={showUploader}
         onClose={() => setShowUploader(false)}
@@ -760,6 +766,52 @@ const FilesManager: React.FC<FilesManagerProps> = ({
         link={permanentLink}
         onClose={closePermanentLinkModal}
       />
+    </>
+  );
+
+  if (variant === "card") {
+    return (
+      <>
+        {/* overflow-visible!: the Name column's info Tooltip needs to escape the card's
+            bounds — davis-react's Tooltip isn't portaled, so ancestor overflow-hidden clips it. */}
+        <Card variant="outline" padding="none" className="overflow-visible! bg-white">
+          <div className="flex items-center justify-between gap-3 px-5 py-3.5">
+            <Heading level={2} className="m-0! text-lg font-semibold text-slate-900">
+              Assets
+            </Heading>
+            {hideButton}
+          </div>
+          <Divider />
+          {showPrivateNotice && (
+            <div className="px-5 py-4 border-b border-gray-200">
+              <Alert variant="info" message={privateNoticeMessage} />
+            </div>
+          )}
+          {tableContent}
+        </Card>
+        {modals}
+      </>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-3 border-b border-gray-200 pb-2">
+        <h2 className="text-xl font-bold text-gray-900 leading-tight">Assets</h2>
+        {hideButton}
+      </div>
+
+      {showPrivateNotice && (
+        <Alert variant="info" message={privateNoticeMessage} className="mb-3" />
+      )}
+
+      {/* !overflow-visible: the Name column's info Tooltip needs to escape this container's
+          bounds — davis-react's Tooltip isn't portaled, so ancestor overflow-hidden clips it. */}
+      <div className="border border-gray-200 rounded-lg !overflow-visible mb-4">
+        {tableContent}
+      </div>
+
+      {modals}
     </div>
   );
 };

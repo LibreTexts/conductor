@@ -204,6 +204,7 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
         {showFiles ? (
           <FilesManager
             key="files-manager"
+            variant="card"
             projectID={projectID}
             toggleFilesManager={() => setShowFiles(!showFiles)}
             canViewDetails={canViewDetails}
