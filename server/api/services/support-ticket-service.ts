@@ -760,6 +760,15 @@ export default class SupportTicketService {
         };
     }
 
+    /*
+     * ponytail: signed-in requesters are emailed via their local User record, which account deletion
+     * keeps today. If deletion starts anonymizing/removing it, copy the email onto un-notified
+     * privacy tickets first.
+     */
+    private _getPrivacyRecipient(ticket: SupportTicketInterface): Promise<string | undefined> {
+        return this._getTicketAuthorEmail(ticket);
+    }
+
     /**
      * Privacy tickets stay in the privacy queue (required fields, close rules, retention); misfiled
      * ones close as Withdrawn. Tickets moving in get default privacy fields to correct.
@@ -884,7 +893,7 @@ export default class SupportTicketService {
         const extension = ticket.privacy?.extension;
         if (!extension) return;
         try {
-            const email = await this._getTicketAuthorEmail(ticket);
+            const email = await this._getPrivacyRecipient(ticket);
             if (email) {
                 await mailAPI.sendPrivacyExtensionNotification(
                     email,
@@ -939,7 +948,7 @@ export default class SupportTicketService {
         const markNotified = () =>
             SupportTicket.updateOne({ uuid: { $eq: ticket.uuid } }, { $set: { "privacy.responseNotifiedAt": new Date() } });
 
-        const email = await this._getTicketAuthorEmail(ticket);
+        const email = await this._getPrivacyRecipient(ticket);
         if (!email) {
             supportTicketLog.warn(`No requester email for privacy ticket ${ticket.uuid}; outcome not sent`);
             await markNotified();
@@ -994,10 +1003,16 @@ export default class SupportTicketService {
             ticket.guest.organization = "";
         }
         ticket.set("privacy.actingForOther.note", undefined);
+        if (ticket.privacy?.extension) ticket.set("privacy.extension.reason", "Redacted");
         // Mutate in place: spreading a Mongoose subdoc drops its getter-backed fields
         for (const f of ticket.feed) {
             if (requesterNames.includes(f.blame)) f.blame = "Requester";
-            if (f.action.startsWith("Attachment uploaded") || f.action.startsWith("CC'd user")) {
+            // Keeps the label (and the extension's new due date); drops the free text after the colon
+            if (
+                f.action.startsWith("Attachment uploaded") ||
+                f.action.startsWith("CC'd user") ||
+                f.action.startsWith("Response deadline extended")
+            ) {
                 f.action = f.action.split(":")[0];
             }
         }
