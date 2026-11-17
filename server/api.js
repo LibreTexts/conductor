@@ -3344,6 +3344,7 @@ router
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.AssignTicketValidator),
+    middleware.restrictPrivacyTicket(false),
     supportAPI.assignTicket
   );
 
@@ -3353,12 +3354,14 @@ router
     authAPI.optionalVerifyRequest,
     middleware.canAccessSupportTicket,
     middleware.validateZod(supportValidators.AddTicketCCValidator),
+    middleware.restrictPrivacyTicket(true),
     supportAPI.addTicketCC
   )
   .delete(
     authAPI.optionalVerifyRequest,
     middleware.canAccessSupportTicket,
     middleware.validateZod(supportValidators.RemoveTicketCCValidator),
+    middleware.restrictPrivacyTicket(true),
     supportAPI.removeTicketCC
   );
 
@@ -3369,6 +3372,7 @@ router
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.TicketUUIDParams),
+    middleware.restrictPrivacyTicket(false),
     supportAPI.createAndAttachProjectFromHarvestingRequest
   );
 
@@ -3378,12 +3382,14 @@ router
     authAPI.optionalVerifyRequest,
     middleware.canAccessSupportTicket,
     middleware.validateZod(supportValidators.GetTicketValidator),
+    middleware.restrictPrivacyTicket(true),
     supportAPI.getGeneralMessages
   )
   .post(
     authAPI.optionalVerifyRequest,
     middleware.canAccessSupportTicket,
     middleware.validateZod(supportValidators.SendTicketMessageValidator),
+    middleware.restrictPrivacyTicket(true),
     supportAPI.createGeneralMessage
   );
 
@@ -3394,6 +3400,7 @@ router
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.GetTicketValidator),
+    middleware.restrictPrivacyTicket(false),
     supportAPI.getInternalMessages
   )
   .post(
@@ -3401,6 +3408,7 @@ router
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.SendTicketMessageValidator),
+    middleware.restrictPrivacyTicket(false),
     supportAPI.createInternalMessage
   );
 
@@ -3410,6 +3418,7 @@ router
     authAPI.optionalVerifyRequest,
     middleware.canAccessSupportTicket,
     middleware.validateZod(supportValidators.AddTicketAttachementsValidator),
+    middleware.restrictPrivacyTicket(true),
     supportAPI.ticketAttachmentUploadHandler,
     supportAPI.addTicketAttachments
   );
@@ -3420,6 +3429,7 @@ router
     authAPI.optionalVerifyRequest,
     middleware.canAccessSupportTicket,
     middleware.validateZod(supportValidators.GetTicketAttachmentValidator),
+    middleware.restrictPrivacyTicket(true),
     supportAPI.getTicketAttachmentURL
   );
 
@@ -3429,6 +3439,7 @@ router
     authAPI.optionalVerifyRequest,
     middleware.canAccessSupportTicket,
     middleware.validateZod(supportValidators.GetTicketValidator),
+    middleware.restrictPrivacyTicket(true),
     supportAPI.getTicket
   )
   .patch(
@@ -3436,6 +3447,7 @@ router
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.UpdateTicketValidator),
+    middleware.restrictPrivacyTicket(false),
     supportAPI.updateTicket
   )
   .delete(
@@ -3443,6 +3455,7 @@ router
     authAPI.getUserAttributes,
     authAPI.checkHasRoleMiddleware("libretexts", ["support", "harvester"]),
     middleware.validateZod(supportValidators.DeleteTicketValidator),
+    middleware.restrictPrivacyTicket(false),
     supportAPI.deleteTicket
   );
 

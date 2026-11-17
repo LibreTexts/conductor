@@ -878,13 +878,17 @@ export default class SupportTicketService {
             ticket.set("privacy.remindersSent", []);
         }
 
-        ticket.feed.push({
-            action: extension
-                ? `Response deadline extended to ${extension.newDueDate.toISOString().slice(0, 10)}: ${extension.reason}`
-                : `Privacy fields updated: ${changed.join(", ")}`,
-            blame: actor,
-            date: now.toISOString(),
-        });
+        const fieldChanges = changed.filter(k => k !== "extension");
+        if (fieldChanges.length) {
+            ticket.feed.push({ action: `Privacy fields updated: ${fieldChanges.join(", ")}`, blame: actor, date: now.toISOString() });
+        }
+        if (extension) {
+            ticket.feed.push({
+                action: `Response deadline extended to ${extension.newDueDate.toISOString().slice(0, 10)}: ${extension.reason}`,
+                blame: actor,
+                date: now.toISOString(),
+            });
+        }
         return !!extension;
     }
 

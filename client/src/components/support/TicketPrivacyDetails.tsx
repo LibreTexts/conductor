@@ -130,8 +130,12 @@ const TicketPrivacyDetails: React.FC<{ ticket: SupportTicket }> = ({ ticket }) =
       addNotification({ type: "error", message: "Extension reason and new due date are required." });
       return;
     }
+    // Send other unsaved edits too: the post-save reset would otherwise drop them
     mutation.mutate({
-      privacy: { extension: { reason: v.extensionReason, newDueDate: v.extensionDueDate } },
+      privacy: {
+        ...buildPrivacyPayload(v),
+        extension: { reason: v.extensionReason, newDueDate: v.extensionDueDate },
+      },
     });
   });
 
