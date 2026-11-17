@@ -4,6 +4,8 @@ export const PRIVACY_QUEUE_SLUG = "privacy";
 export const PRIVACY_RESPONSE_DAYS = 30;
 export const PRIVACY_APPEAL_RESPONSE_DAYS = 45;
 export const PRIVACY_RETENTION_MONTHS = 24;
+// Grace period so the requester can still open files linked from the outcome email
+export const PRIVACY_REDACTION_DELAY_DAYS = 7;
 // Days before due date; for a 30-day request these land on day 20 and day 27
 export const PRIVACY_REMINDER_DAYS_BEFORE_DUE = [10, 3];
 
@@ -175,6 +177,15 @@ export function shouldRedactOnClose(
     (privacy.responseOutcome === "fulfilled" ||
       privacy.responseOutcome === "partly_fulfilled")
   );
+}
+
+/** Grace period runs from the outcome email, so a late retry still gives the requester the full window. */
+export function isPrivacyRedactionDue(
+  privacy: Partial<PrivacyTicketFields> | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!shouldRedactOnClose(privacy) || privacy?.redactedAt || !privacy?.responseNotifiedAt) return false;
+  return now.getTime() >= addDays(privacy.responseNotifiedAt, PRIVACY_REDACTION_DELAY_DAYS).getTime();
 }
 
 /**

@@ -16,7 +16,7 @@ import SupportTicketMessage, { SupportTicketMessageInterface } from "../../model
 import SearchService from "./search-service";
 import SlackNotificationService from "./slack-notification-service";
 import { DeleteObjectsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
-import { subMonths } from "date-fns";
+import { subDays, subMonths } from "date-fns";
 import {
     getDefaultPrivacyFields,
     getPrivacyCloseErrors,
@@ -24,11 +24,12 @@ import {
     PRIVACY_QUEUE_SLUG,
     getPrivacyReminderState,
     isPrivacyDenial,
+    isPrivacyRedactionDue,
+    PRIVACY_REDACTION_DELAY_DAYS,
     PRIVACY_RETENTION_MONTHS,
     PrivacyOutcomeLabels,
     PrivacyTicketError,
     PrivacyTicketFields,
-    shouldRedactOnClose,
 } from "../../util/privacyTickets";
 import { CreateTicketValidator, PrivacyUpdateFieldsType } from "../validators/support";
 const supportTicketLog = childLogger("support-tickets");
@@ -903,9 +904,11 @@ export default class SupportTicketService {
 
     /**
      * Runs after any close of a privacy ticket: sends the outcome (with an appeal link on denials)
-     * and minimizes fulfilled deletion requests. Best-effort per step so close never rolls back.
+     * and minimizes fulfilled deletion requests. Best-effort so close never rolls back. Redaction
+     * runs from the daily job PRIVACY_REDACTION_DELAY_DAYS after the outcome email, so files the
+     * response links to stay reachable for a while.
      */
-    async onPrivacyTicketClosed(uuid: string): Promise<void> {
+    async onPrivacyTicketClosed(uuid: string, now = new Date()): Promise<void> {
         const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } });
         const privacy = ticket?.privacy;
         if (!ticket || !privacy?.responseOutcome) return;
@@ -914,11 +917,13 @@ export default class SupportTicketService {
             try {
                 await this.sendPrivacyOutcome(ticket);
             } catch (err) {
-                supportTicketLog.error({ err }, `Failed to send privacy response for ticket ${uuid}`);
+                // Daily retry re-runs both steps in order
+                supportTicketLog.error({ err }, `Failed to send privacy response for ticket ${uuid}; redaction deferred`);
+                return;
             }
         }
 
-        if (shouldRedactOnClose(privacy) && !privacy.redactedAt) {
+        if (isPrivacyRedactionDue(privacy, now)) {
             try {
                 await this.redactPrivacyTicket(ticket);
             } catch (err) {
@@ -1010,8 +1015,8 @@ export default class SupportTicketService {
         await this.saveTicket(ticket);
     }
 
-    /** Retries outcome emails and redactions that failed on close; runs with the daily retention job. */
-    private async retryPendingCloseSteps(): Promise<void> {
+    /** Retries failed outcome emails and runs redactions whose grace period ended; runs with the daily retention job. */
+    private async retryPendingCloseSteps(now: Date): Promise<void> {
         const pending = await SupportTicket.find({
             status: "closed",
             "privacy.responseOutcome": { $exists: true },
@@ -1021,12 +1026,13 @@ export default class SupportTicketService {
                     "privacy.requestType": "deletion",
                     "privacy.responseOutcome": { $in: ["fulfilled", "partly_fulfilled"] },
                     "privacy.redactedAt": { $exists: false },
+                    "privacy.responseNotifiedAt": { $lte: subDays(now, PRIVACY_REDACTION_DELAY_DAYS) },
                 },
             ],
         }, { uuid: 1 });
         for (const { uuid } of pending) {
             try {
-                await this.onPrivacyTicketClosed(uuid);
+                await this.onPrivacyTicketClosed(uuid, now);
             } catch (err) {
                 supportTicketLog.error({ err }, `Retry of privacy close steps failed for ticket ${uuid}`);
             }
@@ -1078,7 +1084,7 @@ export default class SupportTicketService {
     }
 
     async purgeExpiredPrivacyTickets(now = new Date()): Promise<number> {
-        await this.retryPendingCloseSteps();
+        await this.retryPendingCloseSteps(now);
 
         const cutoff = subMonths(now, PRIVACY_RETENTION_MONTHS).toISOString();
         const tickets = await SupportTicket.find(

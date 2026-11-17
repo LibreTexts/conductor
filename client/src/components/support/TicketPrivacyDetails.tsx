@@ -71,6 +71,8 @@ const TicketPrivacyDetails: React.FC<{ ticket: SupportTicket }> = ({ ticket }) =
     },
   });
   const isDenial = PRIVACY_DENIAL_OUTCOMES.includes(watch("responseOutcome"));
+  const willRedact =
+    watch("requestType") === "deletion" && ["fulfilled", "partly_fulfilled"].includes(watch("responseOutcome"));
 
   const mutation = useMutation({
     mutationFn: async (payload: Parameters<typeof api.updateSupportTicket>[1]) => {
@@ -267,6 +269,7 @@ const TicketPrivacyDetails: React.FC<{ ticket: SupportTicket }> = ({ ticket }) =
                 )}
                 <Text size="xs" className="text-gray-600">
                   Closing emails the outcome to the requester{isDenial ? ", with a link to appeal" : ""}.
+                  {willRedact && " Ticket content is redacted 7 days after that email."}
                 </Text>
                 <Stack direction="horizontal" gap="sm" justify="end">
                   <Button variant="outline" onClick={save} loading={mutation.isLoading} disabled={!formState.isDirty}>

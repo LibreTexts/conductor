@@ -101,7 +101,7 @@ const _isPrivacyStaff = (req: Parameters<typeof _isInternalSupportUser>[0]) =>
  */
 function _rejectIfRedacted(ticket: { status?: string; privacy?: PrivacyTicketFields }, res: Response): boolean {
   if (ticket.status !== "closed" || !shouldRedactOnClose(ticket.privacy)) return false;
-  res.status(400).send({ err: true, errMsg: "This privacy inquiry was redacted and can't take new messages, files, or CCs." });
+  res.status(400).send({ err: true, errMsg: "This deletion request is closed for redaction and can't take new messages, files, or CCs." });
   return true;
 }
 

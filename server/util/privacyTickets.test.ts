@@ -5,6 +5,7 @@ import {
   getPrivacyCloseErrors,
   getPrivacyDueDate,
   getPrivacyReminderState,
+  isPrivacyRedactionDue,
   shouldRedactOnClose,
 } from "./privacyTickets.js";
 
@@ -105,6 +106,26 @@ describe("shouldRedactOnClose", () => {
     assert.equal(shouldRedactOnClose({ requestType: "deletion", responseOutcome: "partly_fulfilled" }), true);
     assert.equal(shouldRedactOnClose({ requestType: "deletion", responseOutcome: "denied" }), false);
     assert.equal(shouldRedactOnClose({ requestType: "access", responseOutcome: "fulfilled" }), false);
+  });
+});
+
+describe("isPrivacyRedactionDue", () => {
+  const deletion = {
+    requestType: "deletion" as const,
+    responseOutcome: "fulfilled" as const,
+    responseNotifiedAt: new Date("2026-01-01T00:00:00.000Z"),
+  };
+
+  it("waits out the grace period after the outcome email", () => {
+    assert.equal(isPrivacyRedactionDue(deletion, new Date("2026-01-07T23:59:59.000Z")), false);
+    assert.equal(isPrivacyRedactionDue(deletion, new Date("2026-01-08T00:00:00.000Z")), true);
+  });
+
+  it("skips tickets already redacted, not yet notified, or not eligible", () => {
+    const later = new Date("2026-02-01T00:00:00.000Z");
+    assert.equal(isPrivacyRedactionDue({ ...deletion, redactedAt: new Date() }, later), false);
+    assert.equal(isPrivacyRedactionDue({ ...deletion, responseNotifiedAt: undefined }, later), false);
+    assert.equal(isPrivacyRedactionDue({ ...deletion, responseOutcome: "denied" }, later), false);
   });
 });
 
