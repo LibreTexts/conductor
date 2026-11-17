@@ -23,7 +23,6 @@ const CoauthorToolsRenamedBanner: React.FC = () => {
       message={'The Accessibility and AI Co-Author tools can now be found under Co-Authoring Tools as Accessibility Remediation and Metadata Editor, respectively.'}
       dismissible
       onDismiss={() => acknowledge("dismissed")}
-      className="mb-4"
     />
   );
 };

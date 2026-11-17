@@ -6,9 +6,10 @@ import { marked } from 'marked';
 import date from 'date-and-time';
 import ordinal from 'date-and-time/plugin/ordinal';
 import day_of_week from 'date-and-time/plugin/day-of-week';
-import { Button, IconButton, Input, Modal, Spinner } from '@libretexts/davis-react';
+import { Button, Heading, IconButton, Input, Modal, Text } from '@libretexts/davis-react';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
 import Chat from '../Chat';
+import SkeletonBone from '../SkeletonBone';
 import {
     isEmptyString,
     truncateString
@@ -19,7 +20,7 @@ import './Messaging.css';
 /**
  * A reusable messaging (threads and chat window) interface.
  */
-const Messaging = ({ projectID, user, kind, isProjectAdmin, defaultNotificationSetting }) => {
+const Messaging = ({ projectID, user, kind, isProjectAdmin, defaultNotificationSetting, className }) => {
 
     // Global State and Eror Handling
     const { handleGlobalError } = useGlobalError();
@@ -114,6 +115,15 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin, defaultNotificationS
         setActiveThreadTitle(thread.title);
     };
 
+    // Open the first thread whenever none is selected (initial load, after a delete),
+    // so the composer always has a target.
+    useEffect(() => {
+        if (!loadedThreads || threads.length === 0) return;
+        if (!threads.some((t) => t.threadID === activeThread)) {
+            activateThread(threads[0]);
+        }
+    }, [loadedThreads, threads, activeThread]);
+
 
     const submitNewThread = () => {
         if (!isEmptyString(newThreadTitle)) {
@@ -190,66 +200,78 @@ const Messaging = ({ projectID, user, kind, isProjectAdmin, defaultNotificationS
 
 
     return (
-        <div id='conductor-messaging-container'>
+        <div id='conductor-messaging-container' className={className}>
             <div id='conductor-messaging-threads'>
-                <div className='flex-row-div' id='conductor-messaging-threads-header-container'>
-                    <div className='left-flex'>
-                        <span className="font-semibold text-base text-gray-800">Threads</span>
-                    </div>
-                    <div className='right-flex flex items-center gap-1'>
+                <div id='conductor-messaging-threads-header-container'>
+                    <Heading as='h3' level={6} className='m-0!'>Threads</Heading>
+                    <div className='flex items-center gap-1'>
                         <IconButton
-                            icon={<IconTrash size={14} />}
-                            variant="destructive"
+                            icon={<IconTrash size={16} />}
+                            variant="ghost"
                             size="sm"
+                            className='text-danger-600! hover:bg-danger-50!'
                             onClick={openDelThreadModal}
                             disabled={activeThread === ''}
                             aria-label='Delete Thread'
                         />
                         <IconButton
-                            icon={<IconPlus size={14} />}
-                            variant="primary"
+                            icon={<IconPlus size={16} />}
+                            variant="outline"
                             size="sm"
                             onClick={openNewThreadModal}
                             aria-label='Add Thread'
                         />
                     </div>
                 </div>
-                <div className='flex-col-div' id='conductor-messaging-threads-list-container'>
+                <div id='conductor-messaging-threads-list-container' aria-busy={!loadedThreads || undefined}>
                     {(loadedThreads && threads.length > 0) &&
-                        threads.map((item, idx) => {
-                            let lastMessage = '*No messages yet*';
-                            if (item.lastMessage && item.lastMessage.body) {
-                                lastMessage = `${item.lastMessage.author?.firstName} ${item.lastMessage.author?.lastName}: ${truncateString(item.lastMessage.body, 50)}`;
-                            }
-                            const readyLastMsg = {
-                                __html: DOMPurify.sanitize(marked.parseInline(lastMessage))
-                            };
-                            return (
-                                <div
-                                    className={activeThread === item.threadID
-                                        ? 'conductor-messaging-threads-list-item active'
-                                        : 'conductor-messaging-threads-list-item'}
-                                    key={item.threadID}
-                                    onClick={() => activateThread(item)}
-                                >
-                                    <p
-                                        className={activeThread === item.threadID
-                                            ? 'conductor-messaging-threads-list-title active'
-                                            : 'conductor-messaging-threads-list-title'}
-                                    >
-                                        {item.title}
-                                    </p>
-                                    <p className='conductor-messaging-threads-list-descrip prose prose-code:before:hidden prose-code:after:hidden' dangerouslySetInnerHTML={readyLastMsg}>
-                                    </p>
-                                </div>
-                            )
-                        })
+                        <ul className='m-0 list-none p-0'>
+                            {threads.map((item) => {
+                                let lastMessage = '*No messages yet*';
+                                if (item.lastMessage && item.lastMessage.body) {
+                                    lastMessage = `${item.lastMessage.author?.firstName} ${item.lastMessage.author?.lastName}: ${truncateString(item.lastMessage.body, 50)}`;
+                                }
+                                // Links would nest an interactive element inside the thread button.
+                                const readyLastMsg = {
+                                    __html: DOMPurify.sanitize(marked.parseInline(lastMessage), { FORBID_TAGS: ['a'] })
+                                };
+                                const isActive = activeThread === item.threadID;
+                                return (
+                                    <li key={item.threadID}>
+                                        <button
+                                            type='button'
+                                            className={isActive
+                                                ? 'conductor-messaging-threads-list-item active'
+                                                : 'conductor-messaging-threads-list-item'}
+                                            aria-current={isActive || undefined}
+                                            onClick={() => activateThread(item)}
+                                        >
+                                            <span className='conductor-messaging-threads-list-title'>
+                                                {item.title}
+                                            </span>
+                                            <span className='conductor-messaging-threads-list-descrip' dangerouslySetInnerHTML={readyLastMsg}>
+                                            </span>
+                                        </button>
+                                    </li>
+                                )
+                            })}
+                        </ul>
                     }
                     {(loadedThreads && threads.length === 0) &&
-                        <p className='text-center muted-text mt-4r pa-2p'><em>No threads yet. Create one above!</em></p>
+                        <Text as='p' size='sm' color='muted' align='center' className='m-0 px-4 py-6'>No threads yet. Create one above!</Text>
                     }
                     {(!loadedThreads) &&
-                        <div className="flex justify-center mt-8"><Spinner /></div>
+                        <>
+                            <p role='status' className='sr-only'>Loading threads…</p>
+                            <div aria-hidden='true' className='flex flex-col gap-5 px-4 py-3'>
+                                {['w-40', 'w-28', 'w-36'].map((w) => (
+                                    <div key={w} className='flex flex-col gap-2'>
+                                        <SkeletonBone className={`h-3 ${w}`} />
+                                        <SkeletonBone className='h-2.5 w-full' />
+                                    </div>
+                                ))}
+                            </div>
+                        </>
                     }
                 </div>
             </div>
@@ -327,7 +349,8 @@ Messaging.propTypes = {
     user: PropTypes.object.isRequired,
     kind: PropTypes.string.isRequired,
     isProjectAdmin: PropTypes.bool,
-    defaultNotificationSetting: PropTypes.string
+    defaultNotificationSetting: PropTypes.string,
+    className: PropTypes.string
 };
 
 Messaging.defaultProps = {

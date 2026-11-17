@@ -1,11 +1,3 @@
-.filterby-span {
-    margin-right: 1% !important;
-}
-
-.project-meta-breadcrumb {
-  flex: 1;
-}
-
 .projectprotal-progress-row {
     align-items: center;
     justify-content: space-between;
@@ -31,18 +23,6 @@
 }
 */
 
-.project-notes-body a {
-    word-break: break-all;
-}
-
-.project-detail-titleheader {
-    color: #585858;
-}
-
-.project-detail-text {
-    font-size: 1.1em !important;
-}
-
 .project-updates-grid {
     margin-top: 5% !important;
 }
@@ -50,10 +30,6 @@
 .project-progress-column {
     padding-left: 5% !important;
     padding-right: 5% !important;
-}
-
-.project-flag-message-text {
-    color: white;
 }
 
 .access-table-outer {
@@ -107,7 +83,6 @@
     border-right: 1px solid rgba(34,36,38,.1);
 }
 
-
 #access-add-section-btn {
     width: 150px;
     margin: 0;
@@ -138,18 +113,6 @@
 .project-red-score {
     color: #DB2828 !important;
 }
-
-
-.project-hiddensection-heading {
-    margin: 0 !important;
-    display: inline-block;
-}
-
-/** Discussion **/
-.project-discussion-segment {
-    padding: 0 !important;
-}
-
 
 /** Timeline — Construction Roadmap **/
 #project-roadmap-heading {
@@ -455,8 +418,6 @@
     background-color: #00b5ad;
 }
 
-
-
 /** Peer Review **/
 .project-peerreview-subheader {
     font-size: 1.25rem !important;
@@ -485,26 +446,6 @@
     margin-right: 1%;
 }
 
-.project-task-detail {
-    display: block;
-    width: 98%;
-    margin-left: auto;
-}
-
-.project-task-detail.hidden {
-    display: none;
-}
-
-.project-task-subtask {
-    border: none !important;
-    border-bottom: 1px solid rgba(34,36,38,.15) !important;
-    padding: 0.5% 0 0.5% 0 !important;
-}
-
-.project-task-subtask:last-child {
-    border-bottom: none !important;
-}
-
 #task-view-left {
     flex-basis: 65%;
     /*border-right: 1px solid rgba(34,36,38,.22);*/
@@ -519,14 +460,6 @@
     max-height: 500px;
 }
 
-.task-assignees-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: nowrap;
-    margin-right: 2%;
-}
-
 .task-detail-div {
     flex-grow: 1;
 }
@@ -536,10 +469,6 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-}
-
-.task-actions-div {
-    text-align: center;
 }
 
 .task-view-header-crumbs {

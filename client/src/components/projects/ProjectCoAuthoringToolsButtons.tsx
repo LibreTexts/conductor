@@ -1,8 +1,18 @@
-import { Button, Tooltip } from "@libretexts/davis-react";
-import { IconExternalLink } from "@tabler/icons-react";
+import { Badge, Text } from "@libretexts/davis-react";
+import {
+  IconAccessible,
+  IconArrowsShuffle,
+  IconBooks,
+  IconQuote,
+  IconStack2,
+  IconTag,
+  IconVocabulary,
+} from "@tabler/icons-react";
 import { buildLibraryPageGoURL, buildRemixerURL } from "../../utils/projectHelpers";
 import useClientConfig from "../../hooks/useClientConfig";
 import { ProjectClassification } from "../../types";
+import ProjectToolTile from "./ProjectToolTile";
+import SectionCard from "./ProjectView/SectionCard";
 
 interface ProjectCoAuthoringToolsButtonsProps {
   className?: string;
@@ -15,150 +25,98 @@ interface ProjectCoAuthoringToolsButtonsProps {
   projectID?: string;
 }
 
-const actionTooltipClass =
-  "[&>[role=tooltip]]:!left-0 [&>[role=tooltip]]:!translate-x-0 [&>[role=tooltip]]:!right-auto";
-
-const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsProps> = ({
-  className,
-  handleOpenReaderResourcesModal,
-  hasCommonsBook = false,
+/**
+ * Whether the Co-authoring tools card renders anything. The tiles all need a
+ * linked library book, so `hasCommonsBook` alone isn't enough.
+ */
+export const hasCoAuthoringTools = ({
   isProjectMemberOrAdmin = false,
   libreCoverID,
   libreLibrary,
   projectClassification,
-  projectID,
-}) => {
+}: Omit<ProjectCoAuthoringToolsButtonsProps, "handleOpenReaderResourcesModal">) => {
+  if (projectClassification === ProjectClassification.MINI_REPO) return false;
+  if (!isProjectMemberOrAdmin) return false;
+  return !!libreCoverID && !!libreLibrary;
+};
+
+const ProjectCoAuthoringToolsButtons: React.FC<ProjectCoAuthoringToolsButtonsProps> = (props) => {
+  const {
+    className,
+    handleOpenReaderResourcesModal,
+    hasCommonsBook = false,
+    libreCoverID,
+    libreLibrary,
+    projectID,
+  } = props;
   const { clientConfig } = useClientConfig();
-  const validBook = libreCoverID && libreLibrary;
-  if (projectClassification === ProjectClassification.MINI_REPO) return null;
-  if (!validBook && !hasCommonsBook) return null;
-  if (!isProjectMemberOrAdmin) return null;
+  if (!hasCoAuthoringTools(props) || !libreCoverID || !libreLibrary) return null;
 
   return (
-    <div className={className}>
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-        Co-Authoring Tools:
-      </span>
-      <div className="flex flex-row flex-wrap gap-2 mt-2">
-        {(validBook || hasCommonsBook) &&
-          libreCoverID &&
-          libreLibrary && (<>
-              <Tooltip
-                placement="bottom"
-                className={actionTooltipClass}
-                content="This link will open the book in the LibreTexts OER Remixer."
-              >
-                <Button
-                  as="a"
-                  href={buildRemixerURL(
-                    libreLibrary ?? "chem",
-                    libreLibrary && libreCoverID
-                      ? buildLibraryPageGoURL(libreLibrary, libreCoverID)
-                      : "",
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  variant="primary"
-                  size="sm"
-                  icon={<IconExternalLink size={16} />}
-                  iconPosition="right"
-                >
-                  Open OER Remixer (Legacy)
-                </Button>
-              </Tooltip>
-              <Tooltip
-                placement="bottom"
-                className={actionTooltipClass}
-                content="This link will open the book in the LibreTexts OER Remixer v3."
-              >
-                <Button
-                  as="a"
-                  href={`/projects/${projectID}/remixer`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  variant="primary"
-                  size="sm"
-                  icon={<IconExternalLink size={16} />}
-                  iconPosition="right"
-                >
-                  Open OER Remixer v3 (New)
-                </Button>
-              </Tooltip>
-              <Button
-                as="a"
-                href={`/projects/${projectID}/accessibility-remediation`}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="primary"
-                size="sm"
-                icon={<IconExternalLink size={16} />}
-                iconPosition="right"
-              >
-                Accessibility Remediation
-              </Button>
-              <Button
-                as="a"
-                href={`/glossary/project/${projectID}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="primary"
-                size="sm"
-                icon={<IconExternalLink size={16} />}
-                iconPosition="right"
-              >
-                Glossary Manager
-              </Button>
-              <Button
-                as="a"
-                href={`/projects/${projectID}/restacker`}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="primary"
-                size="sm"
-                icon={<IconExternalLink size={16} />}
-                iconPosition="right"
-              >
-                License Restacker
-              </Button>
-              {hasCommonsBook && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleOpenReaderResourcesModal}
-                >
-                  Manage Reader Resources
-                </Button>
-              )}
-              <Button
-                as="a"
-                href={`/projects/${projectID}/metadata-editor`}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="primary"
-                size="sm"
-                icon={<IconExternalLink size={16} />}
-                iconPosition="right"
-              >
-                Metadata Editor
-              </Button>
-              {clientConfig?.reference_manager_enabled && (
-                <Button
-                  as="a"
-                  href={`/projects/${projectID}/references`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  variant="primary"
-                  size="sm"
-                  icon={<IconExternalLink size={16} />}
-                  iconPosition="right"
-                >
-                  Reference Manager
-                </Button>
-              )}
+    <SectionCard title="Co-Authoring Tools" className={className} bodyClassName="p-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <ProjectToolTile
+          icon={<IconArrowsShuffle size={18} />}
+          label="OER Remixer v3"
+          badge={<Badge label="New" variant="primary" size="sm" />}
+          external
+          href={`/projects/${projectID}/remixer`}
+        />
+        <ProjectToolTile
+          icon={<IconArrowsShuffle size={18} />}
+          label={
+            <>
+              OER Remixer{" "}
+              <Text size="sm" weight="normal" color="muted">
+                (Legacy)
+              </Text>
             </>
-          )}
+          }
+          muted
+          external
+          href={buildRemixerURL(libreLibrary, buildLibraryPageGoURL(libreLibrary, libreCoverID))}
+        />
+        <ProjectToolTile
+          icon={<IconAccessible size={18} />}
+          label="Accessibility Remediation"
+          external
+          href={`/projects/${projectID}/accessibility-remediation`}
+        />
+        <ProjectToolTile
+          icon={<IconTag size={18} />}
+          label="Metadata Editor"
+          external
+          href={`/projects/${projectID}/metadata-editor`}
+        />
+        <ProjectToolTile
+          icon={<IconVocabulary size={18} />}
+          label="Glossary Manager"
+          external
+          href={`/glossary/project/${projectID}`}
+        />
+        <ProjectToolTile
+          icon={<IconStack2 size={18} />}
+          label="License Restacker"
+          external
+          href={`/projects/${projectID}/restacker`}
+        />
+        {hasCommonsBook && (
+          <ProjectToolTile
+            icon={<IconBooks size={18} />}
+            label="Manage Reader Resources"
+            onClick={handleOpenReaderResourcesModal}
+          />
+        )}
+        {clientConfig?.reference_manager_enabled && (
+          <ProjectToolTile
+            icon={<IconQuote size={18} />}
+            label="Reference Manager"
+            external
+            href={`/projects/${projectID}/references`}
+          />
+        )}
       </div>
-    </div>
+    </SectionCard>
   );
 };
 

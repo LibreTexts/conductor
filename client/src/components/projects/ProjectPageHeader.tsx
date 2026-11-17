@@ -1,25 +1,23 @@
 import type { ReactNode } from "react";
-import { Link, useHistory, useLocation } from "react-router-dom";
-import { Breadcrumb, Button, Heading, Tabs } from "@libretexts/davis-react";
-import { IconChartBar, IconClipboardList, IconClock, IconPin } from "@tabler/icons-react";
-import { useModals } from "../../context/ModalContext";
-import { Project, ProjectClassification } from "../../types";
-import { useIsProjectPinned, useUnpinProjectMutation } from "../Home/PinnedProjects/hooks";
-import AddPinnedProjectModal from "../Home/PinnedProjects/AddPinnedProjectModal";
+import { Link } from "react-router-dom";
+import { Breadcrumb, Heading, Text } from "@libretexts/davis-react";
+import { Project } from "../../types";
+import CopyValueButton from "../util/CopyValueButton";
+import PinProjectButton from "./ProjectView/PinProjectButton";
+import { ProjectStatusBadge, ProjectVisibilityBadge } from "./ProjectView/projectDisplay";
 
 interface ProjectPageHeaderProps {
   projectID: string;
-  project?: Project;
+  project: Project;
   /** Show the Flagged Projects crumb for flagged projects (reviewer entry point). */
   reviewerMode?: boolean;
-  /** Rendered to the left of the navigation tabs. */
+  /** Main action buttons, under the title and breadcrumb. */
   actions?: ReactNode;
 }
 
-const PIN_MODAL_ID = "project-page-pin";
-
 /**
- * Title, breadcrumb, pin control, and section tabs shared by the /projects/:id pages.
+ * Title with status badges, project ID and pin control, breadcrumb, and main actions
+ * for the /projects/:id page.
  */
 const ProjectPageHeader: React.FC<ProjectPageHeaderProps> = ({
   projectID,
@@ -27,109 +25,57 @@ const ProjectPageHeader: React.FC<ProjectPageHeaderProps> = ({
   reviewerMode = false,
   actions,
 }) => {
-  const history = useHistory();
-  const location = useLocation();
-  const { openModal, closeModal } = useModals();
-  const isPinned = useIsProjectPinned(projectID);
-  const unpinProject = useUnpinProjectMutation();
-
-  const title = project?.title || "Loading...";
-  const showFlaggedCrumb = !!project?.flag && reviewerMode;
-  const basePath = `/projects/${projectID}`;
-
-  const navTabs = [
-    { label: "Project", icon: null, path: basePath },
-    { label: "Timeline", icon: <IconClock size={14} />, path: `${basePath}/timeline` },
-    ...(project?.classification !== ProjectClassification.MINI_REPO
-      ? [{ label: "Peer Review", icon: <IconClipboardList size={14} />, path: `${basePath}/peerreview` }]
-      : []),
-    ...(project?.hasTrafficAnalyticsConfigured
-      ? [{ label: "Analytics", icon: <IconChartBar size={14} />, path: `${basePath}/analytics` }]
-      : []),
-  ];
-  const activeIdx = navTabs.findIndex((tab, i) =>
-    i === 0 ? location.pathname === tab.path : location.pathname.startsWith(tab.path)
-  );
-
-  const handlePinToggle = () => {
-    if (!project?.projectID) return;
-    if (isPinned) {
-      unpinProject.mutate(project.projectID);
-      return;
-    }
-    openModal(
-      <AddPinnedProjectModal
-        show
-        projectID={project.projectID}
-        onClose={() => closeModal(PIN_MODAL_ID)}
-      />,
-      PIN_MODAL_ID
-    );
-  };
+  const showFlaggedCrumb = !!project.flag && reviewerMode;
+  const parentCrumb = showFlaggedCrumb
+    ? { to: "/projects/flagged", label: "Flagged projects" }
+    : project.status === "available"
+      ? { to: "/projects/available", label: "Available projects" }
+      : project.status === "completed"
+        ? { to: "/projects/completed", label: "Completed projects" }
+        : null;
 
   return (
-    <>
-      <div className="flex items-start justify-between mb-2">
-        <Heading level={1} className="text-3xl font-bold">
-          Project: <em>{title}</em>
-        </Heading>
-      </div>
-
-      <div className="flex items-center justify-between mb-5">
-        <Breadcrumb>
+    <header className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+            <Heading level={1} className="m-0!">
+              {project.title}
+            </Heading>
+            <div className="flex flex-wrap items-center gap-2">
+              {project.status && <ProjectStatusBadge status={project.status} />}
+              {project.visibility && <ProjectVisibilityBadge visibility={project.visibility} />}
+              <span className="inline-flex items-center gap-1 sm:hidden">
+                <Text size="sm" color="muted">ID {project.projectID}</Text>
+                <CopyValueButton value={project.projectID} label="Copy Project ID" tooltipPosition="bottom" />
+              </span>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3 max-sm:hidden">
+            <span className="inline-flex items-center gap-1">
+              <Text size="sm" color="muted">
+                Project ID{" "}
+                <code className="rounded bg-neutral-100 px-1.5 py-0.5">{project.projectID}</code>
+              </Text>
+              <CopyValueButton value={project.projectID} label="Copy Project ID" tooltipPosition="bottom" />
+            </span>
+            <PinProjectButton projectID={projectID} />
+          </div>
+        </div>
+        <Breadcrumb className="pl-0.5 max-sm:hidden">
           <Breadcrumb.Item>
             <Link to="/projects">Projects</Link>
           </Breadcrumb.Item>
-          {showFlaggedCrumb && (
+          {parentCrumb && (
             <Breadcrumb.Item>
-              <Link to="/projects/flagged">Flagged Projects</Link>
+              <Link to={parentCrumb.to}>{parentCrumb.label}</Link>
             </Breadcrumb.Item>
           )}
-          {!showFlaggedCrumb && project?.status === "available" && (
-            <Breadcrumb.Item>
-              <Link to="/projects/available">Available Projects</Link>
-            </Breadcrumb.Item>
-          )}
-          {!showFlaggedCrumb && project?.status === "completed" && (
-            <Breadcrumb.Item>
-              <Link to="/projects/completed">Completed Projects</Link>
-            </Breadcrumb.Item>
-          )}
-          <Breadcrumb.Item isCurrent>{title}</Breadcrumb.Item>
+          <Breadcrumb.Item isCurrent>{project.title}</Breadcrumb.Item>
         </Breadcrumb>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">ID: {project?.projectID || "Loading..."}</span>
-          <Button
-            variant={isPinned ? "outline" : "primary"}
-            icon={<IconPin size={15} />}
-            onClick={handlePinToggle}
-          >
-            {isPinned ? "Unpin" : "Pin"} Project
-          </Button>
-        </div>
       </div>
-
-      <div className="flex items-center gap-3 mb-6 overflow-x-auto min-w-0">
-        {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
-        <Tabs
-          variant="pills"
-          color="white"
-          selectedIndex={activeIdx >= 0 ? activeIdx : 0}
-          onChange={(idx) => history.push(navTabs[idx].path)}
-        >
-          <Tabs.List>
-            {navTabs.map((tab) => (
-              <Tabs.Tab key={tab.label}>
-                <span className="flex items-center gap-1.5">
-                  {tab.icon}
-                  {tab.label}
-                </span>
-              </Tabs.Tab>
-            ))}
-          </Tabs.List>
-        </Tabs>
-      </div>
-    </>
+      {actions}
+    </header>
   );
 };
 

@@ -3,9 +3,10 @@ import PropTypes from 'prop-types';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { Button, Comment, Modal, Select, Spinner } from '@libretexts/davis-react';
+import { Button, Comment, Heading, Modal, Select, Spinner, Text } from '@libretexts/davis-react';
 import { IconSend } from '@tabler/icons-react';
 import TextArea from '../TextArea';
+import SkeletonBone from '../SkeletonBone';
 import { isEmptyString } from '../util/HelperFunctions.js';
 import useGlobalError from '../error/ErrorHooks';
 import './Chat.css';
@@ -281,14 +282,11 @@ const Chat: FC<Chatinterface>= ({
   return (
     <div id="conductor-chat">
       <div id="conductor-chat-msgs-header-container">
-        <div className="left-flex">
-          <span className="font-semibold text-base text-gray-800">
-            {activeThreadTitle !== '' ? <em>{activeThreadTitle}</em> : 'Messages'}
-          </span>
-        </div>
-        <div className="right-flex" id="conductor-chat-msgs-header-options"></div>
+        <Heading as="h3" level={5} truncate className="m-0!">
+          {activeThreadTitle !== '' ? activeThreadTitle : 'Messages'}
+        </Heading>
       </div>
-      <div id="conductor-chat-window">
+      <div id="conductor-chat-window" aria-busy={(!loadedThreadMsgs && activeThread !== '') || undefined}>
         {(loadedThreadMsgs && activeThreadMsgs.length > 0) && (
           <div id="conductor-chat-msgs">
             {activeThreadMsgs.map((item) => {
@@ -300,30 +298,33 @@ const Chat: FC<Chatinterface>= ({
                 item.date = format(itemDate, 'MMM do, yyyy');
               }
               item.time = format(itemDate, 'h:mm a');
+              const authorName = `${item.author?.firstName} ${item.author?.lastName}`;
               const readyMsgBody = {
                 __html: DOMPurify.sanitize(marked(item.body, { breaks: true }))
               };
               return (
                 <Comment key={item.messageID} className="conductor-chat-msg">
                   <Comment.Header
-                    avatar={{ src: item.author?.avatar || '/mini_logo.png', name: `${item.author?.firstName} ${item.author?.lastName}` }}
-                    name={`${item.author?.firstName} ${item.author?.lastName}`}
+                    avatar={{ src: item.author?.avatar || undefined, name: authorName }}
+                    name={authorName}
                   >
-                    <span className="text-xs text-gray-500 ml-2">{item.date} at {item.time}</span>
-                    {((item.author?.uuid === user.uuid) || isProjectAdmin) && (
-                      <button
-                        className="conductor-chat-del text-xs text-gray-400 ml-2"
-                        onClick={() => handleOpenDeleteMessage(item.messageID)}
-                      >
-                        Delete
-                      </button>
-                    )}
+                    <span>{item.date} at {item.time}</span>
                   </Comment.Header>
                   <Comment.Body>
                     <div
                       className="conductor-chat-msg-body !prose prose-code:before:hidden prose-code:after:hidden !max-w-none"
                       dangerouslySetInnerHTML={readyMsgBody}
                     />
+                    {((item.author?.uuid === user.uuid) || isProjectAdmin) && (
+                      <button
+                        type="button"
+                        className="conductor-chat-del mt-1 text-sm text-gray-500"
+                        aria-label={`Delete message from ${authorName}`}
+                        onClick={() => handleOpenDeleteMessage(item.messageID)}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </Comment.Body>
                 </Comment>
               );
@@ -331,33 +332,48 @@ const Chat: FC<Chatinterface>= ({
           </div>
         )}
         {(loadedThreadMsgs && activeThreadMsgs.length === 0) && (
-          <p className="text-center muted-text mt-4r"><em>No messages yet. Send one below!</em></p>
+          <Text as="p" size="sm" color="muted" align="center" className="m-0 py-6">No messages yet. Send one below!</Text>
         )}
         {(!loadedThreadMsgs && activeThread !== '') && (
-          <div className="flex justify-center mt-8"><Spinner /></div>
+          <>
+            <p role="status" className="sr-only">Loading messages…</p>
+            <div aria-hidden="true" className="flex flex-col gap-5">
+              {[3, 2].map((lines) => (
+                <div key={lines} className="flex gap-3">
+                  <SkeletonBone shape="round" className="size-8 shrink-0" />
+                  <div className="flex flex-1 flex-col gap-2">
+                    <SkeletonBone className="h-3 w-40" />
+                    <SkeletonBone className="h-2.5 w-4/5" />
+                    {lines > 2 && <SkeletonBone className="h-2.5 w-3/5" />}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
         {(activeThread === '' && activeThreadMsgs.length === 0) && (
-          <p className="text-center muted-text mt-4r">
-            <em>
-              {mode === 'standalone'
-                ? 'No chat identifier specified!'
-                : 'No thread selected. Select one from the list on the left or create one using the + button!'
-              }
-            </em>
-          </p>
+          <Text as="p" size="sm" color="muted" align="center" className="m-0 py-6">
+            {mode === 'standalone'
+              ? 'No chat identifier specified!'
+              : 'No thread selected. Select one from the list on the left or create one using the + button!'
+            }
+          </Text>
         )}
         <div ref={chatWindowBottom} />
       </div>
       <div id="conductor-chat-reply-container">
-        <TextArea
-          placeholder="Send a message..."
-          textValue={messageCompose}
-          onTextChange={(value) => setMessageCompose(value)}
-          contentType="message"
-          hideFormatMsg
-          rows={1}
-          maxLength={2000}
-        />
+        <label id="replycontainer-input">
+          <span className="sr-only">Message</span>
+          <TextArea
+            placeholder="Send a message..."
+            textValue={messageCompose}
+            onTextChange={(value) => setMessageCompose(value)}
+            contentType="message"
+            hideFormatMsg
+            rows={1}
+            maxLength={2000}
+          />
+        </label>
         <div id="replycontainer-actions">
           <Select
             id="replycontainer-notifydropdown"
@@ -369,14 +385,13 @@ const Chat: FC<Chatinterface>= ({
             options={notificationSelectOptions}
             value={notifySetting}
             onChange={handleNotifySettingChange}
-            className="min-w-[180px]"
             selectClassName="h-9! py-1! text-sm!"
           />
           <Button
             id="replycontainer-sendbutton"
             variant="primary"
             size="sm"
-            className="h-9! px-4!"
+            className="h-9! w-full px-4!"
             disabled={activeThread === '' || messageCompose === '' || messageCompose.length > 2000}
             loading={messageSending}
             onClick={sendMessage}

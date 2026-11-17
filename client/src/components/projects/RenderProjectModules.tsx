@@ -1,40 +1,39 @@
 import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
-  Alert,
   Avatar,
   Badge,
   Button as DavisButton,
-  Card,
-  Divider,
   EmptyState,
-  Heading,
   IconButton,
   Input,
-  Spinner,
-  Stack,
   Text,
   Tooltip,
 } from "@libretexts/davis-react";
 import Messaging from "../Messaging";
 import FilesManager from "../FilesManager";
-import { useHistory } from "react-router-dom";
+import SkeletonBone from "../SkeletonBone";
+import SectionCard from "./ProjectView/SectionCard";
 import { DEFAULT_PROJECT_MODULES } from "../../utils/projectHelpers";
-import { Project, ProjectTaskView, User } from "../../types";
+import { Project, ProjectTaskAssignee, ProjectTaskView, User } from "../../types";
 import { ProjectPermissions } from "../../hooks/useProjectPermissions";
 import { TaskSearchResult } from "../../utils/projectTaskHelpers";
-import TaskStatusBadge from "./TaskComponents/TaskStatusBadge";
 import {
-  IconArrowsDownUp,
-  IconCalendarTime,
   IconChevronDown,
   IconChevronRight,
-  IconChecklist,
+  IconChevronUp,
+  IconCircleCheck,
+  IconCircleDashed,
+  IconClock,
   IconCopyPlus,
   IconEye,
+  IconFilter,
+  IconLoader2,
+  IconLock,
   IconPlus,
   IconSearch,
+  IconSelector,
   IconTrash,
-  IconUsers,
 } from "@tabler/icons-react";
 
 interface RenderProjectModulesProps {
@@ -65,6 +64,128 @@ const getTeamMemberOptions = (project: Project) =>
     })
   );
 
+const ModuleToggle = ({
+  expanded,
+  controls,
+  onToggle,
+}: {
+  expanded: boolean;
+  controls?: string;
+  onToggle: () => void;
+}) => (
+  <DavisButton
+    variant="ghost"
+    size="sm"
+    icon={expanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+    aria-expanded={expanded}
+    aria-controls={controls}
+    onClick={onToggle}
+  >
+    {expanded ? "Hide" : "Show"}
+  </DavisButton>
+);
+
+const RestrictedState = ({ module }: { module: "Discussion" | "Tasks" }) => (
+  <EmptyState
+    className="py-10"
+    icon={<IconLock size={20} />}
+    title={`${module} ${module === "Tasks" ? "are" : "is"} limited to the project team`}
+    description={`You don't have permission to view this project's ${module} yet.`}
+  />
+);
+
+const TASK_STATUS = {
+  completed: {
+    label: "Completed",
+    color: "success",
+    icon: <IconCircleCheck size={14} aria-hidden="true" />,
+  },
+  inprogress: {
+    label: "In progress",
+    color: "primary",
+    icon: <IconLoader2 size={14} aria-hidden="true" />,
+  },
+  available: {
+    label: "Available",
+    color: "muted",
+    icon: <IconCircleDashed size={14} aria-hidden="true" />,
+  },
+} as const;
+
+/** Status as icon plus text, never color alone. */
+const TaskStatusLabel = ({ status }: { status?: string }) => {
+  const meta = TASK_STATUS[status as keyof typeof TASK_STATUS] ?? TASK_STATUS.available;
+  return (
+    <Text size="sm" color={meta.color} className="inline-flex items-center gap-1 whitespace-nowrap">
+      {meta.icon}
+      {meta.label}
+    </Text>
+  );
+};
+
+const MAX_VISIBLE_ASSIGNEES = 5;
+
+const AssigneeStack = ({ assignees }: { assignees?: ProjectTaskAssignee[] }) => {
+  const valid = (assignees ?? []).filter((a) => a?.uuid && a.firstName && a.lastName);
+  if (valid.length === 0) return <span />;
+  const overflow = valid.length - MAX_VISIBLE_ASSIGNEES;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center -space-x-1.5">
+        {valid.slice(0, MAX_VISIBLE_ASSIGNEES).map((assignee, idx) => {
+          const name = `${assignee.firstName} ${assignee.lastName}`;
+          return (
+            <Tooltip key={`${assignee.uuid}-${idx}`} content={name}>
+              <span className="inline-flex rounded-full ring-2 ring-white">
+                <Avatar src={assignee.avatar || undefined} name={name} size="xs" />
+              </span>
+            </Tooltip>
+          );
+        })}
+      </div>
+      {overflow > 0 && (
+        <Text size="sm" color="muted" className="whitespace-nowrap">
+          + {overflow} more
+        </Text>
+      )}
+    </div>
+  );
+};
+
+const TASK_ROW_GRID =
+  "grid grid-cols-[32px_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:grid-cols-[32px_minmax(0,1fr)_auto_auto]";
+
+const TaskListSkeleton = () => (
+  <div aria-hidden="true">
+    {[
+      { title: "w-60", avatars: 3 },
+      { title: "w-72", avatars: 2 },
+      { title: "w-52", avatars: 1 },
+      { title: "w-48", avatars: 0 },
+    ].map((row, idx) => (
+      <div key={idx} className={`${TASK_ROW_GRID} border-b border-neutral-200 px-4 py-3 last:border-b-0`}>
+        <SkeletonBone shape="control" className="mx-auto size-4" />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <SkeletonBone className={`h-3 max-w-full ${row.title}`} />
+          <SkeletonBone className="h-3 w-20" />
+        </div>
+        <div className="col-start-2 flex items-center justify-between gap-3 sm:contents">
+          <div className="flex -space-x-1.5">
+            {Array.from({ length: row.avatars }).map((_, i) => (
+              <SkeletonBone key={i} shape="round" className="size-6 ring-2 ring-white" />
+            ))}
+          </div>
+          <div className="ml-auto flex gap-1">
+            {[0, 1, 2].map((i) => (
+              <SkeletonBone key={i} shape="control" className="size-8" />
+            ))}
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
 const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
   project,
   url,
@@ -83,7 +204,6 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
   onDeleteTask: openDeleteTaskModal,
   onBatchAddTasks: openBatchModal,
 }) => {
-  const history = useHistory();
   const projectID = project.projectID;
   const defaultNotificationSetting = project.defaultChatNotification;
   const {
@@ -106,81 +226,37 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
     taskAssigneeOptions.find((option) => option.value === selectedValue)
       ?.label || "All assignees";
 
-  const renderAssigneeAvatars = (assignees: any[]) => {
-    if (!Array.isArray(assignees) || assignees.length === 0) return null;
-
-    return (
-      <div className="flex items-center gap-1">
-        {assignees.slice(0, 5).map((assignee: any, assignIdx: number) => {
-          if (!assignee.uuid || !assignee.firstName || !assignee.lastName) {
-            return null;
-          }
-          const name = `${assignee.firstName} ${assignee.lastName}`;
-          return (
-            <Tooltip
-              key={`${assignee.uuid}-${assignIdx}`}
-              content={name}
-            >
-              <span className="inline-flex">
-                <Avatar
-                  className="cursor-pointer"
-                  src={assignee.avatar || "/mini_logo.png"}
-                  name={name}
-                  size="sm"
-                />
-              </span>
-            </Tooltip>
-          );
-        })}
-        {assignees.length > 5 && (
-          <Text size="xs" color="muted">
-            +{assignees.length - 5}
-          </Text>
-        )}
-      </div>
-    );
-  };
-
   const DiscussionModule = useMemo(() => {
     return (
-      <div key="discussion-module" className="w-full">
+      <SectionCard
+        key="discussion-module"
+        title="Discussion"
+        actions={
+          canViewDetails ? (
+            <ModuleToggle
+              expanded={showDiscussion}
+              controls="project-discussion-body"
+              onToggle={() => setShowDiscussion(!showDiscussion)}
+            />
+          ) : undefined
+        }
+        bodyClassName="overflow-hidden rounded-b-lg"
+      >
         {!canViewDetails ? (
-          <Alert
-            variant="info"
-            title="Discussion"
-            message="You don't have permission to view this project's Discussion yet."
-          />
-        ) : (
-          <Card variant="outline" padding="none" className="bg-white">
-            <div className="flex items-center justify-between gap-3 px-5 py-3.5">
-              <Heading level={2} className="m-0! text-lg font-semibold text-slate-900">
-                Discussion
-              </Heading>
-              <DavisButton
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDiscussion(!showDiscussion)}
-              >
-                {showDiscussion ? "Hide" : "Show"}
-              </DavisButton>
-            </div>
-            {showDiscussion && (
-              <>
-                <Divider />
-                <div className="p-0">
-                  <Messaging
-                    projectID={projectID}
-                    user={user}
-                    kind="project"
-                    isProjectAdmin={userProjectAdmin}
-                    defaultNotificationSetting={defaultNotificationSetting}
-                  />
-                </div>
-              </>
-            )}
-          </Card>
-        )}
-      </div>
+          <RestrictedState module="Discussion" />
+        ) : showDiscussion ? (
+          <div id="project-discussion-body">
+            <Messaging
+              projectID={projectID}
+              user={user}
+              kind="project"
+              isProjectAdmin={userProjectAdmin}
+              defaultNotificationSetting={defaultNotificationSetting}
+              className="sm:h-[440px]"
+            />
+          </div>
+        ) : undefined}
+      </SectionCard>
     );
   }, [
     projectID,
@@ -208,20 +284,15 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
             projectVisibility={project.visibility}
           />
         ) : (
-          <Card variant="outline" padding="none" className="bg-white">
-            <div className="flex items-center justify-between gap-3 px-5 py-3.5">
-              <Heading level={2} className="m-0! text-lg font-semibold text-slate-900">
-                Assets
-              </Heading>
-              <DavisButton
-                variant="outline"
-                size="sm"
-                onClick={() => setShowFiles(!showFiles)}
-              >
-                Show
-              </DavisButton>
-            </div>
-          </Card>
+          <SectionCard
+            title="Assets"
+            actions={
+              <ModuleToggle
+                expanded={false}
+                onToggle={() => setShowFiles(!showFiles)}
+              />
+            }
+          />
         )}
       </div>
     );
@@ -260,374 +331,359 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
   }, [projTasks, selectedValue]);
 
   const TasksModule = useMemo(() => {
+    if (!canViewDetails) {
+      return (
+        <SectionCard key="tasks-module" title="Tasks">
+          <RestrictedState module="Tasks" />
+        </SectionCard>
+      );
+    }
+
+    const timelineURL = `${url}/timeline`;
+    // Mobile shows these four as a row of 44px icon-only buttons.
+    const toolbarIconClasses = "max-sm:h-11! max-sm:w-full max-sm:px-0!";
+
     return (
-      <div key="tasks-module" className="w-full">
-        {!canViewDetails ? (
-          <Alert
-            variant="info"
-            title="Tasks"
-            message="You don't have permission to view this project's Tasks yet."
-          />
-        ) : (
-          <Card variant="outline" padding="none" className="overflow-visible! bg-white">
-            {/* Header & Controls */}
-            <div className="p-5">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Heading
-                    level={2}
-                    className="m-0! text-lg font-semibold text-slate-900"
+      <SectionCard
+        key="tasks-module"
+        title="Tasks"
+        actions={
+          <>
+            <DavisButton
+              as={Link}
+              to={timelineURL}
+              variant="ghost"
+              size="sm"
+              icon={<IconClock size={15} />}
+              className="max-sm:hidden"
+            >
+              Timeline
+            </DavisButton>
+            <DavisButton
+              variant="outline"
+              size="sm"
+              icon={<IconCopyPlus size={15} />}
+              disabled={!userProjectMember}
+              onClick={openBatchModal}
+              className="max-sm:hidden"
+            >
+              Batch Add
+            </DavisButton>
+            <DavisButton
+              variant="primary"
+              size="sm"
+              icon={<IconPlus size={15} />}
+              disabled={!userProjectMember}
+              onClick={onAddTask}
+            >
+              Add Task
+            </DavisButton>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3 border-b border-neutral-200 p-4 sm:flex-row sm:items-center">
+          <div className="relative w-full sm:max-w-[360px] sm:flex-1">
+            <Input
+              name="task-search"
+              label="Search tasks"
+              labelClassName="sr-only"
+              placeholder="Search tasks..."
+              inputClassName="h-10!"
+              className="[&>div]:mt-0!"
+              value={taskSearchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              leftIcon={<IconSearch size={16} />}
+            />
+            {taskSearchResults.length > 0 && (
+              <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg">
+                {taskSearchResults.map((result: any) => (
+                  <button
+                    key={result.id}
+                    type="button"
+                    className="block w-full px-3 py-2 text-left hover:bg-surface-hover"
+                    onClick={() => openViewTaskModal(result.id)}
                   >
-                    Tasks
-                  </Heading>
-                  <Badge
-                    label={`${filteredTasks.length} ${
-                      filteredTasks.length === 1 ? "task" : "tasks"
-                    }`}
-                    variant="default"
-                    size="sm"
-                  />
-                </div>
+                    <Text size="sm" weight="medium" className="block">
+                      {result.title}
+                    </Text>
+                    {result.description && (
+                      <Text size="sm" color="muted" truncate className="block">
+                        {result.description}
+                      </Text>
+                    )}
+                  </button>
+                ))}
               </div>
+            )}
+          </div>
 
-              <Stack direction="vertical" gap="sm">
-                {/* Search + Assignee Filter Row (Pixel-aligned h-10) */}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="task-search-input relative min-w-[220px] flex-1 max-w-md">
-                    <Input
-                      name="task-search"
-                      label="Search tasks"
-                      labelClassName="sr-only"
-                      placeholder="Search tasks..."
-                      inputClassName="h-10!"
-                      value={taskSearchQuery}
-                      onChange={(e) => onSearchChange(e.target.value)}
-                      leftIcon={<IconSearch size={17} />}
+          <div className="grid grid-cols-4 gap-2 sm:contents">
+            <div
+              className="relative sm:min-w-[180px]"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                  setAssigneeFilterOpen(false);
+                }
+              }}
+            >
+              <DavisButton
+                variant="outline"
+                fullWidth
+                className="h-10! justify-start max-sm:h-11! max-sm:justify-center max-sm:px-0!"
+                icon={
+                  selectedValue ? (
+                    <Avatar
+                      src={
+                        taskAssigneeOptions.find((option) => option.value === selectedValue)
+                          ?.image
+                      }
+                      name={selectedAssigneeLabel}
+                      size="xs"
                     />
-                    {taskSearchResults.length > 0 && (
-                      <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
-                        {taskSearchResults.map((result: any) => (
-                          <button
-                            key={result.id}
-                            type="button"
-                            className="block w-full px-3 py-2 text-left hover:bg-slate-50"
-                            onClick={() => openViewTaskModal(result.id)}
-                          >
-                            <span className="block text-sm font-medium text-slate-900">
-                              {result.title}
-                            </span>
-                            {result.description && (
-                              <span className="block truncate text-xs text-slate-500">
-                                {result.description}
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div
-                    className="relative min-w-[200px] max-w-xs"
-                    onBlur={(event) => {
-                      if (
-                        !event.currentTarget.contains(
-                          event.relatedTarget as Node
-                        )
-                      ) {
+                  ) : (
+                    <IconFilter size={16} />
+                  )
+                }
+                iconClassName="items-center justify-center max-sm:mr-0!"
+                iconPosition="left"
+                onClick={() => setAssigneeFilterOpen((open) => !open)}
+                aria-haspopup="listbox"
+                aria-expanded={assigneeFilterOpen}
+              >
+                <span className="max-sm:sr-only">
+                  {selectedValue ? (
+                    selectedAssigneeLabel
+                  ) : (
+                    <>
+                      Filter By...
+                      <span className="sr-only"> assignee</span>
+                    </>
+                  )}
+                </span>
+                <IconChevronDown size={14} aria-hidden="true" className="ml-auto max-sm:hidden" />
+              </DavisButton>
+              {assigneeFilterOpen && (
+                <div
+                  className="absolute left-0 z-50 mt-1 w-full min-w-[220px] overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg"
+                  role="listbox"
+                  aria-label="Filter tasks by assignee"
+                >
+                  {taskAssigneeOptions.map((option) => (
+                    <button
+                      key={option.value || "all-assignees"}
+                      type="button"
+                      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-hover ${
+                        selectedValue === option.value
+                          ? "bg-primary-50 font-medium text-primary"
+                          : ""
+                      }`}
+                      role="option"
+                      aria-selected={selectedValue === option.value}
+                      onClick={() => {
+                        setSelectedValue(option.value);
                         setAssigneeFilterOpen(false);
-                      }
-                    }}
-                  >
-                    <DavisButton
-                      variant="outline"
-                      fullWidth
-                      className="h-10! justify-between"
-                      icon={
-                        selectedValue ? (
-                          <Avatar
-                            src={
-                              taskAssigneeOptions.find(
-                                (option) => option.value === selectedValue
-                              )?.image
-                            }
-                            name={selectedAssigneeLabel}
-                            size="xs"
-                          />
-                        ) : (
-                          <IconUsers size={16} />
-                        )
-                      }
-                      iconClassName="items-center justify-center"
-                      iconPosition="left"
-                      onClick={() => setAssigneeFilterOpen((open) => !open)}
-                      aria-haspopup="listbox"
-                      aria-expanded={assigneeFilterOpen}
+                      }}
                     >
-                      {selectedAssigneeLabel}
-                    </DavisButton>
-                    {assigneeFilterOpen && (
-                      <div
-                        className="absolute right-0 z-50 mt-1 w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
-                        role="listbox"
-                        aria-label="Filter tasks by assignee"
-                      >
-                        {taskAssigneeOptions.map((option) => (
-                          <button
-                            key={option.value || "all-assignees"}
-                            type="button"
-                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
-                              selectedValue === option.value
-                                ? "bg-primary-50 font-medium text-primary"
-                                : "text-slate-700"
-                            }`}
-                            role="option"
-                            aria-selected={selectedValue === option.value}
-                            onClick={() => {
-                              setSelectedValue(option.value);
-                              setAssigneeFilterOpen(false);
-                            }}
-                          >
-                            <Avatar
-                              src={option.image}
-                              name={option.label}
-                              size="xs"
-                            />
-                            <span>{option.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 4 Action Buttons Row — Icons stay dead-center when text collapses on smaller screens */}
-                <div className="grid w-full grid-cols-4 gap-2.5">
-                  <DavisButton
-                    variant="outline"
-                    aria-label="Timeline"
-                    onClick={() => history.push(`${url}/timeline`)}
-                    icon={<IconCalendarTime size={17} />}
-                    iconClassName="items-center justify-center mr-0! lg:mr-2!"
-                  >
-                    <span className="hidden lg:inline">Timeline</span>
-                  </DavisButton>
-                  <DavisButton
-                    variant="outline"
-                    aria-label="Expand or collapse all tasks"
-                    onClick={expandCollapseAllTasks}
-                    icon={<IconArrowsDownUp size={17} />}
-                    iconClassName="items-center justify-center mr-0! lg:mr-2!"
-                  >
-                    <span className="hidden lg:inline">
-                      Expand/Collapse All
-                    </span>
-                  </DavisButton>
-                  <DavisButton
-                    variant="outline"
-                    aria-label="Batch Add Tasks"
-                    disabled={!userProjectMember}
-                    onClick={openBatchModal}
-                    icon={<IconCopyPlus size={17} />}
-                    iconClassName="items-center justify-center mr-0! lg:mr-2!"
-                  >
-                    <span className="hidden lg:inline">Batch Add</span>
-                  </DavisButton>
-                  <DavisButton
-                    variant="primary"
-                    aria-label="Add Task"
-                    onClick={onAddTask}
-                    disabled={!userProjectMember}
-                    icon={<IconPlus size={17} />}
-                    iconClassName="items-center justify-center mr-0! lg:mr-2!"
-                  >
-                    <span className="hidden lg:inline">Add Task</span>
-                  </DavisButton>
-                </div>
-              </Stack>
-            </div>
-
-            <Divider />
-
-            {/* Task List Body */}
-            <div className="px-5 py-2">
-              {loadingTasks ? (
-                <div className="flex flex-col items-center justify-center gap-2 py-10">
-                  <Spinner size="md" />
-                  <Text size="sm" color="muted">
-                    Loading tasks...
-                  </Text>
-                </div>
-              ) : filteredTasks.length > 0 ? (
-                <ul className="divide-y divide-slate-100 list-none m-0 p-0">
-                  {filteredTasks.map((item) => {
-                    return (
-                      <li key={item.taskID} className="py-3.5">
-                        <div className="flex flex-col gap-2">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-primary"
-                                onClick={() => toggleTaskDetail(item.taskID)}
-                                aria-label={
-                                  item.uiOpen ? "Collapse task" : "Expand task"
-                                }
-                              >
-                                {item.uiOpen ? (
-                                  <IconChevronDown size={18} />
-                                ) : (
-                                  <IconChevronRight size={18} />
-                                )}
-                              </button>
-                              <Text
-                                size="base"
-                                weight="semibold"
-                                className="text-slate-900"
-                              >
-                                {item.title}
-                              </Text>
-                              <TaskStatusBadge status={item.status} />
-                              {item.overdue === true && (
-                                <Badge
-                                  label="OVERDUE"
-                                  variant="danger"
-                                  size="sm"
-                                />
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              {renderAssigneeAvatars(item.assignees)}
-                              <IconButton
-                                icon={<IconTrash size={15} />}
-                                iconClassName="items-center justify-center"
-                                aria-label="Delete Task"
-                                tooltip="Delete Task"
-                                variant="destructive"
-                                size="sm"
-                                disabled={!userProjectMember}
-                                onClick={() =>
-                                  openDeleteTaskModal(item.taskID)
-                                }
-                              />
-                              <IconButton
-                                icon={<IconPlus size={15} />}
-                                iconClassName="items-center justify-center"
-                                aria-label="Add Subtask"
-                                tooltip="Add Subtask"
-                                variant="primary"
-                                size="sm"
-                                disabled={!userProjectMember}
-                                onClick={() => onAddSubtask(item.taskID)}
-                              />
-                              <IconButton
-                                icon={<IconEye size={15} />}
-                                iconClassName="items-center justify-center"
-                                aria-label="View Task"
-                                tooltip="View Task"
-                                variant="primary"
-                                size="sm"
-                                onClick={() => openViewTaskModal(item.taskID)}
-                              />
-                            </div>
-                          </div>
-
-                          {item.uiOpen && (
-                            <div className="ml-8 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
-                              {Array.isArray(item.subtasks) &&
-                              item.subtasks.length > 0 ? (
-                                <ul className="divide-y divide-slate-200/70 list-none m-0 p-0">
-                                  {item.subtasks.map((subtask) => (
-                                    <li
-                                      key={subtask.taskID}
-                                      className="flex flex-wrap items-center justify-between gap-2 py-2"
-                                    >
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <Text
-                                          size="sm"
-                                          weight="medium"
-                                          className="text-slate-800"
-                                        >
-                                          {subtask.title}
-                                        </Text>
-                                        <TaskStatusBadge status={subtask.status} />
-                                        {subtask.overdue === true && (
-                                          <Badge
-                                            label="OVERDUE"
-                                            variant="danger"
-                                            size="sm"
-                                          />
-                                        )}
-                                      </div>
-
-                                      <div className="flex items-center gap-2">
-                                        {renderAssigneeAvatars(
-                                          subtask.assignees
-                                        )}
-                                        <IconButton
-                                          icon={<IconTrash size={15} />}
-                                          iconClassName="items-center justify-center"
-                                          aria-label="Delete Subtask"
-                                          tooltip="Delete Subtask"
-                                          variant="destructive"
-                                          size="sm"
-                                          disabled={!userProjectMember}
-                                          onClick={() =>
-                                            openDeleteTaskModal(subtask.taskID)
-                                          }
-                                        />
-                                        <IconButton
-                                          icon={<IconEye size={15} />}
-                                          iconClassName="items-center justify-center"
-                                          aria-label="View Subtask"
-                                          tooltip="View Subtask"
-                                          variant="primary"
-                                          size="sm"
-                                          onClick={() =>
-                                            openViewTaskModal(subtask.taskID)
-                                          }
-                                        />
-                                      </div>
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <Text size="xs" color="muted">
-                                  No subtasks yet.
-                                </Text>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <div className="py-6">
-                  <EmptyState
-                    icon={<IconChecklist size={28} />}
-                    title={
-                      selectedValue
-                        ? "No matching tasks"
-                        : "No tasks yet"
-                    }
-                    description={
-                      selectedValue
-                        ? `No tasks assigned to ${selectedAssigneeLabel}.`
-                        : "Create a task above to track project milestones and deadlines."
-                    }
-                  />
+                      <Avatar src={option.image} name={option.label} size="xs" />
+                      <span>{option.label}</span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
-          </Card>
-        )}
-      </div>
+            <DavisButton
+              as={Link}
+              to={timelineURL}
+              variant="outline"
+              icon={<IconClock size={16} />}
+              iconClassName="mr-0!"
+              className={`${toolbarIconClasses} sm:hidden`}
+            >
+              <span className="sr-only">Timeline</span>
+            </DavisButton>
+            <span className="hidden sm:block sm:flex-1" aria-hidden="true" />
+            <DavisButton
+              variant="ghost"
+              size="sm"
+              icon={<IconSelector size={16} />}
+              iconClassName="max-sm:mr-0!"
+              className={`${toolbarIconClasses} max-sm:border! max-sm:border-neutral-300!`}
+              onClick={expandCollapseAllTasks}
+            >
+              <span className="max-sm:sr-only">Expand/Collapse All</span>
+            </DavisButton>
+            <DavisButton
+              variant="outline"
+              icon={<IconCopyPlus size={16} />}
+              iconClassName="mr-0!"
+              className={`${toolbarIconClasses} sm:hidden`}
+              disabled={!userProjectMember}
+              onClick={openBatchModal}
+            >
+              <span className="sr-only">Batch Add</span>
+            </DavisButton>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-b-lg" aria-busy={loadingTasks || undefined}>
+          {loadingTasks ? (
+            <>
+              <p role="status" className="sr-only">
+                Loading tasks…
+              </p>
+              <TaskListSkeleton />
+            </>
+          ) : filteredTasks.length > 0 ? (
+            <ul className="m-0 list-none p-0">
+              {filteredTasks.map((item) => {
+                const subtasksID = `task-${item.taskID}-subtasks`;
+                return (
+                  <li key={item.taskID} className="border-b border-neutral-200 last:border-b-0">
+                    <div className={`${TASK_ROW_GRID} px-4 py-3`}>
+                      <button
+                        type="button"
+                        className="inline-flex size-8 items-center justify-center rounded-md text-gray-700 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                        onClick={() => toggleTaskDetail(item.taskID)}
+                        aria-expanded={item.uiOpen}
+                        aria-controls={subtasksID}
+                        aria-label={`Subtasks of ${item.title}`}
+                      >
+                        {item.uiOpen ? (
+                          <IconChevronDown size={16} aria-hidden="true" />
+                        ) : (
+                          <IconChevronRight size={16} aria-hidden="true" />
+                        )}
+                      </button>
+                      <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+                        <Text size="sm" weight="semibold">
+                          {item.title}
+                        </Text>
+                        <span className="flex flex-wrap items-center gap-2">
+                          <TaskStatusLabel status={item.status} />
+                          {item.overdue === true && (
+                            <Badge label="OVERDUE" variant="danger" size="sm" />
+                          )}
+                        </span>
+                      </div>
+                      <div className="col-start-2 flex items-center justify-between gap-3 sm:contents">
+                        <AssigneeStack assignees={item.assignees} />
+                        <div className="ml-auto flex items-center gap-1">
+                          <IconButton
+                            icon={<IconEye size={16} />}
+                            aria-label={`View task ${item.title}`}
+                            tooltip="View Task"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openViewTaskModal(item.taskID)}
+                          />
+                          <IconButton
+                            icon={<IconPlus size={16} />}
+                            aria-label={`Add subtask to ${item.title}`}
+                            tooltip="Add Subtask"
+                            variant="ghost"
+                            size="sm"
+                            disabled={!userProjectMember}
+                            onClick={() => onAddSubtask(item.taskID)}
+                          />
+                          <IconButton
+                            icon={<IconTrash size={16} />}
+                            aria-label={`Delete task ${item.title}`}
+                            tooltip="Delete Task"
+                            variant="ghost"
+                            size="sm"
+                            className="text-danger-600! hover:bg-danger-50!"
+                            disabled={!userProjectMember}
+                            onClick={() => openDeleteTaskModal(item.taskID)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {item.uiOpen && (
+                      <div id={subtasksID} className="bg-neutral-50">
+                        {Array.isArray(item.subtasks) && item.subtasks.length > 0 ? (
+                          <ul className="m-0 list-none p-0">
+                            {item.subtasks.map((subtask) => (
+                              <li
+                                key={subtask.taskID}
+                                className={`${TASK_ROW_GRID} border-t border-neutral-200 py-3 pr-4 pl-7`}
+                              >
+                                <span aria-hidden="true" />
+                                <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+                                  <Text size="sm">{subtask.title}</Text>
+                                  <span className="flex flex-wrap items-center gap-2">
+                                    <TaskStatusLabel status={subtask.status} />
+                                    {subtask.overdue === true && (
+                                      <Badge label="OVERDUE" variant="danger" size="sm" />
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="col-start-2 flex items-center justify-between gap-3 sm:contents">
+                                  <AssigneeStack assignees={subtask.assignees} />
+                                  <div className="ml-auto flex items-center gap-1">
+                                    <IconButton
+                                      icon={<IconEye size={16} />}
+                                      aria-label={`View subtask ${subtask.title}`}
+                                      tooltip="View Subtask"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => openViewTaskModal(subtask.taskID)}
+                                    />
+                                    <IconButton
+                                      icon={<IconTrash size={16} />}
+                                      aria-label={`Delete subtask ${subtask.title}`}
+                                      tooltip="Delete Subtask"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-danger-600! hover:bg-danger-50!"
+                                      disabled={!userProjectMember}
+                                      onClick={() => openDeleteTaskModal(subtask.taskID)}
+                                    />
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <Text
+                            as="p"
+                            size="sm"
+                            color="muted"
+                            className="m-0 border-t border-neutral-200 py-3 pr-4 pl-[4.25rem]"
+                          >
+                            No subtasks yet.
+                          </Text>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <EmptyState
+              className="py-10"
+              title={
+                selectedValue
+                  ? "No matching tasks"
+                  : "No tasks yet. Add one to start organizing your work!"
+              }
+              description={
+                selectedValue ? `No tasks assigned to ${selectedAssigneeLabel}.` : undefined
+              }
+              action={
+                !selectedValue && userProjectMember ? (
+                  <DavisButton variant="primary" icon={<IconPlus size={15} />} onClick={onAddTask}>
+                    Add Task
+                  </DavisButton>
+                ) : undefined
+              }
+            />
+          )}
+        </div>
+      </SectionCard>
     );
   }, [
-    projTasks,
     taskSearchResults,
     taskSearchQuery,
     loadingTasks,
@@ -646,54 +702,37 @@ const RenderProjectModules: React.FC<RenderProjectModulesProps> = ({
     taskAssigneeOptions,
     selectedAssigneeLabel,
     assigneeFilterOpen,
-    history,
     url,
   ]);
 
-  const CalculatedModules = useMemo(() => {
-    if (!project || !Object.keys(project).length) {
-      return (
-        <div className="flex justify-center py-8">
-          <Spinner size="md" />
-        </div>
-      );
-    }
+  const moduleSettings = project.projectModules ?? DEFAULT_PROJECT_MODULES;
+  const modules: JSX.Element[] = [];
 
-    const moduleSettings = project.projectModules ?? DEFAULT_PROJECT_MODULES;
-    const modules: JSX.Element[] = [];
+  if (!moduleSettings || moduleSettings.discussion.enabled) {
+    modules.push(DiscussionModule);
+  }
 
-    if (!moduleSettings || moduleSettings.discussion.enabled) {
-      modules.push(DiscussionModule);
-    }
+  if (!moduleSettings || moduleSettings.files.enabled) {
+    modules.push(FilesModule);
+  }
 
-    if (!moduleSettings || moduleSettings.files.enabled) {
-      modules.push(FilesModule);
-    }
+  if (!moduleSettings || moduleSettings.tasks.enabled) {
+    modules.push(TasksModule);
+  }
 
-    if (!moduleSettings || moduleSettings.tasks.enabled) {
-      modules.push(TasksModule);
-    }
+  const moduleOrder = Object.entries(moduleSettings).map(([key, setting]) => ({
+    key: key + "-module",
+    order: setting.order,
+  }));
 
-    const moduleOrder = Object.entries(moduleSettings).map(([key, setting]) => ({
-      key: key + "-module",
-      order: setting.order,
-    }));
-
-    modules.sort((a, b) => {
-      return (
-        (moduleOrder.find((m) => m.key === a.key)?.order ?? 0) -
-        (moduleOrder.find((m) => m.key === b.key)?.order ?? 0)
-      );
-    });
-
+  modules.sort((a, b) => {
     return (
-      <Stack direction="vertical" gap="lg">
-        {modules}
-      </Stack>
+      (moduleOrder.find((m) => m.key === a.key)?.order ?? 0) -
+      (moduleOrder.find((m) => m.key === b.key)?.order ?? 0)
     );
-  }, [project, DiscussionModule, FilesModule, TasksModule]);
+  });
 
-  return CalculatedModules;
+  return <div className="flex flex-col gap-6">{modules}</div>;
 };
 
 export default RenderProjectModules;

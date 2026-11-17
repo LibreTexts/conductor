@@ -1,83 +1,68 @@
 import { useMemo, useState } from "react";
-import { Avatar, Card } from "@libretexts/davis-react";
-import { IconExternalLink } from "@tabler/icons-react";
+import { Avatar, Badge, Button, Link, Text } from "@libretexts/davis-react";
+import { IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { Project } from "../../../types";
 import { normalizeURL } from "../../util/HelperFunctions";
 import { PROJECT_ROLE_SORT_ORDER } from "../../util/ProjectHelpers";
+import { checkIsUUID } from "../../../utils/misc";
 import { sanitizeMarkdown } from "../../../utils/sanitizeMarkdown";
-import CardHeading from "./CardHeading";
-
-const FieldLabel = ({ children }: { children: string }) => (
-  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 block mb-0.5">
-    {children}
-  </span>
-);
+import SectionCard from "./SectionCard";
+import { DetailList, DetailRow } from "./DetailList";
 
 export const ProjectNotesCard = ({ notes }: { notes: string }) => {
   const html = useMemo(() => sanitizeMarkdown(notes, { breaks: true }), [notes]);
   return (
-    <Card variant="outline" padding="md">
-      <Card.Body>
-        <CardHeading>Notes</CardHeading>
-        <div
-          className="project-notes-body prose prose-code:before:hidden prose-code:after:hidden max-w-full text-sm"
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </Card.Body>
-    </Card>
+    <SectionCard title="Notes" bodyClassName="px-5 py-4">
+      <div
+        className="prose prose-code:before:hidden prose-code:after:hidden max-w-none text-sm"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </SectionCard>
   );
 };
 
-export const hasSourceProperties = (project: Project) =>
-  !!(project.author || project.license?.sourceURL || project.license?.name);
-
-export const ProjectSourceCard = ({ project }: { project: Project }) => (
-  <Card variant="outline" padding="md">
-    <Card.Body>
-      <CardHeading>Source Properties</CardHeading>
-      <div className="flex flex-col gap-3">
-        {project.author && (
-          <div>
-            <FieldLabel>Author</FieldLabel>
-            <span className="text-sm">{project.author}</span>
-          </div>
-        )}
-        {project.authorEmail && (
-          <div>
-            <FieldLabel>Author Email</FieldLabel>
-            <a
-              href={`mailto:${project.authorEmail}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline"
-            >
-              {project.authorEmail}
-            </a>
-          </div>
-        )}
-        {project.license?.name && (
-          <div>
-            <FieldLabel>License</FieldLabel>
-            <span className="text-sm">
+export const ProjectSourceCard = ({ project }: { project: Project }) => {
+  const hasDetails = !!(project.author || project.authorEmail || project.license?.name);
+  return (
+    <SectionCard title="Source properties" bodyClassName="px-5 py-4">
+      {hasDetails && (
+        <DetailList>
+          {project.author && <DetailRow label="Author">{project.author}</DetailRow>}
+          {project.authorEmail && (
+            <DetailRow label="Author email">
+              <Link href={`mailto:${project.authorEmail}`} size="sm">
+                {project.authorEmail}
+              </Link>
+            </DetailRow>
+          )}
+          {project.license?.name && (
+            <DetailRow label="License">
               {project.license.name} {project.license.version ?? ""}
-            </span>
-          </div>
-        )}
-        {project.license?.sourceURL && (
-          <a
-            href={normalizeURL(project.license.sourceURL)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-blue-600 hover:underline flex items-center gap-1 w-fit"
-          >
-            Resource Link <IconExternalLink size={13} aria-hidden="true" />
-            <span className="sr-only">(opens in new tab)</span>
-          </a>
-        )}
-      </div>
-    </Card.Body>
-  </Card>
-);
+            </DetailRow>
+          )}
+        </DetailList>
+      )}
+      {(project.license?.sourceURL || checkIsUUID(project.harvestReqID)) && (
+        <div className={`flex flex-col items-start gap-2 ${hasDetails ? "mt-4" : ""}`}>
+          {project.license?.sourceURL && (
+            <Link href={normalizeURL(project.license.sourceURL)} external size="sm">
+              Resource link
+            </Link>
+          )}
+          {checkIsUUID(project.harvestReqID) && (
+            <Link
+              href={`https://commons.libretexts.org/support/ticket/${project.harvestReqID}`}
+              external
+              size="sm"
+            >
+              View harvest request
+            </Link>
+          )}
+        </div>
+      )}
+    </SectionCard>
+  );
+};
 
 const TEAM_PREVIEW_COUNT = 5;
 
@@ -112,36 +97,37 @@ export const ProjectTeamCard = ({ project }: { project: Project }) => {
   const visible = showAll || !isLong ? team : team.slice(0, TEAM_PREVIEW_COUNT);
 
   return (
-    <Card variant="outline" padding="md">
-      <Card.Body>
-        <CardHeading>Team</CardHeading>
-        <ul className="list-none m-0 p-0">
-          {visible.map((member) => (
-            <li
-              key={`${member.role}-${member.uuid}`}
-              className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
-            >
-              <Avatar src={member.avatar} name={member.name} size="sm" />
-              <span className="text-sm">
-                {member.name} <span className="text-gray-500">({member.roleDisplay})</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-        {isLong && (
-          <p className="text-sm text-gray-500 text-center mt-2">
-            {showAll ? "Showing all team members." : "Team list collapsed for brevity."}{" "}
-            <button
-              type="button"
-              className="text-blue-600 hover:underline"
-              aria-expanded={showAll}
-              onClick={() => setShowAll((prev) => !prev)}
-            >
-              {showAll ? "Click to collapse..." : "Click to show all..."}
-            </button>
-          </p>
-        )}
-      </Card.Body>
-    </Card>
+    <SectionCard title="Team" bodyClassName="px-5 py-4">
+      <ul id="project-team-list" className="m-0 flex list-none flex-col gap-3 p-0">
+        {visible.map((member) => (
+          <li key={`${member.role}-${member.uuid}`} className="flex items-center gap-3">
+            {/* Avatar falls back to initials from `name` when `src` is missing. */}
+            <Avatar src={member.avatar || undefined} name={member.name} size="sm" />
+            <Text size="sm" truncate className="min-w-0 flex-1">
+              {member.name}
+            </Text>
+            <Badge
+              label={member.roleDisplay}
+              variant={member.role === "lead" ? "primary" : "default"}
+              size="sm"
+            />
+          </li>
+        ))}
+      </ul>
+      {isLong && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-3 -ml-2"
+          icon={showAll ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+          iconPosition="right"
+          aria-expanded={showAll}
+          aria-controls="project-team-list"
+          onClick={() => setShowAll((prev) => !prev)}
+        >
+          {showAll ? "Collapse" : "Show All Team Members"}
+        </Button>
+      )}
+    </SectionCard>
   );
 };
