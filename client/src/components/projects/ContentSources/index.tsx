@@ -35,7 +35,6 @@ import type {
 import BookConnections from "./BookConnections";
 import LineageDrawer from "./LineageDrawer";
 import RevisionsDrawer from "./RevisionsDrawer";
-import TipStatCard from "./TipStatCard";
 import KindDonut from "./KindDonut";
 import {
   CARD_TIPS,
@@ -255,10 +254,16 @@ const ContentSources: React.FC = () => {
   );
 
   const totals = overview?.totals;
-  // Only the kinds with a card, so every slice has a visible label; structural
-  // and not-scanned pages would otherwise swamp the split that matters.
-  const donutData = totals
-    ? SUMMARY_KINDS.map((kind) => ({ kind, value: totals[kind] })).filter((d) => d.value > 0)
+  // Every page is in the pie and its legend, so they add up to the book's page
+  // count. The content kinds always show (0 is worth knowing); structural and
+  // not-scanned pages only when there are some.
+  const kindData = totals
+    ? [
+        ...SUMMARY_KINDS.map((kind) => ({ kind, value: totals[kind] })),
+        ...(["structural", "unknown"] as const)
+          .map((kind) => ({ kind, value: totals[kind] }))
+          .filter((d) => d.value > 0),
+      ]
     : [];
 
   return (
@@ -331,17 +336,16 @@ const ContentSources: React.FC = () => {
             <Heading level={3} id="cs-summary-heading" className="mb-3 text-lg">
               Summary
             </Heading>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
-              <TipStatCard label="Pages" value={totals!.pages.toLocaleString()} tip={CARD_TIPS.pages} />
-              {SUMMARY_KINDS.map((kind) => (
-                <TipStatCard key={kind} kind={kind} label={KIND_LABELS[kind]} value={totals![kind].toLocaleString()} tip={KIND_DESCRIPTIONS[kind]} />
-              ))}
-              <TipStatCard label="Through a chain" value={totals!.viaChain.toLocaleString()} tip={CARD_TIPS.viaChain} />
+            <div className="max-w-3xl">
+              <KindDonut
+                data={kindData}
+                totalTip={CARD_TIPS.pages}
+                chain={{ pages: totals!.viaChain, tip: CARD_TIPS.viaChain }}
+              />
             </div>
-            {donutData.length > 0 && <KindDonut data={donutData} />}
             {overview.computedAt && (
               <Text size="sm" className="mt-2 block text-neutral-600">
-                Last scanned {format(parseISO(overview.computedAt), "MMM d, yyyy h:mm a")}.
+                Last update {format(parseISO(overview.computedAt), "MMM d, yyyy h:mm a")}.
               </Text>
             )}
           </section>

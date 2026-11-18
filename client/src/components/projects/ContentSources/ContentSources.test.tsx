@@ -128,7 +128,16 @@ describe("ContentSources", () => {
     api.getContentSources.mockResolvedValue({ err: false, data: overview() });
     renderPage();
     const summary = await screen.findByRole("region", { name: "Summary" });
-    for (const name of ["Reused content: 5", "Copy-Transclude: 3", "Copy-Fork: 0", "Copy-Full: 0"]) {
+    // Every page is in the legend, so it adds up to the book's 43; shares are of all of them.
+    for (const name of [
+      "Original: 11 pages, 26%",
+      "Reused content: 5 pages, 12%",
+      "Copy-Transclude: 3 pages, 7%",
+      "Copy-Fork: 0 pages, 0%",
+      "Copy-Full: 0 pages, 0%",
+      "Structural: 24 pages, 56%",
+      "Total: 43 pages",
+    ]) {
       expect(within(summary).getByRole("group", { name })).toBeTruthy();
     }
     expect(within(summary).queryByText("Reused live")).toBeNull();
@@ -140,20 +149,29 @@ describe("ContentSources", () => {
     api.getContentSources.mockResolvedValue({ err: false, data: overview() });
     renderPage();
     const summary = await screen.findByRole("region", { name: "Summary" });
-    expect(within(summary).getAllByRole("tooltip", { hidden: true })).toHaveLength(7);
+    // One legend row per kind (no Not scanned row: there are none), the total, and Through a chain.
+    expect(within(summary).getAllByRole("tooltip", { hidden: true })).toHaveLength(8);
+    // Through a chain is a note inside the legend, not a card of its own.
+    const chain = within(summary).getByRole("group", {
+      name: "Through a chain: 0 pages",
+      description: /comes through another page/,
+    });
+    expect(chain.closest("ul")).toBe(within(summary).getByRole("group", { name: "Total: 43 pages" }).closest("ul"));
+    expect(within(summary).queryByRole("group", { name: /^Not scanned/ })).toBeNull();
     // The description is there for screen readers even while the tooltip is hidden.
     const card = within(summary).getByRole("group", {
-      name: "Copy-Full: 0",
+      name: "Copy-Full: 0 pages, 0%",
       description: /content and its files \(images, attachments\)/,
     });
-    within(summary).getByRole("group", { name: "Copy-Fork: 0", description: /content, without its files/ });
-    within(summary).getByRole("group", { name: "Reused content: 5", description: /Its own text plus part of other pages/ });
+    within(summary).getByRole("group", { name: "Copy-Fork: 0 pages, 0%", description: /content, without its files/ });
+    within(summary).getByRole("group", { name: "Reused content: 5 pages, 12%", description: /Its own text plus part of other pages/ });
     // Keyboard users reach it with Tab, which shows it on screen too.
     expect(card.tabIndex).toBe(0);
     const tip = document.getElementById(card.getAttribute("aria-describedby")!)!;
     expect(tip.hidden).toBe(true);
     fireEvent.focus(card);
     expect(tip.hidden).toBe(false);
+    within(summary).getByRole("group", { name: "Total: 43 pages", description: /Every page the scan found/ });
   });
 
   it("labels copied excerpts with their block count", async () => {

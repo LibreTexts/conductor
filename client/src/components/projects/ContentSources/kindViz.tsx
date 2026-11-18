@@ -3,13 +3,13 @@ import type { PageNodeKind } from "../../../types/ContentSources";
 
 /**
  * How each page kind is drawn: a color and a texture, the same on a pie slice
- * and on its card's swatch, so a kind is never told apart by color alone.
+ * and on its legend swatch, so a kind is never told apart by color alone.
  *
  * The five kinds that carry meaning take the first five slots of the
  * validated categorical palette, in fixed order (adjacent pairs clear the
  * colorblind separation checks); structural and not-scanned pages are neutral
  * grays. Three of the colors are under 3:1 against white, so every slice also
- * has a visible label: its card.
+ * has a visible label: its legend row.
  */
 export type KindPattern = "none" | "stripes" | "dots" | "back-stripes" | "crosshatch" | "lines";
 
@@ -49,10 +49,10 @@ export const KindPatternDefs: React.FC<{ prefix: string; scale?: number }> = ({ 
   );
 };
 
-/** A small square in a kind's color and texture: its card's link to the pie. */
+/** A small square in a kind's color and texture: its legend row's link to the pie. */
 export const KindSwatch: React.FC<{ kind: PageNodeKind; size?: number }> = ({ kind, size = 14 }) => {
   const { color, pattern } = KIND_VIZ[kind];
-  // Unique per swatch: the same kind's swatch appears on its card and in the pie's tooltip.
+  // Unique per swatch: the same kind's swatch appears in the legend and in the pie's tooltip.
   const prefix = `swatch${useId().replace(/:/g, "")}`;
   return (
     <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden="true" className="shrink-0">
