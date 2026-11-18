@@ -152,7 +152,18 @@ const RevisionsModal: React.FC<RevisionsModalProps> = ({ projectID, change, onCl
               )}
             </nav>
 
-            <section aria-live="polite" aria-label="Selected version" className="min-w-0">
+            <section aria-label="Selected version" className="min-w-0">
+              {/* Announces only which version is showing; the diff or page itself
+                  isn't live, so a screen reader doesn't read it all on every pick. */}
+              <span className="sr-only" aria-live="polite">
+                {selected === "change"
+                  ? range
+                    ? `Showing this change, ${range.toLowerCase()}`
+                    : ""
+                  : revisionQuery.isLoading
+                    ? `Loading revision ${selected}`
+                    : `Showing revision ${selected}`}
+              </span>
               {selected === "change" ? (
                 <>
                   <Heading level={3} className="mb-1 text-base">
@@ -183,7 +194,12 @@ const RevisionsModal: React.FC<RevisionsModalProps> = ({ projectID, change, onCl
               ) : (
                 <>
                   {revisionQuery.isLoading && <Spinner size="sm" text={`Loading revision ${selected}`} />}
-                  {revisionQuery.isError && <Alert variant="error" message={`Couldn't load revision ${selected}.`} />}
+                  {revisionQuery.isError && (
+                    <Alert
+                      variant="error"
+                      message={`Couldn't load revision ${selected}. The library may not be responding; try again shortly.`}
+                    />
+                  )}
                   {detail && (
                     <>
                       <Heading level={3} className="mb-1 text-base">

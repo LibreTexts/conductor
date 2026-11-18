@@ -43,7 +43,7 @@ export const ReviewSourceChangeSchema = z.object({
 /** `GET /project/:projectID/content-sources/changes/:eventID/revisions`: a change's revisions and diff. */
 export const GetSourceChangeRevisionsSchema = ReviewSourceChangeSchema;
 
-/** `GET …/changes/:eventID/revisions/:revision`: one revision of the change's source page. */
+/** `GET …/changes/:eventID/revisions/:revision`: one of the change's own revisions of its source page. */
 export const GetSourceRevisionSchema = z.object({
   params: ReviewSourceChangeSchema.shape.params.extend({
     revision: z.coerce.number().int().min(1).max(10_000_000),

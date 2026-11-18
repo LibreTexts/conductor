@@ -182,7 +182,7 @@ describe("ContentSources", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Chapters and pages" }));
     // The book's own tree, down to the page that reuses content.
     expect(
-      await screen.findByRole("img", { name: "Remixer Book: 1 of 1 page reuse content in 1 chapter, from 1 source page." }),
+      await screen.findByRole("img", { name: "Remixer Book: 1 of 1 page reuses content in 1 chapter, from 1 source page." }),
     ).toBeTruthy();
     // The whole book, whatever the table's filters.
     expect(api.getContentSourcesPages).toHaveBeenCalledWith("cbHAlG9FKc", { kind: undefined, attention: false });
@@ -301,6 +301,10 @@ describe("ContentSources", () => {
     fireEvent.click(await within(dialog).findByRole("button", { name: /Revision 9/ }));
 
     expect(await within(dialog).findByText("Compared with revision 8.")).toBeTruthy();
+    const live = dialog.querySelectorAll("[aria-live]");
+    expect(live).toHaveLength(1);
+    expect(live[0].textContent).toBe("Showing revision 9");
+    expect(within(live[0] as HTMLElement).queryByText("Old")).toBeNull();
     expect(within(dialog).getByText("Old").tagName).toBe("DEL");
     expect(api.getContentSourcesRevision).toHaveBeenCalledWith("cbHAlG9FKc", revisionsChange.eventID, 9);
     fireEvent.click(within(dialog).getByRole("tab", { name: "This version" }));

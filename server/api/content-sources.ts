@@ -11,6 +11,7 @@ import {
   getContentSourcesOverview,
   getSourceChangeRevisions,
   getSourceRevision,
+  LibraryUnavailableError,
   listContentPages,
   markSourceChangeReviewed,
 } from "./services/content-sources-service.js";
@@ -140,6 +141,11 @@ async function getChangeRevision(
     }
     return res.send({ err: false, data });
   } catch (err) {
+    // The library being down degrades this view; it isn't a Conductor fault.
+    if (err instanceof LibraryUnavailableError) {
+      log.warn({ err, library: err.lib, eventID: req.params.eventID }, "Library revisions unavailable");
+      return res.status(502).send({ err: true, errMsg: "The library didn't respond. Try again shortly." });
+    }
     return sendError(res, err, "getChangeRevision");
   }
 }

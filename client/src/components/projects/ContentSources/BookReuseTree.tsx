@@ -54,6 +54,10 @@ const sourceDetail = (d: ReuseTreeDatum, bookLib: string | null) =>
     .filter(Boolean)
     .join(" · ");
 
+/** "1 of 61 pages reuses content", "9 of 61 pages reuse content": the verb follows the count. */
+const reuseCount = (reused: number, total: number) =>
+  `${reused.toLocaleString()} of ${plural(total, "page")} ${reused === 1 ? "reuses" : "reuse"} content`;
+
 const BookReuseTree: React.FC<{ bookTitle: string; pages: ContentSourcesPage[] }> = ({ bookTitle, pages }) => {
   const bookLib = pages[0]?.lib ?? null;
   const figure = useMemo(() => {
@@ -105,7 +109,7 @@ const BookReuseTree: React.FC<{ bookTitle: string; pages: ContentSourcesPage[] }
   const xOf = (n: Node) => (n.depth === 0 ? boxRight : columnX[n.depth]);
   const yOf = (n: Node) => centerY + n.x;
   const summary = [
-    `${bookTitle}: ${model.reusedPages} of ${plural(model.totalPages, "page")} reuse content`,
+    `${bookTitle}: ${reuseCount(model.reusedPages, model.totalPages)}`,
     `in ${plural(model.chapters, "chapter")}, from ${plural(model.sources, "source page")}.`,
     model.hiddenPages > 0 ? `The first ${model.shownPages} are drawn.` : "",
   ]
@@ -191,8 +195,8 @@ const BookReuseTree: React.FC<{ bookTitle: string; pages: ContentSourcesPage[] }
         )}
       </svg>
       <figcaption className="mt-1 text-xs text-neutral-600">
-        Only the chapters and pages that lead to reuse are shown: {model.reusedPages} of{" "}
-        {plural(model.totalPages, "page")} reuse content. Bold pages reuse content themselves; their sources
+        Only the chapters and pages that lead to reuse are shown: {reuseCount(model.reusedPages, model.totalPages)}.
+        Bold pages reuse content themselves; their sources
         follow them, with how each is reused and, when it's another library's, the library.
       </figcaption>
     </figure>

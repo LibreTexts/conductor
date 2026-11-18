@@ -316,6 +316,17 @@ export const getSourceChangeRevisions = async (
   return { ...base, revisions: revisionHistory(raw ?? [], event.fromRev, event.toRev), diffHtml };
 };
 
+/**
+ * The source's library didn't answer (or answered with an error), so a
+ * revision can't be shown right now: an outside outage, not a Conductor bug.
+ */
+export class LibraryUnavailableError extends Error {
+  constructor(public readonly lib: string) {
+    super(`The ${lib} library didn't return the page's revisions.`);
+    this.name = "LibraryUnavailableError";
+  }
+}
+
 export type SourceRevisionDetail = {
   source: ViewRef;
   revision: RevisionView;
@@ -340,10 +351,13 @@ const contentsBody = (json: unknown): string | null => {
  * One revision of a change's source page: its message, the page as it was
  * then, and what it changed from the revision before. Read live from the
  * source's library, only for a change that reaches the given book, and only
- * for a revision in that page's history. Read-only.
+ * for one of that change's own revisions: the point is to tell the book's
+ * authors what this change did to the source, not to browse its history.
+ * Read-only.
  *
- * @returns null when the change, its source or the revision doesn't exist.
- * @throws when the library's revision list can't be read.
+ * @returns null when the change or its source doesn't exist, or the revision
+ *   isn't one of the change's.
+ * @throws {LibraryUnavailableError} when the library's revision list can't be read.
  */
 export const getSourceRevision = async (
   bookID: string,
@@ -355,9 +369,11 @@ export const getSourceRevision = async (
   if (!event || !parts || event.deleted) return null;
 
   const raw = await readRevisionList(parts);
-  if (raw === null) throw new Error("The library's revision list couldn't be read.");
+  if (raw === null) throw new LibraryUnavailableError(parts.lib);
   const entry = raw.find((r) => Number(r["@revision"]) === revision);
   if (!entry) return null;
+  const view = revisionHistory([entry], event.fromRev, event.toRev)[0];
+  if (!view.inChange) return null;
   const previous = previousRevision(raw, revision);
 
   const [contentRes, diffHtml, titles] = await Promise.all([
@@ -373,7 +389,7 @@ export const getSourceRevision = async (
 
   return {
     source: toViewRef(event.sourcePage, titles),
-    revision: revisionHistory([entry], event.fromRev, event.toRev)[0],
+    revision: view,
     previous,
     contentHtml,
     diffHtml,
