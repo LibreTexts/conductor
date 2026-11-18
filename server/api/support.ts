@@ -852,17 +852,34 @@ async function createTicket(
     emailPromises.push(submitterPromise);
 
     const teamToNotify = await _getSupportTeamEmails();
+    // Privacy redaction can't reach Slack or inboxes, so those copies carry no requester content
+    const notice = isPrivacy
+      ? {
+          title: `Privacy inquiry #${ticket.uuidShort}`,
+          description: "Open the ticket in Conductor to view the request.",
+          author: "Privacy requester",
+          capturedURL: undefined,
+          metadata: {},
+        }
+      : {
+          title: ticket.title,
+          description: ticket.description || "",
+          author: authorString,
+          capturedURL: ticket.capturedURL ?? undefined,
+          metadata: (metadata as Record<string, unknown>) ?? {},
+        };
+
     const teamPromise = mailAPI.sendSupportTicketCreateInternalNotification(
       supportQueue.ticket_descriptor,
       teamToNotify,
       ticket.uuid,
-      ticket.title,
-      ticket.description || "",
-      authorString,
+      notice.title,
+      notice.description,
+      notice.author,
       capitalizeFirstLetter(ticket.category || ""),
       capitalizeFirstLetter(ticket.priority || ""),
-      ticket.capturedURL ?? undefined,
-      metadata as object ?? {},
+      notice.capturedURL,
+      notice.metadata,
     );
 
     if (teamToNotify.length > 0) emailPromises.push(teamPromise);
@@ -872,13 +889,13 @@ async function createTicket(
     void new SlackNotificationService().sendSupportTicketCreated({
       queueDescriptor: supportQueue.ticket_descriptor,
       ticketID: ticket.uuid,
-      ticketTitle: ticket.title,
-      ticketDescription: ticket.description || "",
-      authorString,
+      ticketTitle: notice.title,
+      ticketDescription: notice.description,
+      authorString: notice.author,
       category: capitalizeFirstLetter(ticket.category || ""),
       priority: capitalizeFirstLetter(ticket.priority || ""),
-      capturedURL: ticket.capturedURL ?? undefined,
-      metadata: (metadata as Record<string, unknown>) ?? {},
+      capturedURL: notice.capturedURL,
+      metadata: notice.metadata,
     }).catch(() => { /* nicety isolation: never break ticket creation */ });
 
     if (supportQueue.slug === "publishing") {
