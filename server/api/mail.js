@@ -10,6 +10,10 @@ import { marked } from 'marked';
 import util from 'util';
 import { isEmptyString, truncateString } from '../util/helpers.js';
 import { format } from 'date-fns';
+import { escapeUTF8 } from 'entities';
+
+// For user-supplied plain text (ticket titles, messages, names) interpolated into email HTML
+const esc = (value) => escapeUTF8(String(value ?? ''));
 
 let mailgun = null;
 
@@ -799,21 +803,21 @@ const sendSupportTicketCreateInternalNotification = (ticketType, recipientAddres
         html: `
             <p>Hi,</p>
             <p>A new ${ticketType} has been created.</p>
-            <p><strong>Title:</strong> ${ticketTitle}</p>
-            <p><strong>Requester:</strong> ${ticketAuthor}</p>
-            ${ticketCategory ? `<p><strong>Category:</strong> ${ticketCategory}</p>` : ''}
-            <p><strong>Priority:</strong> ${ticketPriority}</p>
-            ${capturedURL ? `<p><strong>Related URL:</strong> ${capturedURL}</p>` : ''}
+            <p><strong>Title:</strong> ${esc(ticketTitle)}</p>
+            <p><strong>Requester:</strong> ${esc(ticketAuthor)}</p>
+            ${ticketCategory ? `<p><strong>Category:</strong> ${esc(ticketCategory)}</p>` : ''}
+            <p><strong>Priority:</strong> ${esc(ticketPriority)}</p>
+            ${capturedURL ? `<p><strong>Related URL:</strong> ${esc(capturedURL)}</p>` : ''}
             ${metadata && typeof metadata === 'object' && Object.keys(metadata).length > 0 ? `
                 <p><strong>Additional Metadata:</strong></p>
                 <ul>
                     ${Object.entries(metadata).map(([key, value]) => `
-                        <li><strong>${key}:</strong> ${value}</li>
+                        <li><strong>${esc(key)}:</strong> ${esc(value)}</li>
                     `).join('')}
                 </ul>
             ` : ''}
             <br />
-            <p><strong>Description:</strong> ${ticketBody}</p>
+            <p><strong>Description:</strong> ${esc(ticketBody)}</p>
             <br />
             <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
             <p>Sincerely,</p>
@@ -842,8 +846,8 @@ const sendNewTicketMessageNotification = (ticketType, recipientAddresses, ticket
         html: `
             <p>Hi,</p>
             <p>A new message has been posted a ${ticketType.toLowerCase()} you have subscribed to.</p>
-            <p><strong>${messageSender}</strong> said:</p>
-            <p>${message}</p>
+            <p><strong>${esc(messageSender)}</strong> said:</p>
+            <p>${esc(message)}</p>
             <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
             <p>Sincerely,</p>
             <p>The LibreTexts team</p>
@@ -871,10 +875,10 @@ const sendNewInternalTicketMessageAssignedStaffNotification = (ticketType, recip
         subject: `New Internal Message on ${ticketType}: ${truncateString(subject, 30)} (P: ${priority})`,
         html: `
             <p>Hi,</p>
-            <p>A new internal message has been posted to a ${ticketType.toLowerCase()} you have subscribed to: "${subject}"</p>
+            <p>A new internal message has been posted to a ${ticketType.toLowerCase()} you have subscribed to: "${esc(subject)}"</p>
             <br />
-            <p><strong>${messageSender}</strong> said:</p>
-            <p>${message}</p>
+            <p><strong>${esc(messageSender)}</strong> said:</p>
+            <p>${esc(message)}</p>
             <br />
             <p>You can respond to this message at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
             <p>Sincerely,</p>
@@ -901,7 +905,7 @@ const sendSupportTicketAutoCloseWarning = (recipientAddresses, ticketID, subject
         subject: `Ticket Will Automatically Close Soon (Subject: ${truncateString(subject, 30)})`,
         html: `
             <p>Hi,</p>
-            <p>We're writing to let you know that a support ticket you have subscribed to will automatically close for inactivity in three days from this notification: "${subject}"</p>
+            <p>We're writing to let you know that a support ticket you have subscribed to will automatically close for inactivity in three days from this notification: "${esc(subject)}"</p>
             <br />
             <p>If you would like to keep the ticket open, please respond to the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}${params ? `?${params}` : ''}</a>.</p>
             <br />
@@ -1039,13 +1043,13 @@ const sendSupportTicketAssignedNotification = (ticketType, recipientAddresses, t
         subject: `${ticketType} Assigned: ${truncateString(ticketTitle, 30)} (P: ${ticketPriority})`,
         html: `
             <p>Hi,</p>
-            <p>${assignerName} has assigned you to the following ${ticketType}:</p>
+            <p>${esc(assignerName)} has assigned you to the following ${ticketType}:</p>
             <br />
-            <p><strong>Title:</strong> ${ticketTitle}</p>
-            <p><strong>Author:</strong> ${ticketAuthor}</p>
-            ${ticketCategory ? `<p><strong>Category:</strong> ${ticketCategory}</p>` : ''}
-            <p><strong>Priority:</strong> ${ticketPriority}</p>
-            <p><strong>Body:</strong> ${ticketBody}</p>
+            <p><strong>Title:</strong> ${esc(ticketTitle)}</p>
+            <p><strong>Author:</strong> ${esc(ticketAuthor)}</p>
+            ${ticketCategory ? `<p><strong>Category:</strong> ${esc(ticketCategory)}</p>` : ''}
+            <p><strong>Priority:</strong> ${esc(ticketPriority)}</p>
+            <p><strong>Body:</strong> ${esc(ticketBody)}</p>
             <br />
             <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}</a>.</p>
             <p>Sincerely,</p>
@@ -1105,7 +1109,7 @@ const sendSupportTicketCCedNotification = (recipientAddress, ticketID, ticketTit
             <p>Hi,</p>
             <p>You've been added to the following support ticket:</p>
             <br />
-            <p><strong>Title:</strong> ${ticketTitle}</p>
+            <p><strong>Title:</strong> ${esc(ticketTitle)}</p>
             <br />
             <p>You can view the ticket at <a href="https://commons.libretexts.org/support/ticket/${ticketID}?accessKey=${accessKey}" target="_blank" rel="noopener noreferrer">https://commons.libretexts.org/support/ticket/${ticketID}?accessKey=${accessKey}</a>.</p>
             <p>Sincerely,</p>
