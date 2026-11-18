@@ -30,6 +30,8 @@ const ACTIVITY_LIST_PROJECTION = {
   __v: 0,
   collaborators: 0,
   legacyNodeID: 0,
+  // Raw source id. Only `resolveClonedFrom` may decide whether to show it.
+  clonedFrom: 0,
 };
 
 /**
@@ -147,9 +149,32 @@ const ACTIVITY_PAGE_PROJECTION = {
   includeInLibrary: 1,
   license: 1,
   createdBy: 1,
+  clonedFrom: 1,
+  pendingFirstSave: 1,
   createdAt: 1,
   updatedAt: 1,
 };
+
+/**
+ * The source of a cloned activity, for display. Only a source that is still
+ * public and listed in the catalog. Anything else returns nothing at all.
+ *
+ * Why not the source's id alone: an activity's id is its URL
+ * (`/interactive/{id}`), and an unlisted activity is protected only by nobody
+ * knowing that URL. Publishing a clone of one would hand its link to every
+ * visitor. For a private source the id reveals that the activity exists, which
+ * its owner never chose to share. The provenance row is a courtesy, so it goes.
+ */
+export async function resolveClonedFrom(
+  activityID?: string
+): Promise<{ activityID: string; title: string } | undefined> {
+  if (!activityID) return undefined;
+  const source = await Activity.findOne(
+    { activityID: { $eq: activityID }, orgID: process.env.ORG_ID, visibility: "public", includeInLibrary: { $ne: false } },
+    { _id: 0, title: 1 }
+  ).lean();
+  return source ? { activityID, title: source.title } : undefined;
+}
 
 /**
  * Names credited in the H5P package metadata. Studio stored the H5P `authors`
@@ -259,11 +284,16 @@ async function getActivity(
       h5pAuthors: _h5pAuthors,
       createdBy: _createdBy,
       collaborators: _collaborators,
+      clonedFrom,
       ...rest
     } = credited;
     return res.send({
       err: false,
-      activity: { ...rest, ...(viewerRole ? { viewerRole } : {}) },
+      activity: {
+        ...rest,
+        ...(clonedFrom ? { clonedFrom: await resolveClonedFrom(clonedFrom) } : {}),
+        ...(viewerRole ? { viewerRole } : {}),
+      },
     });
   } catch (err) {
     logger.error({ err }, "getActivity failed");

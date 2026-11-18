@@ -9,9 +9,18 @@ import { CommonsActivity } from "../../../types";
 const mockGetActivity = vi.hoisted(() => vi.fn());
 const mockMediaQuery = vi.hoisted(() => vi.fn(() => true));
 const mockAuthoringEnabled = vi.hoisted(() => vi.fn(() => true));
+const mockCanCreate = vi.hoisted(() => vi.fn(() => false));
+const mockClone = vi.hoisted(() => vi.fn());
+const mockNotify = vi.hoisted(() => vi.fn());
 
 vi.mock("../../../api", () => ({
-  default: { getCommonsActivity: mockGetActivity },
+  default: { getCommonsActivity: mockGetActivity, cloneActivity: mockClone },
+}));
+
+vi.mock("../../../hooks/useCanCreateActivities", () => ({ default: mockCanCreate }));
+
+vi.mock("../../../context/NotificationContext", () => ({
+  useNotifications: () => ({ addNotification: mockNotify }),
 }));
 
 vi.mock("../../../hooks/useClientConfig", () => ({
@@ -54,6 +63,7 @@ function renderPage() {
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={["/interactive/31483"]}>
         <Route path="/interactive/:activityID" component={CommonsActivityPage} />
+        <Route path="/h5p/:id/edit" render={({ match }) => <p>Editing {match.params.id}</p>} />
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -64,6 +74,65 @@ describe("CommonsActivityPage", () => {
     mockGetActivity.mockReset();
     mockMediaQuery.mockReturnValue(true);
     mockAuthoringEnabled.mockReturnValue(true);
+    mockCanCreate.mockReturnValue(false);
+    mockClone.mockReset();
+    mockNotify.mockReset();
+  });
+
+  it("hides Clone from anyone who cannot create activities", async () => {
+    mockGetActivity.mockResolvedValue({ data: { activity: full } });
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: full.title });
+    expect(screen.queryByRole("button", { name: "Clone" })).toBeNull();
+  });
+
+  it("clones for a verified instructor and opens the copy in the editor", async () => {
+    mockCanCreate.mockReturnValue(true);
+    mockGetActivity.mockResolvedValue({ data: { activity: full } });
+    mockClone.mockResolvedValue({ data: { activity: { activityID: "40001", h5pContentID: 40001 } } });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Clone" }));
+    expect(mockClone).toHaveBeenCalledWith("31483");
+    expect(await screen.findByText("Editing 40001")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["offers", "collaborator", true],
+    ["hides", "staff", false],
+  ] as const)("%s Clone on a private activity for %s", async (_verb, viewerRole, shown) => {
+    mockCanCreate.mockReturnValue(true);
+    mockGetActivity.mockResolvedValue({ data: { activity: { ...full, visibility: "private", viewerRole } } });
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: full.title });
+    expect(Boolean(screen.queryByRole("button", { name: "Clone" }))).toBe(shown);
+  });
+
+  it("hides Clone on an activity whose content was never saved", async () => {
+    mockCanCreate.mockReturnValue(true);
+    mockGetActivity.mockResolvedValue({
+      data: { activity: { ...full, visibility: "private", viewerRole: "owner", pendingFirstSave: true } },
+    });
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: full.title });
+    expect(screen.queryByRole("button", { name: "Clone" })).toBeNull();
+  });
+
+  it("reports a failed clone and stays on the page", async () => {
+    mockCanCreate.mockReturnValue(true);
+    mockGetActivity.mockResolvedValue({ data: { activity: full } });
+    mockClone.mockRejectedValue({ response: { status: 500 } });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Clone" }));
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ type: "error" }));
+    expect(screen.getByRole("heading", { level: 1, name: full.title })).toBeInTheDocument();
+  });
+
+  it("links a clone to its public source", async () => {
+    mockGetActivity.mockResolvedValue({
+      data: { activity: { ...full, clonedFrom: { activityID: "100", title: "Original quiz" } } },
+    });
+    renderPage();
+    expect(await screen.findByRole("link", { name: "Original quiz" })).toHaveAttribute("href", "/interactive/100");
   });
 
   it("renders the details, player, embed URL and attribution", async () => {

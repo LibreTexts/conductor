@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route } from "react-router-dom";
@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   createActivity: vi.fn(),
   updateActivity: vi.fn(),
   deleteActivity: vi.fn(),
+  cloneActivity: vi.fn(),
   searchActivityCollaborators: vi.fn(),
   addActivityCollaborator: vi.fn(),
   removeActivityCollaborator: vi.fn(),
@@ -335,6 +336,106 @@ describe("Edit H5P", () => {
     renderAt("/h5p/101/edit");
     expect(await screen.findByRole("button", { name: "Copy ADAPT ID" })).toBeInTheDocument();
     expect(screen.getByText("98765")).toBeInTheDocument();
+  });
+
+  it("clones a saved public activity and opens the copy with a full page load", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    api.getActivityForEditing.mockResolvedValue(shared());
+    api.cloneActivity.mockResolvedValue({ data: { activity: { activityID: "40001", h5pContentID: 40001 } } });
+    renderAt("/h5p/abc123/edit");
+    await userEvent.click(await screen.findByRole("button", { name: "Clone" }));
+    expect(api.cloneActivity).toHaveBeenCalledWith("abc123");
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/h5p/40001/edit"));
+    vi.unstubAllGlobals();
+  });
+
+  it("asks before cloning over unsaved changes, and creates nothing if the user keeps editing", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    api.getActivityForEditing.mockResolvedValue(shared());
+    api.cloneActivity.mockResolvedValue({ data: { activity: { activityID: "40001", h5pContentID: 40001 } } });
+    renderAt("/h5p/abc123/edit");
+    const iframe = (await screen.findByTitle("H5P editor")) as HTMLIFrameElement;
+    fromEditor(iframe, { type: "dirty", dirty: true });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Clone" }));
+    const dialog = await screen.findByRole("dialog", { name: "Clone without saving?" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(api.cloneActivity).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Clone" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Clone" }));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/h5p/40001/edit"));
+    // The user already agreed to lose the changes, so the reload must not ask again.
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps the leave warning for edits made while a clean clone is pending", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    api.getActivityForEditing.mockResolvedValue(shared());
+    let finish!: (v: unknown) => void;
+    api.cloneActivity.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    renderAt("/h5p/abc123/edit");
+    const iframe = (await screen.findByTitle("H5P editor")) as HTMLIFrameElement;
+
+    await userEvent.click(await screen.findByRole("button", { name: "Clone" }));
+    fromEditor(iframe, { type: "dirty", dirty: true });
+    finish({ data: { activity: { activityID: "40001", h5pContentID: 40001 } } });
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/h5p/40001/edit"));
+
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    // Cancelling that warning leaves the user here with a working button.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Clone" })).toBeEnabled());
+    vi.unstubAllGlobals();
+  });
+
+  it.each(["owner", "collaborator"] as const)("offers Clone on a private activity to its %s", async (role) => {
+    const record = editable(role);
+    record.data.activity = { ...record.data.activity, visibilityLevel: "private" } as typeof record.data.activity;
+    api.getActivityForEditing.mockResolvedValue(record);
+    renderAt(`/h5p/${record.data.activity.activityID}/edit`);
+    expect(await screen.findByRole("button", { name: "Clone" })).toBeInTheDocument();
+  });
+
+  it("offers staff no Clone on a private activity", async () => {
+    const record = editable("staff");
+    record.data.activity = { ...record.data.activity, visibilityLevel: "private" } as typeof record.data.activity;
+    api.getActivityForEditing.mockResolvedValue(record);
+    renderAt(`/h5p/${record.data.activity.activityID}/edit`);
+    await screen.findByRole("button", { name: "Copy H5P ID" });
+    expect(screen.queryByRole("button", { name: "Clone" })).toBeNull();
+  });
+
+  it("offers no Clone for an activity never saved", async () => {
+    api.getActivityForEditing.mockResolvedValue(shared({ pendingFirstSave: true }));
+    renderAt("/h5p/abc123/edit");
+    await screen.findByRole("button", { name: "Copy H5P ID" });
+    expect(screen.queryByRole("button", { name: "Clone" })).toBeNull();
+  });
+
+  it("offers no Clone to someone who is not a verified instructor", async () => {
+    config.verified = false;
+    api.getActivityForEditing.mockResolvedValue(shared());
+    renderAt("/h5p/abc123/edit");
+    await screen.findByRole("button", { name: "Copy H5P ID" });
+    expect(screen.queryByRole("button", { name: "Clone" })).toBeNull();
+  });
+
+  it("links a clone to its source on Commons", async () => {
+    api.getActivityForEditing.mockResolvedValue(shared({ clonedFrom: { activityID: "100", title: "Original quiz" } }));
+    renderAt("/h5p/abc123/edit");
+    expect(await screen.findByRole("link", { name: /Original quiz/ })).toHaveAttribute(
+      "href",
+      "https://commons.libretexts.org/interactive/100"
+    );
   });
 
   // Distinct IDs, so a test fails if a link uses the wrong one: Commons pages

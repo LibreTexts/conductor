@@ -37,12 +37,16 @@ const SERVICE_SUBJECT = "conductor-service";
 
 const SERVICE_TIMEOUT_MS = 10_000;
 
+/** A clone copies every content file, which takes longer than other calls. */
+const CLONE_TIMEOUT_MS = 60_000;
+
 /**
  * `view` reads one private activity's embed, parameters and download.
  * `visibility` marks content private or public: with a content id, that
  * content alone; without, the full private set (the reconcile job).
+ * `clone` copies the content under `sourceContentId` into `contentId`.
  */
-export type CapabilityAction = "edit" | "create" | "delete" | "allocate" | "view" | "visibility";
+export type CapabilityAction = "edit" | "create" | "delete" | "allocate" | "view" | "visibility" | "clone";
 
 export class AuthoringNotConfiguredError extends Error {}
 
@@ -93,6 +97,7 @@ export async function signCapabilityToken(params: {
   subject: string;
   actions: CapabilityAction[];
   contentId?: number;
+  sourceContentId?: number;
   ttlSeconds?: number;
 }): Promise<{ token: string; expiresAt: Date; tokenId: string }> {
   const { key, kid } = await getSigner();
@@ -102,6 +107,7 @@ export async function signCapabilityToken(params: {
   const token = await new SignJWT({
     act: params.actions,
     ...(params.contentId !== undefined ? { cid: String(params.contentId) } : {}),
+    ...(params.sourceContentId !== undefined ? { src: String(params.sourceContentId) } : {}),
   })
     .setProtectedHeader({ alg: "EdDSA", kid })
     .setIssuer(ISSUER)
@@ -119,12 +125,14 @@ async function callService(
   path: string,
   actions: CapabilityAction[],
   contentId?: number,
-  json?: unknown
+  json?: unknown,
+  { sourceContentId, timeoutMs = SERVICE_TIMEOUT_MS }: { sourceContentId?: number; timeoutMs?: number } = {}
 ) {
   const { token, tokenId } = await signCapabilityToken({
     subject: SERVICE_SUBJECT,
     actions,
     contentId,
+    sourceContentId,
     ttlSeconds: SERVICE_TOKEN_TTL_SECONDS,
   });
   try {
@@ -135,7 +143,7 @@ async function callService(
         ...(json !== undefined ? { "content-type": "application/json" } : {}),
       },
       ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
-      signal: AbortSignal.timeout(SERVICE_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     return { res, tokenId };
   } catch (err) {
@@ -174,6 +182,27 @@ export async function deleteH5PContent(contentId: number): Promise<"deleted" | "
 }
 
 /**
+ * Copies one activity's H5P content and files into a freshly allocated id,
+ * renamed to `title` so the editor's title field matches the Activity.
+ * The copy starts private on the H5P service. A copy, not a link: later
+ * edits to either side never reach the other.
+ */
+export async function cloneH5PContent(sourceContentId: number, contentId: number, title: string): Promise<void> {
+  const { res, tokenId } = await callService(
+    "POST",
+    `/h5p/service/content/${contentId}/clone`,
+    ["clone"],
+    contentId,
+    { title },
+    { sourceContentId, timeoutMs: CLONE_TIMEOUT_MS }
+  );
+  if (res.status !== 201) {
+    throw new H5PServiceError(`clone returned ${res.status}`, res.status);
+  }
+  log.info({ contentId, sourceContentId, jti: tokenId }, "Cloned H5P content");
+}
+
+/**
  * Tells the H5P service whether an activity's content is private, so its
  * embed, parameters and download need a `view` token. A 404 counts as done:
  * content not saved yet starts private there, and this is sent again with
@@ -199,26 +228,41 @@ export async function setH5PContentPrivate(
 }
 
 /**
+ * The H5P service's visibility version. Read it before listing private
+ * activities, and pass it to `replacePrivateH5PContent`.
+ */
+export async function getH5PVisibilityVersion(): Promise<number> {
+  const { res } = await callService("GET", "/h5p/service/private-content", ["visibility"]);
+  const body: any = await res.json().catch(() => ({}));
+  if (res.status !== 200 || !Number.isSafeInteger(body?.version)) {
+    throw new H5PServiceError(`private-content version returned ${res.status}`, res.status);
+  }
+  return body.version;
+}
+
+/**
  * Makes `contentIds` the complete set of private content on the H5P service,
  * clearing the flag everywhere else. Repairs any push `setH5PContentPrivate`
- * missed.
+ * missed. The service skips content pushed or copied after `version`, which
+ * `contentIds` cannot reflect.
  */
 export async function replacePrivateH5PContent(
-  contentIds: number[]
+  contentIds: number[],
+  version: number
 ): Promise<{ marked: number; cleared: number; unknown: string[] }> {
   const { res, tokenId } = await callService(
     "PUT",
     "/h5p/service/private-content",
     ["visibility"],
     undefined,
-    { contentIds }
+    { contentIds, version }
   );
   const body: any = await res.json().catch(() => ({}));
   if (res.status !== 200 || typeof body?.marked !== "number" || typeof body?.cleared !== "number") {
     throw new H5PServiceError(`private-content returned ${res.status}`, res.status);
   }
   log.info(
-    { requested: contentIds.length, marked: body.marked, cleared: body.cleared, jti: tokenId },
+    { requested: contentIds.length, version, marked: body.marked, cleared: body.cleared, jti: tokenId },
     "Replaced the private H5P content set"
   );
   return { marked: body.marked, cleared: body.cleared, unknown: Array.isArray(body.unknown) ? body.unknown : [] };

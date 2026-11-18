@@ -107,6 +107,13 @@ const addressValidationLimiter = new RateLimiterMemory({
   duration: RL_ADDR_VALIDATE_WINDOW_SEC,
 });
 
+/** Each clone copies every file of an activity's content. */
+const activityCloneLimiter = new RateLimiterMemory({
+  keyPrefix: "rl_activity_clone",
+  points: 10,
+  duration: 60,
+});
+
 /* ── Header helpers ──────────────────────────────────────────── */
 
 function setRateLimitHeaders(res: Response, rlRes: { remainingPoints: number; msBeforeNext: number }, limit: number) {
@@ -176,6 +183,16 @@ export async function rateLimitMiddleware(req: Request, res: Response, next: Nex
     const retryAfter = Math.ceil(rlRes.msBeforeNext / 1000);
     res.set("Retry-After", String(retryAfter));
     res.status(429).json({ err: true, errMsg: "Too many requests. Please try again later." });
+  }
+}
+
+/** Per user, so it must follow `verifyRequest`. */
+export async function limitActivityClone(req: Request, res: Response, next: NextFunction) {
+  try {
+    await activityCloneLimiter.consume((req as any).user?.decoded?.uuid ?? getClientIp(req));
+    next();
+  } catch {
+    res.status(429).json({ err: true, errMsg: "Too many requests" });
   }
 }
 

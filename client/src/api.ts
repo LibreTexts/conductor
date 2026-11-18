@@ -531,6 +531,14 @@ class API {
     return res;
   }
 
+  /** Copies an activity into a new private one the caller owns. */
+  async cloneActivity(activityID: string) {
+    const res = await axios.post<
+      { activity: { activityID: string; h5pContentID: number } } & ConductorBaseResponse
+    >(`/activities/${activityID}/clone`);
+    return res;
+  }
+
   async updateActivity(activityID: string, update: ActivityMetadataInput & { contentSaved?: EditorSavedContent }) {
     const res = await axios.patch<ConductorBaseResponse>(`/activities/${activityID}`, update);
     return res;
