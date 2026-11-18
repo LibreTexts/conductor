@@ -115,7 +115,7 @@ test('content sources on desktop shows a compact graph', async ({ page }) => {
   // Only the drawn <text>, not the <title> tooltips (which hold the full label).
   const text = (await graph(page).locator('text').allTextContents()).join(' | ');
   expect(text).toContain('Remixer Book::: Test (IV)');
-  expect(text).toContain('workforce library (not scanned yet)');
+  expect(text).toContain('Workforce · not scanned yet');
   expect(text).not.toContain('…');
   // Drawn at its natural size, never stretched to fill a wide screen.
   expect(box!.width).toBeLessThan(900);

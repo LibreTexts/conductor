@@ -1,71 +1,131 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { hierarchy, linkHorizontal, tree, type HierarchyPointNode } from "d3";
 import type {
   ContentSourcesBookLink,
   ContentSourcesUnscannedGroup,
 } from "../../../types/ContentSources";
+import { getLibraryName } from "../../util/LibraryOptions";
 import { plural } from "./labels";
 import { estimateTextWidth, truncateLabel } from "./svgText";
 
 /**
- * The book and its neighbours: books it reuses from on the left, books that
- * reuse it on the right, line width by pages shared. A picture only: the
- * tables beside it carry the same information with links, so the SVG is a
- * labelled image with no focusable parts, and it is hidden below `md`.
+ * The book and its neighbours as a two-sided tidy tree, adapted from d3's
+ * "Tidy tree" (https://observablehq.com/@d3/tree/2): books it takes content
+ * from fan out to the left, books that reuse it to the right, each side
+ * grouped by library. As in the example: thin solid links, columns evenly
+ * spaced, dark dots for branches (libraries) and light dots for leaves
+ * (books), branch labels facing their parent and leaf labels facing out, all
+ * on a white halo. A picture only: the tables beside it carry the same
+ * information with links, so the SVG is a labelled image with no focusable
+ * parts, and it is hidden below `md`.
  */
 
-type GraphNode = {
+type TreeDatum = {
   key: string;
   label: string;
   pages: number;
   /** A library whose books the scanner hasn't reached. */
   unscanned?: boolean;
+  children?: TreeDatum[];
 };
 
-const ROW = 30;
-const NODE_H = 24;
+type Side = {
+  root: TreeDatum;
+  /** Books (or unscanned libraries) left out by the cap. */
+  hidden: number;
+  /** All sources on this side, shown or not. */
+  count: number;
+  libraries: number;
+};
+
+/** Leaves per side before the rest become "and N more". */
 const MAX_PER_SIDE = 8;
-/** Horizontal run of the connecting lines between a side and the centre. */
-const GAP = 70;
-const MARGIN = 10;
+/** The example's `dx`: vertical distance between neighbouring leaves. */
+const ROW = 20;
+const NODE_H = 24;
+const MARGIN = 12;
 const LABEL_PX = 11;
 const TITLE_PX = 12;
-/** Room in a side box for its padding and the page count. */
-const BOX_EXTRA = 50;
-/** Box widths: wide enough for the longest label, within reason. */
-const SIDE_MIN = 120;
-const SIDE_MAX = 380;
+const LEAF_LABEL_MAX = 220;
+const LIB_LABEL_MAX = 150;
+/** The example's `dy` floor: the distance between columns. */
+const COLUMN_MIN = 72;
+/** Between a dot and its label (the example's 6px). */
+const LABEL_GAP = 6;
 const CENTER_MIN = 140;
 const CENTER_MAX = 420;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-/** Cuts a label only when it is wider than its box even at the maximum width. */
+/**
+ * `estimateTextWidth` with a safety margin: the estimate runs a little short
+ * for mixed-case labels, and a short estimate here clips text at the edges.
+ */
+const measure = (text: string, px: number, bold = false) => estimateTextWidth(text, px, bold) * 1.18;
+
+/** Cuts a label only when it is wider than its room even at the maximum width. */
 const fitLabel = (label: string, room: number, px: number, bold = false) => {
   let text = truncateLabel(label);
-  while (text.length > 4 && estimateTextWidth(text, px, bold) > room) {
+  while (text.length > 4 && measure(text, px, bold) > room) {
     text = `${text.slice(0, -2)}…`;
   }
   return text;
 };
 
-const sideNodes = (
-  links: ContentSourcesBookLink[],
-  unscanned: ContentSourcesUnscannedGroup[] = [],
-): { nodes: GraphNode[]; hidden: number } => {
-  const all: GraphNode[] = [
-    ...links.map((l) => ({ key: l.id, label: l.title, pages: l.pages })),
+const libraryLabel = (lib: string) => {
+  const name = getLibraryName(lib);
+  return name === "Unknown" ? lib : name;
+};
+
+const libOf = (link: ContentSourcesBookLink) => link.lib ?? link.id.split("-")[0];
+
+/**
+ * One side's tree: this book → libraries → books. The biggest books are kept.
+ * A library the scanner hasn't reached has no books to show, so it is a leaf
+ * itself ("Engineering · not scanned yet").
+ */
+const buildSide = (links: ContentSourcesBookLink[], unscanned: ContentSourcesUnscannedGroup[] = []): Side => {
+  const leaves = [
+    ...links.map((l) => ({ lib: libOf(l), datum: { key: l.id, label: l.title, pages: l.pages } as TreeDatum })),
     ...unscanned.map((g) => ({
-      key: `lib:${g.lib}`,
-      label: `${g.lib} library (not scanned yet)`,
-      pages: g.pages,
-      unscanned: true,
+      lib: g.lib,
+      datum: { key: `unscanned:${g.lib}`, label: "Not scanned yet", pages: g.pages, unscanned: true } as TreeDatum,
     })),
-  ].sort((a, b) => b.pages - a.pages);
+  ].sort((a, b) => b.datum.pages - a.datum.pages);
+  const kept = leaves.slice(0, MAX_PER_SIDE);
+
+  const byLib = new Map<string, TreeDatum[]>();
+  for (const { lib, datum } of kept) byLib.set(lib, [...(byLib.get(lib) ?? []), datum]);
+  const libraries: TreeDatum[] = [...byLib.entries()]
+    .map(([lib, children]) => {
+      const pages = children.reduce((sum, c) => sum + c.pages, 0);
+      return children.every((c) => c.unscanned)
+        ? { key: `lib:${lib}`, label: `${libraryLabel(lib)} · not scanned yet`, pages, unscanned: true }
+        : { key: `lib:${lib}`, label: libraryLabel(lib), pages, children };
+    })
+    .sort((a, b) => b.pages - a.pages);
+
   return {
-    nodes: all.slice(0, MAX_PER_SIDE),
-    hidden: Math.max(0, all.length - MAX_PER_SIDE),
+    root: { key: "root", label: "", pages: 0, children: libraries },
+    hidden: leaves.length - kept.length,
+    count: leaves.length,
+    libraries: new Set(leaves.map((l) => l.lib)).size,
   };
 };
+
+/** The example's layout: `x` is the vertical position (0 = this book), `depth` the column. */
+const layOut = (side: Side) => tree<TreeDatum>().nodeSize([ROW, 1])(hierarchy(side.root));
+
+const link = linkHorizontal<{ source: [number, number]; target: [number, number] }, [number, number]>()
+  .source((d) => d.source)
+  .target((d) => d.target);
+
+/** Readable over the links it crosses: the example's white halo. */
+const HALO = "[paint-order:stroke] [stroke:white] [stroke-width:3px] [stroke-linejoin:round]";
+
+/** A leaf's label: its name, then its page count. */
+const leafWidth = (n: HierarchyPointNode<TreeDatum>) =>
+  Math.min(LEAF_LABEL_MAX, measure(truncateLabel(n.data.label), LABEL_PX)) + measure(` ${n.data.pages}`, LABEL_PX);
 
 interface BookConnectionsProps {
   bookTitle: string;
@@ -80,87 +140,108 @@ const BookConnections: React.FC<BookConnectionsProps> = ({
   downstream,
   unscannedSources,
 }) => {
-  const left = sideNodes(upstream, unscannedSources);
-  const right = sideNodes(downstream);
-  const rows = Math.max(left.nodes.length, right.nodes.length, 1);
-  const height = rows * ROW + 24;
-  const centerY = height / 2;
-  const maxPages = Math.max(
-    1,
-    ...left.nodes.map((n) => n.pages),
-    ...right.nodes.map((n) => n.pages),
-  );
-  const strokeFor = (pages: number) => 1.5 + (pages / maxPages) * 5;
-  const yFor = (index: number, count: number) =>
-    centerY + (index - (count - 1) / 2) * ROW;
+  const figure = useMemo(() => {
+    const left = buildSide(upstream, unscannedSources);
+    const right = buildSide(downstream);
+    const leftTree = layOut(left);
+    const rightTree = layOut(right);
 
-  // Each side's boxes are as wide as its longest label (plus room for the
-  // page count), the centre box as wide as the title, so nothing is cut
-  // while there is room; the figure is only as wide as that adds up to.
-  const sideWidth = (nodes: GraphNode[]) =>
-    nodes.length === 0
-      ? 0
-      : clamp(
-          Math.max(...nodes.map((n) => estimateTextWidth(truncateLabel(n.label), LABEL_PX))) + BOX_EXTRA,
-          SIDE_MIN,
-          SIDE_MAX,
-        );
-  const leftW = sideWidth(left.nodes);
-  const rightW = sideWidth(right.nodes);
-  const centerW = clamp(
-    estimateTextWidth(truncateLabel(bookTitle), TITLE_PX, true) + 28,
-    CENTER_MIN,
-    CENTER_MAX,
-  );
+    // Evenly spaced columns out from the centre box's edge (the example's
+    // `dy`), wide enough for a branch label between a library and the box.
+    // Labels of leaves (books, unscanned libraries) run outside the last dot.
+    const columns = (root: HierarchyPointNode<TreeDatum>) => {
+      const nodes = root.descendants().filter((n) => n.depth > 0);
+      if (nodes.length === 0) return { step: 0, extent: 0 };
+      const branchW = Math.min(
+        LIB_LABEL_MAX,
+        Math.max(0, ...nodes.filter((n) => n.children).map((n) => measure(n.data.label, LABEL_PX, true))),
+      );
+      const step = Math.max(COLUMN_MIN, branchW + LABEL_GAP + 28);
+      const extent = Math.max(...nodes.filter((n) => !n.children).map((n) => n.depth * step + LABEL_GAP + leafWidth(n)));
+      return { step, extent: extent + 16 };
+    };
+    const leftCols = columns(leftTree);
+    const rightCols = columns(rightTree);
 
-  const leftX = MARGIN;
-  const centerLeft = leftX + leftW + (leftW ? GAP : 0);
-  const centerX = centerLeft + centerW / 2;
-  const rightX = centerLeft + centerW + (rightW ? GAP : 0);
-  const WIDTH = rightX + rightW + MARGIN;
+    const centerW = clamp(measure(truncateLabel(bookTitle), TITLE_PX, true) + 28, CENTER_MIN, CENTER_MAX);
+    const boxLeft = MARGIN + leftCols.extent;
+    const boxRight = boxLeft + centerW;
+    const width = boxRight + rightCols.extent + MARGIN;
+
+    const all = [...leftTree.descendants(), ...rightTree.descendants()];
+    const top = Math.min(-NODE_H, ...all.map((n) => n.x - ROW / 2));
+    const bottom = Math.max(NODE_H, ...all.map((n) => n.x + ROW / 2));
+    const note = left.hidden > 0 || right.hidden > 0 ? 18 : 0;
+    const height = bottom - top + 2 * MARGIN + note;
+    const centerY = MARGIN - top;
+
+    return { left, right, leftTree, rightTree, leftCols, rightCols, centerW, boxLeft, boxRight, width, height, centerY };
+  }, [bookTitle, upstream, downstream, unscannedSources]);
+
+  const { left, right, leftTree, rightTree, leftCols, rightCols, centerW, boxLeft, boxRight, width, height, centerY } = figure;
 
   const summary = [
     `${bookTitle}.`,
-    left.nodes.length
-      ? `Reuses content from ${plural(left.nodes.length + left.hidden, "source")}.`
+    left.count
+      ? `Reuses content from ${plural(left.count, "source")} in ${plural(left.libraries, "library", "libraries")}.`
       : "Reuses no content from other books.",
-    right.nodes.length
-      ? `${plural(right.nodes.length + right.hidden, "book")} reuse its content.`
+    right.count
+      ? `${plural(right.count, "book")} in ${plural(right.libraries, "library", "libraries")} reuse its content.`
       : "No other book reuses its content.",
   ].join(" ");
 
-  const box = (node: GraphNode, x: number, y: number, side: "left" | "right", boxW: number) => (
-    <g key={`${side}-${node.key}`}>
-      <title>{node.label}</title>
-      <rect
-        x={x}
-        y={y - NODE_H / 2}
-        width={boxW}
-        height={NODE_H}
-        rx={6}
-        className={
-          node.unscanned
-            ? "fill-white stroke-neutral-400 [stroke-dasharray:4_3]"
-            : "fill-white stroke-neutral-500"
-        }
-      />
-      <text
-        x={x + 10}
-        y={y + 4}
-        className="fill-neutral-800 text-[11px]"
-      >
-        {fitLabel(node.label, boxW - BOX_EXTRA, LABEL_PX)}
-      </text>
-      <text
-        x={x + boxW - 10}
-        y={y + 4}
-        textAnchor="end"
-        className="fill-neutral-600 text-[10px]"
-      >
-        {node.pages}
-      </text>
-    </g>
-  );
+  /** Draws one side; `dir` is -1 for the left (mirrored), 1 for the right. */
+  const drawSide = (root: HierarchyPointNode<TreeDatum>, step: number, dir: -1 | 1, edge: number) => {
+    const xOf = (n: HierarchyPointNode<TreeDatum>) => edge + dir * n.depth * step;
+    const yOf = (n: HierarchyPointNode<TreeDatum>) => centerY + n.x;
+    const nodes = root.descendants().filter((n) => n.depth > 0);
+
+    return (
+      <g>
+        <g fill="none" className="stroke-neutral-400" strokeWidth={1.5}>
+          {nodes.map((n) => {
+            const from: [number, number] = n.depth === 1 ? [edge, centerY] : [xOf(n.parent!), yOf(n.parent!)];
+            return <path key={`link-${n.data.key}`} d={link({ source: from, target: [xOf(n), yOf(n)] }) ?? ""} />;
+          })}
+        </g>
+        {nodes.map((n) => {
+          const x = xOf(n);
+          const y = yOf(n);
+          const branch = !!n.children;
+          // As in the example: a branch's label faces its parent, a leaf's faces out.
+          const side = branch ? -dir : dir;
+          return (
+            <g key={`node-${n.data.key}`}>
+              <title>
+                {branch
+                  ? `${n.data.label} library: ${plural(n.data.pages, "page")}`
+                  : `${n.data.label}: ${plural(n.data.pages, "page")}`}
+              </title>
+              <circle cx={x} cy={y} r={3} className={branch ? "fill-neutral-600" : "fill-neutral-400"} />
+              <text
+                x={x + side * LABEL_GAP}
+                y={y}
+                dy="0.31em"
+                textAnchor={side < 0 ? "end" : "start"}
+                className={`${HALO} text-[11px] ${
+                  branch
+                    ? "fill-neutral-900 font-semibold"
+                    : n.data.unscanned
+                      ? "fill-neutral-600 italic"
+                      : "fill-neutral-800"
+                }`}
+              >
+                {branch
+                  ? fitLabel(n.data.label, LIB_LABEL_MAX, LABEL_PX, true)
+                  : fitLabel(n.data.label, LEAF_LABEL_MAX, LABEL_PX)}
+                {!branch && <tspan className="fill-neutral-500"> {n.data.pages}</tspan>}
+              </text>
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
 
   return (
     // Hidden on small screens: at phone width the labels would be unreadable,
@@ -169,73 +250,46 @@ const BookConnections: React.FC<BookConnectionsProps> = ({
       <svg
         role="img"
         aria-label={summary}
-        viewBox={`0 0 ${WIDTH} ${height}`}
+        viewBox={`0 0 ${width} ${height}`}
         // Drawn at its natural size: it may shrink to fit, never grow, so
         // text stays at the size it was designed for on wide screens.
-        width={WIDTH}
+        width={width}
         height={height}
         className="h-auto max-w-full"
       >
-        {left.nodes.map((node, i) => {
-          const y = yFor(i, left.nodes.length);
-          return (
-            <line
-              key={`l-edge-${node.key}`}
-              x1={leftX + leftW}
-              y1={y}
-              x2={centerLeft}
-              y2={centerY}
-              strokeWidth={strokeFor(node.pages)}
-              className={node.unscanned ? "stroke-neutral-300" : "stroke-sky-400"}
-            />
-          );
-        })}
-        {right.nodes.map((node, i) => {
-          const y = yFor(i, right.nodes.length);
-          return (
-            <line
-              key={`r-edge-${node.key}`}
-              x1={centerLeft + centerW}
-              y1={centerY}
-              x2={rightX}
-              y2={y}
-              strokeWidth={strokeFor(node.pages)}
-              className="stroke-amber-400"
-            />
-          );
-        })}
-        {left.nodes.map((node, i) => box(node, leftX, yFor(i, left.nodes.length), "left", leftW))}
-        {right.nodes.map((node, i) => box(node, rightX, yFor(i, right.nodes.length), "right", rightW))}
+        {drawSide(leftTree, leftCols.step, -1, boxLeft)}
+        {drawSide(rightTree, rightCols.step, 1, boxRight)}
         <rect
-          x={centerLeft}
-          y={centerY - NODE_H / 2 - 4}
+          x={boxLeft}
+          y={centerY - NODE_H / 2 - 2}
           width={centerW}
-          height={NODE_H + 8}
-          rx={8}
-          className="fill-sky-50 stroke-sky-700 [stroke-width:2]"
+          height={NODE_H + 4}
+          rx={6}
+          className="fill-white stroke-neutral-600 [stroke-width:1.5]"
         />
         <text
-          x={centerX}
-          y={centerY + 4}
+          x={boxLeft + centerW / 2}
+          y={centerY}
+          dy="0.31em"
           textAnchor="middle"
           className="fill-neutral-900 text-[12px] font-semibold"
         >
           {fitLabel(bookTitle, centerW - 20, TITLE_PX, true)}
         </text>
         {left.hidden > 0 && (
-          <text x={leftX} y={height - 6} className="fill-neutral-600 text-[11px]">
+          <text x={boxLeft - 2 * leftCols.step} y={height - 8} textAnchor="end" className="fill-neutral-600 text-[11px]">
             and {left.hidden} more
           </text>
         )}
         {right.hidden > 0 && (
-          <text x={rightX} y={height - 6} className="fill-neutral-600 text-[11px]">
+          <text x={boxRight + 2 * rightCols.step} y={height - 8} className="fill-neutral-600 text-[11px]">
             and {right.hidden} more
           </text>
         )}
       </svg>
       <figcaption className="mt-1 text-xs text-neutral-600">
-        Left: where this book's content comes from. Right: books that reuse
-        it. Numbers are pages; dashed boxes are libraries not scanned yet.
+        Left: where this book's content comes from, by library. Right: books
+        that reuse it, by library. Numbers are pages.
       </figcaption>
     </figure>
   );

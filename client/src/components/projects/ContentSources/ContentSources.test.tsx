@@ -22,7 +22,6 @@ vi.mock("../../../context/NotificationContext", () => ({
   useNotifications: () => ({ addNotification: vi.fn() }),
 }));
 // Charts need layout APIs jsdom lacks; the numbers are covered by the stat cards.
-vi.mock("@tremor/react", () => ({ DonutChart: () => null }));
 
 const ref = (id: string, title: string) => ({
   id,
