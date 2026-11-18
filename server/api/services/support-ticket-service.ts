@@ -15,6 +15,23 @@ import SupportQueueService from "./support-queue-service";
 import SupportTicketMessage, { SupportTicketMessageInterface } from "../../models/supporticketmessage";
 import SearchService from "./search-service";
 import SlackNotificationService from "./slack-notification-service";
+import { DeleteObjectsCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+import { subDays, subMonths } from "date-fns";
+import {
+    getDefaultPrivacyFields,
+    getPrivacyCloseErrors,
+    getPrivacyDueDate,
+    PRIVACY_QUEUE_SLUG,
+    getPrivacyReminderState,
+    isPrivacyDenial,
+    isPrivacyRedactionDue,
+    PRIVACY_REDACTION_DELAY_DAYS,
+    PRIVACY_RETENTION_MONTHS,
+    PrivacyOutcomeLabels,
+    PrivacyTicketError,
+    PrivacyTicketFields,
+} from "../../util/privacyTickets";
+import { CreateTicketValidator, PrivacyUpdateFieldsType } from "../validators/support";
 const supportTicketLog = childLogger("support-tickets");
 
 export default class SupportTicketService {
@@ -53,7 +70,9 @@ export default class SupportTicketService {
             const messages = await this.getTicketMessages(ticket.uuid, "general");
 
             ticket.assignedUUIDs = assigned;
-            ticket.status = ticket.status === "awaiting_requester" ? "awaiting_requester" : messages.length > 0 ? "in_progress" : "assigned";
+            // Closed privacy tickets can't reopen (close email/redaction already ran)
+            const keepStatus = ticket.status === "awaiting_requester" || (ticket.status === "closed" && !!ticket.privacy);
+            ticket.status = keepStatus ? ticket.status : messages.length > 0 ? "in_progress" : "assigned";
             ticket.feed = [...(ticket.feed || []), feedEntry];
             await ticket.save();
             await this.upsertToSearchIndex(uuid);
@@ -127,56 +146,66 @@ export default class SupportTicketService {
         }
     }
 
-    async bulkUpdateTickets({ tickets, assignee, priority, queue, status, callingUserId }: z.infer<typeof BulkUpdateTicketsValidator>['body'] & { callingUserId: string; }) {
+    async bulkUpdateTickets({ tickets, assignee, priority, queue, status, callingUserId, canEditPrivacy }: z.infer<typeof BulkUpdateTicketsValidator>['body'] & { callingUserId: string; canEditPrivacy: boolean; }) {
         try {
             const queueService = new SupportQueueService();
             const ticketsToUpdate = await SupportTicket.find({ uuid: { $in: tickets } }).orFail();
             const callingUser = await User.findOne({ uuid: callingUserId }).orFail();
 
-            const promiseArray = [];
+            // Validate every ticket before writing any, so a rejected batch leaves nothing half-applied
+            const movingToPrivacy = queue?.toLowerCase() === PRIVACY_QUEUE_SLUG;
+            if (!canEditPrivacy && (movingToPrivacy || ticketsToUpdate.some(t => t.privacy))) {
+                throw new PrivacyTicketError("Only support staff can change privacy inquiries");
+            }
+            if (queue) {
+                ticketsToUpdate.forEach(t => this.privacyFieldsForQueueMove(t, queue));
+            }
+            if (status) {
+                ticketsToUpdate.forEach(t =>
+                    this.assertPrivacyStatusChange(t, status, t.privacy ?? (movingToPrivacy ? {} : undefined))
+                );
+            }
 
+            const queueExists = queue ? await queueService.getQueueBySlug(queue) : null;
+            if (queue && !queueExists) {
+                throw new Error(`Queue with slug ${queue} does not exist.`);
+            }
+
+            /*
+             * Phases run in order: assignTicket saves a full document, so running it alongside the
+             * status change could reopen a ticket after its close email/redaction. Status goes last.
+             */
             if (assignee && assignee.length > 0) {
-                const assigneeUpdatePromises = ticketsToUpdate.map(ticket => this.assignTicket({
+                await Promise.all(ticketsToUpdate.map(ticket => this.assignTicket({
                     uuid: ticket.uuid,
                     assigned: assignee,
                     assigner: callingUserId,
-                }));
-                promiseArray.push(...assigneeUpdatePromises);
+                })));
             }
 
             if (priority) {
-                const priorityUpdatePromises = ticketsToUpdate.map(ticket => this.changeTicketPriority(
+                await Promise.all(ticketsToUpdate.map(ticket => this.changeTicketPriority(
                     ticket.uuid,
                     priority,
                     `${callingUser.firstName} ${callingUser.lastName}`,
-                ));
-                promiseArray.push(...priorityUpdatePromises);
+                )));
             }
 
-            if (queue) {
-                const queueExists = await queueService.getQueueBySlug(queue);
-                if (!queueExists) {
-                    throw new Error(`Queue with slug ${queue} does not exist.`);
-                }
-
-                const queueUpdatePromises = ticketsToUpdate.map(ticket => this.changeTicketQueue(
+            if (queueExists) {
+                await Promise.all(ticketsToUpdate.map(ticket => this.changeTicketQueue(
                     ticket.uuid,
                     queueExists.id,
-                ));
-                promiseArray.push(...queueUpdatePromises);
+                    this.privacyFieldsForQueueMove(ticket, queueExists.slug),
+                )));
             }
 
             if (status) {
-                // @ts-ignore
-                const statusUpdatePromises = ticketsToUpdate.map(ticket => this.changeTicketStatus({
+                await Promise.all(ticketsToUpdate.map(ticket => this.changeTicketStatus({
                     uuid: ticket.uuid,
                     status,
-                    ...(status === "closed" && { callingUserName: `${callingUser.firstName} ${callingUser.lastName}` }),
-                }));
-                promiseArray.push(...statusUpdatePromises);
+                    callingUserName: `${callingUser.firstName} ${callingUser.lastName}`,
+                })));
             }
-
-            await Promise.all(promiseArray);
         } catch (err) {
             throw err;
         }
@@ -237,12 +266,12 @@ export default class SupportTicketService {
         }
     }
 
-    async changeTicketQueue(uuid: string, queueId: string) {
+    async changeTicketQueue(uuid: string, queueId: string, privacy?: PrivacyTicketFields) {
         try {
             await SupportTicket.updateOne(
                 { uuid },
                 {
-                    $set: { queue_id: queueId },
+                    $set: { queue_id: queueId, ...(privacy && { privacy }) },
                 }
             ).orFail();
             await this.upsertToSearchIndex(uuid);
@@ -255,21 +284,35 @@ export default class SupportTicketService {
         try {
             const { uuid, status, callingUserName } = params;
 
+            const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
+            if (status === ticket.status) return; // re-close would resend the outcome and reset retention
+            this.assertPrivacyStatusChange(ticket, status);
+
             let feedEntry: SupportTicketFeedEntryInterface | null = null;
             if (status === "closed" && callingUserName) {
                 feedEntry = this._createFeedEntry_Closed(
                     callingUserName
                 );
+            } else if (ticket.status === "closed" && callingUserName) {
+                feedEntry = {
+                    action: `Ticket was reopened`,
+                    blame: callingUserName,
+                    date: new Date().toISOString(),
+                };
             }
 
             await SupportTicket.updateOne(
-                { uuid },
+                { uuid: { $eq: uuid } },
                 {
-                    $set: { status },
+                    $set: {
+                        status,
+                        ...(status === "closed" && { timeClosed: new Date().toISOString() }),
+                    },
                     ...(feedEntry ? { $push: { feed: feedEntry } } : {}),
                 }
             ).orFail();
             await this.upsertToSearchIndex(uuid);
+            if (status === "closed" && ticket.privacy) await this.onPrivacyTicketClosed(uuid);
         } catch (err) {
             throw err;
         }
@@ -615,11 +658,474 @@ export default class SupportTicketService {
 
     async deleteTicket(uuid: string): Promise<void> {
         try {
-            await SupportTicket.deleteOne({ uuid });
+            const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }, { privacy: 1 });
+            if (ticket?.privacy) {
+                // Files first: if storage cleanup fails, the privacy record still exists to retry against
+                await this.deleteTicketFiles(uuid);
+            } else {
+                // Ordinary tickets kept files before this cleanup existed; don't block their deletion on it
+                await this.deleteTicketFiles(uuid).catch(err =>
+                    supportTicketLog.warn({ err }, `File cleanup failed for deleted ticket ${uuid}`)
+                );
+            }
+            await SupportTicketMessage.deleteMany({ ticket: { $eq: uuid } });
+            await SupportTicket.deleteOne({ uuid: { $eq: uuid } });
             await this.removeFromSearchIndex(uuid);
         } catch (err) {
             throw err;
         }
+    }
+
+    private async deleteTicketFiles(ticketUUID: string): Promise<void> {
+        const bucket = process.env.AWS_SUPPORTFILES_BUCKET;
+        if (!bucket) {
+            // Production must fail loudly: skipping would orphan files the ticket record points to
+            if (process.env.NODE_ENV === "production") throw new Error("Missing file storage config");
+            supportTicketLog.warn(`No support file bucket configured; skipped file cleanup for ticket ${ticketUUID}`);
+            return;
+        }
+
+        const client = new S3Client({ region: process.env.AWS_SUPPORTFILES_REGION || process.env.AWS_REGION });
+        let token: string | undefined;
+        do {
+            const listed = await client.send(new ListObjectsV2Command({
+                Bucket: bucket,
+                Prefix: `${ticketUUID}/`,
+                ContinuationToken: token,
+            }));
+            const objects = (listed.Contents ?? []).flatMap(o => (o.Key ? [{ Key: o.Key }] : []));
+            if (objects.length > 0) {
+                // DeleteObjects reports per-key failures in the body, not as a thrown error
+                const res = await client.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objects } }));
+                if (res.Errors?.length) {
+                    throw new Error(`Failed to delete ${res.Errors.length} file(s) for ticket ${ticketUUID}`);
+                }
+            }
+            token = listed.IsTruncated ? listed.NextContinuationToken : undefined;
+        } while (token);
+    }
+
+    /**
+     * Builds the privacy subdoc for a new Privacy Inquiry ticket. Staff may back-log requests that
+     * arrived another way (original date + channel); public submissions always use now + the form.
+     * Appeals must come from the original requester (or staff) and target a closed denial.
+     */
+    async buildPrivacyFields({
+        input,
+        isInternal,
+        requesterUUID,
+    }: {
+        input: NonNullable<z.infer<typeof CreateTicketValidator>["body"]["privacy"]>;
+        isInternal: boolean;
+        requesterUUID?: string;
+    }): Promise<PrivacyTicketFields> {
+        const { requestType, appealOf, appealAccessKey, actingForOther, products, schoolRecord } = input;
+        const now = new Date();
+        const dateReceived = isInternal && input.dateReceived ? input.dateReceived : now;
+
+        if (requestType === "appeal") {
+            if (!appealOf) throw new PrivacyTicketError("Appeals must reference the original request");
+            const original = await SupportTicket.findOne({ uuid: { $eq: appealOf } });
+            const isOwner =
+                isInternal ||
+                (!!appealAccessKey && appealAccessKey === original?.guestAccessKey) ||
+                (!!requesterUUID && requesterUUID === original?.userUUID);
+            if (!original || !isOwner) throw new PrivacyTicketError("Original request not found");
+            if (original.status !== "closed" || !isPrivacyDenial(original.privacy?.responseOutcome)) {
+                throw new PrivacyTicketError("Only denied or partly denied requests can be appealed");
+            }
+            if (original.privacy?.requestType === "appeal") {
+                throw new PrivacyTicketError("Appeal decisions can't be appealed again");
+            }
+            const openAppeal = original.privacy?.appealUUIDs?.length
+                ? await SupportTicket.exists({ uuid: { $in: original.privacy.appealUUIDs }, status: { $ne: "closed" } })
+                : null;
+            if (openAppeal) {
+                throw new PrivacyTicketError("An appeal of this request is already open");
+            }
+        }
+
+        return {
+            dateReceived,
+            requestType,
+            intakeChannel: isInternal && input.intakeChannel ? input.intakeChannel : "support_form",
+            actingForOther,
+            products,
+            schoolRecord,
+            dueDate: getPrivacyDueDate(dateReceived, requestType),
+            ...(requestType === "appeal" && { appealOf }),
+            ...(requesterUUID && {
+                identityVerification: { method: "signed_in_session", date: now },
+            }),
+        };
+    }
+
+    /*
+     * ponytail: signed-in requesters are emailed via their local User record, which account deletion
+     * keeps today. If deletion starts anonymizing/removing it, copy the email onto un-notified
+     * privacy tickets first.
+     */
+    private _getPrivacyRecipient(ticket: SupportTicketInterface): Promise<string | undefined> {
+        return this._getTicketAuthorEmail(ticket);
+    }
+
+    /**
+     * Privacy tickets stay in the privacy queue (required fields, close rules, retention); misfiled
+     * ones close as Withdrawn. Tickets moving in get default privacy fields to correct.
+     */
+    privacyFieldsForQueueMove(ticket: SupportTicketInterface, targetSlug: string): PrivacyTicketFields | undefined {
+        const toPrivacy = targetSlug.toLowerCase() === PRIVACY_QUEUE_SLUG;
+        if (ticket.privacy && !toPrivacy) {
+            throw new PrivacyTicketError(
+                `#${ticket.uuidShort} is a privacy inquiry and can't leave the privacy queue; close it as Withdrawn instead`
+            );
+        }
+        if (!ticket.privacy && toPrivacy) {
+            // Closed privacy tickets can't be edited or reopened, so it would arrive stuck without response fields
+            if (ticket.status === "closed") {
+                throw new PrivacyTicketError(`#${ticket.uuidShort} is closed; reopen it before moving it to the privacy queue`);
+            }
+            return getDefaultPrivacyFields(ticket.timeOpened, !!ticket.userUUID);
+        }
+        return undefined;
+    }
+
+    async linkPrivacyAppeal(originalUUID: string, appealUUID: string, actor: string): Promise<void> {
+        const original = await SupportTicket.findOne({ uuid: { $eq: originalUUID } }, { "privacy.redactedAt": 1 });
+        await SupportTicket.updateOne(
+            { uuid: { $eq: originalUUID } },
+            {
+                $addToSet: { "privacy.appealUUIDs": appealUUID },
+                $push: {
+                    feed: {
+                        action: `Decision appealed in ticket #${appealUUID.slice(-7)}`,
+                        // Redacted tickets must not regain the requester's name
+                        blame: original?.privacy?.redactedAt ? "Requester" : actor,
+                        date: new Date().toISOString(),
+                    },
+                },
+            },
+        );
+        await this.upsertToSearchIndex(originalUUID);
+    }
+
+    /**
+     * Privacy status rules: closed inquiries stay closed (a reopen would resend the outcome, reset the
+     * retention clock, and expose redacted shells; corrections go through an appeal or a new request),
+     * and closing needs the required response fields. `privacy` overrides the ticket's own fields for
+     * changes not yet saved (in-memory edits, a move into the privacy queue).
+     */
+    assertPrivacyStatusChange(
+        ticket: SupportTicketInterface,
+        status: SupportTicketStatusEnum,
+        privacy: Partial<PrivacyTicketFields> | undefined = ticket.privacy,
+    ): void {
+        if (status === ticket.status) return;
+        if (privacy && ticket.status === "closed") {
+            throw new PrivacyTicketError(
+                `#${ticket.uuidShort} is a closed privacy inquiry and can't be reopened; file an appeal or a new request instead`
+            );
+        }
+        if (status !== "closed") return;
+        const missing = getPrivacyCloseErrors(privacy);
+        if (missing.length > 0) {
+            throw new PrivacyTicketError(`#${ticket.uuidShort} required to close: ${missing.join(", ")}`);
+        }
+    }
+
+    /**
+     * Applies staff edits to a privacy ticket in memory only; the caller saves once the rest of the
+     * request validates, then calls {@link notifyPrivacyExtension} if this returns true. An extension
+     * moves the due date and resets reminders; it must be recorded before the current due date passes.
+     */
+    applyPrivacyFields(
+        ticket: SupportTicketInterface,
+        input: PrivacyUpdateFieldsType,
+        actor: string,
+    ): boolean {
+        if (!ticket.privacy) throw new PrivacyTicketError("Not a privacy inquiry ticket");
+        // Close already sent the outcome and may have redacted; edits after that would desync both
+        if (ticket.status === "closed") throw new PrivacyTicketError("Closed privacy inquiries can't be edited");
+        const changed = Object.keys(input).filter(k => input[k as keyof PrivacyUpdateFieldsType] !== undefined);
+        if (changed.length === 0) return false;
+        const { extension, denialBasis, ...fields } = input;
+        const now = new Date();
+
+        // Appeal status comes only from the appeal link made at creation
+        if (fields.requestType && (fields.requestType === "appeal") !== !!ticket.privacy.appealOf) {
+            throw new PrivacyTicketError("Request type can't be changed to or from Appeal");
+        }
+
+        for (const [key, value] of Object.entries(fields)) {
+            if (value !== undefined) ticket.set(`privacy.${key}`, value);
+        }
+        if (denialBasis !== undefined) ticket.set("privacy.denialBasis", denialBasis ?? undefined);
+
+        if ((fields.dateReceived || fields.requestType) && !ticket.privacy.extension?.newDueDate) {
+            ticket.set("privacy.dueDate", getPrivacyDueDate(ticket.privacy.dateReceived, ticket.privacy.requestType));
+            ticket.set("privacy.remindersSent", []);
+        }
+
+        if (extension) {
+            if (ticket.privacy.dueDate.getTime() < now.getTime()) {
+                throw new PrivacyTicketError("Extensions must be recorded before the current due date");
+            }
+            if (extension.newDueDate.getTime() <= ticket.privacy.dueDate.getTime()) {
+                throw new PrivacyTicketError("New due date must be after the current due date");
+            }
+            ticket.set("privacy.extension", extension);
+            ticket.set("privacy.dueDate", extension.newDueDate);
+            ticket.set("privacy.remindersSent", []);
+        }
+
+        const fieldChanges = changed.filter(k => k !== "extension");
+        if (fieldChanges.length) {
+            ticket.feed.push({ action: `Privacy fields updated: ${fieldChanges.join(", ")}`, blame: actor, date: now.toISOString() });
+        }
+        if (extension) {
+            ticket.feed.push({
+                action: `Response deadline extended to ${extension.newDueDate.toISOString().slice(0, 10)}: ${extension.reason}`,
+                blame: actor,
+                date: now.toISOString(),
+            });
+        }
+        return !!extension;
+    }
+
+    /** Emails the requester about a saved extension; notifiedAt is stamped once sent, or when there's no requester email. */
+    async notifyPrivacyExtension(ticket: SupportTicketInterface): Promise<void> {
+        const extension = ticket.privacy?.extension;
+        if (!extension) return;
+        try {
+            const email = await this._getPrivacyRecipient(ticket);
+            if (email) {
+                await mailAPI.sendPrivacyExtensionNotification(
+                    email,
+                    ticket.uuid,
+                    extension.newDueDate,
+                    extension.reason,
+                    this._requesterLinkParams(ticket),
+                );
+            } else {
+                supportTicketLog.warn(`No requester email for privacy ticket ${ticket.uuid}; extension notice not sent`);
+            }
+            await SupportTicket.updateOne({ uuid: { $eq: ticket.uuid } }, { $set: { "privacy.extension.notifiedAt": new Date() } });
+        } catch (err) {
+            supportTicketLog.error({ err }, `Failed to send privacy extension notice for ticket ${ticket.uuid}`);
+        }
+    }
+
+    /**
+     * Runs after any close of a privacy ticket: sends the outcome (with an appeal link on denials)
+     * and minimizes fulfilled deletion requests. Best-effort so close never rolls back. Redaction
+     * runs from the daily job PRIVACY_REDACTION_DELAY_DAYS after the outcome email, so files the
+     * response links to stay reachable for a while.
+     */
+    async onPrivacyTicketClosed(uuid: string, now = new Date()): Promise<void> {
+        const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } });
+        const privacy = ticket?.privacy;
+        if (!ticket || !privacy?.responseOutcome) return;
+
+        if (!privacy.responseNotifiedAt) {
+            try {
+                await this.sendPrivacyOutcome(ticket);
+            } catch (err) {
+                // Daily retry re-runs both steps in order
+                supportTicketLog.error({ err }, `Failed to send privacy response for ticket ${uuid}; redaction deferred`);
+                return;
+            }
+        }
+
+        if (isPrivacyRedactionDue(privacy, now)) {
+            try {
+                await this.redactPrivacyTicket(ticket);
+            } catch (err) {
+                supportTicketLog.error({ err }, `Failed to redact privacy ticket ${uuid}`);
+            }
+        }
+    }
+
+    /** Stamps responseNotifiedAt once the email goes out (or there's no one to send to), so the daily job can retry. */
+    private async sendPrivacyOutcome(ticket: SupportTicketInterface): Promise<void> {
+        const privacy = ticket.privacy!;
+        if (!privacy.responseOutcome) return;
+        const markNotified = () =>
+            SupportTicket.updateOne({ uuid: { $eq: ticket.uuid } }, { $set: { "privacy.responseNotifiedAt": new Date() } });
+
+        const email = await this._getPrivacyRecipient(ticket);
+        if (!email) {
+            supportTicketLog.warn(`No requester email for privacy ticket ${ticket.uuid}; outcome not sent`);
+            await markNotified();
+            return;
+        }
+
+        const appealURL = isPrivacyDenial(privacy.responseOutcome) && privacy.requestType !== "appeal"
+            ? `https://commons.libretexts.org/support/contact?${new URLSearchParams({
+                queue: "privacy",
+                appealOf: ticket.uuid,
+                accessKey: ticket.guestAccessKey,
+            }).toString()}`
+            : undefined;
+        await mailAPI.sendPrivacyResponseNotification(
+            email,
+            ticket.uuid,
+            PrivacyOutcomeLabels[privacy.responseOutcome],
+            privacy.responseSummary ?? "",
+            this._requesterLinkParams(ticket),
+            appealURL,
+        );
+        await markNotified();
+    }
+
+    /**
+     * Keeps only what proves a fulfilled deletion request was handled: basic metadata, requester
+     * email/UUID, and access key (so an appeal of a partial denial can still be opened).
+     * PII on the ticket is stripped and saved first; messages and files go after, and redactedAt is
+     * only stamped once everything is gone, so a failure leaves the ticket for the daily retry.
+     */
+    private async redactPrivacyTicket(ticket: SupportTicketInterface): Promise<void> {
+        const author = await this._getTicketAuthor(ticket);
+        // The creation entry carries a signed-in requester's name even after their account is deleted
+        const creationBlame = ticket.userUUID
+            ? ticket.feed.find(f => f.action === "Ticket was created")?.blame
+            : undefined;
+        const requesterNames = [
+            author && `${author.firstName} ${author.lastName}`,
+            ticket.guest && `${ticket.guest.firstName} ${ticket.guest.lastName}`,
+            creationBlame,
+        ].filter((n): n is string => !!n?.trim());
+
+        ticket.title = "Deletion request";
+        ticket.description = "";
+        ticket.capturedURL = undefined;
+        ticket.deviceInfo = undefined;
+        ticket.attachments = [];
+        ticket.ccedEmails = [];
+        if (ticket.guest) {
+            ticket.guest.firstName = "";
+            ticket.guest.lastName = "";
+            ticket.guest.organization = "";
+        }
+        ticket.set("privacy.actingForOther.note", undefined);
+        if (ticket.privacy?.extension) ticket.set("privacy.extension.reason", "Redacted");
+        // Mutate in place: spreading a Mongoose subdoc drops its getter-backed fields
+        for (const f of ticket.feed) {
+            if (requesterNames.includes(f.blame)) f.blame = "Requester";
+            // Keeps the label (and the extension's new due date); drops the free text after the colon
+            if (
+                f.action.startsWith("Attachment uploaded") ||
+                f.action.startsWith("CC'd user") ||
+                f.action.startsWith("Response deadline extended")
+            ) {
+                f.action = f.action.split(":")[0];
+            }
+        }
+        await this.saveTicket(ticket);
+
+        await SupportTicketMessage.deleteMany({ ticket: ticket.uuid });
+        await this.deleteTicketFiles(ticket.uuid);
+
+        ticket.set("privacy.redactedAt", new Date());
+        ticket.feed.push({
+            action: "Ticket content redacted after deletion request was fulfilled",
+            blame: "Conductor System",
+            date: new Date().toISOString(),
+        });
+        await this.saveTicket(ticket);
+    }
+
+    /** Retries failed outcome emails and runs redactions whose grace period ended; runs with the daily retention job. */
+    private async retryPendingCloseSteps(now: Date): Promise<void> {
+        const pending = await SupportTicket.find({
+            status: "closed",
+            "privacy.responseOutcome": { $exists: true },
+            $or: [
+                { "privacy.responseNotifiedAt": { $exists: false } },
+                {
+                    "privacy.requestType": "deletion",
+                    "privacy.responseOutcome": { $in: ["fulfilled", "partly_fulfilled"] },
+                    "privacy.redactedAt": { $exists: false },
+                    "privacy.responseNotifiedAt": { $lte: subDays(now, PRIVACY_REDACTION_DELAY_DAYS) },
+                },
+            ],
+        }, { uuid: 1 });
+        for (const { uuid } of pending) {
+            try {
+                await this.onPrivacyTicketClosed(uuid, now);
+            } catch (err) {
+                supportTicketLog.error({ err }, `Retry of privacy close steps failed for ticket ${uuid}`);
+            }
+        }
+    }
+
+    async sendPrivacyDeadlineReminders(now = new Date()): Promise<number> {
+        // Retry extension notices that failed when staff saved them
+        const unnotified = await SupportTicket.find({
+            status: { $ne: "closed" },
+            "privacy.extension.newDueDate": { $exists: true },
+            "privacy.extension.notifiedAt": { $exists: false },
+        });
+        for (const ticket of unnotified) {
+            await this.notifyPrivacyExtension(ticket);
+        }
+
+        const tickets = await SupportTicket.find({
+            "privacy.dueDate": { $exists: true },
+            status: { $ne: "closed" },
+        });
+
+        const due = tickets.filter(t =>
+            getPrivacyReminderState(t.privacy!.dueDate, t.privacy!.remindersSent, now).shouldSend
+        );
+        if (due.length === 0) return 0;
+        const supportTeam = (await Organization.findOne({ orgID: process.env.ORG_ID }))?.supportTicketNotifiers ?? [];
+
+        let sent = 0;
+        for (const ticket of due) {
+            const privacy = ticket.privacy!;
+            const { reached } = getPrivacyReminderState(privacy.dueDate, privacy.remindersSent, now);
+
+            try {
+                const assignees = ticket.assignedUUIDs?.length
+                    ? await User.find({ uuid: { $in: ticket.assignedUUIDs } })
+                    : [];
+                const emails = assignees.length ? assignees.map(a => a.email) : supportTeam;
+                if (emails.length === 0) continue;
+
+                await mailAPI.sendPrivacyDeadlineReminder(emails, ticket.uuid, ticket.title, privacy.dueDate);
+                await SupportTicket.updateOne({ uuid: { $eq: ticket.uuid } }, { $set: { "privacy.remindersSent": reached } });
+                sent++;
+            } catch (err) {
+                supportTicketLog.error({ err }, `Failed to send privacy reminder for ticket ${ticket.uuid}`);
+            }
+        }
+        return sent;
+    }
+
+    async purgeExpiredPrivacyTickets(now = new Date()): Promise<number> {
+        await this.retryPendingCloseSteps(now);
+
+        const cutoff = subMonths(now, PRIVACY_RETENTION_MONTHS).toISOString();
+        const tickets = await SupportTicket.find(
+            { "privacy.requestType": { $exists: true }, status: "closed", timeClosed: { $lt: cutoff } },
+            { uuid: 1 },
+        );
+
+        let purged = 0;
+        for (const { uuid } of tickets) {
+            try {
+                await this.deleteTicket(uuid);
+                purged++;
+            } catch (err) {
+                supportTicketLog.error({ err }, `Failed to purge privacy ticket ${uuid}`);
+            }
+        }
+        supportTicketLog.info(`Purged ${purged} of ${tickets.length} expired privacy tickets`);
+        return purged;
+    }
+
+    private _requesterLinkParams(ticket: SupportTicketInterface): string {
+        return ticket.userUUID ? "" : new URLSearchParams({ accessKey: ticket.guestAccessKey }).toString();
     }
 
     async resetAutoClose(uuid: string): Promise<SupportTicketInterface> {
@@ -854,6 +1360,8 @@ export default class SupportTicketService {
                     autoCloseSilenced: 1,
                     assignedUsers: 1,
                     user: 1,
+                    "privacy.dueDate": 1,
+                    "privacy.requestType": 1,
                 },
             },
         ];

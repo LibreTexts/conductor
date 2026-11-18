@@ -64,10 +64,19 @@ import SupportQueueService from "./services/support-queue-service";
 import SupportTicketService from "./services/support-ticket-service";
 import Project, { ProjectInterface } from "../models/project";
 import base62 from "base62-random";
+import {
+  PRIVACY_QUEUE_SLUG,
+  PrivacyTicketError,
+  PrivacyTicketFields,
+  shouldRedactOnClose,
+} from "../util/privacyTickets";
 
-async function _isInternalSupportUser(req: {
-  user?: { decoded?: { uuid?: string }; roles?: unknown };
-}): Promise<boolean> {
+async function _isInternalSupportUser(
+  req: {
+    user?: { decoded?: { uuid?: string }; roles?: unknown };
+  },
+  roles: string[] = ["superadmin", "support", "harvester"],
+): Promise<boolean> {
   const callerUUID = req.user?.decoded?.uuid;
   if (!callerUUID) return false;
 
@@ -79,24 +88,32 @@ async function _isInternalSupportUser(req: {
     : await User.findOne({ uuid: { $eq: callerUUID } });
   if (!caller) return false;
 
-  return authAPI.checkHasRole(
-    caller,
-    "libretexts",
-    ["superadmin", "support", "harvester"],
-    true,
-  );
+  return authAPI.checkHasRole(caller, "libretexts", roles, true);
+}
+
+// Privacy inquiries are support/superadmin only; harvesters count as internal elsewhere but not here
+const _isPrivacyStaff = (req: Parameters<typeof _isInternalSupportUser>[0]) =>
+  _isInternalSupportUser(req, ["superadmin", "support"]);
+
+/*
+ * Keyed on close, not redactedAt: redactedAt is stamped last, so content added mid-redaction
+ * would survive. Once redactedAt is set nothing cleans the ticket again.
+ */
+function _rejectIfRedacted(ticket: { status?: string; privacy?: PrivacyTicketFields }, res: Response): boolean {
+  if (ticket.status !== "closed" || !shouldRedactOnClose(ticket.privacy)) return false;
+  res.status(400).send({ err: true, errMsg: "This deletion request is closed for redaction and can't take new messages, files, or CCs." });
+  return true;
 }
 
 function _sanitizeTicketForResponse(
   ticketService: SupportTicketService,
   ticket: SupportTicketInterface,
   isInternal: boolean,
-  allowGuestAccessKey = false,
+  { allowGuestAccessKey = false, showPrivacy = false } = {},
 ): SupportTicketInterface {
   ticketService._removeAccessKeysFromResponse(ticket, allowGuestAccessKey);
-  if (!isInternal) {
-    ticketService._redactStatusFromResponse(ticket);
-  }
+  if (!isInternal) ticketService._redactStatusFromResponse(ticket);
+  if (!showPrivacy) ticket.privacy = undefined;
   return ticket;
 }
 
@@ -126,10 +143,11 @@ async function getTicket(
     }
 
     const isInternal = await _isInternalSupportUser(req);
+    const showPrivacy = !!ticket.privacy && (await _isPrivacyStaff(req));
 
     return res.send({
       err: false,
-      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal),
+      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal, { showPrivacy }),
     });
   } catch (err: any) {
     if (err.name === "DocumentNotFoundError") {
@@ -207,6 +225,7 @@ async function getRequestorOtherTickets(
       populateAssignedUsers: true,
       // Route is gated to support/harvester (checkHasRoleMiddleware), so callers are always internal.
       isInternal: true,
+      excludePrivacy: !(await _isPrivacyStaff(req)),
     });
 
     if (!results) {
@@ -241,6 +260,7 @@ async function _getUserTickets({
   populateAssignedUsers = false,
   queue,
   isInternal = false,
+  excludePrivacy = false,
 }: {
   uuid?: string;
   email?: string;
@@ -251,6 +271,7 @@ async function _getUserTickets({
   populateAssignedUsers?: boolean;
   queue?: string;
   isInternal?: boolean;
+  excludePrivacy?: boolean;
 }): Promise<{ tickets: SupportTicketInterface[]; total: number } | undefined> {
   try {
     const ticketService = new SupportTicketService();
@@ -281,6 +302,9 @@ async function _getUserTickets({
     const searchObj: Record<string, any> = uuid ? { userUUID: { $eq: uuid } } : { "guest.email": { $eq: email } };
     if (queueId) {
       searchObj["queue_id"] = { $eq: queueId };
+    }
+    if (excludePrivacy) {
+      searchObj["privacy"] = { $exists: false };
     }
 
     const query = SupportTicket.find(searchObj)
@@ -509,6 +533,7 @@ async function addTicketCC(
     const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } })
       .orFail()
       .populate(["assignedUsers", "user"]);
+    if (_rejectIfRedacted(ticket, res)) return;
 
     if (!ticket.ccedEmails) ticket.ccedEmails = [];
 
@@ -664,7 +689,8 @@ async function createTicket(
       guest,
       capturedURL,
       deviceInfo,
-      metadata
+      metadata,
+      privacy,
     } = req.body;
     let { queue_id } = req.body;
     const userUUID = req.user?.decoded.uuid;
@@ -711,6 +737,32 @@ async function createTicket(
 
     queue_id = supportQueue.id; // Always use the resolved queue
 
+    // Staff logging a privacy request on someone's behalf: requester is the guest, not the staff member
+    const isPrivacy = supportQueue.slug === PRIVACY_QUEUE_SLUG;
+    const isPrivacyStaff = isPrivacy && (await _isPrivacyStaff(req));
+    const loggedForRequester = isPrivacyStaff && !!guest;
+    let privacyFields: PrivacyTicketFields | undefined;
+    if (isPrivacy) {
+      if (!privacy) {
+        return res.status(400).send({
+          err: true,
+          errMsg: "Privacy inquiries must include privacy details",
+        });
+      }
+      try {
+        privacyFields = await ticketService.buildPrivacyFields({
+          input: privacy,
+          isInternal: isPrivacyStaff,
+          requesterUUID: loggedForRequester ? undefined : foundUser?.uuid,
+        });
+      } catch (e) {
+        if (e instanceof PrivacyTicketError) {
+          return res.status(400).send({ err: true, errMsg: e.message });
+        }
+        throw e;
+      }
+    }
+
     // Check if this is a publishing request and ensure publishing has not already been requested for the project
     const projectID = metadata?.projectID;
     if (supportQueue.slug === "publishing") {
@@ -751,14 +803,19 @@ async function createTicket(
       priority,
       capturedURL,
       attachments,
-      userUUID: foundUser?.uuid ? foundUser.uuid : undefined,
+      userUUID: foundUser?.uuid && !loggedForRequester ? foundUser.uuid : undefined,
       guest,
       timeOpened: new Date().toISOString(),
       feed: [feedEntry],
       guestAccessKey,
       deviceInfo,
-      metadata
+      metadata,
+      privacy: privacyFields,
     });
+
+    if (privacyFields?.appealOf) {
+      await ticketService.linkPrivacyAppeal(privacyFields.appealOf, ticket.uuid, feedEntry.blame);
+    }
 
     // Auto-assign the ticket to the queue's configured support staff, if enabled.
     // Wrapped defensively: a failure here must never break ticket creation.
@@ -776,13 +833,13 @@ async function createTicket(
 
     const authorString = ticketService._getTicketAuthorString(
       emailToNotify,
-      foundUser,
+      ticketAuthor,
       guest,
     );
 
     const params = new URLSearchParams();
     params.append("accessKey", guestAccessKey);
-    const addParams = !foundUser?.uuid ? true : false; // if guest, append access key to ticket path
+    const addParams = !ticket.userUUID; // if guest, append access key to ticket path
 
     const emailPromises = [];
     const submitterPromise = mailAPI.sendSupportTicketCreateConfirmation(
@@ -790,21 +847,39 @@ async function createTicket(
       emailToNotify,
       ticket.uuid,
       addParams ? params.toString() : "",
+      privacyFields?.dueDate,
     );
     emailPromises.push(submitterPromise);
 
     const teamToNotify = await _getSupportTeamEmails();
+    // Privacy redaction can't reach Slack or inboxes, so those copies carry no requester content
+    const notice = isPrivacy
+      ? {
+          title: `Privacy inquiry #${ticket.uuidShort}`,
+          description: "Open the ticket in Conductor to view the request.",
+          author: "Privacy requester",
+          capturedURL: undefined,
+          metadata: {},
+        }
+      : {
+          title: ticket.title,
+          description: ticket.description || "",
+          author: authorString,
+          capturedURL: ticket.capturedURL ?? undefined,
+          metadata: (metadata as Record<string, unknown>) ?? {},
+        };
+
     const teamPromise = mailAPI.sendSupportTicketCreateInternalNotification(
       supportQueue.ticket_descriptor,
       teamToNotify,
       ticket.uuid,
-      ticket.title,
-      ticket.description || "",
-      authorString,
+      notice.title,
+      notice.description,
+      notice.author,
       capitalizeFirstLetter(ticket.category || ""),
       capitalizeFirstLetter(ticket.priority || ""),
-      ticket.capturedURL ?? undefined,
-      metadata as object ?? {},
+      notice.capturedURL,
+      notice.metadata,
     );
 
     if (teamToNotify.length > 0) emailPromises.push(teamPromise);
@@ -814,13 +889,13 @@ async function createTicket(
     void new SlackNotificationService().sendSupportTicketCreated({
       queueDescriptor: supportQueue.ticket_descriptor,
       ticketID: ticket.uuid,
-      ticketTitle: ticket.title,
-      ticketDescription: ticket.description || "",
-      authorString,
+      ticketTitle: notice.title,
+      ticketDescription: notice.description,
+      authorString: notice.author,
       category: capitalizeFirstLetter(ticket.category || ""),
       priority: capitalizeFirstLetter(ticket.priority || ""),
-      capturedURL: ticket.capturedURL ?? undefined,
-      metadata: (metadata as Record<string, unknown>) ?? {},
+      capturedURL: notice.capturedURL,
+      metadata: notice.metadata,
     }).catch(() => { /* nicety isolation: never break ticket creation */ });
 
     if (supportQueue.slug === "publishing") {
@@ -835,7 +910,7 @@ async function createTicket(
 
     return res.send({
       err: false,
-      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal, true), // Allow guest access key to be returned here for attachments to be immediately uploaded
+      ticket: _sanitizeTicketForResponse(ticketService, ticket, isInternal, { allowGuestAccessKey: true }), // Allow guest access key to be returned here for attachments to be immediately uploaded
     });
   } catch (err) {
     logger.error({ err }, "createTicket failed");
@@ -857,6 +932,7 @@ async function addTicketAttachments(
     const isInternal = await _isInternalSupportUser(req);
 
     const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
+    if (_rejectIfRedacted(ticket, res)) return;
 
     let foundUploaderName = "Unknown";
     if (userUUID) {
@@ -978,16 +1054,28 @@ async function updateTicket(
   try {
     const ticketService = new SupportTicketService();
     const { uuid } = req.params;
-    const { priority, status, autoCloseSilenced, category, queue } = req.body;
+    const { priority, status, autoCloseSilenced, category, queue, privacy } = req.body;
     const userUUID = req.user?.decoded.uuid;
 
     const user = await User.findOne({ uuid: { $eq: userUUID } }).orFail();
 
     const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
+    const actor = `${user.firstName} ${user.lastName}`;
+
+    const touchesPrivacy = !!privacy || !!ticket.privacy || queue?.toLowerCase() === PRIVACY_QUEUE_SLUG;
+    if (touchesPrivacy && !(await _isPrivacyStaff(req))) {
+      return res.status(403).send({ err: true, errMsg: conductorErrors.err8 });
+    }
 
     // Per-field auto-save sends one field at a time, so an omitted field means "unchanged",
     // never "set to undefined". Gate every change on the field actually being present.
     const statusChanged = status !== undefined && status !== ticket.status;
+    if (statusChanged && ticket.status === "closed" && status === "open") {
+      return res.status(400).send({
+        err: true,
+        errMsg: conductorErrors.err89,
+      });
+    }
     const priorityChanged = priority !== undefined && priority !== ticket.priority;
     const autoCloseStatusChanged =
       autoCloseSilenced !== undefined && autoCloseSilenced !== ticket.autoCloseSilenced;
@@ -996,6 +1084,7 @@ async function updateTicket(
     // Resolve the queue slug -> id up front so we can compare and label the feed entry.
     let nextQueueId = ticket.queue_id;
     let nextQueueName: string | undefined;
+    let movedInPrivacy: PrivacyTicketFields | undefined;
     if (queue !== undefined) {
       const queueService = new SupportQueueService();
       const foundQueue = await queueService.getQueueBySlug(queue);
@@ -1007,8 +1096,34 @@ async function updateTicket(
       }
       nextQueueId = foundQueue.id;
       nextQueueName = foundQueue.ticket_descriptor || foundQueue.name;
+      try {
+        movedInPrivacy = ticketService.privacyFieldsForQueueMove(ticket, foundQueue.slug);
+      } catch (e) {
+        if (e instanceof PrivacyTicketError) {
+          return res.status(400).send({ err: true, errMsg: e.message });
+        }
+        throw e;
+      }
     }
     const queueChanged = queue !== undefined && nextQueueId !== ticket.queue_id;
+
+    // Privacy edits apply in memory and save only after every check passes, so a 400 writes nothing
+    let extended = false;
+    try {
+      if (privacy) extended = ticketService.applyPrivacyFields(ticket, privacy, actor);
+      if (statusChanged) {
+        ticketService.assertPrivacyStatusChange(ticket, status, ticket.privacy ?? movedInPrivacy);
+      }
+    } catch (e) {
+      if (e instanceof PrivacyTicketError) {
+        return res.status(400).send({ err: true, errMsg: e.message });
+      }
+      throw e;
+    }
+    if (privacy) {
+      await ticketService.saveTicket(ticket);
+      if (extended) await ticketService.notifyPrivacyExtension(ticket);
+    }
 
     // Nothing actually changed -> return the ticket as-is (no feed entry, no write).
     if (
@@ -1025,35 +1140,6 @@ async function updateTicket(
     }
 
     let updatedFeed = ticket.feed;
-
-    if (statusChanged) {
-      // Check if status is changing to closed, if so, add a feed entry
-      if (
-        ["open", "assigned", "in_progress", "awaiting_requester"].includes(ticket.status) &&
-        status === "closed"
-      ) {
-        const feedEntry = ticketService._createFeedEntry_Closed(
-          `${user.firstName} ${user.lastName}`,
-        );
-        updatedFeed.push(feedEntry);
-      }
-
-      // Check if ticket is being reopened, if so, add a feed entry
-      if (ticket.status === "closed" && status === "in_progress") {
-        const feedEntry = _createFeedEntry_Reopened(
-          `${user.firstName} ${user.lastName}`,
-        );
-        updatedFeed.push(feedEntry);
-      }
-
-      // Else, if attempting to reset to open, fail
-      if (ticket.status === "closed" && status === "open") {
-        return res.status(400).send({
-          err: true,
-          errMsg: conductorErrors.err89,
-        });
-      }
-    }
 
     if (priorityChanged) {
       const feedEntry = ticketService._createFeedEntryPriorityChanged(
@@ -1079,20 +1165,25 @@ async function updateTicket(
       updatedFeed.push(feedEntry);
     }
 
-    await ticketService.updateTicket(uuid, {
-      feed: updatedFeed,
-      ...(statusChanged && { status }),
-      ...(priorityChanged && { priority }),
-      ...(categoryChanged && { category }),
-      ...(queueChanged && { queue_id: nextQueueId }),
-      ...(autoCloseStatusChanged && {
-        autoCloseSilenced,
-        autoCloseTriggered: false,
-        autoCloseDate: null,
-      }),
-      // if status is closed, set timeClosed to now
-      ...(statusChanged && status === "closed" && { timeClosed: new Date().toISOString() }),
-    });
+    if (priorityChanged || categoryChanged || queueChanged || autoCloseStatusChanged) {
+      await ticketService.updateTicket(uuid, {
+        feed: updatedFeed,
+        ...(priorityChanged && { priority }),
+        ...(categoryChanged && { category }),
+        ...(queueChanged && { queue_id: nextQueueId }),
+        ...(queueChanged && movedInPrivacy && { privacy: movedInPrivacy }),
+        ...(autoCloseStatusChanged && {
+          autoCloseSilenced,
+          autoCloseTriggered: false,
+          autoCloseDate: null,
+        }),
+      });
+    }
+
+    // Status goes last, through the shared path that owns close/reopen rules and the privacy close step
+    if (statusChanged) {
+      await ticketService.changeTicketStatus({ uuid, status, callingUserName: actor });
+    }
 
     // ticketService.updateTicket already reindexes search; re-fetch so the response reflects
     // the write (the document loaded above is now stale).
@@ -1124,6 +1215,7 @@ async function bulkUpdateTickets(
       status,
       assignee,
       callingUserId,
+      canEditPrivacy: await _isPrivacyStaff(req),
     });
 
     return res.send({
@@ -1131,6 +1223,9 @@ async function bulkUpdateTickets(
       updated_count: tickets.length,
     });
   } catch (err) {
+    if (err instanceof PrivacyTicketError) {
+      return res.status(400).send({ err: true, errMsg: err.message });
+    }
     logger.error({ err }, "bulkUpdateTickets failed");
     return conductor500Err(res);
   }
@@ -1183,6 +1278,7 @@ async function createGeneralMessage(
     const ticketService = new SupportTicketService();
 
     const ticket = await ticketService.resetAutoClose(uuid); // reset auto-close trigger
+    if (_rejectIfRedacted(ticket, res)) return;
 
     let foundSenderName = "Unknown";
     let foundSenderUUID: string | undefined;
@@ -1394,6 +1490,7 @@ async function createInternalMessage(
 
     const ticketService = new SupportTicketService();
     const ticket = await ticketService.resetAutoClose(uuid);
+    if (_rejectIfRedacted(ticket, res)) return;
     const foundUser = await User.findOne({ uuid: { $eq: userUUID } }).orFail();
 
     const ticketMessage = await SupportTicketMessage.create({
@@ -1617,6 +1714,7 @@ async function findTicketsToInitAutoClose(req: Request, res: Response) {
     const tickets = await SupportTicket.find({
       status: "awaiting_requester",
       autoCloseSilenced: { $ne: true },
+      privacy: { $exists: false }, // never auto-close privacy requests
     }).populate("messages");
 
     const toSet: SupportTicketInterface[] = [];
@@ -1680,6 +1778,7 @@ async function autoCloseTickets(req: Request, res: Response) {
       autoCloseTriggered: true,
       autoCloseDate: { $lte: new Date().toISOString() },
       autoCloseSilenced: { $ne: true }, // ignore silenced tickets
+      privacy: { $exists: false }, // never auto-close privacy requests
     });
 
     const feedEntry = _createFeedEntry_AutoClosed();
@@ -1693,6 +1792,26 @@ async function autoCloseTickets(req: Request, res: Response) {
     });
   } catch (err) {
     logger.error({ err }, "autoCloseTickets failed");
+    return conductor500Err(res);
+  }
+}
+
+async function sendPrivacyDeadlineReminders(req: Request, res: Response) {
+  try {
+    const sent = await new SupportTicketService().sendPrivacyDeadlineReminders();
+    return res.send({ err: false, sent });
+  } catch (err) {
+    logger.error({ err }, "sendPrivacyDeadlineReminders failed");
+    return conductor500Err(res);
+  }
+}
+
+async function purgeExpiredPrivacyTickets(req: Request, res: Response) {
+  try {
+    const purged = await new SupportTicketService().purgeExpiredPrivacyTickets();
+    return res.send({ err: false, purged });
+  } catch (err) {
+    logger.error({ err }, "purgeExpiredPrivacyTickets failed");
     return conductor500Err(res);
   }
 }
@@ -1855,15 +1974,6 @@ const _createFeedEntry_Created = (
   };
 };
 
-const _createFeedEntry_Reopened = (
-  reopener: string,
-): SupportTicketFeedEntryInterface => {
-  return {
-    action: `Ticket was reopened`,
-    blame: reopener,
-    date: new Date().toISOString(),
-  };
-};
 
 const _createFeedEntry_AttachmentUploaded = (
   uploader: string,
@@ -1917,6 +2027,8 @@ export default {
   createAndAttachProjectFromHarvestingRequest,
   findTicketsToInitAutoClose,
   autoCloseTickets,
+  sendPrivacyDeadlineReminders,
+  purgeExpiredPrivacyTickets,
   syncWithSearchIndex,
   ticketAttachmentUploadHandler,
   addTicketCC,

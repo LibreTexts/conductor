@@ -3,6 +3,15 @@ import { SanitizedUserSelectProjection } from "./user.js";
 import { Schema } from "mongoose";
 import { GenericKeyTextValueObj } from "../types/Misc.js";
 import { SupportQueueInterface } from "./supportqueue.js";
+import {
+  PrivacyDenialBases,
+  PrivacyIntakeChannels,
+  PrivacyOutcomes,
+  PrivacyProducts,
+  PrivacyRequestTypes,
+  PrivacyTicketFields,
+  PrivacyVerificationMethods,
+} from "../util/privacyTickets.js";
 
 export const SupportTicketPriorityOptions = [
   "low",
@@ -170,8 +179,50 @@ export interface SupportTicketInterface extends Document {
   autoCloseDate?: string;
   autoCloseSilenced?: boolean;
   metadata?: Record<string, any>;
+  privacy?: PrivacyTicketFields; // Only on Privacy Inquiry tickets
   queue?: SupportQueueInterface; // Populated
 }
+
+// Single nested subdoc, `ticket.privacy` stays undefined on other tickets
+const PrivacyTicketSchema = new Schema<PrivacyTicketFields>(
+  {
+    dateReceived: { type: Date, required: true },
+    requestType: { type: String, enum: PrivacyRequestTypes, required: true },
+    intakeChannel: { type: String, enum: PrivacyIntakeChannels, required: true },
+    actingForOther: {
+      isAgent: Boolean,
+      note: String,
+    },
+    products: { type: [String], enum: PrivacyProducts },
+    schoolRecord: {
+      isSchoolRecord: Boolean,
+      institution: String,
+    },
+    identityVerification: {
+      method: { type: String, enum: PrivacyVerificationMethods },
+      date: Date,
+    },
+    dueDate: { type: Date, required: true },
+    extension: {
+      reason: String,
+      newDueDate: Date,
+      notifiedAt: Date,
+    },
+    responseDate: Date,
+    responseOutcome: { type: String, enum: PrivacyOutcomes },
+    responseSummary: String,
+    denialBasis: {
+      reason: { type: String, enum: PrivacyDenialBases },
+      note: String,
+    },
+    appealOf: String,
+    appealUUIDs: [String],
+    remindersSent: [Number],
+    redactedAt: Date,
+    responseNotifiedAt: Date,
+  },
+  { _id: false },
+);
 
 const SupportTicketSchema = new Schema<SupportTicketInterface>({
   uuid: {
@@ -325,7 +376,17 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   metadata: {
     type: Schema.Types.Mixed,
   },
+  privacy: {
+    type: PrivacyTicketSchema,
+  },
 });
+
+SupportTicketSchema.index({ "privacy.dueDate": 1 }, { sparse: true });
+
+SupportTicketSchema.index(
+  { "privacy.requestType": 1, timeClosed: 1 },
+  { partialFilterExpression: { "privacy.requestType": { $exists: true } } },
+);
 
 SupportTicketSchema.virtual("assignedUsers", {
   ref: "User",

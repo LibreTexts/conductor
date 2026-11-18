@@ -1,4 +1,4 @@
-import { GenericKeyTextValueObj, User } from "../types";
+import { GenericKeyTextValueObj, SupportTicket, User } from "../types";
 
 export const SupportTicketPriorityOptions: GenericKeyTextValueObj<string>[] = [
   {
@@ -122,6 +122,78 @@ export const getPrettySupportTicketStatus = (status: string): string => {
   );
   return foundStatus ? foundStatus.text : "Unknown";
 };
+
+// Privacy Inquiry tickets
+type Option = { value: string; label: string };
+
+export const PrivacyRequestTypeOptions: Option[] = [
+  { value: "access", label: "Access my data" },
+  { value: "correction", label: "Correct my data" },
+  { value: "deletion", label: "Delete my data" },
+  { value: "marketing_opt_out", label: "Opt out of marketing" },
+  { value: "parent_guardian", label: "Parent or guardian request for a child" },
+  { value: "legal_disclosure", label: "Legal or third-party disclosure request" },
+  { value: "appeal", label: "Appeal of a prior decision" },
+  { value: "general", label: "General privacy question" },
+];
+
+export const PrivacyIntakeChannelOptions: Option[] = [
+  { value: "support_form", label: "Support Center form" },
+  { value: "email", label: "Email forwarded by staff" },
+  { value: "postal_mail", label: "Postal mail" },
+  { value: "phone", label: "Phone" },
+  { value: "institution_referral", label: "Referred by a school or institution" },
+];
+
+export const PrivacyProductOptions: Option[] = [
+  { value: "libraries", label: "Libraries" },
+  { value: "adapt", label: "ADAPT" },
+  { value: "conductor", label: "Conductor" },
+  { value: "libreone", label: "LibreOne" },
+  { value: "academy_online", label: "Academy Online" },
+  { value: "connections", label: "Connections" },
+  { value: "forge", label: "Forge" },
+  { value: "jupyterhub", label: "JupyterHub" },
+  { value: "store", label: "Store" },
+];
+
+export const PrivacyVerificationOptions: Option[] = [
+  { value: "registered_email", label: "Registered email" },
+  { value: "signed_in_session", label: "Signed-in session" },
+  { value: "proof_of_authority", label: "Proof of authority received" },
+  { value: "could_not_verify", label: "Could not verify" },
+];
+
+export const PrivacyOutcomeOptions: Option[] = [
+  { value: "fulfilled", label: "Fulfilled" },
+  { value: "partly_fulfilled", label: "Partly fulfilled" },
+  { value: "denied", label: "Denied" },
+  { value: "referred", label: "Referred to institution" },
+  { value: "withdrawn", label: "Withdrawn" },
+  { value: "could_not_verify", label: "Could not verify identity" },
+];
+
+export const PrivacyDenialBasisOptions: Option[] = [
+  { value: "identity_not_verified", label: "Identity not verified" },
+  { value: "school_record", label: "Record controlled by a school" },
+  { value: "legal_obligation", label: "Legal hold or obligation" },
+  { value: "policy_exception", label: "Exception listed in the policy" },
+  { value: "third_party_privacy", label: "Would affect another person's privacy" },
+  { value: "other", label: "Other (explain)" },
+];
+
+export const PRIVACY_DENIAL_OUTCOMES = ["partly_fulfilled", "denied", "could_not_verify"];
+
+export const getOptionLabel = (options: Option[], value?: string): string =>
+  options.find((o) => o.value === value)?.label ?? "—";
+
+export const isPrivacyOverdue = (ticket: Pick<SupportTicket, "privacy" | "status">): boolean =>
+  !!ticket.privacy?.dueDate &&
+  ticket.status !== "closed" &&
+  new Date(ticket.privacy.dueDate).getTime() < Date.now();
+
+export const isPrivacyIdentityVerified = (privacy: NonNullable<SupportTicket["privacy"]>): boolean =>
+  !!privacy.identityVerification?.method && privacy.identityVerification.method !== "could_not_verify";
 
 export const supportTicketAttachmentAllowedTypes = [
   "application/msword", // .doc

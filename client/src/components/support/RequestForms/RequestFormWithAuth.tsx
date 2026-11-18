@@ -7,26 +7,29 @@ import { FormSection, Stack, Input } from "@libretexts/davis-react"
 
 interface RequestFormWithAuthProps {
   children: React.ReactNode;
+  showGuestFields?: boolean; // staff logging a request on someone else's behalf
 }
 
 const RequestFormWithAuth: React.FC<RequestFormWithAuthProps> = ({
   children,
+  showGuestFields,
 }) => {
   const user = useTypedSelector((state) => state.user);
   const { watch, register } = useFormContext<SupportTicket>();
   const [confirmEmail, setConfirmEmail] = useState("");
   const [startedConfirming, setStartedConfirming] = useState(false);
+  const asGuest = showGuestFields || !user || !user.uuid;
 
   return (
     <>
-      {user && user.uuid && (
+      {!asGuest && (
         <Alert
           message="You're logged in so we'll automatically associate this ticket with your account"
           variant="success"
         />
       )}
-      {(!user || !user.uuid) && (
-        <FormSection title="Your Contact Info">
+      {asGuest && (
+        <FormSection title={showGuestFields ? "Requester Contact Info" : "Your Contact Info"}>
           <Stack gap="md">
             <Input
               label="First Name"

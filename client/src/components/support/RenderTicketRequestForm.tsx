@@ -9,6 +9,7 @@ import useGlobalError from "../error/ErrorHooks";
 import TechnicalSupportForm from "./RequestForms/TechnicalSupportForm";
 import HarvestRequestForm from "./RequestForms/HarvestRequestForm";
 import PublishingRequestForm from "./RequestForms/PublishingRequestForm";
+import PrivacyRequestForm from "./RequestForms/PrivacyRequestForm";
 import useSupportQueues from "../../hooks/useSupportQueues";
 import { useNotifications } from "../../context/NotificationContext";
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
@@ -49,7 +50,9 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
       }
 
       const vals = getValues();
-      if (user && user.isAuthenticated) {
+      const isPrivacy = selectedQueue === "privacy";
+      const staffLoggingPrivacy = isPrivacy && (user.isSupport || user.isSuperAdmin);
+      if (user && user.isAuthenticated && !staffLoggingPrivacy) {
         vals.guest = undefined;
       }
 
@@ -87,10 +90,11 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
 
       vals.deviceInfo = getDeviceInfo();
 
-      const { apps, capturedURL, ...restVals } = vals;
+      const { apps, capturedURL, privacy, ...restVals } = vals;
       const res = await axios.post("/support/ticket", {
         ...restVals,
         ...(capturedURL ? { capturedURL } : {}),
+        ...(isPrivacy && privacy && { privacy: buildPrivacyPayload(privacy) }),
         apps: apps && Array.isArray(apps) ? apps.filter((app) => app) : [apps],
       });
 
@@ -153,6 +157,23 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
     }
   }
 
+  // Drops empty optional inputs (blank date/channel) the server would reject
+  function buildPrivacyPayload(privacy: NonNullable<SupportTicket["privacy"]>) {
+    const { appealOf, dateReceived, intakeChannel, actingForOther, schoolRecord, products, requestType } = privacy;
+    return {
+      requestType: appealOf ? "appeal" : requestType,
+      products,
+      ...(appealOf && {
+        appealOf,
+        appealAccessKey: new URLSearchParams(window.location.search).get("accessKey") ?? undefined,
+      }),
+      ...(dateReceived && { dateReceived }),
+      ...(intakeChannel && { intakeChannel }),
+      ...(actingForOther?.isAgent && { actingForOther }),
+      ...(schoolRecord?.isSchoolRecord && { schoolRecord }),
+    };
+  }
+
   function getDeviceInfo() {
     return {
       userAgent: navigator.userAgent,
@@ -174,6 +195,8 @@ const RenderTicketRequestForm: React.FC<RenderTicketRequestFormProps> = ({
         return <HarvestRequestForm />;
       case "publishing":
         return <PublishingRequestForm />;
+      case "privacy":
+        return <PrivacyRequestForm />;
       case "support":
       default:
         return <TechnicalSupportForm autoCapturedURL={autoCapturedURL} />;

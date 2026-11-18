@@ -14,7 +14,7 @@ export type ChangeTicketStatusParams<T extends SupportTicketStatusEnum> = T exte
 } : {
     uuid: string;
     status: T;
-    callingUserName?: undefined;
+    callingUserName?: string; // logs a reopen when moving off closed
 }
 
 export type SearchTicketsParams = {

@@ -5,7 +5,8 @@ import { format, parseISO } from "date-fns";
 import { getRequesterText } from "../../utils/kbHelpers";
 import { truncateString } from "../util/HelperFunctions";
 import { useEffect, useState } from "react";
-import { getPrettySupportTicketCategory } from "../../utils/supportHelpers";
+import { getPrettySupportTicketCategory, isPrivacyOverdue } from "../../utils/supportHelpers";
+import { Badge } from "@libretexts/davis-react";
 import { TicketPriorityPill, TicketStatusPill } from "./TicketInfoPill";
 import { useSupportCenterContext } from "../../context/SupportCenterContext";
 
@@ -32,6 +33,7 @@ const TicketTable: React.FC<TicketTableProps> = ({
   placeholderRows = 10,
 }) => {
   const { setSelectedTickets, selectedQueueObject } = useSupportCenterContext();
+  const showDue = selectedQueueObject?.slug === "privacy";
   const [allSelected, setAllSelected] = useState(false);
   const [withChecked, setWithChecked] = useState<
     (SupportTicket & {
@@ -98,6 +100,11 @@ const TicketTable: React.FC<TicketTableProps> = ({
                 <div className="h-6 bg-gray-200 rounded-full w-20"></div>
               </td>
             )}
+            {showDue && (
+              <td className="pr-10">
+                <div className="h-4 bg-gray-200 rounded w-20"></div>
+              </td>
+            )}
             {showStatus && (
               <td className="pr-10">
                 <div className="h-6 bg-gray-200 rounded-full w-24"></div>
@@ -143,6 +150,11 @@ const TicketTable: React.FC<TicketTableProps> = ({
             {(selectedQueueObject?.has_priorities || forcePriorityColumn) && (
               <th scope="col" className="py-2">
                 Priority
+              </th>
+            )}
+            {showDue && (
+              <th scope="col" className="py-2">
+                Due
               </th>
             )}
             {showStatus && (
@@ -214,6 +226,16 @@ const TicketTable: React.FC<TicketTableProps> = ({
                     forcePriorityColumn) && (
                     <td className="pr-10">
                       <TicketPriorityPill priority={ticket.priority || ""} />
+                    </td>
+                  )}
+                  {showDue && (
+                    <td className="pr-10 text-sm">
+                      {ticket.privacy?.dueDate
+                        ? format(parseISO(ticket.privacy.dueDate), "MM/dd/yyyy")
+                        : "—"}
+                      {isPrivacyOverdue(ticket) && (
+                        <Badge variant="danger" label="Overdue" size="sm" className="ml-2" />
+                      )}
                     </td>
                   )}
                   {showStatus && (

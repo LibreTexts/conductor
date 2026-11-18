@@ -18,6 +18,7 @@ import { SupportTicketPriority } from "../../../types/support";
 import { useMediaQuery } from "react-responsive";
 import TicketUserOtherTickets from "../../../components/support/TicketUserOtherTickets";
 import TicketMetadata from "../../../components/support/TicketMetadata";
+import TicketPrivacyDetails from "../../../components/support/TicketPrivacyDetails";
 import { TicketStatusPill } from "../../../components/support/TicketInfoPill";
 import { useDocumentTitle } from "usehooks-ts";
 import AuthHelper from "../../../components/util/AuthHelper";
@@ -217,7 +218,7 @@ const SupportTicketView = () => {
             </Button>
           </Stack>
         )}
-      {ticket?.status === "closed" && (
+      {ticket?.status === "closed" && !ticket.privacy && (
         <Button
           variant="destructive"
           onClick={() => updateTicketStatusMutation.mutateAsync("in_progress")}
@@ -260,6 +261,11 @@ const SupportTicketView = () => {
                   />
                 )}
                 <TicketDetails ticket={ticket} />
+                {ticket.privacy && (user.isSupport || user.isSuperAdmin) && (
+                  <div className="mt-4">
+                    <TicketPrivacyDetails ticket={ticket} />
+                  </div>
+                )}
                 <div className="mt-4">
                   <TicketMetadata ticket={ticket} />
                 </div>

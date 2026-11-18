@@ -117,6 +117,14 @@ const CreateTicketFlow: React.FC<CreateTicketFlowProps> = ({ isLoggedIn }) => {
     if (priorityParam) {
       methods.setValue("priority", priorityParam as SupportTicketPriority);
     }
+
+    // From the "Appeal this decision" link in a privacy response email
+    const appealOf = searchParams.get("appealOf");
+    if (appealOf) {
+      methods.setValue("privacy.appealOf", appealOf);
+      methods.setValue("privacy.requestType", "appeal");
+      methods.setValue("title", `Appeal of privacy request #${appealOf.slice(-7)}`);
+    }
   }
 
   function handleQueueSelect(queueName: string, setInUrl?: boolean) {

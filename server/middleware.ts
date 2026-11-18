@@ -352,6 +352,40 @@ const canAccessSupportTicket = async (
 };
 
 /**
+ * Privacy inquiries are support/superadmin only. Runs after the route's own auth check and only
+ * narrows it, since harvesters pass that check. With allowRequester, the signed-in requester or a
+ * valid access key (re-checked here) also passes; staff-only routes leave it off.
+ */
+const restrictPrivacyTicket = (allowRequester: boolean) => async (
+  req: TypedReqParamsAndQueryWithUser<{ uuid: string }, { accessKey?: string }>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const ticket = await SupportTicket.findOne(
+      { uuid: { $eq: req.params.uuid } },
+      { privacy: 1, userUUID: 1, guestAccessKey: 1, ccedEmails: 1 },
+    );
+    if (!ticket?.privacy) return next();
+
+    const accessKey = req.query?.accessKey;
+    const accessKeys = [ticket.guestAccessKey, ...(ticket.ccedEmails ?? []).map((c) => c.accessKey)];
+    if (allowRequester && accessKey && accessKeys.includes(accessKey)) return next();
+
+    const callerUUID = req.user?.decoded?.uuid;
+    const caller = callerUUID ? await User.findOne({ uuid: { $eq: callerUUID } }) : null;
+    if (!caller) return res.status(403).send({ err: true, errMsg: conductorErrors.err8 });
+    if (allowRequester && caller.uuid === ticket.userUUID) return next();
+    if (authAPI.checkHasRole(caller, "libretexts", ["superadmin", "support"], true)) return next();
+
+    return res.status(403).send({ err: true, errMsg: conductorErrors.err8 });
+  } catch (err) {
+    logger.error({ err }, "restrictPrivacyTicket failed");
+    return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });
+  }
+};
+
+/**
  * Checks if the uuid in the request parameters is that of the calling user or if the user has the support role.
  * @param {express.Request} req - The Express.js request object.
  * @param {express.Response} res - The Express.js response object.
@@ -549,6 +583,7 @@ export default {
   authLibreOneRequest,
   authLibreOneLifecycleWebhook,
   canAccessSupportTicket,
+  restrictPrivacyTicket,
   isSelfOrSupport,
   streamJsonBody,
   validateZod,

@@ -1,4 +1,12 @@
 import { z } from "zod";
+import {
+  PrivacyDenialBases,
+  PrivacyIntakeChannels,
+  PrivacyOutcomes,
+  PrivacyProducts,
+  PrivacyRequestTypes,
+  PrivacyVerificationMethods,
+} from "../../util/privacyTickets";
 
 export const TicketUUIDParams = z.object({
   params: z.object({
@@ -42,6 +50,56 @@ export const GetRequestorOtherTicketsValidator = z.object({
     }, "At least one of email or uuid is required"),
 });
 
+const PrivacyActingForOther = z.object({
+  isAgent: z.boolean(),
+  note: z.string().trim().max(500).optional(),
+});
+
+const PrivacySchoolRecord = z.object({
+  isSchoolRecord: z.boolean(),
+  institution: z.string().trim().max(255).optional(),
+});
+
+// dateReceived/intakeChannel are honored for support staff only (back-logging email, mail, etc.)
+const PrivacyCreateFields = z.object({
+  requestType: z.enum(PrivacyRequestTypes),
+  intakeChannel: z.enum(PrivacyIntakeChannels).optional(),
+  dateReceived: z.coerce.date().optional(),
+  actingForOther: PrivacyActingForOther.optional(),
+  products: z.array(z.enum(PrivacyProducts)).optional(),
+  schoolRecord: PrivacySchoolRecord.optional(),
+  appealOf: z.uuid().optional(),
+  appealAccessKey: z.string().optional(),
+});
+
+const PrivacyUpdateFields = z.object({
+  requestType: z.enum(PrivacyRequestTypes),
+  intakeChannel: z.enum(PrivacyIntakeChannels),
+  dateReceived: z.coerce.date(),
+  actingForOther: PrivacyActingForOther,
+  products: z.array(z.enum(PrivacyProducts)),
+  schoolRecord: PrivacySchoolRecord,
+  identityVerification: z.object({
+    method: z.enum(PrivacyVerificationMethods),
+    date: z.coerce.date().optional(),
+  }),
+  responseDate: z.coerce.date(),
+  responseOutcome: z.enum(PrivacyOutcomes),
+  responseSummary: z.string().trim().max(2000),
+  denialBasis: z
+    .object({
+      reason: z.enum(PrivacyDenialBases),
+      note: z.string().trim().max(1000).optional(),
+    })
+    .nullable(),
+  extension: z.object({
+    reason: z.string().trim().min(1).max(1000),
+    newDueDate: z.coerce.date(),
+  }),
+}).partial();
+
+export type PrivacyUpdateFieldsType = z.infer<typeof PrivacyUpdateFields>;
+
 export const CreateTicketValidator = z.object({
   body: z.object({
     title: z.string({
@@ -75,6 +133,7 @@ export const CreateTicketValidator = z.object({
       })
       .optional(),
     metadata: z.record(z.string(), z.any()).optional(),
+    privacy: PrivacyCreateFields.optional(),
   })
 });
 
@@ -94,6 +153,7 @@ export const UpdateTicketValidator = z
       autoCloseSilenced: z.boolean().optional(),
       category: z.string().optional(),
       queue: z.string().min(1).optional(), // queue slug
+      privacy: PrivacyUpdateFields.optional(),
     }),
   })
   .merge(TicketUUIDParams);

@@ -10,6 +10,7 @@ import MindTouch from "./CXOne/index.js";
 import { License } from "../types";
 import Author, { AuthorInterface } from "../models/author";
 import sanitizeHtml from "sanitize-html";
+import { sanitizeToHtmlText } from "./sanitize-text.js";
 import * as cheerio from "cheerio";
 import GlossaryService from "../api/services/glossary-service.js";
 const pressbookLog = childLogger("pressbook-scraper");
@@ -697,7 +698,7 @@ export class PressBookScraper {
    * the double-encoding case where entity-decoded text would re-parse as HTML).
    */
   private static sanitizeToText(value: string): string {
-    return sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} });
+    return sanitizeToHtmlText(value);
   }
 
   private async fetchGlossary(
