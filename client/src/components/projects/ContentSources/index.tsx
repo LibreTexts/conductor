@@ -15,6 +15,7 @@ import {
   Spinner,
   Stack,
   Switch,
+  Tabs,
   Text,
 } from "@libretexts/davis-react";
 import { createColumnHelper } from "@libretexts/davis-react-table";
@@ -26,15 +27,15 @@ import useProject from "../../../hooks/useProject";
 import { useNotifications } from "../../../context/NotificationContext";
 import type {
   ContentSourcesBookLink,
-  ContentSourcesOverview,
   ContentSourcesPage,
   ContentSourcesRecentChange,
   ContentSourcesRef,
   PageNodeKind,
 } from "../../../types/ContentSources";
 import BookConnections from "./BookConnections";
+import BookReuseTree from "./BookReuseTree";
 import LineageDrawer from "./LineageDrawer";
-import RevisionsDrawer from "./RevisionsDrawer";
+import RevisionsModal from "./RevisionsModal";
 import KindDonut from "./KindDonut";
 import {
   CARD_TIPS,
@@ -116,6 +117,8 @@ const ContentSources: React.FC = () => {
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [lineagePage, setLineagePage] = useState<ContentSourcesPage | null>(null);
   const [revisionsChange, setRevisionsChange] = useState<ContentSourcesRecentChange | null>(null);
+  /** Connected books: 0 = Books, 1 = Chapters and pages. */
+  const [connectionsTab, setConnectionsTab] = useState(0);
 
   const overviewQuery = useQuery({
     queryKey: [OVERVIEW_QUERY_KEY, id],
@@ -140,24 +143,15 @@ const ContentSources: React.FC = () => {
   });
   const pages = pagesQuery.data?.data;
 
-  const notifyMutation = useMutation({
-    mutationFn: (enabled: boolean) => api.updateContentSourcesNotifications(id, enabled),
-    onSuccess: (res) => {
-      queryClient.setQueryData<{ data: ContentSourcesOverview } | undefined>(
-        [OVERVIEW_QUERY_KEY, id],
-        (current) =>
-          current
-            ? { ...current, data: { ...current.data, notifySourceChanges: res.data.notifySourceChanges } }
-            : current,
-      );
-      addNotification({
-        type: "success",
-        message: res.data.notifySourceChanges
-          ? "Leads will be emailed about source changes."
-          : "Source-change emails are off for this project.",
-      });
-    },
-    onError: () => addNotification({ type: "error", message: "Couldn't save the email setting." }),
+  // The Chapters and pages tree needs the whole book, whatever the table's
+  // filters; same key as the table's unfiltered state, so they share a cache.
+  // Loaded the first time the tab is opened.
+  const treePagesQuery = useQuery({
+    queryKey: ["contentSourcesPages", id, "", false],
+    queryFn: () => api.getContentSourcesPages(id, { kind: undefined, attention: false }),
+    enabled: !!id && !!overview?.scanned && connectionsTab === 1,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const reviewMutation = useMutation({
@@ -356,12 +350,34 @@ const ContentSources: React.FC = () => {
                 <Heading level={3} id="cs-connections-heading" className="mb-3 text-lg">
                   Connected books
                 </Heading>
-                <BookConnections
-                  bookTitle={overview.book.title}
-                  upstream={overview.upstream}
-                  downstream={overview.downstream}
-                  unscannedSources={overview.unscannedSources}
-                />
+                {/* Both pictures are hidden on phones; the tables below carry the same. */}
+                <div className="hidden md:block">
+                  <Tabs selectedIndex={connectionsTab} onChange={setConnectionsTab} size="sm">
+                    <Tabs.List>
+                      <Tabs.Tab>Books</Tabs.Tab>
+                      <Tabs.Tab>Chapters and pages</Tabs.Tab>
+                    </Tabs.List>
+                    <Tabs.Panels className="mt-3">
+                      <Tabs.Panel>
+                        <BookConnections
+                          bookTitle={overview.book.title}
+                          upstream={overview.upstream}
+                          downstream={overview.downstream}
+                          unscannedSources={overview.unscannedSources}
+                        />
+                      </Tabs.Panel>
+                      <Tabs.Panel>
+                        {treePagesQuery.isLoading && <Spinner size="sm" text="Loading the book's pages" />}
+                        {treePagesQuery.isError && (
+                          <Alert variant="error" message="Couldn't load the book's pages." />
+                        )}
+                        {treePagesQuery.data?.data && (
+                          <BookReuseTree bookTitle={overview.book.title} pages={treePagesQuery.data.data.pages} />
+                        )}
+                      </Tabs.Panel>
+                    </Tabs.Panels>
+                  </Tabs>
+                </div>
                 <div className="mt-6 grid gap-6 md:grid-cols-2">
                   <div>
                     <Heading level={4} className="mb-2 text-base">
@@ -540,36 +556,8 @@ const ContentSources: React.FC = () => {
         </>
       )}
 
-      {overview && (
-        <Card variant="elevated">
-          <Card.Body>
-            <section aria-labelledby="cs-email-heading">
-              <Heading level={3} id="cs-email-heading" className="mb-3 text-lg">
-                Email notifications
-              </Heading>
-              {overview.canManage ? (
-                <Switch
-                  name="notifySourceChanges"
-                  label="Email this project's leads when a page the book reuses changes or is deleted"
-                  description="One daily email per lead, listing every change since the last one."
-                  checked={overview.notifySourceChanges}
-                  disabled={notifyMutation.isLoading}
-                  onChange={(checked) => notifyMutation.mutate(checked)}
-                />
-              ) : (
-                <Text className="block text-neutral-700">
-                  Source-change emails are{" "}
-                  <strong>{overview.notifySourceChanges ? "on" : "off"}</strong> for
-                  this project. A project lead can change this.
-                </Text>
-              )}
-            </section>
-          </Card.Body>
-        </Card>
-      )}
-
       <LineageDrawer projectID={id} page={lineagePage} onClose={() => setLineagePage(null)} />
-      <RevisionsDrawer
+      <RevisionsModal
         projectID={id}
         change={revisionsChange}
         onClose={() => setRevisionsChange(null)}

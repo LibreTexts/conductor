@@ -149,11 +149,6 @@ export interface ProjectInterfaceRaw {
   thumbnail?: string;
   // thumbnailVersion?: number;
   projectModules?: ProjectModuleSettings;
-  /**
-   * Email the leads when a page this project's book reuses changes or is
-   * deleted. Unset means on.
-   */
-  notifySourceChanges?: boolean;
   defaultPrimaryAuthorID?: string;
   description?: string;
   contentArea: string;
@@ -465,11 +460,6 @@ const ProjectSchema = new Schema<ProjectInterface>(
         },
       },
     },
-    /**
-     * Email the leads when a page the project's book reuses changes. Unset
-     * means on; only `false` opts out.
-     */
-    notifySourceChanges: Boolean,
     /**
      * Default primary author.
      */

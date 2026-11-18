@@ -1,6 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { revisionsBetween, sanitizeRevisionDiff } from "./revision-diff.js";
+import {
+  previousRevision,
+  revisionHistory,
+  sanitizeRevisionContent,
+  sanitizeRevisionDiff,
+} from "./revision-diff.js";
 
 describe("sanitizeRevisionDiff", () => {
   it("keeps text structure and the change marks", () => {
@@ -26,7 +31,7 @@ describe("sanitizeRevisionDiff", () => {
   });
 });
 
-describe("revisionsBetween", () => {
+describe("revisionHistory", () => {
   const raw = [8, 9, 10, 11].map((n) => ({
     "@revision": String(n),
     "date.edited": "Wed, 11 Nov 2026 18:40:53 GMT",
@@ -35,23 +40,54 @@ describe("revisionsBetween", () => {
     "user.author": { fullname: "Ada Lovelace", username: "ada" },
   }));
 
-  it("lists the revisions after fromRev up to toRev, newest first", () => {
-    const list = revisionsBetween(raw, 8, 10);
-    assert.deepEqual(list.map((r) => r.revision), [10, 9]);
-    assert.deepEqual(list[0], {
+  it("lists every revision newest first, marking the change's own", () => {
+    const list = revisionHistory(raw, 8, 10);
+    assert.deepEqual(list.map((r) => [r.revision, r.inChange]), [[11, false], [10, true], [9, true], [8, false]]);
+    assert.deepEqual(list[1], {
       revision: 10,
       editedAt: "2026-11-11T18:40:53.000Z",
       author: "Ada Lovelace",
       summary: "10 words added",
-      url: "https://dev.libretexts.org/Page?revision=10",
+      inChange: true,
     });
   });
 
-  it("shows only the new revision when the previous one is unknown", () => {
-    assert.deepEqual(revisionsBetween(raw, undefined, 11).map((r) => r.revision), [11]);
+  it("marks only the new revision when the previous one is unknown", () => {
+    assert.deepEqual(revisionHistory(raw, undefined, 11).filter((r) => r.inChange).map((r) => r.revision), [11]);
   });
 
-  it("lists nothing without a revision to show (a deletion)", () => {
-    assert.deepEqual(revisionsBetween(raw, 8, undefined), []);
+  it("marks nothing without a revision (a deletion)", () => {
+    assert.equal(revisionHistory(raw, 8, undefined).some((r) => r.inChange), false);
+  });
+
+  it("caps the list but keeps the change's revisions when they are older", () => {
+    assert.deepEqual(revisionHistory(raw, 7, 8, 2).map((r) => r.revision), [11, 10, 8]);
+  });
+});
+
+describe("previousRevision", () => {
+  const raw = [1, 2, 5].map((n) => ({ "@revision": String(n) }));
+  it("is the closest older revision, or null for the first", () => {
+    assert.equal(previousRevision(raw, 5), 2);
+    assert.equal(previousRevision(raw, 1), null);
+  });
+});
+
+describe("sanitizeRevisionContent", () => {
+  const origin = "https://chem.libretexts.org";
+
+  it("resolves relative images and links against the library", () => {
+    assert.equal(
+      sanitizeRevisionContent('<p><img src="/@api/deki/files/1/a.png" alt="Atom"> <a href="/Bookshelves/X">x</a></p>', origin),
+      '<p><img src="https://chem.libretexts.org/@api/deki/files/1/a.png" alt="Atom" /> <a href="https://chem.libretexts.org/Bookshelves/X" target="_blank" rel="noopener noreferrer">x</a></p>',
+    );
+  });
+
+  it("drops images that aren't https and anything scriptable", () => {
+    const out = sanitizeRevisionContent(
+      '<p class="lt-chem-1" style="color:red" onclick="x()">Hi<script>alert(1)</script></p><img src="http://e.com/x.png"><img src="javascript:alert(1)"><iframe src="https://e.com"></iframe>',
+      origin,
+    );
+    assert.equal(out, "<p>Hi</p>");
   });
 });

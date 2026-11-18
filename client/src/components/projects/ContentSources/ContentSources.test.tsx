@@ -9,9 +9,9 @@ const api = vi.hoisted(() => ({
   getContentSources: vi.fn(),
   getContentSourcesPages: vi.fn(),
   getContentSourcesLineage: vi.fn(),
-  updateContentSourcesNotifications: vi.fn(),
   reviewContentSourcesChange: vi.fn(),
   getContentSourcesChangeRevisions: vi.fn(),
+  getContentSourcesRevision: vi.fn(),
 }));
 
 vi.mock("../../../api", () => ({ default: api }));
@@ -49,7 +49,6 @@ const overview = (extra: Partial<ContentSourcesOverview> = {}): ContentSourcesOv
   ],
   attention: { sourceChanged: 0, broken: 0 },
   recentChanges: [],
-  notifySourceChanges: true,
   canManage: false,
   ...extra,
 });
@@ -173,6 +172,22 @@ describe("ContentSources", () => {
     within(summary).getByRole("group", { name: "Total: 43 pages", description: /Every page the scan found/ });
   });
 
+  it("switches Connected books between the book overview and the chapters-and-pages tree", async () => {
+    api.getContentSources.mockResolvedValue({ err: false, data: overview() });
+    renderPage();
+    // Books first: the two-sided overview.
+    expect(await screen.findByRole("img", { name: /^Remixer Book\. Reuses content/ })).toBeTruthy();
+    expect(screen.queryByRole("img", { name: /reuse content in/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Chapters and pages" }));
+    // The book's own tree, down to the page that reuses content.
+    expect(
+      await screen.findByRole("img", { name: "Remixer Book: 1 of 1 page reuse content in 1 chapter, from 1 source page." }),
+    ).toBeTruthy();
+    // The whole book, whatever the table's filters.
+    expect(api.getContentSourcesPages).toHaveBeenCalledWith("cbHAlG9FKc", { kind: undefined, attention: false });
+  });
+
   it("labels copied excerpts with their block count", async () => {
     api.getContentSources.mockResolvedValue({ err: false, data: overview() });
     api.getContentSourcesPages.mockResolvedValue({
@@ -200,16 +215,12 @@ describe("ContentSources", () => {
     expect(await screen.findByText("Some reused pages were deleted")).toBeTruthy();
   });
 
-  it("offers the email switch only to project admins", async () => {
-    api.getContentSources.mockResolvedValue({ err: false, data: overview({ canManage: false }) });
-    const { unmount } = renderPage();
-    expect(await screen.findByText(/A project lead can change this/)).toBeTruthy();
-    expect(screen.queryByRole("switch", { name: /Email this project's leads/ })).toBeNull();
-    unmount();
-
+  it("has no email setting to change, not even for project admins", async () => {
     api.getContentSources.mockResolvedValue({ err: false, data: overview({ canManage: true }) });
     renderPage();
-    expect(await screen.findByRole("switch", { name: /Email this project's leads/ })).toBeTruthy();
+    expect(await screen.findByText("Summary")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Email notifications" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: /Email this project's leads/ })).toBeNull();
   });
 
   it("lets a project admin mark a source change reviewed", async () => {
@@ -231,35 +242,69 @@ describe("ContentSources", () => {
     );
   });
 
-  it("shows a change's revisions and what changed", async () => {
-    const change = {
-      eventID: "65a1b2c3d4e5f60718293a4b",
-      source: ref("dev-8998", "2: Chapters"),
-      fromRev: 8, toRev: 10, deleted: false, changedAt: "2026-11-11T18:41:24.029Z",
-      pages: 1, frozen: false, notified: false,
-    };
-    api.getContentSources.mockResolvedValue({ err: false, data: overview({ recentChanges: [change] }) });
-    api.getContentSourcesChangeRevisions.mockResolvedValue({
+  const revisionsChange = {
+    eventID: "65a1b2c3d4e5f60718293a4b",
+    source: ref("dev-8998", "2: Chapters"),
+    fromRev: 8, toRev: 10, deleted: false, changedAt: "2026-11-11T18:41:24.029Z",
+    pages: 1, frozen: false, notified: false,
+  };
+  const history = {
+    source: revisionsChange.source, fromRev: 8, toRev: 10, deleted: false,
+    revisions: [
+      { revision: 10, editedAt: "2026-11-11T18:40:53.000Z", author: "Ada Lovelace", summary: "5 words added", inChange: true },
+      { revision: 9, editedAt: "2026-11-11T18:23:35.000Z", author: "Ada Lovelace", summary: "1 words added", inChange: true },
+      { revision: 8, editedAt: "2026-11-10T09:00:00.000Z", author: "LibreBot", summary: "Imported from Pressbooks", inChange: false },
+    ],
+    diffHtml: "<p><ins>New text</ins><script>alert(1)</script></p>",
+  };
+
+  it("shows this change's revisions and its diff in a modal, without sending readers to the library", async () => {
+    api.getContentSources.mockResolvedValue({ err: false, data: overview({ recentChanges: [revisionsChange] }) });
+    api.getContentSourcesChangeRevisions.mockResolvedValue({ err: false, data: history });
+    renderPage();
+    fireEvent.click(await screen.findByLabelText("Show revisions: 2: Chapters"));
+
+    const dialog = await screen.findByRole("dialog");
+    const versions = await within(dialog).findByRole("navigation", { name: "Versions of the source page" });
+    // Only this change's revisions, each with its message; earlier history isn't listed.
+    expect(within(versions).getByRole("button", { name: /Revision 10/ })).toBeTruthy();
+    expect(within(versions).getByRole("button", { name: /Revision 9/ })).toBeTruthy();
+    expect(within(versions).queryByText("Imported from Pressbooks")).toBeNull();
+    expect(within(versions).queryByRole("button", { name: /^Revision 8(?!\d)/ })).toBeNull();
+    // The whole change is selected first, with its diff.
+    expect(within(versions).getByRole("button", { name: /This change/ }).getAttribute("aria-current")).toBe("true");
+    const added = within(dialog).getByText("New text");
+    expect(added.tagName).toBe("INS");
+    // Scripts never reach the DOM, even if the server let one through.
+    expect(document.querySelector("script")).toBeNull();
+    // Read here, not on the library.
+    expect(within(dialog).queryByRole("link", { name: /View revision/ })).toBeNull();
+    expect(api.getContentSourcesChangeRevisions).toHaveBeenCalledWith("cbHAlG9FKc", revisionsChange.eventID);
+  });
+
+  it("opens one version: its message, what it changed and the page as it was", async () => {
+    api.getContentSources.mockResolvedValue({ err: false, data: overview({ recentChanges: [revisionsChange] }) });
+    api.getContentSourcesChangeRevisions.mockResolvedValue({ err: false, data: history });
+    api.getContentSourcesRevision.mockResolvedValue({
       err: false,
       data: {
-        source: change.source, fromRev: 8, toRev: 10, deleted: false,
-        revisions: [
-          { revision: 10, editedAt: "2026-11-11T18:40:53.000Z", author: "Ada Lovelace", summary: "5 words added", url: "https://dev.libretexts.org/P?revision=10" },
-          { revision: 9, editedAt: "2026-11-11T18:23:35.000Z", author: "Ada Lovelace", summary: "1 words added", url: "https://dev.libretexts.org/P?revision=9" },
-        ],
-        diffHtml: "<p><ins>New text</ins><script>alert(1)</script></p>",
+        source: revisionsChange.source,
+        revision: history.revisions[1],
+        previous: 8,
+        contentHtml: "<p>The page at nine</p>",
+        diffHtml: "<p><del>Old</del></p>",
       },
     });
     renderPage();
     fireEvent.click(await screen.findByLabelText("Show revisions: 2: Chapters"));
-    expect(await screen.findByText("Revision 8 → 10")).toBeTruthy();
-    expect(screen.getByText(/5 words added · by Ada Lovelace/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /View revision 9/ })).toBeTruthy();
-    const added = screen.getByText("New text");
-    expect(added.tagName).toBe("INS");
-    // Scripts never reach the DOM, even if the server let one through.
-    expect(document.querySelector("script")).toBeNull();
-    expect(api.getContentSourcesChangeRevisions).toHaveBeenCalledWith("cbHAlG9FKc", change.eventID);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Revision 9/ }));
+
+    expect(await within(dialog).findByText("Compared with revision 8.")).toBeTruthy();
+    expect(within(dialog).getByText("Old").tagName).toBe("DEL");
+    expect(api.getContentSourcesRevision).toHaveBeenCalledWith("cbHAlG9FKc", revisionsChange.eventID, 9);
+    fireEvent.click(within(dialog).getByRole("tab", { name: "This version" }));
+    expect(await within(dialog).findByText("The page at nine")).toBeTruthy();
   });
 
   it("hides the review button from members who can't manage", async () => {

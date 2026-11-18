@@ -92,7 +92,7 @@ const chunk = <T>(items: T[], size: number): T[][] => {
   return out;
 };
 
-/** Projects linked to each affected book, without those that opted out. */
+/** Projects linked to each affected book; every one is emailed (there is no opting out). */
 const loadProjectsByBook = async (
   bookIDs: string[],
 ): Promise<Map<string, DigestProject[]>> => {
@@ -106,7 +106,7 @@ const loadProjectsByBook = async (
 
   for (const batch of chunk(keys, OR_QUERY_CHUNK)) {
     const rows = await Project.find(
-      { $or: batch, notifySourceChanges: { $ne: false } },
+      { $or: batch },
       { _id: 0, projectID: 1, title: 1, leads: 1, libreLibrary: 1, libreCoverID: 1 },
     ).lean<ProjectRow[]>();
     for (const row of rows) {

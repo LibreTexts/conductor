@@ -1,12 +1,12 @@
 import React, { useMemo } from "react";
-import { hierarchy, linkHorizontal, tree, type HierarchyPointNode } from "d3";
+import { hierarchy, tree, type HierarchyPointNode } from "d3";
 import type {
   ContentSourcesBookLink,
   ContentSourcesUnscannedGroup,
 } from "../../../types/ContentSources";
-import { getLibraryName } from "../../util/LibraryOptions";
 import { plural } from "./labels";
-import { estimateTextWidth, truncateLabel } from "./svgText";
+import { truncateLabel } from "./svgText";
+import { HALO, clamp, fitLabel, libraryLabel, link, measure } from "./treeDraw";
 
 /**
  * The book and its neighbours as a two-sided tidy tree, adapted from d3's
@@ -55,29 +55,7 @@ const LABEL_GAP = 6;
 const CENTER_MIN = 140;
 const CENTER_MAX = 420;
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-/**
- * `estimateTextWidth` with a safety margin: the estimate runs a little short
- * for mixed-case labels, and a short estimate here clips text at the edges.
- */
-const measure = (text: string, px: number, bold = false) => estimateTextWidth(text, px, bold) * 1.18;
-
-/** Cuts a label only when it is wider than its room even at the maximum width. */
-const fitLabel = (label: string, room: number, px: number, bold = false) => {
-  let text = truncateLabel(label);
-  while (text.length > 4 && measure(text, px, bold) > room) {
-    text = `${text.slice(0, -2)}…`;
-  }
-  return text;
-};
-
-const libraryLabel = (lib: string) => {
-  const name = getLibraryName(lib);
-  return name === "Unknown" ? lib : name;
-};
-
-const libOf = (link: ContentSourcesBookLink) => link.lib ?? link.id.split("-")[0];
+const libOf = (book: ContentSourcesBookLink) => book.lib ?? book.id.split("-")[0];
 
 /**
  * One side's tree: this book → libraries → books. The biggest books are kept.
@@ -115,13 +93,6 @@ const buildSide = (links: ContentSourcesBookLink[], unscanned: ContentSourcesUns
 
 /** The example's layout: `x` is the vertical position (0 = this book), `depth` the column. */
 const layOut = (side: Side) => tree<TreeDatum>().nodeSize([ROW, 1])(hierarchy(side.root));
-
-const link = linkHorizontal<{ source: [number, number]; target: [number, number] }, [number, number]>()
-  .source((d) => d.source)
-  .target((d) => d.target);
-
-/** Readable over the links it crosses: the example's white halo. */
-const HALO = "[paint-order:stroke] [stroke:white] [stroke-width:3px] [stroke-linejoin:round]";
 
 /** A leaf's label: its name, then its page count. */
 const leafWidth = (n: HierarchyPointNode<TreeDatum>) =>

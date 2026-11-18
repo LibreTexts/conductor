@@ -1,6 +1,5 @@
 import type { Response } from "express";
 import { childLogger } from "../logger.js";
-import Project from "../models/project.js";
 import type { ZodReqWithUser } from "../types/Express.js";
 import {
   ProjectContext,
@@ -11,6 +10,7 @@ import {
   getContentPageLineage,
   getContentSourcesOverview,
   getSourceChangeRevisions,
+  getSourceRevision,
   listContentPages,
   markSourceChangeReviewed,
 } from "./services/content-sources-service.js";
@@ -18,15 +18,16 @@ import type {
   GetContentPageLineageRequest,
   GetContentPagesRequest,
   GetContentSourcesRequest,
+  GetSourceRevisionRequest,
   ReviewSourceChangeRequest,
-  UpdateContentSourcesNotificationsRequest,
 } from "./validators/content-sources.js";
 
 /**
  * Project Content Sources: where a project's book takes its content from,
  * who reuses it, and what changed. Every read requires project membership
- * (hidden pages are included); changing the email setting requires a lead
- * or other project admin.
+ * (hidden pages are included); marking a change reviewed requires a lead or
+ * other project admin. Source-change emails go to every linked project's
+ * leads; there is no setting for users to change.
  */
 
 const log = childLogger("content-sources");
@@ -35,7 +36,7 @@ const NO_BOOK_MSG = "This project isn't linked to a book.";
 
 /** Loads the project, checks the user may read it, and returns its book. */
 const loadForMember = async (projectID: string, user: unknown) => {
-  const ctx = await ProjectContext.load(projectID, { select: ["notifySourceChanges"] });
+  const ctx = await ProjectContext.load(projectID, { select: [] });
   if (!ctx.canMember(user)) throw new ProjectError("unauthorized");
   return { ctx, bookID: ctx.getLinkedBook() };
 };
@@ -59,7 +60,6 @@ async function getContentSources(
       err: false,
       data: {
         ...overview,
-        notifySourceChanges: ctx.doc.notifySourceChanges !== false,
         canManage: ctx.canAdmin(req.user),
       },
     });
@@ -125,6 +125,25 @@ async function getChangeRevisions(
   }
 }
 
+/** One revision of a change's source page: its message, content and diff. Any member. */
+async function getChangeRevision(
+  req: ZodReqWithUser<GetSourceRevisionRequest>,
+  res: Response,
+) {
+  try {
+    const { bookID } = await loadForMember(req.params.projectID, req.user);
+    if (!bookID) return res.status(400).send({ err: true, errMsg: NO_BOOK_MSG });
+
+    const data = await getSourceRevision(bookID, req.params.eventID, req.params.revision);
+    if (!data) {
+      return res.status(404).send({ err: true, errMsg: "Revision not found for this change." });
+    }
+    return res.send({ err: false, data });
+  } catch (err) {
+    return sendError(res, err, "getChangeRevision");
+  }
+}
+
 /** Marks a source change reviewed for the project's book. Leads and liaisons only. */
 async function reviewSourceChange(
   req: ZodReqWithUser<ReviewSourceChangeRequest>,
@@ -149,32 +168,11 @@ async function reviewSourceChange(
   }
 }
 
-async function updateContentSourcesNotifications(
-  req: ZodReqWithUser<UpdateContentSourcesNotificationsRequest>,
-  res: Response,
-) {
-  try {
-    const { projectID } = req.params;
-    const ctx = await ProjectContext.load(projectID, { select: [] });
-    if (!ctx.canAdmin(req.user)) throw new ProjectError("unauthorized");
-
-    const { enabled } = req.body;
-    await Project.updateOne(
-      { projectID: { $eq: projectID } },
-      { $set: { notifySourceChanges: enabled } },
-    );
-    log.info({ projectID, enabled }, "Source-change emails setting changed");
-    return res.send({ err: false, data: { notifySourceChanges: enabled } });
-  } catch (err) {
-    return sendError(res, err, "updateContentSourcesNotifications");
-  }
-}
-
 export default {
   getContentSources,
   getContentPages,
   getContentPageLineage: getContentPageLineageHandler,
   reviewSourceChange,
   getChangeRevisions,
-  updateContentSourcesNotifications,
+  getChangeRevision,
 };

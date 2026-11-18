@@ -83,7 +83,6 @@ export type ContentSourcesOverview = {
   unscannedSources: ContentSourcesUnscannedGroup[];
   attention: { sourceChanged: number; broken: number };
   recentChanges: ContentSourcesRecentChange[];
-  notifySourceChanges: boolean;
   canManage: boolean;
 };
 
@@ -133,21 +132,33 @@ export type ContentSourcesRevision = {
   revision: number;
   editedAt: string | null;
   author: string | null;
-  /** The library's edit summary, e.g. "5 words added". */
+  /** The revision's message, e.g. "5 words added". */
   summary: string;
-  /** The page as it was at this revision. */
-  url: string | null;
+  /** Part of the change under review (after `fromRev`, up to `toRev`). */
+  inChange: boolean;
 };
 
-/** The revisions a source change spans, and the diff between its two ends. */
+/** A source change's page history, and the diff between the change's two ends. */
 export type ContentSourcesChangeRevisions = {
   source: ContentSourcesRef;
   fromRev?: number;
   toRev?: number;
   deleted: boolean;
-  /** Newest first. */
+  /** The source page's revisions, newest first. */
   revisions: ContentSourcesRevision[];
   /** Sanitized HTML with <ins>/<del> marks; null when unavailable. */
+  diffHtml: string | null;
+};
+
+/** One revision of a change's source page, read in Conductor. */
+export type ContentSourcesRevisionDetail = {
+  source: ContentSourcesRef;
+  revision: ContentSourcesRevision;
+  /** The revision `diffHtml` compares against; null for the page's first. */
+  previous: number | null;
+  /** The page as it was at this revision, sanitized; null when unavailable. */
+  contentHtml: string | null;
+  /** What this revision changed from `previous`, sanitized; null when unavailable. */
   diffHtml: string | null;
 };
 

@@ -2,6 +2,7 @@ import axios, { AxiosRequestConfig } from "axios";
 import type {
   BookGraph,
   ContentSourcesChangeRevisions,
+  ContentSourcesRevisionDetail,
   LibraryReuseStats,
   ContentSourcesLineage,
   ContentSourcesOverview,
@@ -3599,19 +3600,19 @@ class API {
     return res.data;
   }
 
+  /** One revision of a change's source page: its message, the page then, and its diff. */
+  async getContentSourcesRevision(projectID: string, eventID: string, revision: number) {
+    const res = await axios.get<
+      { data: ContentSourcesRevisionDetail } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/changes/${eventID}/revisions/${revision}`);
+    return res.data;
+  }
+
   /** Marks a source change reviewed for the project's book (leads and liaisons). */
   async reviewContentSourcesChange(projectID: string, eventID: string) {
     const res = await axios.post<
       { data: { reviewed: number; edgesReset: number } } & ConductorBaseResponse
     >(`/project/${projectID}/content-sources/changes/${eventID}/review`);
-    return res.data;
-  }
-
-  /** Turns the leads' source-change emails on or off for the project. */
-  async updateContentSourcesNotifications(projectID: string, enabled: boolean) {
-    const res = await axios.put<
-      { data: { notifySourceChanges: boolean } } & ConductorBaseResponse
-    >(`/project/${projectID}/content-sources/notifications`, { enabled });
     return res.data;
   }
 

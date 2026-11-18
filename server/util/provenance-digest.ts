@@ -106,8 +106,8 @@ const mergeLine = (line: DigestLine, event: DigestEvent, book: AffectedBook) => 
 /**
  * Turns queued events into one digest per lead: sections per project, one
  * line per source page however many revisions or events it took (lowest
- * `fromRev`, highest `toRev`, a deletion wins). Opted-out projects should be
- * left out of `projectsByBook` by the caller.
+ * `fromRev`, highest `toRev`, a deletion wins). Every project in
+ * `projectsByBook` is emailed; there is no opting out.
  */
 export const buildLeadDigests = (
   events: DigestEvent[],

@@ -4021,21 +4021,21 @@ router
   );
 
 router
+  .route("/project/:projectID/content-sources/changes/:eventID/revisions/:revision")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetSourceRevisionSchema),
+    contentSourcesAPI.getChangeRevision,
+  );
+
+router
   .route("/project/:projectID/content-sources/changes/:eventID/review")
   .post(
     authAPI.verifyRequest,
     authAPI.getUserAttributes,
     middleware.validateZod(contentSourcesValidators.ReviewSourceChangeSchema),
     contentSourcesAPI.reviewSourceChange,
-  );
-
-router
-  .route("/project/:projectID/content-sources/notifications")
-  .put(
-    authAPI.verifyRequest,
-    authAPI.getUserAttributes,
-    middleware.validateZod(contentSourcesValidators.UpdateContentSourcesNotificationsSchema),
-    contentSourcesAPI.updateContentSourcesNotifications,
   );
 
 router.route('/projects/:projectID/reference')

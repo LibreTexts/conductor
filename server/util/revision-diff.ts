@@ -25,11 +25,62 @@ const REVISION_DIFF_OPTIONS: sanitizeHtml.IOptions = {
   },
 };
 
-/** Diffs past this length are cut; the full history is on the library page. */
+/** Diffs and page versions past this length are cut. */
 export const MAX_DIFF_CHARS = 200_000;
 
 export const sanitizeRevisionDiff = (html: string): string =>
   sanitizeHtml(html.slice(0, MAX_DIFF_CHARS), REVISION_DIFF_OPTIONS);
+
+/**
+ * A URL from the page's own content made absolute against its library, so a
+ * relative image or link points at the library, not at Conductor. Null for
+ * anything that isn't http(s) once resolved.
+ */
+const absoluteUrl = (value: string | undefined, origin: string, schemes: string[]): string | null => {
+  if (!value) return null;
+  try {
+    const url = new URL(value, origin);
+    return schemes.includes(url.protocol.replace(":", "")) ? url.href : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * A page as it was at one revision, for reading in Conductor: the diff's text
+ * allowlist plus images, figures and rules. Images and links are resolved
+ * against the page's library (`origin`, e.g. `https://chem.libretexts.org`);
+ * images load over https only. No scripts, styles, classes or embeds.
+ */
+export const sanitizeRevisionContent = (html: string, origin: string): string =>
+  sanitizeHtml(html.slice(0, MAX_DIFF_CHARS), {
+    ...REVISION_DIFF_OPTIONS,
+    allowedTags: [...(REVISION_DIFF_OPTIONS.allowedTags as string[]), "img", "figure", "figcaption", "hr", "caption"],
+    allowedAttributes: { a: ["href", "target", "rel"], img: ["src", "alt", "width", "height"] },
+    transformTags: {
+      a: (tagName, attribs) => {
+        const href = absoluteUrl(attribs.href, origin, ["http", "https"]);
+        return {
+          tagName,
+          attribs: { ...(href ? { href } : {}), target: "_blank", rel: "noopener noreferrer" },
+        };
+      },
+      img: (tagName, attribs) => {
+        const src = absoluteUrl(attribs.src, origin, ["https"]);
+        return {
+          tagName,
+          attribs: {
+            ...(src ? { src } : {}),
+            alt: attribs.alt ?? "",
+            ...(attribs.width ? { width: attribs.width } : {}),
+            ...(attribs.height ? { height: attribs.height } : {}),
+          },
+        };
+      },
+    },
+    // An image whose source didn't survive is dropped, not left empty.
+    exclusiveFilter: (frame) => frame.tag === "img" && !frame.attribs.src,
+  });
 
 /** One page revision as the library's revisions API returns it. */
 export type RawRevision = {
@@ -44,40 +95,54 @@ export type RevisionView = {
   revision: number;
   editedAt: string | null;
   author: string | null;
-  /** The library's edit summary, e.g. "5 words added". */
+  /** The revision's message, e.g. "5 words added". */
   summary: string;
-  /** The page as it was at this revision. */
-  url: string | null;
+  /** Part of the change under review: after `fromRev`, up to `toRev`. */
+  inChange: boolean;
 };
 
+/** Revisions listed per source, newest first; the change's own are always kept. */
+export const MAX_REVISIONS = 50;
+
+const revisionNumber = (r: RawRevision) => Number(r["@revision"]);
+
+/** Whether a revision belongs to a change; without `fromRev` (a first sighting), only `toRev`. */
+const inChange = (revision: number, fromRev: number | undefined, toRev: number | undefined) =>
+  toRev === undefined
+    ? false
+    : fromRev === undefined
+      ? revision === toRev
+      : revision > fromRev && revision <= toRev;
+
 /**
- * The revisions a change spans: after `fromRev` up to and including `toRev`,
- * newest first. Without a known `fromRev` (a first sighting), only `toRev`.
+ * A source page's revisions, newest first, each marked if it belongs to the
+ * change under review. The newest `limit` are listed, plus the change's own
+ * if they are older than that.
  */
-export const revisionsBetween = (
+export const revisionHistory = (
   raw: RawRevision[],
   fromRev: number | undefined,
   toRev: number | undefined,
+  limit = MAX_REVISIONS,
 ): RevisionView[] =>
   raw
-    .map((r) => ({ r, revision: Number(r["@revision"]) }))
-    .filter(({ revision }) => Number.isFinite(revision))
-    .filter(({ revision }) =>
-      toRev === undefined
-        ? false
-        : fromRev === undefined
-          ? revision === toRev
-          : revision > fromRev && revision <= toRev,
-    )
-    .sort((a, b) => b.revision - a.revision)
-    .map(({ r, revision }) => {
+    .filter((r) => Number.isFinite(revisionNumber(r)))
+    .sort((a, b) => revisionNumber(b) - revisionNumber(a))
+    .map((r) => {
+      const revision = revisionNumber(r);
       const author = r["user.author"];
-      const base = r["uri.ui"];
       return {
         revision,
         editedAt: r["date.edited"] ? new Date(r["date.edited"]).toISOString() : null,
         author: author?.fullname || author?.username || author?.nick || null,
         summary: r.description ?? "",
-        url: base ? `${base}${base.includes("?") ? "&" : "?"}revision=${revision}` : null,
+        inChange: inChange(revision, fromRev, toRev),
       };
-    });
+    })
+    .filter((view, i) => i < limit || view.inChange);
+
+/** The revision just before `revision` in a page's history, or null for its first. */
+export const previousRevision = (raw: RawRevision[], revision: number): number | null => {
+  const older = raw.map(revisionNumber).filter((n) => Number.isFinite(n) && n < revision);
+  return older.length ? Math.max(...older) : null;
+};

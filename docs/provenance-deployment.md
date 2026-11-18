@@ -39,7 +39,7 @@ If `autoIndex` is ever turned off for production, run `syncIndexes()` once for t
 
 ### Change to an existing collection
 
-- `projects` gains one optional field, `notifySourceChanges`. Unset means emails are on, and only `false` opts a project out. No backfill and no new index.
+- `projects` is unchanged. Source-change emails can't be turned off, so there's no per-project setting.
 
 ---
 
@@ -136,7 +136,7 @@ curl -X PUT -H "Authorization: Bearer $LIBRE_API_KEY"   "https://<conductor-host
    - **Check:** Control Panel → **Content Reuse** shows the library's totals and scan status.
 3. **Schedule the scan job.** The first full backfill takes many runs (it's time-sliced and resumes each time). Watch progress in Content Reuse → *By library*.
 4. **Dry-run notifications:** call `…/notify?dryRun=true` and check the returned emails look right.
-5. **Schedule the notify job last.** Only now do leads start getting emails. Projects can opt out on their Content Sources page ("Email notifications"), and only leads and liaisons can change that setting.
+5. **Schedule the notify job last.** Only now do leads start getting emails. Every project linked to a scanned book gets them; they can't be turned off.
 
 **What leads see after a change:** emails only tell leads about a change; they don't clear it. A reusing page stays marked "Source changed", and the change stays in **Recent source changes**, until a lead or liaison marks it reviewed on that book's Content Sources page. Each book is reviewed separately. Deletions stay "Source deleted" until the reuse is fixed.
 
@@ -171,7 +171,7 @@ Also in this change:
 ## 6. Rollback
 
 - **Stop provenance:** remove the two schedules. Nothing else runs.
-- **Code rollback:** reverting the code leaves the new collections in place but unused; they're safe to drop. The `projects.notifySourceChanges` field is harmless if left behind.
+- **Code rollback:** reverting the code leaves the new collections in place but unused; they're safe to drop.
 - **No cleanup in the libraries**, since provenance never writes to them.
 
 ---

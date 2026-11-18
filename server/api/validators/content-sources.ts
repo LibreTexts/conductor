@@ -43,11 +43,10 @@ export const ReviewSourceChangeSchema = z.object({
 /** `GET /project/:projectID/content-sources/changes/:eventID/revisions`: a change's revisions and diff. */
 export const GetSourceChangeRevisionsSchema = ReviewSourceChangeSchema;
 
-/** `PUT /project/:projectID/content-sources/notifications`: turn source-change emails on or off. */
-export const UpdateContentSourcesNotificationsSchema = z.object({
-  params: ProjectParams,
-  body: z.object({
-    enabled: z.boolean(),
+/** `GET …/changes/:eventID/revisions/:revision`: one revision of the change's source page. */
+export const GetSourceRevisionSchema = z.object({
+  params: ReviewSourceChangeSchema.shape.params.extend({
+    revision: z.coerce.number().int().min(1).max(10_000_000),
   }),
 });
 
@@ -55,6 +54,4 @@ export type GetContentSourcesRequest = z.infer<typeof GetContentSourcesSchema>;
 export type GetContentPagesRequest = z.infer<typeof GetContentPagesSchema>;
 export type GetContentPageLineageRequest = z.infer<typeof GetContentPageLineageSchema>;
 export type ReviewSourceChangeRequest = z.infer<typeof ReviewSourceChangeSchema>;
-export type UpdateContentSourcesNotificationsRequest = z.infer<
-  typeof UpdateContentSourcesNotificationsSchema
->;
+export type GetSourceRevisionRequest = z.infer<typeof GetSourceRevisionSchema>;

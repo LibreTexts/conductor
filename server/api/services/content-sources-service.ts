@@ -21,7 +21,9 @@ import {
 import { getLineage } from "./page-provenance-service.js";
 import { CXOneFetch } from "../../util/librariesclient.js";
 import {
-  revisionsBetween,
+  previousRevision,
+  revisionHistory,
+  sanitizeRevisionContent,
   sanitizeRevisionDiff,
   type RawRevision,
   type RevisionView,
@@ -238,16 +240,53 @@ export type SourceChangeRevisions = {
   fromRev?: number;
   toRev?: number;
   deleted: boolean;
-  /** Newest first. */
+  /** The source page's revisions, newest first; the change's own are marked `inChange`. */
   revisions: RevisionView[];
   /** What changed from `fromRev` to `toRev`, sanitized; null when unavailable. */
   diffHtml: string | null;
 };
 
+/** A change event's source page, if the change reaches the book. */
+const loadChangeSource = async (bookID: string, eventID: string) => {
+  if (!Types.ObjectId.isValid(eventID)) return null;
+  return SourceChangeEvent.findOne(
+    { _id: { $eq: new Types.ObjectId(eventID) }, "affected.bookID": { $eq: bookID } },
+    { _id: 0, sourcePage: 1, fromRev: 1, toRev: 1, deleted: 1 },
+  ).lean();
+};
+
+/** One read of a source page's API in its library (server token, read-only). */
+const readSourcePage = (parts: { lib: string; pageID: number }, api: string) =>
+  CXOneFetch({ scope: "page", path: parts.pageID, api, subdomain: parts.lib, silentFail: true });
+
+/** The `page` entries of a revisions response, or null when it couldn't be read. */
+const readRevisionList = async (parts: { lib: string; pageID: number }): Promise<RawRevision[] | null> => {
+  const res = await readSourcePage(parts, "revisions?dream.out.format=json");
+  if (!res.ok) return null;
+  const body = (await res.json().catch(() => null)) as { page?: RawRevision | RawRevision[] } | null;
+  return body?.page ? ([] as RawRevision[]).concat(body.page) : [];
+};
+
+/** A sanitized diff between two revisions, or null when the library returns none. */
+const readDiff = async (
+  parts: { lib: string; pageID: number },
+  revision: number,
+  previous: number,
+): Promise<string | null> => {
+  const res = await readSourcePage(
+    parts,
+    `diff?revision=${revision}&previous=${previous}&format=html&dream.out.format=json`,
+  );
+  if (!res.ok) return null;
+  const body = (await res.json().catch(() => null)) as { "#text"?: string } | string | null;
+  const html = typeof body === "string" ? body : body?.["#text"];
+  return html ? sanitizeRevisionDiff(html) : null;
+};
+
 /**
- * The library revisions a source change spans, and the diff between its two
- * ends, read live from the source's library (nothing is stored). Only for a
- * change that reaches the given book. Read-only.
+ * A source change's page history and the diff between the change's two ends,
+ * read live from the source's library (nothing is stored), for reading in
+ * Conductor. Only for a change that reaches the given book. Read-only.
  *
  * @returns null when the event doesn't exist or doesn't reach the book.
  */
@@ -255,11 +294,7 @@ export const getSourceChangeRevisions = async (
   bookID: string,
   eventID: string,
 ): Promise<SourceChangeRevisions | null> => {
-  if (!Types.ObjectId.isValid(eventID)) return null;
-  const event = await SourceChangeEvent.findOne(
-    { _id: { $eq: new Types.ObjectId(eventID) }, "affected.bookID": { $eq: bookID } },
-    { _id: 0, sourcePage: 1, fromRev: 1, toRev: 1, deleted: 1 },
-  ).lean();
+  const event = await loadChangeSource(bookID, eventID);
   if (!event) return null;
 
   const titles = await loadTitles([event.sourcePage]);
@@ -274,32 +309,75 @@ export const getSourceChangeRevisions = async (
     return { ...base, revisions: [], diffHtml: null };
   }
 
-  const read = (api: string) =>
-    CXOneFetch({ scope: "page", path: parts.pageID, api, subdomain: parts.lib, silentFail: true });
-  const [revRes, diffRes] = await Promise.all([
-    read("revisions?dream.out.format=json"),
-    event.fromRev !== undefined
-      ? read(
-          `diff?revision=${event.toRev}&previous=${event.fromRev}&format=html&dream.out.format=json`,
-        )
-      : Promise.resolve(null),
+  const [raw, diffHtml] = await Promise.all([
+    readRevisionList(parts),
+    event.fromRev !== undefined ? readDiff(parts, event.toRev, event.fromRev) : Promise.resolve(null),
   ]);
+  return { ...base, revisions: revisionHistory(raw ?? [], event.fromRev, event.toRev), diffHtml };
+};
 
-  let revisions: RevisionView[] = [];
-  if (revRes.ok) {
-    const body = (await revRes.json().catch(() => null)) as { page?: RawRevision | RawRevision[] } | null;
-    const raw = body?.page ? ([] as RawRevision[]).concat(body.page) : [];
-    revisions = revisionsBetween(raw, event.fromRev, event.toRev);
+export type SourceRevisionDetail = {
+  source: ViewRef;
+  revision: RevisionView;
+  /** The revision before it, which `diffHtml` compares against; null for the page's first. */
+  previous: number | null;
+  /** The page as it was at this revision, sanitized; null when unavailable. */
+  contentHtml: string | null;
+  /** What this revision changed from `previous`, sanitized; null when unavailable. */
+  diffHtml: string | null;
+};
+
+/** A contents response's body, whichever shape the library returned. */
+const contentsBody = (json: unknown): string | null => {
+  const body = (json as { body?: unknown } | null)?.body;
+  const first = Array.isArray(body) ? body[0] : body;
+  if (typeof first === "string") return first;
+  const text = (first as { "#text"?: unknown } | null)?.["#text"];
+  return typeof text === "string" ? text : null;
+};
+
+/**
+ * One revision of a change's source page: its message, the page as it was
+ * then, and what it changed from the revision before. Read live from the
+ * source's library, only for a change that reaches the given book, and only
+ * for a revision in that page's history. Read-only.
+ *
+ * @returns null when the change, its source or the revision doesn't exist.
+ * @throws when the library's revision list can't be read.
+ */
+export const getSourceRevision = async (
+  bookID: string,
+  eventID: string,
+  revision: number,
+): Promise<SourceRevisionDetail | null> => {
+  const event = await loadChangeSource(bookID, eventID);
+  const parts = event ? parsePageNodeId(event.sourcePage) : null;
+  if (!event || !parts || event.deleted) return null;
+
+  const raw = await readRevisionList(parts);
+  if (raw === null) throw new Error("The library's revision list couldn't be read.");
+  const entry = raw.find((r) => Number(r["@revision"]) === revision);
+  if (!entry) return null;
+  const previous = previousRevision(raw, revision);
+
+  const [contentRes, diffHtml, titles] = await Promise.all([
+    readSourcePage(parts, `contents?revision=${revision}&format=html&dream.out.format=json`),
+    previous !== null ? readDiff(parts, revision, previous) : Promise.resolve(null),
+    loadTitles([event.sourcePage]),
+  ]);
+  let contentHtml: string | null = null;
+  if (contentRes.ok) {
+    const html = contentsBody(await contentRes.json().catch(() => null));
+    if (html) contentHtml = sanitizeRevisionContent(html, `https://${parts.lib}.libretexts.org`);
   }
 
-  let diffHtml: string | null = null;
-  if (diffRes?.ok) {
-    const body = (await diffRes.json().catch(() => null)) as { "#text"?: string } | string | null;
-    const html = typeof body === "string" ? body : body?.["#text"];
-    if (html) diffHtml = sanitizeRevisionDiff(html);
-  }
-
-  return { ...base, revisions, diffHtml };
+  return {
+    source: toViewRef(event.sourcePage, titles),
+    revision: revisionHistory([entry], event.fromRev, event.toRev)[0],
+    previous,
+    contentHtml,
+    diffHtml,
+  };
 };
 
 export type PageSourceView = ViewRef & {
