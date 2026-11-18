@@ -38,6 +38,7 @@ export interface RawActivityInterface {
   legacyNodeID?: number;
   legacyNodeUUID?: string;
   pendingFirstSave?: boolean;
+  clonedFrom?: string;
 }
 
 export interface ActivityInterface extends RawActivityInterface, Document {}
@@ -284,6 +285,12 @@ const ActivitySchema = new Schema<ActivityInterface>(
       type: Boolean,
       index: { sparse: true },
     },
+    /**
+     * `activityID` of the activity this one was cloned from. Provenance only:
+     * the clone has its own content and never receives the source's changes.
+     * May name an activity since deleted.
+     */
+    clonedFrom: String,
   },
   {
     timestamps: true,

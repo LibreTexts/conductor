@@ -6,7 +6,7 @@
 import express from "express";
 import cors from "cors";
 import { catchInternal } from "./util/helpers.js";
-import { limitAddressValidation, rateLimitMiddleware } from "./util/rateLimitHelpers.js";
+import { limitActivityClone, limitAddressValidation, rateLimitMiddleware } from "./util/rateLimitHelpers.js";
 import middleware from "./middleware.js"; // Route middleware
 import assetTagFrameworkAPI from "./api/assettagframeworks.js";
 import authorsAPI from "./api/authors.js";
@@ -1172,6 +1172,16 @@ router
 router
   .route("/activities/editor-token")
   .post(authAPI.verifyRequest, activityAuthoringAPI.issueNewActivityEditorToken);
+
+router
+  .route("/activities/:activityID/clone")
+  .post(
+    authAPI.verifyRequest,
+    limitActivityClone,
+    authAPI.getUserAttributes,
+    middleware.validateZod(activityValidators.activityIDOnlySchema),
+    activityAuthoringAPI.cloneActivity
+  );
 
 // Daily, triggered externally like /alerts/processdaily.
 router

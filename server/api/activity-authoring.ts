@@ -13,8 +13,11 @@ import {
   AuthoringNotConfiguredError,
   EDITOR_TOKEN_TTL_SECONDS,
   allocateH5PContentId,
+  cloneH5PContent,
   deleteH5PContent,
   isAuthoringConfigured,
+  getH5PVisibilityVersion,
+  H5PServiceError,
   replacePrivateH5PContent,
   setH5PContentPrivate,
   signCapabilityToken,
@@ -27,6 +30,7 @@ import {
 import { ZodReqWithUser } from "../types";
 import { isProductionEnvironment } from "../util/adapt-integration.js";
 import { activityViewerRole, isActivityOwner } from "../util/activity-permissions.js";
+import { resolveClonedFrom } from "./activities.js";
 import {
   ADAPT_ID_SYNC_DEFAULT_LIMIT,
   AdaptIdSyncNotConfiguredError,
@@ -34,6 +38,9 @@ import {
 } from "./services/adapt-id-sync-service.js";
 
 const log = childLogger("activity-authoring");
+
+/** Appended to a clone's title, in Conductor and in the H5P metadata alike. */
+const CLONE_SUFFIX = " (CLONE)";
 
 /** How long an activity may sit with no saved content before cleanup. */
 const ABANDONED_AFTER_MS = 24 * 60 * 60 * 1000;
@@ -136,7 +143,7 @@ async function getActivityForEditing(
       {
         _id: 0, activityID: 1, h5pContentID: 1, adaptID: 1, title: 1, description: 1, library: 1, libraryTitle: 1,
         language: 1, h5pAuthors: 1, source: 1, publisher: 1, subjects: 1, tags: 1, visibility: 1,
-        includeInLibrary: 1, license: 1, createdBy: 1, collaborators: 1, pendingFirstSave: 1,
+        includeInLibrary: 1, license: 1, createdBy: 1, collaborators: 1, pendingFirstSave: 1, clonedFrom: 1,
         createdAt: 1, updatedAt: 1,
       }
     ).lean();
@@ -147,10 +154,14 @@ async function getActivityForEditing(
     const level: VisibilityLevel =
       activity.visibility === "private" ? "private" : activity.includeInLibrary === false ? "unlisted" : "public";
 
-    const { createdBy, collaborators, ...rest } = activity;
+    const { createdBy, collaborators, clonedFrom, ...rest } = activity;
     return res.send({
       err: false,
-      activity: { ...rest, visibilityLevel: level },
+      activity: {
+        ...rest,
+        visibilityLevel: level,
+        ...(clonedFrom ? { clonedFrom: await resolveClonedFrom(clonedFrom) } : {}),
+      },
       role,
       people: await buildActivityPeople(createdBy, collaborators),
     });
@@ -318,6 +329,92 @@ async function createActivity(
 }
 
 /**
+ * Clones an activity the caller can see into a new, private activity they
+ * own, like a fork: its H5P content and files are copied under a new content
+ * id, and the copy records its source in `clonedFrom` but never follows it.
+ * Collaborators, ADAPT id and Studio fields stay with the source. The H5P
+ * package's own authors and license travel with the content, which keeps
+ * attribution. Only verified instructors clone, as only they create. A
+ * private source clones for its owner and collaborators only.
+ */
+async function cloneActivity(
+  req: ZodReqWithUser<z.infer<typeof activityIDOnlySchema>>,
+  res: Response
+) {
+  try {
+    const userUUID = req.user.decoded.uuid;
+    const owner = await User.findOne({ uuid: userUUID }, { _id: 0, centralID: 1, verifiedInstructor: 1 }).lean();
+    if (owner?.verifiedInstructor !== true) return conductorErr(res, 403, "err94");
+
+    const source = await Activity.findOne(
+      { activityID: { $eq: req.params.activityID }, orgID: process.env.ORG_ID },
+      {
+        _id: 0, activityID: 1, h5pContentID: 1, title: 1, description: 1, library: 1, libraryTitle: 1,
+        language: 1, h5pAuthors: 1, source: 1, publisher: 1, subjects: 1, tags: 1, screenshots: 1,
+        license: 1, visibility: 1, createdBy: 1, collaborators: 1, pendingFirstSave: 1,
+      }
+    ).lean();
+    if (!source) return conductor404Err(res);
+    if (source.visibility === "private") {
+      const role = activityViewerRole(source, req.user);
+      // A private source the caller cannot see is a plain 404, as on its page.
+      if (!role) return conductor404Err(res);
+      // Staff see private drafts but only the people building them clone them.
+      if (role === "staff") return conductorErr(res, 403, "err8");
+    }
+    // No content to copy until the source's first save.
+    if (source.pendingFirstSave) return conductor404Err(res);
+
+    // Fits the 255-character limit the editor's next save is validated against,
+    // without leaving half of a surrogate pair at the cut.
+    const title = `${source.title
+      .slice(0, 255 - CLONE_SUFFIX.length)
+      .replace(/[\uD800-\uDBFF]$/, "")}${CLONE_SUFFIX}`;
+    const h5pContentID = await allocateH5PContentId();
+
+    const activityID = String(h5pContentID);
+    const { visibility: _v, createdBy: _c, collaborators: _co, pendingFirstSave: _p, ...copied } = source;
+    // The private Activity exists before its content, so the visibility
+    // reconcile counts the copy as private from its first moment. Pending until
+    // the copy lands, so the daily cleanup removes both if this process dies.
+    await Activity.create({
+      ...copied,
+      title,
+      activityID,
+      h5pContentID,
+      orgID: process.env.ORG_ID,
+      ...visibilityFields("private"),
+      createdBy: userUUID,
+      ...(owner?.centralID ? { authorCentralID: owner.centralID } : {}),
+      collaborators: [],
+      clonedFrom: source.activityID,
+      pendingFirstSave: true,
+    });
+    try {
+      await cloneH5PContent(source.h5pContentID, h5pContentID, title);
+      await Activity.updateOne({ activityID: { $eq: activityID } }, { $unset: { pendingFirstSave: 1 } });
+    } catch (err) {
+      // No answer (timeout, network) or a gateway error means the copy may
+      // still be running, and a delete now could land before it. Leave the
+      // Activity pending: the daily cleanup removes both a day later.
+      if (err instanceof H5PServiceError && (err.status === undefined || err.status >= 502)) {
+        log.warn({ err, activityID }, "Clone outcome unknown; left for the daily cleanup");
+        throw err;
+      }
+      await removeActivity(activityID, h5pContentID).catch((cleanupErr) =>
+        log.error({ err: cleanupErr, activityID }, "Could not remove a failed clone; the daily cleanup will retry")
+      );
+      throw err;
+    }
+
+    log.info({ activityID, h5pContentID, clonedFrom: source.activityID }, "Activity cloned");
+    return res.status(201).send({ err: false, activity: { activityID, h5pContentID } });
+  } catch (err) {
+    return authoringFailure(res, err, "cloneActivity");
+  }
+}
+
+/**
  * Tells the H5P service whether the content is private. Never fails the
  * caller: the hourly `reconcileH5PVisibility` job repairs a missed push, and
  * failing an author's save over it would lose more than an hour of drift.
@@ -466,13 +563,22 @@ async function cleanupAbandonedActivities(_req: Request, res: Response) {
  */
 async function reconcileH5PVisibility(_req: Request, res: Response) {
   try {
+    // Read before the list. Every push follows its Activity write, so the
+    // service skips content pushed after this version, which the list may
+    // miss (a clone made mid-run would otherwise turn public).
+    const version = await getH5PVisibilityVersion();
     const ids = (
       await Activity.find({ orgID: process.env.ORG_ID, visibility: "private" }, { _id: 0, h5pContentID: 1 }).lean()
     ).map((a) => a.h5pContentID);
-    const result = await replacePrivateH5PContent(ids);
+    const result = await replacePrivateH5PContent(ids, version);
     // Unknown ids are activities whose first save has not happened yet.
     log.info(
-      { private: ids.length, marked: result.marked, cleared: result.cleared, unknown: result.unknown.length },
+      {
+        private: ids.length,
+        marked: result.marked,
+        cleared: result.cleared,
+        unknown: result.unknown.length,
+      },
       "H5P visibility reconcile finished"
     );
     return res.send({ err: false, private: ids.length, ...result });
@@ -510,6 +616,7 @@ export default {
   issueEditorToken,
   issueViewToken,
   createActivity,
+  cloneActivity,
   updateActivity,
   deleteActivity,
   cleanupAbandonedActivities,

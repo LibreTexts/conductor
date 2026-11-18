@@ -30,6 +30,7 @@ import {
   IconCode,
   IconCopy,
   IconEdit,
+  IconGitFork,
   IconLanguage,
   IconLicense,
   IconLink,
@@ -37,9 +38,11 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import api from "../../../api";
+import CloneActivityButton from "../../../components/activities/CloneActivityButton";
 import CopyButton from "../../../components/util/CopyButton";
 import CopyFieldButton from "../../../components/util/CopyFieldButton";
 import useClientConfig from "../../../hooks/useClientConfig";
+import useCanCreateActivities from "../../../hooks/useCanCreateActivities";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
 import { ActivityEditorRole, CommonsActivity } from "../../../types";
 import { getLanguageName } from "../../../utils/languageCodes";
@@ -50,6 +53,7 @@ import {
   getActivityPlayerURL,
   getContentTypeIcon,
   getContentTypeName,
+  interactivePath,
 } from "../../../utils/activityHelpers";
 
 /** Matches Tailwind's `lg`, where the page switches to two columns. */
@@ -148,6 +152,20 @@ function buildDetailRows(activity: CommonsActivity): DetailRow[] {
       ),
     });
   }
+  if (activity.clonedFrom) {
+    const { activityID, title } = activity.clonedFrom;
+    rows.push({
+      key: "cloned-from",
+      label: "Cloned from",
+      icon: IconGitFork,
+      value: (
+        <>
+          Cloned from{" "}
+          <DavisLink href={interactivePath(activityID)}>{title}</DavisLink>
+        </>
+      ),
+    });
+  }
   if (activity.language) {
     rows.push({ key: "language", label: "Language", icon: IconLanguage, value: getLanguageName(activity.language) });
   }
@@ -188,16 +206,22 @@ const Tags = ({ tags }: { tags?: string[] }) =>
   ) : null;
 
 const PublicActions = ({
+  activityID,
+  cloneable,
   pageURL,
   onEmbed,
   embedAvailable,
   size,
 }: {
+  activityID: string;
+  cloneable: boolean;
   pageURL: string;
   onEmbed: () => void;
   embedAvailable: boolean;
   size: "md" | "lg";
-}) => (
+}) => {
+  const canClone = useCanCreateActivities() && cloneable;
+  return (
   <div className="grid grid-cols-2 gap-3">
     <CopyButton val={pageURL} timeout={2000}>
       {({ copied, copy }) => (
@@ -225,8 +249,10 @@ const PublicActions = ({
     >
       Embed
     </Button>
+    {canClone && <CloneActivityButton activityID={activityID} size={size} fullWidth className="col-span-2" />}
   </div>
-);
+  );
+};
 
 /**
  * The activity in an iframe. A private activity's embed needs a `view` token,
@@ -591,6 +617,13 @@ const CommonsActivityPage = () => {
     : "";
   const actions = (size: "md" | "lg") => (
     <PublicActions
+      activityID={activity.activityID}
+      // Saved content only, and a private draft for its owner and collaborators
+      // only, matching the server.
+      cloneable={
+        !activity.pendingFirstSave &&
+        (activity.visibility !== "private" || activity.viewerRole === "owner" || activity.viewerRole === "collaborator")
+      }
       pageURL={pageURL}
       onEmbed={() => setEmbedOpen(true)}
       embedAvailable={Boolean(embedOrigin)}

@@ -16,6 +16,7 @@ import {
   Heading,
   IconButton,
   Input,
+  Link as DavisLink,
   Select,
   Skeleton,
   Spinner,
@@ -25,12 +26,14 @@ import {
 } from "@libretexts/davis-react";
 import { IconAlertTriangle, IconDeviceFloppy, IconDownload, IconExternalLink, IconLink, IconLock, IconTrash, IconWorld } from "@tabler/icons-react";
 import api from "../../../api";
+import CloneActivityButton from "../../../components/activities/CloneActivityButton";
 import CopyFieldButton from "../../../components/util/CopyFieldButton";
 import useClientConfig from "../../../hooks/useClientConfig";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled";
 import useCanCreateActivities from "../../../hooks/useCanCreateActivities";
 import { useNotifications } from "../../../context/NotificationContext";
 import {
+  ActivityCloneSource,
   ActivityDisplayOptions,
   ActivityMetadataInput,
   ActivityPerson,
@@ -221,6 +224,15 @@ const CopyIDField = ({ label, value, truncate = false }: { label: string; value:
   </div>
 );
 
+const ClonedFromField = ({ source, commonsURL }: { source: ActivityCloneSource; commonsURL: string }) => (
+  <div className="py-3 first:pt-0 last:pb-0">
+    <Text weight="bold" size="base">Cloned from</Text>
+    <Text as="p" size="sm" className="break-words">
+      <DavisLink href={`${commonsURL}${interactivePath(source.activityID)}`}>{source.title}</DavisLink>
+    </Text>
+  </div>
+);
+
 /** Visibility as radio cards, frame 1a. Native radios keep keyboard behaviour. */
 const VisibilityField = ({ value, onChange }: { value: ActivityVisibilityLevel; onChange: (v: ActivityVisibilityLevel) => void }) => (
   <fieldset className="m-0 border-0 p-0!">
@@ -362,10 +374,13 @@ const EditH5P = () => {
   const optionsDirty = JSON.stringify(options) !== JSON.stringify(savedOptions);
   const dirty = bridge.dirty || formDirty || optionsDirty || Boolean(pendingMetadataRetry);
 
-  // Leaving with unsaved work asks first.
+  // Leaving with unsaved work asks first, unless the user already agreed to
+  // lose it (Clone asks in its own dialog, then reloads into the copy).
+  const leaveConfirmed = useRef(false);
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => {
+      if (leaveConfirmed.current) return;
       e.preventDefault();
       e.returnValue = "";
     };
@@ -680,6 +695,7 @@ const EditH5P = () => {
     <>
       <CopyIDField label="H5P ID" value={String(data.activity.h5pContentID)} />
       {data.activity.adaptID && <CopyIDField label="ADAPT ID" value={data.activity.adaptID} />}
+      {data.activity.clonedFrom && <ClonedFromField source={data.activity.clonedFrom} commonsURL={getCommonsBaseURL(clientConfig)} />}
     </>
   ) : null;
   const shareRows = data ? (
@@ -800,6 +816,20 @@ const EditH5P = () => {
       <IconButton aria-label="Delete H5P activity" variant="destructive" size={size} icon={<IconTrash size={16} />} onClick={() => setConfirmDelete(true)} />
     ) : null;
 
+  // Cloning copies saved content. A private draft clones for its owner and
+  // collaborators only, matching the server.
+  const cloneButton = (size: "md" | "lg", iconOnly = false) =>
+    canCreate && data && !data.activity.pendingFirstSave && (data.activity.visibilityLevel !== "private" || role !== "staff") ? (
+      <CloneActivityButton
+        activityID={data.activity.activityID}
+        size={size}
+        iconOnly={iconOnly}
+        reload
+        unsavedChanges={dirty}
+        beforeLeave={() => { leaveConfirmed.current = true; }}
+      />
+    ) : null;
+
   const saveButton = (size: "md" | "lg") => (
     <Button
       variant="primary"
@@ -894,6 +924,7 @@ const EditH5P = () => {
           <div className="flex items-center gap-3">
             <Text size="sm" color="muted">{saveStatus}</Text>
             {deleteButton("md")}
+            {cloneButton("md")}
             {cancelButton("md")}
             {saveButton("md")}
           </div>
@@ -1011,6 +1042,7 @@ const EditH5P = () => {
         <Text size="sm" color="muted" className="min-w-0 truncate">{saveStatus}</Text>
         <div className="flex shrink-0 gap-2">
           {deleteButton("lg")}
+          {cloneButton("lg", true)}
           {cancelButton("lg")}
           {saveButton("lg")}
         </div>

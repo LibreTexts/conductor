@@ -28,6 +28,10 @@ export type CommonsActivity = {
    * Edit and say why. Anyone without a role gets a 404 for a private activity.
    */
   viewerRole?: ActivityEditorRole;
+  /** The activity this one was cloned from, while it is public and listed. */
+  clonedFrom?: ActivityCloneSource;
+  /** No content saved yet, so nothing to embed or clone. */
+  pendingFirstSave?: boolean;
   /** H5P license code, e.g. "CC BY", with a version such as "4.0". */
   license?: {
     name?: string;
@@ -67,6 +71,12 @@ export type CommonsActivitiesParams = {
  * superadmin access to an activity they neither own nor collaborate on.
  */
 export type ActivityEditorRole = "owner" | "collaborator" | "staff";
+
+/**
+ * A clone's source. The server omits it unless the source is public and
+ * listed. See `resolveClonedFrom` on the server for why.
+ */
+export type ActivityCloneSource = { activityID: string; title: string };
 
 /** The three visibility levels the UI shows. See `getMyActivities` on the server. */
 export type ActivityVisibilityLevel = "public" | "unlisted" | "private";
@@ -119,6 +129,7 @@ export type EditableActivity = {
   visibilityLevel: ActivityVisibilityLevel;
   license?: CommonsActivity["license"];
   pendingFirstSave?: boolean;
+  clonedFrom?: ActivityCloneSource;
   createdAt?: string;
   updatedAt?: string;
 };
