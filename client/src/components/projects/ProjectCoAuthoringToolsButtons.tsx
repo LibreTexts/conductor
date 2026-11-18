@@ -149,6 +149,15 @@ const ProjectCoAuthoringToolsButtons: React.FC<
                     <Icon name="external alternate" className="!ml-2" />
                   </Button>
                 )}
+            </>
+            )}
+        </div>
+        {libreCoverID && libreLibrary && (
+          <div className="mt-4">
+            <Header as="span" sub>
+              Curation Tools:{" "}
+            </Header>
+            <div className="flex flex-row flex-wrap gap-2 mt-2">
               <Button
                 onClick={() =>
                   window.open(`/projects/${projectID}/content-sources`, "_blank")
@@ -159,9 +168,9 @@ const ProjectCoAuthoringToolsButtons: React.FC<
                 Content Sources
                 <Icon name="external alternate" className="!ml-2" />
               </Button>
-            </>
-            )}
-        </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };

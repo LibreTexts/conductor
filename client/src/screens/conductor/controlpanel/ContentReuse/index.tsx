@@ -11,7 +11,6 @@ import {
   Select,
   Spinner,
   Stack,
-  StatCard,
   Text,
 } from "@libretexts/davis-react";
 import { format, parseISO } from "date-fns";
@@ -20,7 +19,15 @@ import api from "../../../../api";
 import { useTypedSelector } from "../../../../state/hooks";
 import useDocumentTitle from "../../../../hooks/useDocumentTitle";
 import type { BookGraphNode, LibraryReuseStats } from "../../../../types/ContentSources";
-import { EDGE_TYPE_LABELS, plural } from "../../../../components/projects/ContentSources/labels";
+import {
+  CARD_TIPS,
+  EDGE_TYPE_LABELS,
+  KIND_DESCRIPTIONS,
+  KIND_LABELS,
+  SUMMARY_KINDS,
+  plural,
+} from "../../../../components/projects/ContentSources/labels";
+import TipStatCard from "../../../../components/projects/ContentSources/TipStatCard";
 import ForceBookGraph from "./ForceBookGraph";
 
 const ALL_LIBRARIES = "all";
@@ -86,11 +93,13 @@ const ContentReuse: React.FC = () => {
           books: acc.books + lib.books,
           pages: acc.pages + lib.totals.pages,
           original: acc.original + lib.totals.original,
-          reused: acc.reused + lib.totals.transclude + lib.totals.mixed,
-          copied: acc.copied + lib.totals.fork + lib.totals.full,
+          mixed: acc.mixed + lib.totals.mixed,
+          transclude: acc.transclude + lib.totals.transclude,
+          fork: acc.fork + lib.totals.fork,
+          full: acc.full + lib.totals.full,
           broken: acc.broken + lib.brokenLinks,
         }),
-        { books: 0, pages: 0, original: 0, reused: 0, copied: 0, broken: 0 },
+        { books: 0, pages: 0, original: 0, mixed: 0, transclude: 0, fork: 0, full: 0, broken: 0 },
       ),
     [libraries],
   );
@@ -112,8 +121,8 @@ const ContentReuse: React.FC = () => {
           <Breadcrumb.Item isCurrent>Content Reuse</Breadcrumb.Item>
         </Breadcrumb>
         <Text className="text-neutral-700">
-          Which library pages are original, reused live, or copied from other
-          books, and how books share content. Built by Conductor's background
+          Which library pages are original, or reused from other books with
+          Copy-Transclude, Copy-Fork or Copy-Full, and how books share content. Built by Conductor's background
           scan; nothing here changes the libraries.
         </Text>
       </Stack>
@@ -139,14 +148,15 @@ const ContentReuse: React.FC = () => {
             <Heading level={3} id="cr-totals-heading" className="mb-3 text-lg">
               All libraries
             </Heading>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
-              <StatCard label="Books scanned" value={totals.books.toLocaleString()} />
-              <StatCard label="Pages" value={totals.pages.toLocaleString()} />
-              <StatCard label="Original" value={totals.original.toLocaleString()} />
-              <StatCard label="Reused live" value={totals.reused.toLocaleString()} />
-              <StatCard label="Copied" value={totals.copied.toLocaleString()} />
-              <StatCard
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-8">
+              <TipStatCard label="Books scanned" value={totals.books.toLocaleString()} tip={CARD_TIPS.books} />
+              <TipStatCard label="Pages" value={totals.pages.toLocaleString()} tip={CARD_TIPS.pagesAll} />
+              {SUMMARY_KINDS.map((kind) => (
+                <TipStatCard key={kind} label={KIND_LABELS[kind]} value={totals[kind].toLocaleString()} tip={KIND_DESCRIPTIONS[kind]} />
+              ))}
+              <TipStatCard
                 label="Broken reuse links"
+                tip={CARD_TIPS.broken}
                 value={totals.broken.toLocaleString()}
                 variant={totals.broken > 0 ? "danger" : "default"}
               />
@@ -168,9 +178,9 @@ const ContentReuse: React.FC = () => {
                         <th scope="col" className="py-2 pr-4 font-semibold">Scan</th>
                         <th scope="col" className="py-2 pr-4 font-semibold">Books</th>
                         <th scope="col" className="py-2 pr-4 font-semibold">Pages</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Original</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Reused live</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Copied</th>
+                        {SUMMARY_KINDS.map((kind) => (
+                          <th key={kind} scope="col" className="py-2 pr-4 font-semibold">{KIND_LABELS[kind]}</th>
+                        ))}
                         <th scope="col" className="py-2 pr-4 font-semibold">Books reusing / reused</th>
                         <th scope="col" className="py-2 pr-4 font-semibold">Broken links</th>
                         <th scope="col" className="py-2 pr-4 font-semibold">Last run</th>
@@ -188,9 +198,9 @@ const ContentReuse: React.FC = () => {
                             </td>
                             <td className="py-2 pr-4">{lib.books.toLocaleString()}</td>
                             <td className="py-2 pr-4">{lib.totals.pages.toLocaleString()}</td>
-                            <td className="py-2 pr-4">{lib.totals.original.toLocaleString()}</td>
-                            <td className="py-2 pr-4">{(lib.totals.transclude + lib.totals.mixed).toLocaleString()}</td>
-                            <td className="py-2 pr-4">{(lib.totals.fork + lib.totals.full).toLocaleString()}</td>
+                            {SUMMARY_KINDS.map((kind) => (
+                              <td key={kind} className="py-2 pr-4">{lib.totals[kind].toLocaleString()}</td>
+                            ))}
                             <td className="py-2 pr-4">
                               {lib.booksReusing.toLocaleString()} / {lib.booksReused.toLocaleString()}
                             </td>

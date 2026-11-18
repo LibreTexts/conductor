@@ -14,13 +14,11 @@ import {
   Select,
   Spinner,
   Stack,
-  StatCard,
   Switch,
   Text,
 } from "@libretexts/davis-react";
 import { createColumnHelper } from "@libretexts/davis-react-table";
 import RowHeaderDataTable from "../../util/RowHeaderDataTable";
-import { DonutChart } from "@tremor/react";
 import { format, parseISO } from "date-fns";
 import { IconCheck, IconExternalLink, IconHistory, IconRoute, IconSitemap } from "@tabler/icons-react";
 import api from "../../../api";
@@ -37,11 +35,15 @@ import type {
 import BookConnections from "./BookConnections";
 import LineageDrawer from "./LineageDrawer";
 import RevisionsDrawer from "./RevisionsDrawer";
+import TipStatCard from "./TipStatCard";
+import KindDonut from "./KindDonut";
 import {
+  CARD_TIPS,
   EDGE_TYPE_LABELS,
   KIND_DESCRIPTIONS,
   KIND_LABELS,
   STATUS_BADGES,
+  SUMMARY_KINDS,
   plural,
 } from "./labels";
 
@@ -253,16 +255,10 @@ const ContentSources: React.FC = () => {
   );
 
   const totals = overview?.totals;
-  const reused = totals ? totals.transclude + totals.mixed : 0;
-  const copied = totals ? totals.fork + totals.full : 0;
+  // Only the kinds with a card, so every slice has a visible label; structural
+  // and not-scanned pages would otherwise swamp the split that matters.
   const donutData = totals
-    ? [
-        { name: "Original", value: totals.original },
-        { name: "Reused live", value: reused },
-        { name: "Copied", value: copied },
-        { name: "Structural", value: totals.structural },
-        { name: "Not scanned", value: totals.unknown },
-      ].filter((d) => d.value > 0)
+    ? SUMMARY_KINDS.map((kind) => ({ kind, value: totals[kind] })).filter((d) => d.value > 0)
     : [];
 
   return (
@@ -308,7 +304,7 @@ const ContentSources: React.FC = () => {
             <EmptyState
               icon={<IconSitemap size={32} aria-hidden="true" />}
               title="This book hasn't been scanned yet"
-              description="Conductor scans every library's books in the background to find which pages are original, transcluded or copied. This book's results will appear here after its first scan."
+              description="Conductor scans every library's books in the background to find which pages are original, or reused with Copy-Transclude, Copy-Fork or Copy-Full. This book's results will appear here after its first scan."
             />
           </Card.Body>
         </Card>
@@ -335,26 +331,14 @@ const ContentSources: React.FC = () => {
             <Heading level={3} id="cs-summary-heading" className="mb-3 text-lg">
               Summary
             </Heading>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-              <StatCard label="Pages" value={totals!.pages.toLocaleString()} />
-              <StatCard label="Original" value={totals!.original.toLocaleString()} />
-              <StatCard label="Reused live" value={reused.toLocaleString()} />
-              <StatCard label="Copied" value={copied.toLocaleString()} />
-              <StatCard label="Through a chain" value={totals!.viaChain.toLocaleString()} />
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
+              <TipStatCard label="Pages" value={totals!.pages.toLocaleString()} tip={CARD_TIPS.pages} />
+              {SUMMARY_KINDS.map((kind) => (
+                <TipStatCard key={kind} kind={kind} label={KIND_LABELS[kind]} value={totals![kind].toLocaleString()} tip={KIND_DESCRIPTIONS[kind]} />
+              ))}
+              <TipStatCard label="Through a chain" value={totals!.viaChain.toLocaleString()} tip={CARD_TIPS.viaChain} />
             </div>
-            {donutData.length > 0 && (
-              // The numbers above say the same; the chart is a visual aid only.
-              <div aria-hidden="true" className="mt-4 flex justify-center">
-                <DonutChart
-                  className="h-40 w-40"
-                  data={donutData}
-                  category="value"
-                  index="name"
-                  colors={["emerald", "sky", "amber", "slate", "rose"]}
-                  showAnimation={false}
-                />
-              </div>
-            )}
+            {donutData.length > 0 && <KindDonut data={donutData} />}
             {overview.computedAt && (
               <Text size="sm" className="mt-2 block text-neutral-600">
                 Last scanned {format(parseISO(overview.computedAt), "MMM d, yyyy h:mm a")}.

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -122,6 +122,38 @@ describe("ContentSources", () => {
     const level = screen.getByText("Level 2:");
     expect((level.parentElement as HTMLElement).style.paddingLeft).toBe("2.5rem");
     expect(api.getContentSourcesPages).toHaveBeenCalledWith("cbHAlG9FKc", { kind: undefined, attention: false });
+  });
+
+  it("counts each copy mode under the Remixer's name, with reused content apart", async () => {
+    api.getContentSources.mockResolvedValue({ err: false, data: overview() });
+    renderPage();
+    const summary = await screen.findByRole("region", { name: "Summary" });
+    for (const name of ["Reused content: 5", "Copy-Transclude: 3", "Copy-Fork: 0", "Copy-Full: 0"]) {
+      expect(within(summary).getByRole("group", { name })).toBeTruthy();
+    }
+    expect(within(summary).queryByText("Reused live")).toBeNull();
+    expect(within(summary).queryByText("Copied")).toBeNull();
+    expect(summary.querySelector("dl"), "no legend under the cards; the tooltips explain").toBeNull();
+  });
+
+  it("explains each summary card in a tooltip that screen readers announce", async () => {
+    api.getContentSources.mockResolvedValue({ err: false, data: overview() });
+    renderPage();
+    const summary = await screen.findByRole("region", { name: "Summary" });
+    expect(within(summary).getAllByRole("tooltip", { hidden: true })).toHaveLength(7);
+    // The description is there for screen readers even while the tooltip is hidden.
+    const card = within(summary).getByRole("group", {
+      name: "Copy-Full: 0",
+      description: /content and its files \(images, attachments\)/,
+    });
+    within(summary).getByRole("group", { name: "Copy-Fork: 0", description: /content, without its files/ });
+    within(summary).getByRole("group", { name: "Reused content: 5", description: /Its own text plus part of other pages/ });
+    // Keyboard users reach it with Tab, which shows it on screen too.
+    expect(card.tabIndex).toBe(0);
+    const tip = document.getElementById(card.getAttribute("aria-describedby")!)!;
+    expect(tip.hidden).toBe(true);
+    fireEvent.focus(card);
+    expect(tip.hidden).toBe(false);
   });
 
   it("labels copied excerpts with their block count", async () => {

@@ -15,7 +15,7 @@ import type {
   ContentSourcesPage,
   ContentSourcesRef,
 } from "../../../types/ContentSources";
-import { EDGE_TYPE_LABELS, STATUS_BADGES, isLiveType } from "./labels";
+import { EDGE_TYPE_LABELS, STATUS_BADGES } from "./labels";
 
 const PageLink: React.FC<{ page: ContentSourcesRef }> = ({ page }) =>
   page.url ? (
@@ -54,7 +54,6 @@ const StepList: React.FC<{
             <Text size="sm" className="block text-neutral-600">
               {step.hops === 1 ? "Direct" : `${step.hops} steps away`} ·{" "}
               {EDGE_TYPE_LABELS[step.type]}
-              {isLiveType(step.type) ? " (live)" : " (copy)"}
             </Text>
             <div className="mt-1">
               <PageLink page={far} />

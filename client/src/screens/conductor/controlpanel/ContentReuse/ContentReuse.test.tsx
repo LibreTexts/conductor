@@ -56,6 +56,11 @@ describe("ContentReuse", () => {
     expect(await screen.findByText("By library")).toBeTruthy();
     expect(screen.getByRole("rowheader", { name: "dev" })).toBeTruthy();
     expect(screen.getByText("2 books waiting to be re-read")).toBeTruthy();
+    // One column per kind, under the Remixer's copy-mode names.
+    for (const name of ["Reused content", "Copy-Transclude", "Copy-Fork", "Copy-Full"]) {
+      expect(screen.getByRole("columnheader", { name })).toBeTruthy();
+    }
+    expect(screen.queryByRole("columnheader", { name: "Reused live" })).toBeNull();
     expect(await screen.findByRole("img", { name: /Book connection graph: 2 nodes and 1 reuse link/ })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Remixer Book/ })).toBeTruthy();
   });
