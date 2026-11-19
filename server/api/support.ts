@@ -1108,92 +1108,57 @@ async function updateTicket(
     }
     const queueChanged = queue !== undefined && nextQueueId !== ticket.queue_id;
 
-    // Privacy edits apply in memory and save only after every check passes, so a 400 writes nothing
+    /*
+     * Every edit is staged in memory and written in one update conditional on the status read
+     * above: a failed check (400) or a concurrent status change (409) leaves the ticket untouched.
+     */
+    const readStatus = ticket.status;
     let extended = false;
     try {
       if (privacy) extended = ticketService.applyPrivacyFields(ticket, privacy, actor);
-      if (statusChanged) {
-        ticketService.assertPrivacyStatusChange(ticket, status, ticket.privacy ?? movedInPrivacy);
+      if (priorityChanged) {
+        ticket.priority = priority;
+        ticket.feed.push(ticketService._createFeedEntryPriorityChanged(actor, capitalizeFirstLetter(priority || "unknown")));
       }
+      if (categoryChanged) {
+        ticket.category = category;
+        ticket.feed.push(ticketService._createFeedEntry_CategoryChanged(actor, capitalizeFirstLetter(category || "unknown")));
+      }
+      if (queueChanged) {
+        ticket.queue_id = nextQueueId;
+        if (movedInPrivacy) ticket.set("privacy", movedInPrivacy);
+        ticket.feed.push(ticketService._createFeedEntry_QueueChanged(actor, nextQueueName || "unknown"));
+      }
+      if (autoCloseStatusChanged) {
+        ticket.set({ autoCloseSilenced, autoCloseTriggered: false, autoCloseDate: null });
+      }
+      // Last, so close rules see the edited privacy fields
+      if (statusChanged) ticketService.stageStatusChange(ticket, status, actor);
     } catch (e) {
       if (e instanceof PrivacyTicketError) {
         return res.status(400).send({ err: true, errMsg: e.message });
       }
       throw e;
     }
-    if (privacy) {
-      await ticketService.saveTicket(ticket);
-      if (extended) await ticketService.notifyPrivacyExtension(ticket);
-    }
 
     // Nothing actually changed -> return the ticket as-is (no feed entry, no write).
-    if (
-      !statusChanged &&
-      !priorityChanged &&
-      !autoCloseStatusChanged &&
-      !categoryChanged &&
-      !queueChanged
-    ) {
+    if (!ticket.isModified()) {
       return res.send({
         err: false,
         ticket: ticketService._removeAccessKeysFromResponse(ticket),
       });
     }
 
-    let updatedFeed = ticket.feed;
-
-    if (priorityChanged) {
-      const feedEntry = ticketService._createFeedEntryPriorityChanged(
-        `${user.firstName} ${user.lastName}`,
-        capitalizeFirstLetter(priority || "unknown"),
-      );
-      updatedFeed.push(feedEntry);
+    if (!(await ticketService.saveIfStatus(ticket, readStatus))) {
+      return conductor409Err(res);
+    }
+    await ticketService.upsertToSearchIndex(uuid);
+    if (extended) await ticketService.notifyPrivacyExtension(ticket);
+    if (statusChanged && status === "closed" && ticket.privacy) {
+      await ticketService.onPrivacyTicketClosed(uuid);
     }
 
-    if (categoryChanged) {
-      const feedEntry = ticketService._createFeedEntry_CategoryChanged(
-        `${user.firstName} ${user.lastName}`,
-        capitalizeFirstLetter(category || "unknown"),
-      );
-      updatedFeed.push(feedEntry);
-    }
-
-    if (queueChanged) {
-      const feedEntry = ticketService._createFeedEntry_QueueChanged(
-        `${user.firstName} ${user.lastName}`,
-        nextQueueName || "unknown",
-      );
-      updatedFeed.push(feedEntry);
-    }
-
-    if (priorityChanged || categoryChanged || queueChanged || autoCloseStatusChanged) {
-      await ticketService.updateTicket(uuid, {
-        feed: updatedFeed,
-        ...(priorityChanged && { priority }),
-        ...(categoryChanged && { category }),
-        ...(queueChanged && { queue_id: nextQueueId }),
-        ...(queueChanged && movedInPrivacy && { privacy: movedInPrivacy }),
-        ...(autoCloseStatusChanged && {
-          autoCloseSilenced,
-          autoCloseTriggered: false,
-          autoCloseDate: null,
-        }),
-      });
-    }
-
-    // Status goes last, through the shared path that owns close/reopen rules and the privacy close step
-    if (statusChanged) {
-      const applied = await ticketService.changeTicketStatus({
-        uuid,
-        status,
-        callingUserName: actor,
-        expectedStatus: ticket.status,
-      });
-      if (!applied) return conductor409Err(res);
-    }
-
-    // ticketService.updateTicket already reindexes search; re-fetch so the response reflects
-    // the write (the document loaded above is now stale).
+    // Re-fetch so the response reflects the write and any close side effects
     const updatedTicket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
 
     return res.send({

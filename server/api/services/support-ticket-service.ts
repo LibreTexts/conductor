@@ -77,23 +77,23 @@ export default class SupportTicketService {
             // push (not reassign) so the save is a $push and can't drop entries written concurrently
             ticket.feed.push(feedEntry);
             await ticket.save();
-            if (!keepStatus && nextStatus !== ticket.status) {
+            // Assignment always lands; the status move is skipped if a concurrent update changed status
+            const statusMoved = !keepStatus && nextStatus !== ticket.status &&
                 await this.changeTicketStatus({ uuid: ticket.uuid, status: nextStatus, expectedStatus: ticket.status });
-            } else {
-                await this.upsertToSearchIndex(uuid);
-            }
+            if (!statusMoved) await this.upsertToSearchIndex(uuid);
 
+            const updated = await SupportTicket.findOne({ uuid: { $eq: uuid } }).populate('queue').orFail();
             if (newAssigneeEmails.length === 0) {
-                return ticket; // No need to send emails
+                return updated; // No need to send emails
             }
 
             await this.sendAssignmentEmails(
-                ticket,
+                updated,
                 newAssigneeEmails,
                 assignerUser.firstName
             );
 
-            return ticket;
+            return updated;
         } catch (err) {
             throw err;
         }
@@ -297,33 +297,10 @@ export default class SupportTicketService {
             const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
             if (status === ticket.status) return true; // re-close would resend the outcome and reset retention
             if (expectedStatus && ticket.status !== expectedStatus) return false;
-            this.assertPrivacyStatusChange(ticket, status);
 
-            let feedEntry: SupportTicketFeedEntryInterface | null = null;
-            if (status === "closed" && callingUserName) {
-                feedEntry = this._createFeedEntry_Closed(
-                    callingUserName
-                );
-            } else if (ticket.status === "closed" && callingUserName) {
-                feedEntry = {
-                    action: `Ticket was reopened`,
-                    blame: callingUserName,
-                    date: new Date().toISOString(),
-                };
-            }
-
-            // prevent racing updates
-            const res = await SupportTicket.updateOne(
-                { uuid: { $eq: uuid }, status: { $eq: ticket.status } },
-                {
-                    $set: {
-                        status,
-                        ...(status === "closed" && { timeClosed: new Date().toISOString() }),
-                    },
-                    ...(feedEntry ? { $push: { feed: feedEntry } } : {}),
-                }
-            );
-            if (res.matchedCount === 0) return false;
+            const readStatus = ticket.status;
+            this.stageStatusChange(ticket, status, callingUserName);
+            if (!(await this.saveIfStatus(ticket, readStatus))) return false;
             await this.upsertToSearchIndex(uuid);
             if (status === "closed" && ticket.privacy) await this.onPrivacyTicketClosed(uuid);
             await this.syncClosedTicketVector(uuid);
@@ -331,6 +308,32 @@ export default class SupportTicketService {
         } catch (err) {
             throw err;
         }
+    }
+
+    /** Applies a status change in memory (rules, timeClosed, feed entry); persist with saveIfStatus. */
+    stageStatusChange(ticket: SupportTicketInterface, status: SupportTicketStatusEnum, callingUserName?: string): void {
+        this.assertPrivacyStatusChange(ticket, status);
+        if (status === "closed" && callingUserName) {
+            ticket.feed.push(this._createFeedEntry_Closed(callingUserName));
+        } else if (ticket.status === "closed" && callingUserName) {
+            ticket.feed.push({ action: "Ticket was reopened", blame: callingUserName, date: new Date().toISOString() });
+        }
+        if (status === "closed") ticket.timeClosed = new Date().toISOString();
+        ticket.status = status;
+    }
+
+    /**
+     * Writes the document's pending changes only if its status is still readStatus, so a concurrent
+     * status change makes the whole write a no-op. Returns false on that conflict. Doesn't reindex.
+     */
+    async saveIfStatus(ticket: SupportTicketInterface, readStatus: SupportTicketStatusEnum): Promise<boolean> {
+        const changes = ticket.getChanges();
+        if (Object.keys(changes).length === 0) return true;
+        const res = await SupportTicket.updateOne(
+            { uuid: { $eq: ticket.uuid }, status: { $eq: readStatus } },
+            changes,
+        );
+        return res.matchedCount > 0;
     }
 
     async searchTickets({
