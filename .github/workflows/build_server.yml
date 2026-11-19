@@ -18,6 +18,13 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit
         working-directory: ./server
+      # mongodb-memory-server downloads a mongod binary on first test run.
+      - name: Cache MongoDB binary
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('server/package-lock.json') }}
+          restore-keys: mongodb-binaries-${{ runner.os }}-
       - name: Run tests
         run: npm test
         working-directory: ./server

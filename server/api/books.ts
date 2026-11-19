@@ -106,6 +106,7 @@ import LibrarySyncService, {
   isLimitedSync,
   LibraryCoverpage,
   LibrarySyncResult,
+  STORED_COVERPAGE_FILTER,
 } from "./services/library-sync-service.js";
 import {
   buildBookUpsertOp,
@@ -998,6 +999,7 @@ const getMasterCatalog = (
 async function getMasterCatalogV2(_req: Request, res: Response) {
   try {
     const libraries = await Book.aggregate([
+      { $match: STORED_COVERPAGE_FILTER },
       {
         $group: {
           _id: {

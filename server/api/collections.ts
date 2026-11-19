@@ -1,6 +1,8 @@
 import logger from "../logger.js";
 import b62 from "base62-random";
-import { BookInterface } from "../models/book.js";
+import Book, { BookInterface } from "../models/book.js";
+import { buildSyncFilter } from "./services/collection-sync-service.js";
+import { REQUIRED_BOOK_TAGS } from "./services/library-sync-service.js";
 import Collection, {
   CollectionInterface,
   CollectionSyncMode,
@@ -676,6 +678,14 @@ async function getCollectionResources(
       {
         $eq: ["$bookID", "$$resourceID"],
       },
+      // Legacy resources can point at section pages stored as Books; only
+      // real coverpages are books (same rule as STORED_COVERPAGE_FILTER).
+      {
+        $setIsSubset: [
+          [...REQUIRED_BOOK_TAGS],
+          { $ifNull: ["$libraryTags", []] },
+        ],
+      },
     ];
     const collMatchConds: FilterQuery<any>[] = [
       {
@@ -977,14 +987,21 @@ async function addResourcesToCollection(
       });
     }
 
+    // On an auto-managed collection, store the add as an override so the nightly
+    // sync keeps it. Books the rule already matches only need any prior exclusion lifted.
+    const ruleMatched = new Set(
+      collection.autoManage ? await ruleMatchedBookIDs(collection, books) : []
+    );
     await Collection.updateOne(
       { collID, orgID },
       {
         $addToSet: {
-          resources: {
-            $each: resourcesToAdd,
-          },
+          resources: { $each: resourcesToAdd },
+          ...(collection.autoManage && {
+            syncIncludes: { $each: books.filter((id) => !ruleMatched.has(id)) },
+          }),
         },
+        ...(collection.autoManage && { $pull: { syncExcludes: { $in: books } } }),
       }
     );
     return res.send({
@@ -998,6 +1015,23 @@ async function addResourcesToCollection(
       errMsg: conductorErrors.err6,
     });
   }
+}
+
+/**
+ * The subset of `bookIDs` an auto-managed Collection's sync rule selects.
+ *
+ * @private
+ */
+async function ruleMatchedBookIDs(
+  collection: Pick<
+    CollectionInterface,
+    "syncMode" | "program" | "locations" | "syncShelves"
+  >,
+  bookIDs: string[]
+): Promise<string[]> {
+  const filter = buildSyncFilter(collection);
+  if (!filter || bookIDs.length === 0) return [];
+  return Book.distinct("bookID", { ...filter, bookID: { $in: bookIDs } });
 }
 
 /**
@@ -1041,13 +1075,20 @@ async function removeResourceFromCollection(
       });
     }
 
-    // Remove the resource from the collection's resources array
+    // Remove the resource from the collection's resources array. On an
+    // auto-managed collection, also record the removal so the nightly sync
+    // doesn't restore it: exclude it if the rule matches, drop any manual include.
+    const ruleMatched = collection.autoManage
+      ? (await ruleMatchedBookIDs(collection, [resourceID])).length > 0
+      : false;
     const updateResult = await Collection.updateOne(
       { collID, orgID },
       {
         $pull: {
           resources: { resourceID },
+          ...(collection.autoManage && { syncIncludes: resourceID }),
         },
+        ...(ruleMatched && { $addToSet: { syncExcludes: resourceID } }),
       }
     );
 

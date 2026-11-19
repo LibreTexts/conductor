@@ -5,6 +5,8 @@ import Collection, {
   CollectionSyncMode,
 } from "../../models/collection.js";
 import { childLogger } from "../../logger.js";
+import { applySyncOverrides } from "../../util/collectionSync.js";
+import { STORED_COVERPAGE_FILTER } from "./library-sync-service.js";
 
 /**
  * The fields the reconcile reads off an auto-managed Collection.
@@ -21,6 +23,8 @@ type AutoManagedCollection = {
   program?: string;
   locations?: ("central" | "campus")[];
   syncShelves?: CollectionShelfInterface[];
+  syncIncludes?: string[];
+  syncExcludes?: string[];
   resources?: { resourceType: "resource" | "collection"; resourceID: string }[];
 };
 
@@ -124,7 +128,7 @@ export const buildSyncFilter = (
 
   // A book that has disappeared from its library is on its way out of Commons;
   // re-adding it to a collection every night would undo that.
-  return { ...rule, syncMissingSince: { $exists: false } };
+  return { ...rule, ...STORED_COVERPAGE_FILTER, syncMissingSince: { $exists: false } };
 };
 
 /**
@@ -144,15 +148,19 @@ export const describeFilter = (filter: FilterQuery<BookInterface>): string =>
 /** A collection's sync rule in one human-readable line, for logs. */
 export const describeSyncConfig = (coll: AutoManagedCollection): string => {
   const mode: CollectionSyncMode = coll.syncMode ?? "program";
+  const includes = coll.syncIncludes?.length ?? 0;
+  const excludes = coll.syncExcludes?.length ?? 0;
+  const overrides =
+    includes || excludes ? ` +${includes} included / -${excludes} excluded` : "";
   if (mode === "shelves") {
     const shelves = (coll.syncShelves ?? []).map(
       (shelf) => `${shelf.library}:${shelf.path}`,
     );
-    return `shelves=[${shelves.join(", ")}]`;
+    return `shelves=[${shelves.join(", ")}]${overrides}`;
   }
   return `program="${coll.program ?? ""}" locations=[${(
     coll.locations ?? []
-  ).join(", ")}]`;
+  ).join(", ")}]${overrides}`;
 };
 
 /** IDs trimmed to something a log line can carry. */
@@ -168,7 +176,7 @@ export type CollectionSyncPlanEntry = {
   config: string;
   /** The Book filter, as {@link describeFilter} renders it; null if unusable. */
   filter: string | null;
-  /** bookIDs the filter selects. Empty when the plan could not be built. */
+  /** bookIDs the filter selects, with manual overrides applied. Empty when the plan could not be built. */
   matched: string[];
   /** bookIDs currently stored on the collection. */
   existing: string[];
@@ -216,6 +224,8 @@ const planForCollection = async (
     config,
     existingCount: existing.length,
     nestedCount: nested.length,
+    includesCount: coll.syncIncludes?.length ?? 0,
+    excludesCount: coll.syncExcludes?.length ?? 0,
   };
 
   collectionSyncLog.debug(
@@ -246,7 +256,23 @@ const planForCollection = async (
   let matched: string[];
   try {
     const books = await Book.find(filter, { bookID: 1, _id: 0 }).lean();
-    matched = books.map((book: { bookID: string }) => book.bookID);
+    // Manual includes follow the same missing-book rule as matches; the stored
+    // include survives, so a book that reappears in its library comes back.
+    const includes = coll.syncIncludes?.length
+      ? await Book.find(
+          {
+            bookID: { $in: coll.syncIncludes },
+            ...STORED_COVERPAGE_FILTER,
+            syncMissingSince: { $exists: false },
+          },
+          { bookID: 1, _id: 0 },
+        ).lean()
+      : [];
+    matched = applySyncOverrides(
+      books.map((book: { bookID: string }) => book.bookID),
+      includes.map((book: { bookID: string }) => book.bookID),
+      coll.syncExcludes ?? [],
+    );
   } catch (err) {
     collectionSyncLog.error(
       { err, ...logBase, filter: described },
@@ -349,9 +375,10 @@ export type SyncAutoManagedCollectionsOptions = {
  * Brings every auto-managed Collection in line with its sync config.
  *
  * Reconciles rather than appends: a book that no longer matches is removed. The
- * collection's books are system-owned output, so leaving a stale entry behind
- * would make the collection describe a rule it no longer follows, with no way
- * for an admin to tell which entries are current.
+ * collection's books are the rule's output plus the admin's stored overrides
+ * (`syncIncludes` / `syncExcludes`), so leaving a stale entry behind would make
+ * the collection describe a rule it no longer follows. Manual edits survive
+ * because they live in those lists, not in `resources`.
  *
  * Nested collections are not sync output and are preserved exactly as stored.
  *

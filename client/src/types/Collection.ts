@@ -74,6 +74,10 @@ export type Collection = {
   autoManage: boolean;
   syncMode?: CollectionSyncMode;
   syncShelves: CollectionShelf[];
+  /** bookIDs added to an auto-managed collection outside its sync rule. */
+  syncIncludes?: string[];
+  /** Rule-matched bookIDs removed from an auto-managed collection. */
+  syncExcludes?: string[];
   resourceCount?: number;
 };
 

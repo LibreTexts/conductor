@@ -60,7 +60,18 @@ const TOPIC_CATEGORY_TAG = "article:topic-category";
  * article type as well is what separates a coverpage from a section page that
  * picked up a stray `coverpage:yes`.
  */
-const REQUIRED_BOOK_TAGS = [COVERPAGE_TAG, TOPIC_CATEGORY_TAG] as const;
+export const REQUIRED_BOOK_TAGS = [COVERPAGE_TAG, TOPIC_CATEGORY_TAG] as const;
+
+/**
+ * Selects only Books stored from a real coverpage.
+ *
+ * The walk above never writes a non-book, but Books from the retired nodePrint
+ * import included section pages that carried a `program:` tag. Anything that
+ * lists or matches Books must apply this so those records never surface.
+ */
+export const STORED_COVERPAGE_FILTER = {
+  libraryTags: { $all: [...REQUIRED_BOOK_TAGS] },
+};
 
 /**
  * Path segments naming scratch content that must never reach Commons.

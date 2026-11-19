@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useHistory, useParams } from "react-router-dom";
 import {
     Alert,
+    Badge,
     Breadcrumb,
     Button,
     Heading,
@@ -44,7 +45,7 @@ const ROOT_PATH = "/controlpanel/collectionsmanager";
 
 /**
  * Plain-language description of the rule filling an auto-managed collection, so
- * the admin reading "manual changes are disabled" can see what replaced them.
+ * the admin editing it can see what the sync draws from.
  */
 const describeSyncRule = (collection: Collection): string => {
     const mode = collection.syncMode ?? CollectionSyncMode.PROGRAM;
@@ -212,10 +213,48 @@ const CollectionDetail = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries(RESOURCES_KEY);
+            // Auto-managed collections record edits as sync overrides on the collection.
+            queryClient.invalidateQueries(COLLECTION_KEY);
             addNotification({ type: "success", message: "Changes saved." });
         },
         onError: (err) => handleGlobalError(err),
     });
+
+    const restoreMutation = useMutation<void, Error, string>({
+        mutationFn: async (bookID) => {
+            await axios.post(`/commons/collection/${collID}/resources`, {
+                books: [bookID],
+            });
+        },
+        onSuccess: () => {
+            // Re-seed the transfer list so the restored book shows up selected.
+            initializedFor.current = null;
+            queryClient.invalidateQueries(RESOURCES_KEY);
+            queryClient.invalidateQueries(COLLECTION_KEY);
+            addNotification({ type: "success", message: "Book restored." });
+        },
+        onError: (err) => handleGlobalError(err),
+    });
+
+    const manualIncludes = useMemo(
+        () => new Set(collection?.syncIncludes ?? []),
+        [collection?.syncIncludes]
+    );
+
+    const excludedBooks = useMemo(() => {
+        const excludes = collection?.syncExcludes ?? [];
+        if (!excludes.length) return [];
+        const byID = new Map<string, Book>();
+        for (const lib of masterCatalog?.libraries ?? []) {
+            for (const group of [...lib.courses, ...lib.subjects]) {
+                for (const book of group.books) byID.set(book.bookID, book);
+            }
+        }
+        return excludes.map((bookID) => ({
+            bookID,
+            title: byID.get(bookID)?.title ?? bookID,
+        }));
+    }, [collection?.syncExcludes, masterCatalog]);
 
     /**
      * Diffs the incoming selection against local state and persists the change
@@ -483,6 +522,13 @@ const CollectionDetail = () => {
                         <span className="font-semibold">Books:</span>{" "}
                         {bookResources.length}
                     </Text>
+                    {collection.autoManage &&
+                        (manualIncludes.size > 0 || excludedBooks.length > 0) && (
+                            <Text>
+                                <span className="font-semibold">Manual Overrides:</span>{" "}
+                                {manualIncludes.size} added, {excludedBooks.length} excluded
+                            </Text>
+                        )}
                 </Stack>
             </section>
 
@@ -544,37 +590,76 @@ const CollectionDetail = () => {
             {/* Books */}
             <section
                 aria-label="Books in collection"
-                className={`border border-gray-200 rounded-lg p-4 mb-8 bg-white ${collection.autoManage ? '' : 'min-h-[500px]!'}`}
+                className="border border-gray-200 rounded-lg p-4 mb-8 bg-white min-h-[500px]!"
             >
                 <Heading level={3} className="mb-3">
                     Books
                 </Heading>
-                {collection.autoManage ? (
+                {collection.autoManage && (
                     <Alert
                         variant="info"
-                        message={`This collection is managed automatically ${describeSyncRule(collection)}. Manual changes to its books are disabled.`}
+                        className="mb-4"
+                        message={`This collection is managed automatically ${describeSyncRule(collection)}. Individual books you add or remove here will stay that way through future automatic syncs.`}
                     />
-                ) : (
-                    <CatalogTransferList
-                        availableData={masterCatalog || { libraries: [] }}
-                        selectedBooks={selectedBooks}
-                        onSelectedBooksChange={handleSelectedBooksChange}
-                        selectedTitle={`${collection.title} Resources`}
-                        transferDisabled={
-                            collection.autoManage || initializedFor.current !== collID
-                        }
-                        renderBook={(item) => (
-                            <div className="flex flex-col gap-y-1">
+                )}
+                <CatalogTransferList
+                    availableData={masterCatalog || { libraries: [] }}
+                    selectedBooks={selectedBooks}
+                    onSelectedBooksChange={handleSelectedBooksChange}
+                    selectedTitle={`${collection.title} Resources`}
+                    transferDisabled={initializedFor.current !== collID}
+                    renderBook={(item) => (
+                        <div className="flex flex-col">
+                            <div className="flex flex-row flex-wrap items-center gap-x-2">
                                 <p className="font-medium text-gray-900">
                                     {item.title} ({item.bookID})
                                 </p>
-                                <p className="text-sm tracking-wide">
-                                    {item.author ? item.author : "Author not specified"},{" "}
-                                    {getLicenseText(item.license)}
-                                </p>
+                                {collection.autoManage && manualIncludes.has(item.bookID) && (
+                                    <Badge label="Manually added" variant="primary" size="sm" />
+                                )}
                             </div>
-                        )}
-                    />
+                            <p className="text-sm tracking-wide text-gray-600">
+                                {item.author ? item.author : "Author not specified"},{" "}
+                                {getLicenseText(item.license)}
+                            </p>
+                        </div>
+                    )}
+                />
+                {collection.autoManage && excludedBooks.length > 0 && (
+                    <div className="mt-6">
+                        <Heading level={4} className="mb-2">
+                            Excluded from Sync
+                        </Heading>
+                        <Text as="p" size="sm" color="muted" className="mb-2!">
+                            These books match the sync rule but were removed by hand, so
+                            the sync skips them.
+                        </Text>
+                        <ul role="list" className="list-none m-0 p-0 divide-y divide-gray-100">
+                            {excludedBooks.map((book) => (
+                                <li
+                                    key={book.bookID}
+                                    className="flex items-center justify-between gap-3 py-2"
+                                >
+                                    <Text as="span">
+                                        {book.title}
+                                        {book.title !== book.bookID && ` (${book.bookID})`}
+                                    </Text>
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        aria-label={`Restore ${book.title} to collection`}
+                                        loading={
+                                            restoreMutation.isLoading &&
+                                            restoreMutation.variables === book.bookID
+                                        }
+                                        onClick={() => restoreMutation.mutate(book.bookID)}
+                                    >
+                                        Restore
+                                    </Button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 )}
             </section>
         </div>

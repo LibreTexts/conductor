@@ -35,6 +35,8 @@ export interface CollectionInterface extends Document {
   autoManage: boolean;
   syncMode?: CollectionSyncMode;
   syncShelves: CollectionShelfInterface[];
+  syncIncludes: string[];
+  syncExcludes: string[];
   parentID: string;
 }
 
@@ -112,6 +114,16 @@ const CollectionSchema = new Schema<CollectionInterface>(
     syncShelves: {
       // library shelves to draw from, if syncMode is 'shelves'
       type: [CollectionShelfSchema],
+      default: [],
+    },
+    syncIncludes: {
+      // bookIDs an admin added to an auto-managed collection outside its sync rule
+      type: [String],
+      default: [],
+    },
+    syncExcludes: {
+      // bookIDs an admin removed from an auto-managed collection that its sync rule matches
+      type: [String],
       default: [],
     },
     parentID: {

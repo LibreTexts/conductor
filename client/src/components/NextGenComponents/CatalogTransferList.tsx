@@ -395,7 +395,7 @@ function CatalogTransferList<T extends Book = Book>({
     depth: number = 0,
     virtualizedProps?: {
       key: string | number | bigint;
-      size: number;
+      index: number;
       start: number;
     }
   ): React.ReactNode => {
@@ -409,6 +409,9 @@ function CatalogTransferList<T extends Book = Book>({
     return (
       <div
         key={virtualizedProps?.key ?? node.id}
+        // Measured rather than fixed-height: a rendered book wraps to two or more lines.
+        ref={virtualizedProps ? selectedTreeVirtualizer.measureElement : undefined}
+        data-index={virtualizedProps?.index}
         style={
           virtualizedProps
             ? {
@@ -416,7 +419,6 @@ function CatalogTransferList<T extends Book = Book>({
                 top: 0,
                 left: 0,
                 width: "100%",
-                height: virtualizedProps.size,
                 transform: `translateY(${virtualizedProps.start}px)`,
               }
             : undefined
@@ -472,7 +474,8 @@ function CatalogTransferList<T extends Book = Book>({
           <span className="mr-2 text-base">{getNodeIcon(node.type)}</span>
 
           {/* Node label */}
-          <span className="flex-1 text-lg tracking-wide">
+          {/* Semantic UI's global `p` margin and line-height otherwise split a rendered book's lines apart. */}
+          <span className="flex-1 text-lg tracking-wide [&_p]:m-0! [&_p]:leading-snug!">
             {node.book && renderBook ? renderBook(node.book) : node.label}
           </span>
 
@@ -522,18 +525,9 @@ function CatalogTransferList<T extends Book = Book>({
         {/* Render children if expanded */}
         {hasChildren && isExpanded && (
           <div>
+            {/* Children flow inside their measured parent row. */}
             {node.children!.map((child) =>
-              renderNode(
-                child,
-                isAvailable,
-                depth + 1,
-                virtualizedProps
-                  ? {
-                      ...virtualizedProps,
-                      start: virtualizedProps.start + virtualizedProps.size,
-                    }
-                  : undefined
-              )
+              renderNode(child, isAvailable, depth + 1)
             )}
           </div>
         )}
