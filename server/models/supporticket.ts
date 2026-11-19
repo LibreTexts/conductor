@@ -180,6 +180,7 @@ export interface SupportTicketInterface extends Document {
   autoCloseSilenced?: boolean;
   metadata?: Record<string, any>;
   privacy?: PrivacyTicketFields; // Only on Privacy Inquiry tickets
+  revision?: number; // Bumped by writes that change close rules (queue/privacy/status); see saveIfUnchanged
   queue?: SupportQueueInterface; // Populated
 }
 
@@ -378,6 +379,10 @@ const SupportTicketSchema = new Schema<SupportTicketInterface>({
   },
   privacy: {
     type: PrivacyTicketSchema,
+  },
+  // No default: a hydrated default would differ from the missing field in the DB and break the match
+  revision: {
+    type: Number,
   },
 });
 

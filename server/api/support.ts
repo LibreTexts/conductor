@@ -1149,7 +1149,7 @@ async function updateTicket(
       });
     }
 
-    if (!(await ticketService.saveIfStatus(ticket, readStatus))) {
+    if (!(await ticketService.saveIfUnchanged(ticket, readStatus))) {
       return conductor409Err(res);
     }
     await ticketService.upsertToSearchIndex(uuid);

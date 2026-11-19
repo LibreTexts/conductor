@@ -275,9 +275,10 @@ export default class SupportTicketService {
     async changeTicketQueue(uuid: string, queueId: string, privacy?: PrivacyTicketFields) {
         try {
             await SupportTicket.updateOne(
-                { uuid },
+                { uuid: { $eq: uuid } },
                 {
                     $set: { queue_id: queueId, ...(privacy && { privacy }) },
+                    $inc: { revision: 1 }, // invalidates any close staged against the old queue
                 }
             ).orFail();
             await this.upsertToSearchIndex(uuid);
@@ -300,7 +301,7 @@ export default class SupportTicketService {
 
             const readStatus = ticket.status;
             this.stageStatusChange(ticket, status, callingUserName);
-            if (!(await this.saveIfStatus(ticket, readStatus))) return false;
+            if (!(await this.saveIfUnchanged(ticket, readStatus))) return false;
             await this.upsertToSearchIndex(uuid);
             if (status === "closed" && ticket.privacy) await this.onPrivacyTicketClosed(uuid);
             await this.syncClosedTicketVector(uuid);
@@ -310,7 +311,7 @@ export default class SupportTicketService {
         }
     }
 
-    /** Applies a status change in memory (rules, timeClosed, feed entry); persist with saveIfStatus. */
+    /** Applies a status change in memory (rules, timeClosed, feed entry); persist with saveIfUnchanged. */
     stageStatusChange(ticket: SupportTicketInterface, status: SupportTicketStatusEnum, callingUserName?: string): void {
         this.assertPrivacyStatusChange(ticket, status);
         if (status === "closed" && callingUserName) {
@@ -323,15 +324,21 @@ export default class SupportTicketService {
     }
 
     /**
-     * Writes the document's pending changes only if its status is still readStatus, so a concurrent
-     * status change makes the whole write a no-op. Returns false on that conflict. Doesn't reindex.
+     * Writes the document's pending changes only if neither its status nor its revision moved since
+     * it was read, so the rules checked in memory (close requirements, privacy) still hold. Any
+     * concurrent queue/privacy/status write makes the whole write a no-op and returns false.
+     * Doesn't reindex.
      */
-    async saveIfStatus(ticket: SupportTicketInterface, readStatus: SupportTicketStatusEnum): Promise<boolean> {
+    async saveIfUnchanged(ticket: SupportTicketInterface, readStatus: SupportTicketStatusEnum): Promise<boolean> {
         const changes = ticket.getChanges();
         if (Object.keys(changes).length === 0) return true;
         const res = await SupportTicket.updateOne(
-            { uuid: { $eq: ticket.uuid }, status: { $eq: readStatus } },
-            changes,
+            {
+                uuid: { $eq: ticket.uuid },
+                status: { $eq: readStatus },
+                revision: { $eq: ticket.revision ?? null }, // null also matches tickets that predate the field
+            },
+            { ...changes, $inc: { ...changes.$inc, revision: 1 } },
         );
         return res.matchedCount > 0;
     }
@@ -1268,7 +1275,8 @@ export default class SupportTicketService {
     async autoCloseTicket(ticket: SupportTicketInterface, feedEntry: SupportTicketFeedEntryInterface): Promise<void> {
         try {
             await SupportTicket.updateOne(
-                { uuid: ticket.uuid },
+                // A ticket moved into privacy after it was picked must not close without an outcome
+                { uuid: { $eq: ticket.uuid }, privacy: { $exists: false } },
                 {
                     status: "closed",
                     autoCloseTriggered: false,
