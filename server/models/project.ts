@@ -278,7 +278,7 @@ const ProjectSchema = new Schema<ProjectInterface>(
      */
     libreLibrary: String,
     /**
-     * Corresponding LibreText Coverpage ID.
+     * Page ID of the associated Book's coverpage, parsed from projectURL.
      */
     libreCoverID: String,
     /**
@@ -331,14 +331,16 @@ const ProjectSchema = new Schema<ProjectInterface>(
     },
     /**
      * URL where the resource currently exists, typically a LibreTexts library link.
+     * A LibreTexts link also populates libreLibrary, libreCoverID, libreShelf, and libreCampus.
      */
     projectURL: String,
     /**
-     * URL of the Project's associated ADAPT homework system resources.
+     * ADAPT course link as entered by the user. Only read by the edit form.
      */
     adaptURL: String,
     /**
-     * Project's corresponding ADAPT Course ID, extracted from the adaptURL.
+     * Numeric ADAPT course ID, derived server-side from adaptURL on update. Never set directly.
+     * Used to build ADAPT links on the Project page and Commons Book page.
      */
     adaptCourseID: String,
     /**
@@ -346,7 +348,7 @@ const ProjectSchema = new Schema<ProjectInterface>(
      */
     tags: [String],
     /**
-     * Project notes/description text.
+     * Free-form team notes, shown in the Notes card on the Project page. Distinct from description.
      */
     notes: String,
     /**
@@ -387,7 +389,7 @@ const ProjectSchema = new Schema<ProjectInterface>(
      */
     flagDescrip: String,
     /**
-     * Default chat notification setting.
+     * Recipient group preselected in the Discussion "Notify" menu when posting a message.
      */
     defaultChatNotification: String,
     /**
@@ -461,7 +463,7 @@ const ProjectSchema = new Schema<ProjectInterface>(
       },
     },
     /**
-     * Default primary author.
+     * Author _id applied as primary author by default to new Project Files.
      */
     defaultPrimaryAuthorID: {
       type: {
@@ -470,11 +472,11 @@ const ProjectSchema = new Schema<ProjectInterface>(
       },
     },
     /**
-     * Project description.
+     * Summary of the Project, edited in the General properties section. Distinct from notes.
      */
     description: String,
     /**
-     * Content area.
+     * Subject/content area label. Commons catalog cards show it only for the calearninglab org.
      */
     contentArea: String,
     /**
