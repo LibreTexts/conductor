@@ -1157,6 +1157,7 @@ async function updateTicket(
     if (statusChanged && status === "closed" && ticket.privacy) {
       await ticketService.onPrivacyTicketClosed(uuid);
     }
+    if (statusChanged) await ticketService.syncClosedTicketVector(uuid);
 
     // Re-fetch so the response reflects the write and any close side effects
     const updatedTicket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
@@ -1189,10 +1190,10 @@ async function answerTicketWithAI(
     const result = await supportTicketAIService.answerTicket(uuid);
     return res.send({ err: false, ...result });
   } catch (err: any) {
-    debugError(err);
     if (err?.message?.includes("only be generated")) {
       return res.status(400).send({ err: true, errMsg: err.message });
     }
+    logger.error({ err }, "answerTicketWithAI failed");
     return conductor500Err(res);
   }
 }
@@ -1202,7 +1203,7 @@ async function syncClosedTicketVectors(_req: Request, res: Response) {
     const result = await new SupportTicketService().syncAllClosedTicketVectors();
     return res.send({ err: false, ...result });
   } catch (err) {
-    debugError(err);
+    logger.error({ err }, "syncClosedTicketVectors failed");
     return res.status(500).send({
       err: true,
       errMsg: `Failed to sync closed-ticket vectors: ${

@@ -98,6 +98,10 @@ export class SupportTicketAIService {
 
   async answerTicket(uuid: string): Promise<SupportAnswerResult> {
     const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
+    // Checked before any embedding or completion call: privacy inquiries never reach the AI provider
+    if (ticket.privacy) {
+      throw new Error("AI answers can only be generated for tickets outside the privacy queue.");
+    }
     if (ticket.status === "closed") {
       throw new Error("AI answers can only be generated for tickets that need a response.");
     }
