@@ -19,7 +19,7 @@ import {
   UpdateTicketValidator,
 } from "./validators/support";
 import { NextFunction, Request, Response } from "express";
-import { conductor404Err, conductor500Err } from "../util/errorutils.js";
+import { conductor404Err, conductor409Err, conductor500Err } from "../util/errorutils.js";
 import User, {
   SanitizedUserSelectProjection,
   UserInterface,
@@ -1183,7 +1183,13 @@ async function updateTicket(
 
     // Status goes last, through the shared path that owns close/reopen rules and the privacy close step
     if (statusChanged) {
-      await ticketService.changeTicketStatus({ uuid, status, callingUserName: actor });
+      const applied = await ticketService.changeTicketStatus({
+        uuid,
+        status,
+        callingUserName: actor,
+        expectedStatus: ticket.status,
+      });
+      if (!applied) return conductor409Err(res);
     }
 
     // ticketService.updateTicket already reindexes search; re-fetch so the response reflects
@@ -1399,9 +1405,9 @@ async function createGeneralMessage(
     // If sender is staff, change ticket status to awaiting_requester
     // otherwise, if ticket is currently "awaiting_requester" and has assigned users, change to "in_progress"
     if (senderIsStaff && ticket.status !== "closed") {
-      await ticketService.changeTicketStatus({ uuid: ticket.uuid, status: "awaiting_requester" });
+      await ticketService.changeTicketStatus({ uuid: ticket.uuid, status: "awaiting_requester", expectedStatus: ticket.status });
     } else if (ticket.status === "awaiting_requester" && ticket.assignedUUIDs && ticket.assignedUUIDs.length > 0) {
-      await ticketService.changeTicketStatus({ uuid: ticket.uuid, status: "in_progress" });
+      await ticketService.changeTicketStatus({ uuid: ticket.uuid, status: "in_progress", expectedStatus: ticket.status });
     }
 
     const emailPromises = [];

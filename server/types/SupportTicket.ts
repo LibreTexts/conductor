@@ -7,7 +7,7 @@ export type AssignSupportTicketParams = {
     assigner: string;
 }
 
-export type ChangeTicketStatusParams<T extends SupportTicketStatusEnum> = T extends "closed" ? {
+export type ChangeTicketStatusParams<T extends SupportTicketStatusEnum> = (T extends "closed" ? {
     uuid: string;
     status: T;
     callingUserName: string;
@@ -15,6 +15,8 @@ export type ChangeTicketStatusParams<T extends SupportTicketStatusEnum> = T exte
     uuid: string;
     status: T;
     callingUserName?: string; // logs a reopen when moving off closed
+}) & {
+    expectedStatus?: SupportTicketStatusEnum; // skip if the ticket moved off the status the caller read
 }
 
 export type SearchTicketsParams = {

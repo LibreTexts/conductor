@@ -73,10 +73,15 @@ export default class SupportTicketService {
             ticket.assignedUUIDs = assigned;
             // Closed privacy tickets can't reopen (close email/redaction already ran)
             const keepStatus = ticket.status === "awaiting_requester" || (ticket.status === "closed" && !!ticket.privacy);
-            ticket.status = keepStatus ? ticket.status : messages.length > 0 ? "in_progress" : "assigned";
-            ticket.feed = [...(ticket.feed || []), feedEntry];
+            const nextStatus = messages.length > 0 ? "in_progress" : "assigned";
+            // push (not reassign) so the save is a $push and can't drop entries written concurrently
+            ticket.feed.push(feedEntry);
             await ticket.save();
-            await this.upsertToSearchIndex(uuid);
+            if (!keepStatus && nextStatus !== ticket.status) {
+                await this.changeTicketStatus({ uuid: ticket.uuid, status: nextStatus, expectedStatus: ticket.status });
+            } else {
+                await this.upsertToSearchIndex(uuid);
+            }
 
             if (newAssigneeEmails.length === 0) {
                 return ticket; // No need to send emails
@@ -281,12 +286,17 @@ export default class SupportTicketService {
         }
     }
 
-    async changeTicketStatus<T extends SupportTicketStatusEnum>(params: ChangeTicketStatusParams<T>) {
+    /**
+     * Returns false when the status changed underneath this call (a concurrent update won, or it no
+     * longer matches expectedStatus); nothing is written and no close side effects run.
+     */
+    async changeTicketStatus<T extends SupportTicketStatusEnum>(params: ChangeTicketStatusParams<T>): Promise<boolean> {
         try {
-            const { uuid, status, callingUserName } = params;
+            const { uuid, status, callingUserName, expectedStatus } = params;
 
             const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
-            if (status === ticket.status) return; // re-close would resend the outcome and reset retention
+            if (status === ticket.status) return true; // re-close would resend the outcome and reset retention
+            if (expectedStatus && ticket.status !== expectedStatus) return false;
             this.assertPrivacyStatusChange(ticket, status);
 
             let feedEntry: SupportTicketFeedEntryInterface | null = null;
@@ -302,8 +312,9 @@ export default class SupportTicketService {
                 };
             }
 
-            await SupportTicket.updateOne(
-                { uuid: { $eq: uuid } },
+            // prevent racing updates
+            const res = await SupportTicket.updateOne(
+                { uuid: { $eq: uuid }, status: { $eq: ticket.status } },
                 {
                     $set: {
                         status,
@@ -311,10 +322,12 @@ export default class SupportTicketService {
                     },
                     ...(feedEntry ? { $push: { feed: feedEntry } } : {}),
                 }
-            ).orFail();
+            );
+            if (res.matchedCount === 0) return false;
             await this.upsertToSearchIndex(uuid);
             if (status === "closed" && ticket.privacy) await this.onPrivacyTicketClosed(uuid);
             await this.syncClosedTicketVector(uuid);
+            return true;
         } catch (err) {
             throw err;
         }
@@ -986,8 +999,9 @@ export default class SupportTicketService {
     }
 
     /**
-     * Keeps only what proves a fulfilled deletion request was handled: basic metadata, requester
-     * email/UUID, and access key (so an appeal of a partial denial can still be opened).
+     * Keeps only what proves a fulfilled deletion request was handled: the structured control fields
+     * (dates, request type, channel, outcome, denial basis), requester email/UUID, and access key
+     * (so an appeal of a partial denial can still be opened). Free text is cleared.
      * PII on the ticket is stripped and saved first; messages and files go after, and redactedAt is
      * only stamped once everything is gone, so a failure leaves the ticket for the daily retry.
      */
@@ -1014,7 +1028,10 @@ export default class SupportTicketService {
             ticket.guest.lastName = "";
             ticket.guest.organization = "";
         }
+        ticket.metadata = {};
         ticket.set("privacy.actingForOther.note", undefined);
+        ticket.set("privacy.responseSummary", "Redacted");
+        if (ticket.privacy?.denialBasis?.note) ticket.set("privacy.denialBasis.note", "Redacted");
         if (ticket.privacy?.extension) ticket.set("privacy.extension.reason", "Redacted");
         // Mutate in place: spreading a Mongoose subdoc drops its getter-backed fields
         for (const f of ticket.feed) {
