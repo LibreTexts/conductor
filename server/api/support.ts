@@ -64,6 +64,7 @@ import SupportQueueService from "./services/support-queue-service";
 import SupportTicketService from "./services/support-ticket-service";
 import Project, { ProjectInterface } from "../models/project";
 import base62 from "base62-random";
+import { supportTicketAIService } from "./services/support-ticket-ai-service";
 import {
   PRIVACY_QUEUE_SLUG,
   PrivacyTicketError,
@@ -1199,6 +1200,47 @@ async function updateTicket(
   }
 }
 
+async function answerTicketWithAI(
+  req: ZodReqWithUser<z.infer<typeof TicketUUIDParams>>,
+  res: Response,
+) {
+  try {
+    const { uuid } = req.params;
+    const ticketService = new SupportTicketService();
+    const hasAccess = await ticketService.checkHarvesterAccessToTicket(
+      uuid,
+      req.user.decoded.uuid,
+    );
+    if (!hasAccess) {
+      return res.status(403).send({ err: true, errMsg: conductorErrors.err8 });
+    }
+
+    const result = await supportTicketAIService.answerTicket(uuid);
+    return res.send({ err: false, ...result });
+  } catch (err: any) {
+    debugError(err);
+    if (err?.message?.includes("only be generated")) {
+      return res.status(400).send({ err: true, errMsg: err.message });
+    }
+    return conductor500Err(res);
+  }
+}
+
+async function syncClosedTicketVectors(_req: Request, res: Response) {
+  try {
+    const result = await new SupportTicketService().syncAllClosedTicketVectors();
+    return res.send({ err: false, ...result });
+  } catch (err) {
+    debugError(err);
+    return res.status(500).send({
+      err: true,
+      errMsg: `Failed to sync closed-ticket vectors: ${
+        err instanceof Error ? err.message : "Unknown error"
+      }`,
+    });
+  }
+}
+
 async function bulkUpdateTickets(
   req: ZodReqWithUser<z.infer<typeof BulkUpdateTicketsValidator>>,
   res: Response,
@@ -1293,11 +1335,7 @@ async function createGeneralMessage(
         foundSenderName = `${foundUser.firstName} ${foundUser.lastName}`;
         foundSenderUUID = foundUser.uuid;
         foundSenderEmail = foundUser.email;
-        senderIsStaff = authAPI.checkHasRole(
-          foundUser,
-          "libretexts",
-          "support",
-        );
+        senderIsStaff = await _isInternalSupportUser(req);
       }
     }
 
@@ -1332,6 +1370,7 @@ async function createGeneralMessage(
       attachments,
       senderUUID: foundSenderUUID,
       senderEmail: senderEmail(false), // only return email if not logged in
+      senderIsStaff,
       timeSent: new Date().toISOString(),
       type: "general",
     });
@@ -2033,4 +2072,6 @@ export default {
   ticketAttachmentUploadHandler,
   addTicketCC,
   removeTicketCC,
+  answerTicketWithAI,
+  syncClosedTicketVectors,
 };

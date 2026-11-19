@@ -17,6 +17,7 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
 }) => {
   const containerRef =
     useRef<React.ElementRef<typeof TicketCommentsContainer>>(null);
+  const messageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const { handleGlobalError } = useGlobalError();
   const queryClient = useQueryClient();
   const { getValues, setValue, watch, trigger, register, reset } =
@@ -25,6 +26,18 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
         message: "",
       },
     });
+  const messageValue = watch("message");
+  const { ref: messageRegisterRef, ...messageField } = register("message", {
+    required: "Message cannot be empty",
+  });
+
+  const MESSAGE_TEXTAREA_MAX_HEIGHT_PX = 320;
+  useEffect(() => {
+    const el = messageTextareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MESSAGE_TEXTAREA_MAX_HEIGHT_PX)}px`;
+  }, [messageValue]);
 
   const { data: messages, isFetching } = useQuery<SupportTicketMessage[]>({
     queryKey: ["ticketInternalMessages", id],
@@ -118,13 +131,20 @@ const TicketInternalMessaging: React.FC<TicketInternalMessagingProps> = ({
                 label="Send Message"
                 placeholder="Enter your message here..."
                 maxLength={3000}
+                rows={4}
+                autoResize
+                textareaClassName="!max-h-80 !overflow-y-auto"
                 onKeyDown={(e: any) => {
                   if (e.key === "Enter" && e.ctrlKey) {
                     if (!getValues("message")) return;
                     sendMessageMutation.mutateAsync();
                   }
                 }}
-                {...register("message", { required: "Message cannot be empty" })}
+                {...messageField}
+                ref={(el) => {
+                  messageTextareaRef.current = el;
+                  messageRegisterRef(el);
+                }}
               />
               <Stack direction="horizontal" className="w-full mt-2" justify="between">
                 <Text size="xs">
