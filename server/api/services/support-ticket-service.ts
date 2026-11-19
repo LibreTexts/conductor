@@ -73,22 +73,27 @@ export default class SupportTicketService {
             ticket.assignedUUIDs = assigned;
             // Closed privacy tickets can't reopen (close email/redaction already ran)
             const keepStatus = ticket.status === "awaiting_requester" || (ticket.status === "closed" && !!ticket.privacy);
-            ticket.status = keepStatus ? ticket.status : messages.length > 0 ? "in_progress" : "assigned";
-            ticket.feed = [...(ticket.feed || []), feedEntry];
+            const nextStatus = messages.length > 0 ? "in_progress" : "assigned";
+            // push (not reassign) so the save is a $push and can't drop entries written concurrently
+            ticket.feed.push(feedEntry);
             await ticket.save();
-            await this.upsertToSearchIndex(uuid);
+            // Assignment always lands; the status move is skipped if a concurrent update changed status
+            const statusMoved = !keepStatus && nextStatus !== ticket.status &&
+                await this.changeTicketStatus({ uuid: ticket.uuid, status: nextStatus, expectedStatus: ticket.status });
+            if (!statusMoved) await this.upsertToSearchIndex(uuid);
 
+            const updated = await SupportTicket.findOne({ uuid: { $eq: uuid } }).populate('queue').orFail();
             if (newAssigneeEmails.length === 0) {
-                return ticket; // No need to send emails
+                return updated; // No need to send emails
             }
 
             await this.sendAssignmentEmails(
-                ticket,
+                updated,
                 newAssigneeEmails,
                 assignerUser.firstName
             );
 
-            return ticket;
+            return updated;
         } catch (err) {
             throw err;
         }
@@ -270,9 +275,10 @@ export default class SupportTicketService {
     async changeTicketQueue(uuid: string, queueId: string, privacy?: PrivacyTicketFields) {
         try {
             await SupportTicket.updateOne(
-                { uuid },
+                { uuid: { $eq: uuid } },
                 {
                     $set: { queue_id: queueId, ...(privacy && { privacy }) },
+                    $inc: { revision: 1 }, // invalidates any close staged against the old queue
                 }
             ).orFail();
             await this.upsertToSearchIndex(uuid);
@@ -281,43 +287,60 @@ export default class SupportTicketService {
         }
     }
 
-    async changeTicketStatus<T extends SupportTicketStatusEnum>(params: ChangeTicketStatusParams<T>) {
+    /**
+     * Returns false when the status changed underneath this call (a concurrent update won, or it no
+     * longer matches expectedStatus); nothing is written and no close side effects run.
+     */
+    async changeTicketStatus<T extends SupportTicketStatusEnum>(params: ChangeTicketStatusParams<T>): Promise<boolean> {
         try {
-            const { uuid, status, callingUserName } = params;
+            const { uuid, status, callingUserName, expectedStatus } = params;
 
             const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).orFail();
-            if (status === ticket.status) return; // re-close would resend the outcome and reset retention
-            this.assertPrivacyStatusChange(ticket, status);
+            if (status === ticket.status) return true; // re-close would resend the outcome and reset retention
+            if (expectedStatus && ticket.status !== expectedStatus) return false;
 
-            let feedEntry: SupportTicketFeedEntryInterface | null = null;
-            if (status === "closed" && callingUserName) {
-                feedEntry = this._createFeedEntry_Closed(
-                    callingUserName
-                );
-            } else if (ticket.status === "closed" && callingUserName) {
-                feedEntry = {
-                    action: `Ticket was reopened`,
-                    blame: callingUserName,
-                    date: new Date().toISOString(),
-                };
-            }
-
-            await SupportTicket.updateOne(
-                { uuid: { $eq: uuid } },
-                {
-                    $set: {
-                        status,
-                        ...(status === "closed" && { timeClosed: new Date().toISOString() }),
-                    },
-                    ...(feedEntry ? { $push: { feed: feedEntry } } : {}),
-                }
-            ).orFail();
+            const readStatus = ticket.status;
+            this.stageStatusChange(ticket, status, callingUserName);
+            if (!(await this.saveIfUnchanged(ticket, readStatus))) return false;
             await this.upsertToSearchIndex(uuid);
             if (status === "closed" && ticket.privacy) await this.onPrivacyTicketClosed(uuid);
             await this.syncClosedTicketVector(uuid);
+            return true;
         } catch (err) {
             throw err;
         }
+    }
+
+    /** Applies a status change in memory (rules, timeClosed, feed entry); persist with saveIfUnchanged. */
+    stageStatusChange(ticket: SupportTicketInterface, status: SupportTicketStatusEnum, callingUserName?: string): void {
+        this.assertPrivacyStatusChange(ticket, status);
+        if (status === "closed" && callingUserName) {
+            ticket.feed.push(this._createFeedEntry_Closed(callingUserName));
+        } else if (ticket.status === "closed" && callingUserName) {
+            ticket.feed.push({ action: "Ticket was reopened", blame: callingUserName, date: new Date().toISOString() });
+        }
+        if (status === "closed") ticket.timeClosed = new Date().toISOString();
+        ticket.status = status;
+    }
+
+    /**
+     * Writes the document's pending changes only if neither its status nor its revision moved since
+     * it was read, so the rules checked in memory (close requirements, privacy) still hold. Any
+     * concurrent queue/privacy/status write makes the whole write a no-op and returns false.
+     * Doesn't reindex.
+     */
+    async saveIfUnchanged(ticket: SupportTicketInterface, readStatus: SupportTicketStatusEnum): Promise<boolean> {
+        const changes = ticket.getChanges();
+        if (Object.keys(changes).length === 0) return true;
+        const res = await SupportTicket.updateOne(
+            {
+                uuid: { $eq: ticket.uuid },
+                status: { $eq: readStatus },
+                revision: { $eq: ticket.revision ?? null }, // null also matches tickets that predate the field
+            },
+            { ...changes, $inc: { ...changes.$inc, revision: 1 } },
+        );
+        return res.matchedCount > 0;
     }
 
     async searchTickets({
@@ -986,8 +1009,9 @@ export default class SupportTicketService {
     }
 
     /**
-     * Keeps only what proves a fulfilled deletion request was handled: basic metadata, requester
-     * email/UUID, and access key (so an appeal of a partial denial can still be opened).
+     * Keeps only what proves a fulfilled deletion request was handled: the structured control fields
+     * (dates, request type, channel, outcome, denial basis), requester email/UUID, and access key
+     * (so an appeal of a partial denial can still be opened). Free text is cleared.
      * PII on the ticket is stripped and saved first; messages and files go after, and redactedAt is
      * only stamped once everything is gone, so a failure leaves the ticket for the daily retry.
      */
@@ -1014,7 +1038,10 @@ export default class SupportTicketService {
             ticket.guest.lastName = "";
             ticket.guest.organization = "";
         }
+        ticket.metadata = {};
         ticket.set("privacy.actingForOther.note", undefined);
+        ticket.set("privacy.responseSummary", "Redacted");
+        if (ticket.privacy?.denialBasis?.note) ticket.set("privacy.denialBasis.note", "Redacted");
         if (ticket.privacy?.extension) ticket.set("privacy.extension.reason", "Redacted");
         // Mutate in place: spreading a Mongoose subdoc drops its getter-backed fields
         for (const f of ticket.feed) {
@@ -1170,71 +1197,58 @@ export default class SupportTicketService {
     /** Keep the Qdrant collection aligned with ticket status without blocking ticket updates. */
     async syncClosedTicketVector(uuid: string): Promise<void> {
         try {
-            const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).lean();
-            if (!ticket || ticket.status !== "closed") {
-                await qdrantService.deleteClosedSupportTicket(uuid);
-                return;
-            }
-
-            const messages = await SupportTicketMessage.find({
-                ticket: { $eq: uuid },
-                type: { $eq: "general" },
-            })
-                .sort({ timeSent: 1 })
-                .select({ message: 1, senderIsStaff: 1, timeSent: 1, _id: 0 })
-                .lean();
-
-            await qdrantService.upsertClosedSupportTicket({
-                uuid: ticket.uuid,
-                title: ticket.title,
-                description: ticket.description,
-                category: ticket.category,
-                queueId: ticket.queue_id,
-                timeOpened: ticket.timeOpened,
-                timeClosed: ticket.timeClosed,
-                messages: messages.map((message) => ({
-                    message: message.message,
-                    senderIsStaff: message.senderIsStaff,
-                    timeSent: message.timeSent,
-                })),
-            });
+            await this.writeClosedTicketVector(uuid);
         } catch (err) {
             supportTicketLog.error(`[SupportTicketService] Failed to sync closed-ticket vector ${uuid}: ${err}`);
         }
+    }
+
+    private async writeClosedTicketVector(uuid: string): Promise<void> {
+        const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).lean();
+        // Privacy inquiries never go to the vector DB or the embedding API
+        if (!ticket || ticket.status !== "closed" || ticket.privacy) {
+            await qdrantService.deleteClosedSupportTicket(uuid);
+            return;
+        }
+
+        const messages = await SupportTicketMessage.find({
+            ticket: { $eq: uuid },
+            type: { $eq: "general" },
+        })
+            .sort({ timeSent: 1 })
+            .select({ message: 1, senderIsStaff: 1, timeSent: 1, _id: 0 })
+            .lean();
+
+        await qdrantService.upsertClosedSupportTicket({
+            uuid: ticket.uuid,
+            title: ticket.title,
+            description: ticket.description,
+            category: ticket.category,
+            queueId: ticket.queue_id,
+            timeOpened: ticket.timeOpened,
+            timeClosed: ticket.timeClosed,
+            messages: messages.map((message) => ({
+                message: message.message,
+                senderIsStaff: message.senderIsStaff,
+                timeSent: message.timeSent,
+            })),
+        });
     }
 
     /** Backfills existing closed tickets. Intended for an explicit admin migration request. */
     async syncAllClosedTicketVectors(): Promise<{ synced: number; failed: number }> {
         // Create the destination first so configuration/auth failures surface before a long DB backfill.
         await qdrantService.initializeClosedSupportTicketsCollection();
-        const uuids = await SupportTicket.find({ status: { $eq: "closed" } }).distinct("uuid");
+        const uuids = await SupportTicket.find({
+            status: { $eq: "closed" },
+            privacy: { $exists: false },
+        }).distinct("uuid");
         let synced = 0;
         let failed = 0;
 
         for (const uuid of uuids) {
             try {
-                const ticket = await SupportTicket.findOne({ uuid: { $eq: uuid } }).lean().orFail();
-                const messages = await SupportTicketMessage.find({
-                    ticket: { $eq: uuid },
-                    type: { $eq: "general" },
-                })
-                    .sort({ timeSent: 1 })
-                    .select({ message: 1, senderIsStaff: 1, timeSent: 1, _id: 0 })
-                    .lean();
-                await qdrantService.upsertClosedSupportTicket({
-                    uuid: ticket.uuid,
-                    title: ticket.title,
-                    description: ticket.description,
-                    category: ticket.category,
-                    queueId: ticket.queue_id,
-                    timeOpened: ticket.timeOpened,
-                    timeClosed: ticket.timeClosed,
-                    messages: messages.map((message) => ({
-                        message: message.message,
-                        senderIsStaff: message.senderIsStaff,
-                        timeSent: message.timeSent,
-                    })),
-                });
+                await this.writeClosedTicketVector(uuid);
                 synced += 1;
             } catch (err) {
                 failed += 1;
@@ -1248,7 +1262,8 @@ export default class SupportTicketService {
     async autoCloseTicket(ticket: SupportTicketInterface, feedEntry: SupportTicketFeedEntryInterface): Promise<void> {
         try {
             await SupportTicket.updateOne(
-                { uuid: ticket.uuid },
+                // A ticket moved into privacy after it was picked must not close without an outcome
+                { uuid: { $eq: ticket.uuid }, privacy: { $exists: false } },
                 {
                     status: "closed",
                     autoCloseTriggered: false,

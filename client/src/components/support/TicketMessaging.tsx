@@ -239,6 +239,7 @@ const TicketMessaging: React.FC<TicketMessagingProps> = ({
               </Stack>
               <Stack direction="horizontal" gap="sm" className="mt-2 md:mt-0" justify="end" align="end">
                 {(user.isSupport || user.isHarvester) &&
+                  !ticket.privacy &&
                   ticket.status !== "closed" && (
                     <Button
                       variant="outline"

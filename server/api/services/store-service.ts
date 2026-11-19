@@ -1612,14 +1612,14 @@ class StoreService {
      */
     private async _closeOrderFailureTicket(ticketUUID: string, orderId: string): Promise<boolean> {
         try {
-            await this.ticketService.changeTicketStatus({
+            // false = a concurrent status change won; leave it tracked so the next run retries
+            return await this.ticketService.changeTicketStatus({
                 uuid: ticketUUID,
                 status: "closed",
                 callingUserName: "Conductor (automated)",
             });
-            return true;
         } catch (error) {
-            // `changeTicketStatus` closes with `updateOne(...).orFail()`, so a ticket that no longer
+            // `changeTicketStatus` loads the ticket with `findOne(...).orFail()`, so a ticket that no longer
             // exists surfaces as DocumentNotFoundError. That is permanent, not transient: reporting
             // it as unresolved would make the order retry forever and keep the dedupe in
             // `_createOrderFailureTicket` wedged, so treat it as nothing left to close.
