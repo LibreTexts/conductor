@@ -48,6 +48,7 @@ const AuthorsManager = lazyWithRetry(() => import('./screens/conductor/controlpa
 import ProjectAccessibility from './components/projects/ProjectAccessibility';
 import ProjectPeerReview from './components/projects/ProjectPeerReview';
 const MyProjects = lazyWithRetry(() => import('./screens/conductor/Projects'));
+const ProjectProperties = lazyWithRetry(() => import('./screens/conductor/Projects/Properties'));
 const ProjectAnalytics = lazyWithRetry(() => import('./screens/conductor/Projects/Analytics'));
 const ProjectPeerReviewSubmit = lazyWithRetry(() => import('./screens/conductor/Projects/PeerReview/submit'));
 const ProjectPeerReviewPreview = lazyWithRetry(() => import('./screens/conductor/Projects/PeerReview/preview'));
@@ -159,6 +160,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/submit-peer-review' component={ProjectPeerReviewSubmit} />
           <PrivateRoute exact path='/projects/:id/preview-peer-review/:rubricID' component={ProjectPeerReviewPreview} />
           <PrivateRoute exact path='/projects/:id/timeline' component={ProjectTimeline} />
+          <PrivateRoute exact path='/projects/:id/properties' component={ProjectProperties} />
           <PrivateRoute exact path='/projects/:id/metadata-editor' component={TextbookCuration} />
           <PrivateRoute exact path='/projects/:id/metadata-editor/batch' component={BatchRun} />
           <Route

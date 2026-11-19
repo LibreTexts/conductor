@@ -1,8 +1,11 @@
-import { Breadcrumb, Button, Card, Stack, Heading, Text, IconButton, Input } from "@libretexts/davis-react";
-import { IconDownload, IconFileDescription, IconFolder, IconFolderOpen, IconSchool, IconSchoolFilled, IconSearch, IconUsersGroup } from "@tabler/icons-react";
+import { Breadcrumb, Button, Card, Stack, Heading, Text, IconButton, Input, Tooltip } from "@libretexts/davis-react";
+import { DataTable, ColumnDef } from "@libretexts/davis-react-table";
+import { IconDownload, IconFileDescription, IconFolder, IconFolderOpen, IconInfoCircle, IconSchool, IconSchoolFilled, IconSearch, IconUsersGroup } from "@tabler/icons-react";
 import { useCallback, useMemo, useState } from "react";
-import { List, Popup } from "semantic-ui-react";
 import { truncateString } from "../../util/HelperFunctions";
+import { getFilesLicenseText } from "../../util/ProjectHelpers";
+import { useModals } from "../../../context/ModalContext";
+import AssetInfoModal from "../../FilesManager/AssetInfoModal";
 import { useTypedSelector } from "../../../state/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { BookWithSourceData, ProjectFile } from "../../../types";
@@ -30,6 +33,7 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({
     // Global State & Error Handling
     const { handleGlobalError } = useGlobalError();
     const user = useTypedSelector((state) => state.user);
+    const { openModal, closeAllModals } = useModals();
 
     // Project Files
     const [currDirectory, setCurrDirectory] = useState<string>("");
@@ -148,6 +152,116 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({
         );
     }
 
+    const columns: ColumnDef<ProjectFile>[] = [
+        {
+            id: "name",
+            header: "Name",
+            cell: ({ row }) => {
+                const file = row.original;
+                return (
+                    <div className="project-file-title-column">
+                        <div className={file.description ? "mb-1" : ""}>
+                            {file.storageType === "folder" ? (
+                                <IconFolder size={16} className="inline mr-1 shrink-0 mb-1" aria-hidden="true" />
+                            ) : file.access === 'instructors' ? (
+                                <IconSchoolFilled size={16} className="inline mr-1 shrink-0 mb-1 text-primary" aria-hidden="true" />
+                            ) : file.access === 'public' ? (
+                                <IconUsersGroup size={16} className="inline mr-1 shrink-0 mb-1" aria-hidden="true" />
+                            ) : (
+                                <IconFileDescription size={16} className="inline mr-1 shrink-0 mb-1" aria-hidden="true" />
+                            )}
+                            {file.storageType === "folder" ? (
+                                <Text
+                                    as="button"
+                                    type="button"
+                                    className="text-link appearance-none bg-transparent border-none p-0 m-0 cursor-pointer text-left text-base!"
+                                    aria-label={`Open Folder ${file.name}`}
+                                    onClick={() => changeDirectory(file.fileID)}
+                                >
+                                    {file.name}
+                                </Text>
+                            ) : (
+                                <Text
+                                    as="button"
+                                    type="button"
+                                    className="appearance-none bg-transparent border-none p-0 m-0 cursor-pointer text-left text-base!"
+                                    aria-label={`Download Asset ${file.name} (opens in new tab)`}
+                                    onClick={() => handleDownloadFile(file.fileID)}
+                                >
+                                    {file.name}
+                                </Text>
+                            )}
+                            {file.access === 'instructors' && user?.isAuthenticated && user?.verifiedInstructor && (
+                                <Tooltip content="This asset is restricted to verified instructors. You're good to go!">
+                                    <button
+                                        type="button"
+                                        className="ml-2 align-middle text-primary"
+                                        aria-label="Restricted to verified instructors. You have access."
+                                    >
+                                        <IconSchool size={16} aria-hidden="true" />
+                                    </button>
+                                </Tooltip>
+                            )}
+                        </div>
+                        {file.description && (
+                            <Text className="text-sm pl-5 line-clamp-1">
+                                {truncateString(file.description, 100)}
+                            </Text>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: "license",
+            header: "License",
+            cell: ({ row }) =>
+                row.original.storageType === "folder" ? null : (
+                    <span className="text-sm">{getFilesLicenseText(row.original.license)}</span>
+                ),
+        },
+        {
+            id: "actions",
+            header: "",
+            cell: ({ row }) => {
+                const file = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1">
+                        <IconButton
+                            icon={<IconInfoCircle size={16} />}
+                            size="sm"
+                            variant="outline"
+                            title={`Info for ${file.name}`}
+                            aria-label={`Info for ${file.name}`}
+                            onClick={() =>
+                                openModal(<AssetInfoModal file={file} onClose={closeAllModals} />)
+                            }
+                        />
+                        {file.storageType === "folder" ? (
+                            <IconButton
+                                icon={<IconFolderOpen size={16} />}
+                                size="sm"
+                                variant="primary"
+                                title={`Open Folder ${file.name}`}
+                                aria-label={`Open Folder ${file.name}`}
+                                onClick={() => changeDirectory(file.fileID)}
+                            />
+                        ) : (
+                            <IconButton
+                                icon={<IconDownload size={16} />}
+                                size="sm"
+                                variant="primary"
+                                title={`Download Asset ${file.name} (opens in new tab)`}
+                                aria-label={`Download Asset ${file.name} (opens in new tab)`}
+                                onClick={() => handleDownloadFile(file.fileID)}
+                            />
+                        )}
+                    </div>
+                );
+            },
+        },
+    ];
+
     /**
      * Don't render the Assets section at all if there are no files at the root.
      * `files` is the root listing whenever currDirectory is "", so emptiness is
@@ -178,7 +292,7 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({
                     <div className="py-2 border-b border-neutral-200">
                         <div className="flex-row-div">
                             <div className="left-flex">
-                                {DirectoryBreadcrumbs()}
+                                {currDirectory !== "" && DirectoryBreadcrumbs()}
                             </div>
                             <div className="right-flex">
                                 <Input
@@ -200,115 +314,26 @@ const AssetsSection: React.FC<AssetsSectionProps> = ({
                                 <em>Loading assets...</em>
                             </p>
                         </div>
-                    ) : filteredFiles.length > 0 ? (
-                        <List divided verticalAlign="middle">
-                            {filteredFiles.map((file) => {
-                                return (
-                                    <List.Item key={file.fileID}>
-                                        <div className="flex-col-div">
-                                            <div className="flex-row-div">
-                                                <div className="left-flex">
-                                                    <div className="project-file-title-column">
-                                                        <div className={file.description ? "mb-1" : ""}>
-                                                            {file.storageType === "folder" ? (
-                                                                <IconFolder size={16} className="inline mr-1 shrink-0 mb-1" aria-hidden="true" />
-                                                            ) : file.access === 'instructors' ? (
-                                                                <IconSchoolFilled size={16} className="inline mr-1 shrink-0 mb-1 text-primary" aria-hidden="true" />
-                                                            ) : file.access === 'public' ? (
-                                                                <IconUsersGroup size={16} className="inline mr-1 shrink-0 mb-1" aria-hidden="true" />
-                                                            ) : (
-                                                                <IconFileDescription size={16} className="inline mr-1 shrink-0 mb-1" aria-hidden="true" />
-                                                            )}
-                                                            {file.storageType === "folder" ? (
-                                                                <Text
-                                                                    as="button"
-                                                                    type="button"
-                                                                    className="text-link appearance-none bg-transparent border-none p-0 m-0 cursor-pointer text-left text-base!"
-                                                                    aria-label={`Open Folder ${file.name}`}
-                                                                    onClick={() => changeDirectory(file.fileID)}
-                                                                >
-                                                                    {file.name}
-                                                                </Text>
-                                                            ) : (
-                                                                <Text
-                                                                    as="button"
-                                                                    type="button"
-                                                                    className="appearance-none bg-transparent border-none p-0 m-0 cursor-pointer text-left text-base!"
-                                                                    aria-label={`Download Asset ${file.name} (opens in new tab)`}
-                                                                    onClick={() => handleDownloadFile(file.fileID)}
-                                                                >
-                                                                    {file.name}
-                                                                </Text>
-                                                            )}
-                                                            {
-                                                                file.access === 'instructors' && user?.isAuthenticated && user?.verifiedInstructor && (
-                                                                    <Popup
-                                                                        content="This asset is restricted to verified instructors. You're good to go!"
-                                                                        trigger={
-                                                                            <IconSchool size={16} color="blue" className="!ml-2 !mt-0.5" />
-                                                                        }
-                                                                        position="top center"
-                                                                    />
-                                                                )
-                                                            }
-                                                        </div>
-                                                        <div>
-                                                            {file.description && (
-                                                                <Text
-                                                                    className="text-sm pl-5 line-clamp-1"
-                                                                >
-                                                                    {truncateString(
-                                                                        file.description,
-                                                                        100
-                                                                    )}
-                                                                </Text>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="right-flex">
-                                                    {
-                                                        file.storageType === "folder" ? (
-                                                            <IconButton
-                                                                icon={<IconFolderOpen size={16} />}
-                                                                size="sm"
-                                                                variant="primary"
-                                                                title={`Open Folder ${file.name}`}
-                                                                aria-label={`Open Folder ${file.name}`}
-                                                                onClick={() =>
-                                                                    changeDirectory(file.fileID)
-                                                                }
-                                                            />
-                                                        ) : (
-                                                            <IconButton
-                                                                icon={<IconDownload size={16} />}
-                                                                size="sm"
-                                                                variant="primary"
-                                                                title={`Download Asset ${file.name} (opens in new tab)`}
-                                                                aria-label={`Download Asset ${file.name} (opens in new tab)`}
-                                                                onClick={() =>
-                                                                    handleDownloadFile(file.fileID)
-                                                                }
-                                                            />
-                                                        )
-                                                    }
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </List.Item>
-                                );
-                            })}
-                        </List>
                     ) : (
-                        <div>
-                            <p className="text-center muted-text">
-                                <em>
-                                    {fileSearchQuery
-                                        ? "No assets match your search."
-                                        : "No assets yet."}
-                                </em>
-                            </p>
-                        </div>
+                        <DataTable
+                            data={filteredFiles}
+                            columns={columns}
+                            density="compact"
+                            striped
+                            emptyState={
+                                <p className="text-center muted-text">
+                                    <em>
+                                        {fileSearchQuery
+                                            ? "No assets match your search."
+                                            : "No assets yet."}
+                                    </em>
+                                </p>
+                            }
+                            tableOptions={{ getRowId: (row) => row.fileID }}
+                            // DataTable's wrapper bakes in overflow-auto, which clips the
+                            // non-portaled instructor Tooltip near the top row.
+                            classNames={{ wrapper: "!overflow-visible" }}
+                        />
                     )}
                 </>
             )}

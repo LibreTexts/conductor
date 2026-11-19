@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { captureVisualSnapshot } from '../../../base';
+import { captureVisualSnapshot, usesRealBackend } from '../../../base';
 import { clickOn, goToPage, wait0s, wait5s } from '../../../utils';
 
 /** 1-based catalog positions to open (same steps for each). */
@@ -30,5 +30,25 @@ export async function openCommonsBooks(page: Page): Promise<void> {
       page,
       `Commons after opening book ${position}`,
     );
+
+    // Asset rows come from fixtures/files.json, so only mock mode has known names to click.
+    if (position === 1 && !usesRealBackend()) {
+      await captureBookAssets(page);
+    }
   }
+}
+
+/** Snapshot the Assets Info modal, then the inside of a folder (breadcrumb visible). */
+async function captureBookAssets(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Info for Course Syllabus.pdf' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await captureVisualSnapshot(page, 'Commons book asset info modal');
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole('button', { name: 'Open Folder Lecture Slides' }).first().click();
+  await expect(page.getByText('Week 1 - Introduction.pptx')).toBeVisible();
+  await captureVisualSnapshot(page, 'Commons book assets inside folder');
 }

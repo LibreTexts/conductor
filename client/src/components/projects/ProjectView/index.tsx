@@ -32,18 +32,16 @@ import ProjectPropertiesCard from "./ProjectPropertiesCard";
 import ProjectViewSkeleton from "./ProjectViewSkeleton";
 import { ProjectNotesCard, ProjectSourceCard, ProjectTeamCard } from "./ProjectDetailCards";
 import { hasSourceProperties } from "./projectDisplay";
+import { CONTAINER_CLASSES, PAGE_CLASSES } from "./layout";
 
-const ProjectPropertiesModal = lazyWithRetry(() => import("../ProjectPropertiesModal"));
 const ManageTeamModal = lazyWithRetry(() => import("../ManageTeamModal"));
 
 const FLAG_MODAL_ID = "project-flag";
 const PAGE_MODAL_IDS = [...Object.values(TASK_MODAL_IDS), FLAG_MODAL_ID];
 
 /** Dialogs that take a `show` prop and must re-render with fresh project data. */
-type InlineDialog = "properties" | "team" | "readerResources";
+type InlineDialog = "team" | "readerResources";
 
-const PAGE_CLASSES = "min-h-screen bg-surface-muted px-4 pt-6 pb-16 sm:px-8";
-const CONTAINER_CLASSES = "flex flex-col gap-6";
 
 /**
  * Davis Alert only takes a plain-string message, and the flag reason is
@@ -59,8 +57,8 @@ const FlagNotice = ({ group, description }: { group: string; description?: strin
       <IconFlag size={20} aria-hidden="true" className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="m-0">
-          <strong className="font-semibold">This project has an active flag for {group}.</strong> It can be cleared under
-          More tools.
+          <strong className="font-semibold">This project has an active flag for {group}.</strong> Clear it with the Clear
+          Flag button.
         </p>
         {html && (
           <div className="mt-3 rounded-md border border-warning-200 bg-surface px-4 py-3">
@@ -229,7 +227,6 @@ const ProjectView = () => {
               isFlagged={isFlagged}
               isMiniRepo={isMiniRepo}
               hasAnalytics={!!project.hasTrafficAnalyticsConfigured}
-              onEditProperties={() => setActiveDialog("properties")}
               onManageTeam={() => setActiveDialog("team")}
               onFlag={openFlag}
             />
@@ -316,11 +313,6 @@ const ProjectView = () => {
       </div>
 
       <Suspense fallback={<LoadingSpinner />}>
-        <ProjectPropertiesModal
-          show={activeDialog === "properties"}
-          projectID={projectID}
-          onClose={() => setActiveDialog(null)}
-        />
         <ManageTeamModal
           show={activeDialog === "team"}
           project={project}

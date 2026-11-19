@@ -18,7 +18,6 @@ interface ProjectActionsBarProps {
   isFlagged: boolean;
   isMiniRepo: boolean;
   hasAnalytics: boolean;
-  onEditProperties: () => void;
   onManageTeam: () => void;
   onFlag: (mode: "set" | "clear") => void;
 }
@@ -43,7 +42,6 @@ const ProjectActionsBar: React.FC<ProjectActionsBarProps> = ({
   isFlagged,
   isMiniRepo,
   hasAnalytics,
-  onEditProperties,
   onManageTeam,
   onFlag,
 }) => {
@@ -76,10 +74,11 @@ const ProjectActionsBar: React.FC<ProjectActionsBarProps> = ({
       <div className="flex gap-2">
         {permissions.isMember && (
           <Button
+            as={Link}
+            to={`${basePath}/properties`}
             variant="primary"
             icon={<IconPencil size={16} />}
             className="max-sm:h-11! max-sm:flex-1"
-            onClick={onEditProperties}
           >
             Edit Properties
           </Button>

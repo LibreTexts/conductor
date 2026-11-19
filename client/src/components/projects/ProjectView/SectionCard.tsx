@@ -3,6 +3,8 @@ import classNames from "classnames";
 import { Heading, Text } from "@libretexts/davis-react";
 
 interface SectionCardProps {
+  /** Anchor target. Also makes the card focusable, for in-page navigation. */
+  id?: string;
   title: ReactNode;
   /** Rendered on the right side of the header row. */
   actions?: ReactNode;
@@ -19,6 +21,7 @@ interface SectionCardProps {
  * a body. Omit children for a single-row collapsed card.
  */
 const SectionCard = ({
+  id,
   title,
   actions,
   description,
@@ -28,8 +31,12 @@ const SectionCard = ({
   "aria-busy": ariaBusy,
 }: SectionCardProps) => (
   <section
+    id={id}
+    tabIndex={id ? -1 : undefined}
+    aria-labelledby={id ? `${id}-heading` : undefined}
     className={classNames(
       "rounded-lg border border-neutral-200 bg-surface shadow-sm",
+      id && "scroll-mt-6 focus:outline-none",
       className
     )}
     aria-busy={ariaBusy || undefined}
@@ -41,7 +48,7 @@ const SectionCard = ({
       )}
     >
       <div className="min-w-0">
-        <Heading as="h2" level={5} className="m-0!">
+        <Heading as="h2" level={5} id={id ? `${id}-heading` : undefined} className="m-0!">
           {title}
         </Heading>
         {description && (

@@ -190,6 +190,7 @@ const CommonsProject = () => {
                   allowBulkDownload={true}
                   toggleFilesManager={() => setShowAssets(!showAssets)}
                   projectVisibility="public"
+                  showInfo
                 />
               </div>
             )}

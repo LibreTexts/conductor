@@ -59,6 +59,7 @@ import PermanentLinkModal from "./PermanentLinkModal";
 import { useModals } from "../../context/ModalContext";
 import BulkTagModal from "./BulkTagModal";
 import BulkEditMetadataModal from "./BulkEditMetadataModal";
+import AssetInfoModal from "./AssetInfoModal";
 
 interface FilesManagerProps {
   projectID: string;
@@ -73,6 +74,8 @@ interface FilesManagerProps {
    * card header, matching the other project modules.
    */
   variant?: "default" | "card";
+  /** Show a per-row "Info" button that opens the asset info modal (Commons). */
+  showInfo?: boolean;
 }
 
 type FileEntry = ProjectFile;
@@ -85,6 +88,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   projectHasDefaultLicense = false,
   projectVisibility = "private",
   variant = "default",
+  showInfo = false,
 }) => {
   const queryClient = useQueryClient();
   const { handleGlobalError } = useGlobalError();
@@ -465,9 +469,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
   };
 
   const fileInfoTooltip = (item: FileEntry) => {
-    const lines: string[] = [
-      `License: ${getFilesLicenseText(item.license)}`,
-    ];
+    const lines: string[] = [];
     if (item.storageType === "file") {
       lines.push(`Size: ${fileSizePresentable(item.size)}`);
     }
@@ -516,14 +518,16 @@ const FilesManager: React.FC<FilesManagerProps> = ({
                     {item.name}
                   </a>
                 )}
-                <Tooltip content={fileInfoTooltip(item)}>
-                  <button
-                    className="ml-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <IconInfoCircle size={15} />
-                  </button>
-                </Tooltip>
+                {(item.storageType === "file" || item.createdDate) && (
+                  <Tooltip content={fileInfoTooltip(item)}>
+                    <button
+                      className="ml-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <IconInfoCircle size={15} />
+                    </button>
+                  </Tooltip>
+                )}
               </div>
               {item.description && (
                 <span className="text-sm text-gray-500 block">
@@ -552,14 +556,40 @@ const FilesManager: React.FC<FilesManagerProps> = ({
         },
       },
       {
+        id: "license",
+        header: "License",
+        cell: ({ row }) =>
+          row.original.storageType === "folder" ? null : (
+            <span className="text-sm">{getFilesLicenseText(row.original.license)}</span>
+          ),
+      },
+      {
         id: "actions",
         header: "",
-        cell: ({ row }) => RowMenu(row.original),
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            {showInfo && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<IconInfoCircle size={15} />}
+                aria-label={`Info for ${row.original.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openModal(<AssetInfoModal file={row.original} onClose={closeAllModals} />);
+                }}
+              >
+                Info
+              </Button>
+            )}
+            {RowMenu(row.original)}
+          </div>
+        ),
       },
     ];
 
     if (hasAnyTags) {
-      baseCols.splice(2, 0, {
+      baseCols.splice(3, 0, {
         id: "tags",
         header: "Tags",
         cell: ({ row }) => {
@@ -572,7 +602,7 @@ const FilesManager: React.FC<FilesManagerProps> = ({
     }
 
     return baseCols;
-  }, [hasAnyTags, canViewDetails, projectID]);
+  }, [hasAnyTags, canViewDetails, projectID, showInfo]);
 
   const allTableColumns = tableColumns;
 

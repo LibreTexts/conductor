@@ -2,6 +2,7 @@ import type { Page, Route } from '@playwright/test';
 import books from './fixtures/books.json';
 import catalog from './fixtures/catalog.json';
 import filters from './fixtures/filters.json';
+import files from './fixtures/files.json';
 import libregrid from './fixtures/libregrid.json';
 
 /**
@@ -142,7 +143,22 @@ const ROUTES: Array<[method: string, path: RegExp, handler: Handler]> = [
   [
     'GET',
     /^\/project\/[^/]+\/files\/content\/?$/,
-    () => ({ err: false, files: [], path: [{ fileID: '', name: '' }] }),
+    () => ({ err: false, files: files.root, path: [{ fileID: '', name: '' }] }),
+  ],
+  [
+    'GET',
+    /^\/project\/[^/]+\/files\/content\/([^/]+)$/,
+    ([, folderID]) => {
+      const folder = files.root.find((f) => f.fileID === folderID);
+      return {
+        err: false,
+        files: folder ? files.folder : [],
+        path: [
+          { fileID: '', name: '' },
+          { fileID: folderID, name: folder?.name ?? '' },
+        ],
+      };
+    },
   ],
 ];
 

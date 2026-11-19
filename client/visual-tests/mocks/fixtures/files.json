@@ -1,0 +1,78 @@
+{
+  "root": [
+    {
+      "fileID": "visual-folder-1",
+      "projectID": "visual-project",
+      "name": "Lecture Slides",
+      "access": "public",
+      "storageType": "folder",
+      "size": 0,
+      "description": "",
+      "parent": "",
+      "createdBy": "00000000-0000-4000-8000-000000000000",
+      "downloadCount": 0
+    },
+    {
+      "fileID": "visual-file-1",
+      "projectID": "visual-project",
+      "name": "Course Syllabus.pdf",
+      "access": "public",
+      "storageType": "file",
+      "size": 245760,
+      "description": "Week-by-week schedule, grading policy, and learning objectives.",
+      "parent": "",
+      "createdBy": "00000000-0000-4000-8000-000000000000",
+      "downloadCount": 12,
+      "mimeType": "application/pdf",
+      "createdDate": "2026-01-15T17:30:00.000Z",
+      "license": {
+        "name": "CC BY",
+        "version": "4.0",
+        "url": "https://creativecommons.org/licenses/by/4.0/",
+        "sourceURL": "https://example.com/original-syllabus",
+        "modifiedFromSource": true,
+        "additionalTerms": ""
+      },
+      "primaryAuthor": {
+        "orgID": "libretexts",
+        "nameKey": "visual-author",
+        "name": "Dana Rivera",
+        "nameURL": "https://example.com/dana-rivera"
+      },
+      "originalPublisher": {
+        "name": "Example University Press",
+        "url": "https://example.com/press"
+      },
+      "tags": []
+    },
+    {
+      "fileID": "visual-file-2",
+      "projectID": "visual-project",
+      "name": "Answer Key.docx",
+      "access": "instructors",
+      "storageType": "file",
+      "size": 51200,
+      "description": "",
+      "parent": "",
+      "createdBy": "00000000-0000-4000-8000-000000000000",
+      "downloadCount": 3,
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "license": { "name": "All Rights Reserved" }
+    }
+  ],
+  "folder": [
+    {
+      "fileID": "visual-file-3",
+      "projectID": "visual-project",
+      "name": "Week 1 - Introduction.pptx",
+      "access": "public",
+      "storageType": "file",
+      "size": 1048576,
+      "description": "",
+      "parent": "visual-folder-1",
+      "createdBy": "00000000-0000-4000-8000-000000000000",
+      "downloadCount": 5,
+      "license": { "name": "CC BY-NC", "version": "4.0" }
+    }
+  ]
+}
