@@ -57,6 +57,7 @@ import {
   pruneDeletedProjectsFromSearchIndex,
   removeProjectFromSearchIndex,
 } from './services/project-search-service.js';
+import { reconcileBooksInSearchIndex } from './services/book-search-service.js';
 import BookService from './services/book-service.js';
 import { conductor500Err } from "../util/errorutils.js";
 import { createResponseCache } from '../util/response-cache.js';
@@ -260,6 +261,10 @@ async function deleteProjectInternal(projectID) {
        stale document until the next full re-sync prunes it — not a failed
        delete. */
     void removeProjectFromSearchIndex(projectID);
+
+    // The linked Book's index document still carries this Project's tags.
+    const linkedBookID = getBookLinkedToProject(proj);
+    if (linkedBookID) void reconcileBooksInSearchIndex([linkedBookID]);
 
     return true;
   } catch (err) {
@@ -1086,6 +1091,16 @@ async function updateProject(req, res) {
       }
       if (sendCompleted) {
         notifyProjectCompleted(projectID);
+      }
+      // Book search documents embed these Project fields; a re-link moves them
+      // off the old Book and onto the new one, so index both.
+      const bookSearchFields = ['tags', 'visibility', 'adaptCourseID', 'libreLibrary', 'libreCoverID'];
+      if (bookSearchFields.some((f) => Object.hasOwn(updateObj, f))) {
+        const bookIDs = [
+          getBookLinkedToProject(project),
+          getBookLinkedToProject({ ...project, ...updateObj }),
+        ].filter(Boolean);
+        if (bookIDs.length > 0) void reconcileBooksInSearchIndex(bookIDs);
       }
       return res.send({
         err: false,
