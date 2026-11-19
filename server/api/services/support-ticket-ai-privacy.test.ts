@@ -18,6 +18,7 @@ let SupportTicket: typeof import("../../models/supporticket.js").default;
 let qdrantService: typeof import("./qdrant.js").qdrantService;
 let ticketService: InstanceType<typeof import("./support-ticket-service.js").default>;
 let supportTicketAIService: typeof import("./support-ticket-ai-service.js").supportTicketAIService;
+let supportAPI: typeof import("../support.js").default;
 
 const calls: { method: string; arg: unknown }[] = [];
 
@@ -42,6 +43,7 @@ before(async () => {
   const SupportTicketService = (await import("./support-ticket-service.js")).default;
   ticketService = new SupportTicketService();
   ({ supportTicketAIService } = await import("./support-ticket-ai-service.js"));
+  supportAPI = (await import("../support.js")).default;
 
   const record = (method: string) => async (arg: unknown) => {
     calls.push({ method, arg });
@@ -95,6 +97,21 @@ describe("privacy tickets stay out of AI features", () => {
       supportTicketAIService.answerTicket("priv2"),
       /only be generated/,
     );
+    assert.deepEqual(calls, []);
+  });
+
+  it("answers the route with a 400 instead of hanging", async () => {
+    await insertTicket("priv3", { ...PRIVACY, status: "open" });
+    await mongoose.connection.collection("users").insertOne({ uuid: "staff1", roles: [] });
+    const res: any = { statusCode: 200 };
+    res.status = (code: number) => ((res.statusCode = code), res);
+    res.send = (body: unknown) => ((res.body = body), res);
+
+    await supportAPI.answerTicketWithAI(
+      { params: { uuid: "priv3" }, user: { decoded: { uuid: "staff1" } } } as any,
+      res,
+    );
+    assert.equal(res.statusCode, 400, JSON.stringify(res.body));
     assert.deepEqual(calls, []);
   });
 });
