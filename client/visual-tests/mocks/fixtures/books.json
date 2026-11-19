@@ -34,7 +34,8 @@
     "hasReaderResources": false,
     "allowAnonPR": false,
     "hasPeerReviews": false,
-    "hasAdaptCourse": false,
+    "hasAdaptCourse": true,
+    "adaptCourseID": "1234",
     "isbns": []
   },
   "phys-24413": {

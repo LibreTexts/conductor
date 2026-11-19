@@ -5,7 +5,7 @@ import { getLibGlyphAltText, getLibGlyphURL } from "../../../util/LibraryOptions
 import { Heading, Card, Text, Stack } from "@libretexts/davis-react";
 import PausableImage from "../../../util/PausableImage";
 import { COVER_PLACEHOLDER, handleCoverError } from "./cardImageFallback";
-import { IconFileDescription, IconSchoolFilled, IconUsersGroup } from "@tabler/icons-react";
+import { IconClipboardCheck, IconFileDescription, IconSchoolFilled, IconUsersGroup } from "@tabler/icons-react";
 
 interface BookCardContentProps {
   book: Book;
@@ -50,8 +50,14 @@ const BookCardContent: React.FC<BookCardContentProps> = ({
           <Text className="line-clamp-2 !text-[0.875rem] !leading-5">
             <em>{truncateString(book.affiliation, 75)}</em>
           </Text>
-          {(publicAssets > 0 || instructorAssets > 0) ? (
+          {(publicAssets > 0 || instructorAssets > 0 || book.hasAdaptCourse) ? (
             <Stack direction="vertical" gap="xs">
+              {book.hasAdaptCourse && (
+                <Stack direction="horizontal" gap="sm" align="center">
+                  <IconClipboardCheck size={16} className="text-primary" />
+                  <Text>Homework available</Text>
+                </Stack>
+              )}
               {
                 instructorAssets > 0 && (
                   <Stack direction="horizontal" gap="sm" align="center">

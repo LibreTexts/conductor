@@ -1700,6 +1700,10 @@ async function bookSearchV2(
       filterClauses.push({ instructorAssets: { $gt: 0 } });
     }
 
+    if (req.query.homework === "available") {
+      filterClauses.push({ hasAdaptCourse: true });
+    }
+
     const combinedFilter: FilterObject =
       filterClauses.length > 1 ? { $and: filterClauses } : filterMap;
 

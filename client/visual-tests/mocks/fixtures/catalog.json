@@ -33,7 +33,8 @@
       ],
       "thumbnailIsAnimated": false,
       "publicAssets": 0,
-      "instructorAssets": 0
+      "instructorAssets": 0,
+      "hasAdaptCourse": true
     },
     {
       "bookID": "chem-330276",

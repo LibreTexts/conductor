@@ -30,6 +30,7 @@ export type BookFilters = {
   course?: string;
   affiliation?: string;
   assets?: string;
+  homework?: string;
 };
 
 export type ProjectFilters = {

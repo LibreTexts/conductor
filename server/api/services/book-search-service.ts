@@ -116,6 +116,9 @@ export const bookSearchIndexAggregationStages: PipelineStage[] = [
           },
         },
       },
+      hasAdaptCourse: {
+        $gt: [{ $strLenCP: { $ifNull: ["$project.adaptCourseID", ""] } }, 0],
+      },
     },
   },
   {

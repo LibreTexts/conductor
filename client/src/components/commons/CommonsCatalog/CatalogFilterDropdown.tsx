@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Menu } from "@libretexts/davis-react";
 import { GenericKeyTextValueObj } from "../../../types";
-import { IconFile, IconFilter, IconGavel, IconProgressCheck, IconSchool, IconTags, IconUser, IconUsers, IconWorld } from "@tabler/icons-react";
+import { IconClipboardCheck, IconFile, IconFilter, IconGavel, IconProgressCheck, IconSchool, IconTags, IconUser, IconUsers, IconWorld } from "@tabler/icons-react";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   school: <IconSchool size={16} />,
@@ -13,6 +13,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   file: <IconFile size={16} />,
   status: <IconProgressCheck size={16} />,
   tags: <IconTags size={16} />,
+  homework: <IconClipboardCheck size={16} />,
 };
 
 interface CatalogFilterDropdownProps {

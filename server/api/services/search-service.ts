@@ -37,7 +37,7 @@ export const INDEX_PRIMARY_KEYS: Record<(typeof INDEXES)[number], string> = {
 };
 
 export const INDEX_FILTERABLE_ATTRIBUTES = {
-  books: ["bookID", "library", "license", "author", "course", "courseNormalized", "affiliation", "location", "license", "subject", "publicAssets", "instructorAssets"],
+  books: ["bookID", "library", "license", "author", "course", "courseNormalized", "affiliation", "location", "license", "subject", "publicAssets", "instructorAssets", "hasAdaptCourse"],
   projects: ["status", "classification", "visibility", "orgID"],
   supportTickets: ["queue_id", "status", "priority", "category", "assignedUUIDs"],
   users: ["uuid", "emailDomain"],

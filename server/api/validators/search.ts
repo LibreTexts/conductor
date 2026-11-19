@@ -71,6 +71,7 @@ export const bookSearchSchema = z.object({
     affiliation: z.string().optional(),
     //CID: z.string().optional(),
     assets: z.enum(["public", "instructors", "any"]).optional(),
+    homework: z.enum(["available"]).optional(),
     sort: z
       .enum(["title", "author", "library", "subject", "affiliation"])
       .default("title"),

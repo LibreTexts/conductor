@@ -13,6 +13,10 @@ import CatalogFilterDropdown from "./CatalogFilterDropdown";
 import { useQuery } from "@tanstack/react-query";
 import { Stack } from "@libretexts/davis-react";
 
+const homeworkOptions: GenericKeyTextValueObj<string>[] = [
+  { key: "available", text: "Homework Available", value: "available" },
+];
+
 type BookFilterData = {
   subjectOptions: GenericKeyTextValueObj<string>[];
   licenseOptions: GenericKeyTextValueObj<string>[];
@@ -291,6 +295,15 @@ const CatalogBookFilters: React.FC<CatalogBookFiltersProps> = ({
             onFilterChange(key as keyof BookFilters, val)
           }
           loading={loading}
+        />
+        <CatalogFilterDropdown
+          text={filters.homework ? "Homework - Available" : "Homework"}
+          icon="homework"
+          options={homeworkOptions}
+          filterKey="homework"
+          onFilterSelect={(key, val) =>
+            onFilterChange(key as keyof BookFilters, val)
+          }
         />
       </Stack>
     </div>

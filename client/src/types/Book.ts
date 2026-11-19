@@ -33,8 +33,7 @@ export type Book = {
   hasAdaptCourse: boolean;
   adaptCourseID?: string;
   publicAssets?: number; // Computed field only added in Commons searches
-  instructorAssets?: number; // Computed field only added in Commons searches
-  trafficAnalyticsConfigured?: boolean;
+  instructorAssets?: number; // Computed field only added in Commons searches  trafficAnalyticsConfigured?: boolean;
 };
 
 export type BookWithSourceData = Book & {
