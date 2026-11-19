@@ -1,29 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Dialog,
-  DialogBackdrop,
-  DialogPanel,
-  Disclosure,
-  DisclosureButton,
-  DisclosurePanel,
-  Menu,
-} from "@headlessui/react";
 import AlternateLayout from "../../../components/navigation/AlternateLayout";
-import { Icon } from "semantic-ui-react";
 import { useSearchParams } from "react-router-dom-v5-compat";
 import useGlobalError from "../../../components/error/ErrorHooks";
 import { formatPrice } from "../../../utils/storeHelpers";
 import TruncatedText from "../../../components/util/TruncatedText";
-import LoadingSpinner from "../../../components/LoadingSpinner";
 import { usePaginatedStoreProducts } from "../../../hooks/usePaginatedStoreProducts";
-
-// const sortOptions = [
-//   { name: "Most Popular", href: "#", current: true },
-//   { name: "Best Rating", href: "#", current: false },
-//   { name: "Newest", href: "#", current: false },
-//   { name: "Price: Low to High", href: "#", current: false },
-//   { name: "Price: High to Low", href: "#", current: false },
-// ];
+import {
+  Accordion,
+  Button,
+  Card,
+  Checkbox,
+  Drawer,
+  EmptyState,
+  Heading,
+  IconButton,
+  Spinner,
+  Text,
+} from "@libretexts/davis-react";
+import { IconFilter, IconPackageOff } from "@tabler/icons-react";
 
 const initFilters = [
   {
@@ -42,10 +36,48 @@ const initFilters = [
   },
 ];
 
+type CatalogFilters = typeof initFilters;
+
+function CategoryFilters({
+  filters,
+  onUpdateFilter,
+}: {
+  filters: CatalogFilters;
+  onUpdateFilter: (
+    filterId: string,
+    optionValue: string,
+    isChecked: boolean
+  ) => void;
+}) {
+  return (
+    <Accordion variant="bordered">
+      {filters.map((section) => (
+        <Accordion.Item key={section.id} defaultOpen>
+          <Accordion.Trigger>{section.name}</Accordion.Trigger>
+          <Accordion.Panel>
+            <div className="flex flex-col gap-3">
+              {section.options.map((option) => (
+                <Checkbox
+                  key={option.value}
+                  name={`${section.id}-${option.value}`}
+                  label={option.label}
+                  checked={option.checked}
+                  onChange={(checked) =>
+                    onUpdateFilter(section.id, option.value, checked)
+                  }
+                />
+              ))}
+            </div>
+          </Accordion.Panel>
+        </Accordion.Item>
+      ))}
+    </Accordion>
+  );
+}
+
 export default function CatalogPage() {
   const { handleGlobalError } = useGlobalError();
   const [searchParams] = useSearchParams();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [filters, setFilters] = useState(initFilters);
   const selectedCategory = useMemo(() => {
@@ -130,182 +162,34 @@ export default function CatalogPage() {
 
   return (
     <AlternateLayout>
-      {/* Mobile filter dialog */}
-      <Dialog
+      {/* Mobile filter drawer */}
+      <Drawer
         open={mobileFiltersOpen}
         onClose={setMobileFiltersOpen}
-        className="relative z-40 lg:hidden"
+        side="right"
+        size="sm"
       >
-        <DialogBackdrop
-          transition
-          className="fixed inset-0 bg-black/25 transition-opacity duration-300 ease-linear data-[closed]:opacity-0"
-        />
-
-        <div className="fixed inset-0 z-40 flex">
-          <DialogPanel
-            transition
-            className="relative ml-auto flex size-full max-w-xs transform flex-col overflow-y-auto bg-white py-4 pb-12 shadow-xl transition duration-300 ease-in-out data-[closed]:translate-x-full"
-          >
-            <div className="flex items-center justify-between px-4">
-              <h2 className="text-lg font-medium text-gray-900">Filters</h2>
-              <button
-                type="button"
-                onClick={() => setMobileFiltersOpen(false)}
-                className="relative -mr-2 flex size-10 items-center justify-center rounded-md bg-white p-2 text-gray-400"
-              >
-                <span className="absolute -inset-0.5" />
-                <span className="sr-only">Close menu</span>
-                <Icon name="x" className="size-6" aria-hidden="true" />
-              </button>
-            </div>
-
-            {/* Filters */}
-            <form className="mt-4 border-t border-gray-200">
-              {filters.map((section) => (
-                <Disclosure
-                  key={section.id}
-                  as="div"
-                  className="border-t border-gray-200 px-4 py-6"
-                  defaultOpen={true}
-                >
-                  <h3 className="-mx-2 -my-3 flow-root">
-                    <DisclosureButton className="group flex w-full items-center justify-between bg-white px-2 py-3 text-gray-400 hover:text-gray-500">
-                      <span className="font-medium text-gray-900">
-                        {section.name}
-                      </span>
-                      <span className="ml-6 flex items-center">
-                        <Icon
-                          name="plus"
-                          aria-hidden="true"
-                          className="size-5 group-data-[open]:hidden"
-                        />
-                        <Icon
-                          name="minus"
-                          aria-hidden="true"
-                          className="size-5 group-[&:not([data-open])]:hidden"
-                        />
-                      </span>
-                    </DisclosureButton>
-                  </h3>
-                  <DisclosurePanel className="pt-6">
-                    <div className="space-y-6">
-                      {section.options.map((option, optionIdx) => (
-                        <div key={option.value} className="flex gap-3">
-                          <div className="flex h-5 shrink-0 items-center">
-                            <div className="group grid size-4 grid-cols-1">
-                              <input
-                                defaultValue={option.value}
-                                checked={option.checked}
-                                id={`filter-mobile-${section.id}-${optionIdx}`}
-                                name={`${section.id}[]`}
-                                type="checkbox"
-                                onClick={(e) => {
-                                  const isChecked = e.currentTarget.checked;
-                                  handleUpdateFilter(
-                                    section.id,
-                                    option.value,
-                                    isChecked
-                                  );
-                                }}
-                                className="col-start-1 row-start-1 appearance-none rounded border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto"
-                              />
-                              <svg
-                                fill="none"
-                                viewBox="0 0 14 14"
-                                className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-[:disabled]:stroke-gray-950/25"
-                              >
-                                <path
-                                  d="M3 8L6 11L11 3.5"
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="opacity-0 group-has-[:checked]:opacity-100"
-                                />
-                                <path
-                                  d="M3 7H11"
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="opacity-0 group-has-[:indeterminate]:opacity-100"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                          <label
-                            htmlFor={`filter-mobile-${section.id}-${optionIdx}`}
-                            className="min-w-0 flex-1 text-gray-500"
-                          >
-                            {option.label}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </DisclosurePanel>
-                </Disclosure>
-              ))}
-            </form>
-          </DialogPanel>
-        </div>
-      </Dialog>
+        <Drawer.Header>
+          <Drawer.Title>Filters</Drawer.Title>
+          <Drawer.Close />
+        </Drawer.Header>
+        <Drawer.Body>
+          <CategoryFilters filters={filters} onUpdateFilter={handleUpdateFilter} />
+        </Drawer.Body>
+      </Drawer>
 
       <main className="px-24">
         <div className="flex items-baseline justify-between border-b border-gray-200 pb-6 pt-12">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900">
-            All Items
-          </h1>
+          <Heading level={1}>All Items</Heading>
 
           <div className="flex items-center">
-            <Menu as="div" className="relative inline-block text-left">
-              {/* <div>
-                 <MenuButton className="group inline-flex justify-center text-sm font-medium text-gray-700 hover:text-gray-900">
-                   Sort
-                   <Icon
-                     name="chevron down"
-                     aria-hidden="true"
-                     className="ml-1 size-5 text-gray-400 group-hover:text-gray-500"
-                   />
-                 </MenuButton>
-               </div> */}
-
-              {/* <MenuItems
-                 transition
-                 className="absolute right-0 z-10 mt-2 w-40 origin-top-right rounded-md bg-white shadow-2xl ring-1 ring-black/5 transition focus:outline-none data-[closed]:scale-95 data-[closed]:transform data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75 data-[enter]:ease-out data-[leave]:ease-in"
-               >
-                 <div className="py-1">
-                   {sortOptions.map((option) => (
-                     <MenuItem key={option.name}>
-                       <a
-                         href={option.href}
-                         className={classNames(
-                           option.current
-                             ? "font-medium text-gray-900"
-                             : "text-gray-500",
-                           "block px-4 py-2 text-sm data-[focus]:bg-gray-100 data-[focus]:outline-none"
-                         )}
-                       >
-                         {option.name}
-                       </a>
-                     </MenuItem>
-                   ))}
-                 </div>
-               </MenuItems> */}
-            </Menu>
-
-            {/* <button
-               type="button"
-               className="-m-2 ml-5 p-2 text-gray-400 hover:text-gray-500 sm:ml-7"
-             >
-               <span className="sr-only">View grid</span>
-               <Icon name="grid layout" aria-hidden="true" className="size-5" />
-             </button> */}
-            <button
-              type="button"
+            <IconButton
+              aria-label="Open filters"
+              variant="ghost"
+              icon={<IconFilter size={20} />}
               onClick={() => setMobileFiltersOpen(true)}
-              className="-m-2 ml-4 p-2 text-gray-400 hover:text-gray-500 sm:ml-6 lg:hidden"
-            >
-              <span className="sr-only">Filters</span>
-              <Icon name="filter" aria-hidden="true" className="size-5" />
-            </button>
+              className="lg:hidden"
+            />
           </div>
         </div>
 
@@ -315,173 +199,76 @@ export default function CatalogPage() {
           </h2>
           <div className="grid grid-cols-1 gap-x-8 gap-y-10 lg:grid-cols-4">
             {/* Filters */}
-            <form className="hidden lg:block">
-              {filters.map((section) => (
-                <Disclosure
-                  key={section.id}
-                  as="div"
-                  className="border-b border-gray-200 py-6"
-                >
-                  <h3 className="-my-3 flow-root">
-                    <DisclosureButton className="group flex w-full items-center justify-between bg-white py-3 text-sm text-gray-400 hover:text-gray-500">
-                      <span className="font-medium text-gray-900">
-                        {section.name}
-                      </span>
-                      <span className="ml-6 flex items-center">
-                        <Icon
-                          name="plus"
-                          aria-hidden="true"
-                          className="size-5 group-data-[open]:hidden"
-                        />
-                        <Icon
-                          name="minus"
-                          aria-hidden="true"
-                          className="size-5 group-[&:not([data-open])]:hidden"
-                        />
-                      </span>
-                    </DisclosureButton>
-                  </h3>
-                  <DisclosurePanel className="pt-6">
-                    <div className="space-y-4">
-                      {section.options.map((option, optionIdx) => (
-                        <div key={option.value} className="flex gap-3">
-                          <div className="flex h-5 shrink-0 items-center">
-                            <div className="group grid size-4 grid-cols-1">
-                              <input
-                                defaultValue={option.value}
-                                checked={option.checked}
-                                id={`filter-${section.id}-${optionIdx}`}
-                                name={`${section.id}[]`}
-                                type="checkbox"
-                                onClick={(e) => {
-                                  const isChecked = e.currentTarget.checked;
-                                  handleUpdateFilter(
-                                    section.id,
-                                    option.value,
-                                    isChecked
-                                  );
-                                }}
-                                className="col-start-1 row-start-1 appearance-none rounded-full border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto"
-                              />
-                              <svg
-                                fill="none"
-                                viewBox="0 0 14 14"
-                                className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-[:disabled]:stroke-gray-950/25"
-                              >
-                                <path
-                                  d="M3 8L6 11L11 3.5"
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="opacity-0 group-has-[:checked]:opacity-100"
-                                />
-                                <path
-                                  d="M3 7H11"
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="opacity-0 group-has-[:indeterminate]:opacity-100"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                          <label
-                            htmlFor={`filter-${section.id}-${optionIdx}`}
-                            className="text-sm text-gray-600"
-                          >
-                            {option.label}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </DisclosurePanel>
-                </Disclosure>
-              ))}
-            </form>
+            <div className="hidden lg:block">
+              <CategoryFilters filters={filters} onUpdateFilter={handleUpdateFilter} />
+            </div>
 
             {/* Product grid */}
             <div className="flex flex-col lg:col-span-3">
-              <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-3 lg:col-span-3 lg:gap-x-8">
-                {isFetching && (
-                  <LoadingSpinner iconOnly className="col-span-3" />
-                )}
-                {!isFetching && data?.length === 0 && (
-                  <div className="col-span-3 text-center">
-                    <h2 className="text-2xl font-semibold text-gray-900">
-                      No products found
-                    </h2>
-                    <p className="mt-2 text-gray-500">
-                      Try adjusting your filters or search criteria.
-                    </p>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {isFetching && data.length === 0 && (
+                  <div className="col-span-full flex justify-center py-16">
+                    <Spinner size="lg" text="Loading products..." />
                   </div>
                 )}
-                {data?.map((product) => (
-                  <div
+                {!isFetching && data.length === 0 && (
+                  <EmptyState
+                    className="col-span-full"
+                    icon={<IconPackageOff size={40} />}
+                    title="No products found"
+                    description="Try adjusting your filters or search criteria."
+                  />
+                )}
+                {data.map((product) => (
+                  <Card
                     key={product.id}
-                    className="inline-flex w-64 flex-col text-center lg:w-auto border rounded-md p-6 shadow-sm"
+                    variant="outline"
+                    padding="none"
+                    href={`/store/product/${product.id}`}
+                    className="flex flex-col overflow-hidden text-left transition-shadow hover:shadow-md"
                   >
-                    <div className="group relative">
-                      <div className="flex justify-center">
-                        <img
-                          alt={`Image of ${product.name}`}
-                          src={product.images[0]}
-                          className="aspect-auto h-60 w-fit rounded-md bg-gray-white object-contain group-hover:opacity-75"
-                        />
-                      </div>
-                      <div className="mt-6">
-                        <h3 className="mt-1 text-xl font-semibold text-gray-900">
-                          <a href={`/store/product/${product.id}`}>
-                            <span className="absolute inset-0" />
-                            {product.name}
-                          </a>
-                        </h3>
-                          <p className="text-sm text-gray-500">{product.metadata?.book_id ? product.metadata?.book_author ? product.metadata?.book_author : "Unknown" : "LibreTexts"}</p>
-                        <TruncatedText
-                          text={product.description}
-                          maxLines={3}
-                          preciseTruncation={true}
-                          className="mt-2 text-xs text-gray-500 h-20"
-                        />
-                        <p className="mt-4 text-xl text-gray-900 font-semibold">
-                          {formatPrice(product.prices[0].unit_amount, true)}
-                        </p>
-                      </div>
+                    <div className="flex justify-center bg-white p-6">
+                      <img
+                        alt={`Image of ${product.name}`}
+                        src={product.images[0]}
+                        className="h-48 w-full object-contain"
+                      />
                     </div>
-
-                    {/* <h4 className="sr-only">Available colors</h4>
-                       <ul
-                         role="list"
-                         className="mt-auto flex items-center justify-center space-x-3 pt-6"
-                       >
-                         {product.availableColors.map((color) => (
-                           <li
-                             key={color.name}
-                             style={{ backgroundColor: color.colorBg }}
-                             className="size-4 rounded-full border border-black/10"
-                           >
-                             <span className="sr-only">{color.name}</span>
-                           </li>
-                         ))}
-                       </ul> */}
-                  </div>
+                    <Card.Body className="flex grow flex-col px-6 pb-6">
+                      <Heading level={3} className="!text-lg">
+                        {product.name}
+                      </Heading>
+                      <Text size="sm" color="muted" className="mt-1">
+                        {product.metadata?.book_id
+                          ? product.metadata?.book_author || "Unknown"
+                          : "LibreTexts"}
+                      </Text>
+                      <TruncatedText
+                        text={product.description}
+                        maxLines={3}
+                        preciseTruncation={true}
+                        className="mt-2 h-20 text-xs text-gray-500"
+                      />
+                      <Text weight="semibold" size="lg" className="mt-4">
+                        {formatPrice(product.prices[0].unit_amount, true)}
+                      </Text>
+                    </Card.Body>
+                  </Card>
                 ))}
               </div>
               {hasMore && (
-                <div className="flex flex-col items-center justify-center mt-12 w-full">
-                  <button
+                <div className="mt-12 flex w-full flex-col items-center justify-center">
+                  <Button
+                    variant="primary"
                     onClick={() => loadMore?.()}
                     disabled={isFetching}
-                    className="flex items-center justify-center rounded-md border border-transparent bg-primary px-6 py-3 font-medium text-white hover:shadow-sm hover:text-gray-300 min-h-[3rem] text-center"
-                    style={{
-                      fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
-                      lineHeight: "1.2",
-                    }}
+                    loading={isFetching}
                   >
                     {isFetching ? "Loading..." : "Load More"}
-                  </button>
-                  <div className="mt-4 text-sm text-gray-500">
+                  </Button>
+                  <Text size="sm" color="muted" className="mt-4">
                     Showing {data?.length || 0} items
-                  </div>
+                  </Text>
                 </div>
               )}
             </div>
