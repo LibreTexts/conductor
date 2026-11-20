@@ -28,6 +28,7 @@ const CentralIdentityOrganizationView = lazyWithRetry(() => import('./screens/co
 const CentralIdentitySystemView = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentitySystemView'));
 const ControlPanel = lazyWithRetry(() => import('./screens/conductor/controlpanel'));
 const ContentReuse = lazyWithRetry(() => import('./screens/conductor/controlpanel/ContentReuse'));
+const LibraryMap = lazyWithRetry(() => import('./screens/conductor/controlpanel/ContentReuse/LibraryMap'));
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
 const FallbackAuth = lazyWithRetry(() => import('./screens/conductor/FallbackAuth'));
@@ -193,6 +194,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
           <PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />
           <PrivateRoute exact path='/controlpanel/content-reuse' component={ContentReuse} />
+          <PrivateRoute exact path='/controlpanel/content-reuse/map' component={LibraryMap} />
           <PrivateRoute exact path='/controlpanel/authorsmanager' component={AuthorsManager} />
           <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
           <PrivateRoute exact path='/controlpanel/booksmanager/mastercatalog' component={MasterCatalogPlainView} />

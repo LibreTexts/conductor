@@ -4,6 +4,7 @@ import {
   Alert,
   Badge,
   Breadcrumb,
+  Button,
   Card,
   EmptyState,
   Heading,
@@ -125,6 +126,11 @@ const ContentReuse: React.FC = () => {
           Copy-Transclude, Copy-Fork or Copy-Full, and how books share content. Built by Conductor's background
           scan; nothing here changes the libraries.
         </Text>
+        <div>
+          <Button as="a" href="/controlpanel/content-reuse/map" variant="primary" size="sm">
+            Open the library map
+          </Button>
+        </div>
       </Stack>
 
       {statsQuery.isLoading && <Spinner text="Loading reuse statistics" />}

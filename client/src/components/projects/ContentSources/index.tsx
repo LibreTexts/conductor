@@ -378,58 +378,68 @@ const ContentSources: React.FC = () => {
                     </Tabs.Panels>
                   </Tabs>
                 </div>
-                <div className="mt-6 grid gap-6 md:grid-cols-2">
-                  <div>
-                    <Heading level={4} className="mb-2 text-base">
-                      Where this book's content comes from
-                    </Heading>
-                    <BookLinksTable
-                      links={overview.upstream}
-                      caption="Books this book reuses content from"
-                      empty={
-                        overview.unscannedSources.length
-                          ? "No scanned book yet; see the libraries below."
-                          : "This book doesn't reuse other books' pages."
-                      }
-                    />
-                    {overview.unscannedSources.length > 0 && (
-                      <>
-                        <Text size="sm" className="mt-4 block text-neutral-700">
-                          Also reused from books that haven't been scanned yet:
-                        </Text>
-                        <ul className="mt-2 list-disc space-y-2 pl-5 text-sm">
-                          {overview.unscannedSources.map((group) => (
-                            <li key={group.lib}>
-                              <strong>{group.lib}</strong> library:{" "}
-                              {plural(group.sources, "source page")} used by{" "}
-                              {plural(group.pages, "page")} here (
-                              {group.types.map((t) => EDGE_TYPE_LABELS[t]).join(", ")}).{" "}
-                              {group.exampleRefs.map((ref, i) => (
-                                <React.Fragment key={ref.id}>
-                                  {i > 0 && ", "}
-                                  <RefLink item={ref} />
-                                </React.Fragment>
-                              ))}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                  </div>
-                  <div>
-                    <Heading level={4} className="mb-2 text-base">
-                      Books that reuse this book
-                    </Heading>
-                    <BookLinksTable
-                      links={overview.downstream}
-                      caption="Books that reuse content from this book"
-                      empty="No other scanned book reuses this book's pages."
-                    />
-                  </div>
-                </div>
               </section>
             </Card.Body>
           </Card>
+
+          {/* Each direction in its own card, side by side on wide screens. */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card variant="elevated">
+              <Card.Body>
+                <section aria-labelledby="cs-upstream-heading">
+                  <Heading level={3} id="cs-upstream-heading" className="mb-3 text-lg">
+                    Where this book's content comes from
+                  </Heading>
+                  <BookLinksTable
+                    links={overview.upstream}
+                    caption="Books this book reuses content from"
+                    empty={
+                      overview.unscannedSources.length
+                        ? "No scanned book yet; see the libraries below."
+                        : "This book doesn't reuse other books' pages."
+                    }
+                  />
+                  {overview.unscannedSources.length > 0 && (
+                    <>
+                      <Text size="sm" className="mt-4 block text-neutral-700">
+                        Also reused from books that haven't been scanned yet:
+                      </Text>
+                      <ul className="mt-2 list-disc space-y-2 pl-5 text-sm">
+                        {overview.unscannedSources.map((group) => (
+                          <li key={group.lib}>
+                            <strong>{group.lib}</strong> library:{" "}
+                            {plural(group.sources, "source page")} used by{" "}
+                            {plural(group.pages, "page")} here (
+                            {group.types.map((t) => EDGE_TYPE_LABELS[t]).join(", ")}).{" "}
+                            {group.exampleRefs.map((ref, i) => (
+                              <React.Fragment key={ref.id}>
+                                {i > 0 && ", "}
+                                <RefLink item={ref} />
+                              </React.Fragment>
+                            ))}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </section>
+              </Card.Body>
+            </Card>
+            <Card variant="elevated">
+              <Card.Body>
+                <section aria-labelledby="cs-downstream-heading">
+                  <Heading level={3} id="cs-downstream-heading" className="mb-3 text-lg">
+                    Books that reuse this book
+                  </Heading>
+                  <BookLinksTable
+                    links={overview.downstream}
+                    caption="Books that reuse content from this book"
+                    empty="No other scanned book reuses this book's pages."
+                  />
+                </section>
+              </Card.Body>
+            </Card>
+          </div>
 
           <Card variant="elevated">
             <Card.Body>

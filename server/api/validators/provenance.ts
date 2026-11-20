@@ -57,6 +57,19 @@ export const GetProvenanceGraphSchema = z.object({
 
 export type GetProvenanceGraphRequest = z.infer<typeof GetProvenanceGraphSchema>;
 
+/** `GET /provenance/map`: every book and reuse link, for the staff library map. */
+export const GetProvenanceMapSchema = z.object({
+  query: z.object({
+    /** Rebuild now instead of using the cached map. */
+    fresh: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => v === "true"),
+  }),
+});
+
+export type GetProvenanceMapRequest = z.infer<typeof GetProvenanceMapSchema>;
+
 /**
  * `PUT /provenance/automation/changes`: read each library's change feed from
  * where the last run stopped and apply it.

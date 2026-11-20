@@ -3,6 +3,7 @@ import type {
   BookGraph,
   ContentSourcesChangeRevisions,
   ContentSourcesRevisionDetail,
+  LibraryMap,
   LibraryReuseStats,
   ContentSourcesLineage,
   ContentSourcesOverview,
@@ -3551,6 +3552,12 @@ class API {
       "/provenance/graph",
       { params },
     );
+    return res.data;
+  }
+
+  /** Every book and reuse link, for the staff library map. */
+  async getProvenanceMap() {
+    const res = await axios.get<{ data: LibraryMap } & ConductorBaseResponse>("/provenance/map");
     return res.data;
   }
 

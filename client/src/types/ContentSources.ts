@@ -213,3 +213,53 @@ export type BookGraph = {
   edges: BookGraphEdge[];
   omittedEdges: number;
 };
+
+/** Totals by kind for one book on the library map (its reuse summary). */
+export type LibraryMapTotals = {
+  pages: number;
+  original: number;
+  transclude: number;
+  fork: number;
+  full: number;
+  mixed: number;
+  structural: number;
+  unknown: number;
+  viaChain: number;
+};
+
+/** One dot on the library map: a book, or a library's books not scanned yet. */
+export type LibraryMapNode = {
+  id: string;
+  kind: "book" | "library";
+  lib: string;
+  title: string;
+  scanned: boolean;
+  computedAt: string | null;
+  totals: LibraryMapTotals | null;
+  /** Pages of other books that reuse this one. */
+  reusedBy: number;
+  /** This book's pages that reuse another book. */
+  reuses: number;
+  attention: { sourceChanged: number; broken: number };
+  projectID: string | null;
+};
+
+/** `[source, target, pages, types]`: `target` reuses `pages` pages of `source`; `types` is a bitmask over `edgeTypes`. */
+export type LibraryMapEdge = [number, number, number, number];
+
+export type LibraryMapLibrary = {
+  lib: string;
+  books: number;
+  scanned: number;
+  phase: string | null;
+  lastCompletedAt: string | null;
+};
+
+/** Every book and reuse link LibreTexts knows of (Mirrors server/util/library-map.ts). */
+export type LibraryMap = {
+  nodes: LibraryMapNode[];
+  edges: LibraryMapEdge[];
+  edgeTypes: ReuseEdgeType[];
+  libraries: LibraryMapLibrary[];
+  generatedAt: string;
+};

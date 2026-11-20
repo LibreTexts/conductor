@@ -1244,6 +1244,16 @@ router
     provenanceAPI.getGraph,
   );
 
+router
+  .route("/provenance/map")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin", "support"]),
+    middleware.validateZod(provenanceValidators.GetProvenanceMapSchema),
+    provenanceAPI.getMap,
+  );
+
 // Triggered externally once or a few times a day, before notify: reads each
 // library's change feed from where the last run stopped and applies it.
 router

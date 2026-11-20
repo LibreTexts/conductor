@@ -3,6 +3,7 @@ import { childLogger } from "../logger.js";
 import { conductor500Err } from "../util/errorutils.js";
 import type {
   GetProvenanceGraphRequest,
+  GetProvenanceMapRequest,
   RunProvenanceChangesRequest,
   RunProvenanceNotifyRequest,
   RunProvenanceScanRequest,
@@ -19,6 +20,7 @@ import {
 } from "./services/provenance-events-service.js";
 import {
   getBookGraph,
+  getLibraryMap,
   getLibraryReuseStats,
 } from "./services/provenance-insights-service.js";
 import {
@@ -127,6 +129,18 @@ async function getGraph(req: Request, res: Response) {
   }
 }
 
+/** Every book and reuse link, for the staff library map. */
+async function getMap(req: Request, res: Response) {
+  try {
+    const { fresh } = req.query as unknown as GetProvenanceMapRequest["query"];
+    const data = await getLibraryMap({ fresh });
+    return res.send({ err: false, data });
+  } catch (err) {
+    insightsLog.error({ err }, "getMap failed");
+    return conductor500Err(res);
+  }
+}
+
 const changesLog = childLogger("provenance-events");
 
 /**
@@ -170,4 +184,5 @@ export default {
   runNotifyJob,
   getStats,
   getGraph,
+  getMap,
 };

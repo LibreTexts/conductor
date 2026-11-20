@@ -10,6 +10,10 @@ import {
   type ViewRef,
 } from "../../util/content-sources-view.js";
 import { loadTitles } from "./content-sources-service.js";
+import Book from "../../models/book.js";
+import Project from "../../models/project.js";
+import { buildLibraryMap, type LibraryMap, type MapTotals } from "../../util/library-map.js";
+import type { ReuseEdgeType } from "../../util/provenance-graph.js";
 
 /**
  * Library-wide views of the provenance graph for LibreTexts staff: reuse
@@ -241,4 +245,97 @@ export const getBookGraph = async ({
     .sort((a, b) => b.degree - a.degree || a.id.localeCompare(b.id));
 
   return { nodes, edges, omittedEdges: graph.omittedEdges };
+};
+
+/** How long a built library map is reused before it is read again. */
+const MAP_CACHE_MS = 10 * 60 * 1000;
+let mapCache: { at: number; map: LibraryMap } | null = null;
+
+/**
+ * The library map: every Commons book and every reuse link between books,
+ * from all the content-reuse data (summaries, unscanned sources, attention,
+ * linked projects, scan state). Nothing is capped; the staff view lays it out
+ * and draws it. Cached for {@link MAP_CACHE_MS}, since it reads every summary.
+ */
+export const getLibraryMap = async ({ fresh = false }: { fresh?: boolean } = {}): Promise<LibraryMap> => {
+  if (!fresh && mapCache && Date.now() - mapCache.at < MAP_CACHE_MS) return mapCache.map;
+
+  const [books, summaries, unscanned, attention, projects, scanStates] = await Promise.all([
+    Book.find({}, { _id: 0, bookID: 1, library: 1, title: 1 }).lean<
+      { bookID: string; library: string; title?: string }[]
+    >(),
+    BookReuseSummary.find(
+      {},
+      { _id: 0, bookID: 1, lib: 1, computedAt: 1, totals: 1, upstream: 1, downstream: 1 },
+    ).lean<{
+      bookID: string;
+      lib: string;
+      computedAt?: Date;
+      totals?: Partial<MapTotals>;
+      upstream?: SummaryLink[];
+      downstream?: SummaryLink[];
+    }[]>(),
+    // Reuse whose source book hasn't been scanned: per (source library, target book).
+    PageReuseEdge.aggregate<{ _id: { lib: string; book: string }; pages: number; types: ReuseEdgeType[] }>([
+      { $match: { sourceBook: null, targetBook: { $ne: null }, status: { $in: CURRENT_EDGE_STATUSES } } },
+      {
+        $group: {
+          _id: { lib: { $arrayElemAt: [{ $split: ["$source", "-"] }, 0] }, book: "$targetBook" },
+          targets: { $addToSet: "$target" },
+          types: { $addToSet: "$type" },
+        },
+      },
+      { $project: { pages: { $size: "$targets" }, types: 1 } },
+    ]),
+    // Pages per book whose source changed (unreviewed) or broke.
+    PageReuseEdge.aggregate<{ _id: { book: string; status: string }; pages: number }>([
+      { $match: { targetBook: { $ne: null }, status: { $in: ["source-changed", "broken"] } } },
+      { $group: { _id: { book: "$targetBook", status: "$status" }, targets: { $addToSet: "$target" } } },
+      { $project: { pages: { $size: "$targets" } } },
+    ]),
+    Project.find(
+      { libreLibrary: { $nin: [null, ""] }, libreCoverID: { $nin: [null, ""] } },
+      { _id: 0, projectID: 1, libreLibrary: 1, libreCoverID: 1 },
+    ).lean<{ projectID: string; libreLibrary: string; libreCoverID: string }[]>(),
+    ProvenanceScanState.find({}, { _id: 0, library: 1, phase: 1, lastCompletedAt: 1 }).lean<
+      { library: string; phase?: string; lastCompletedAt?: Date }[]
+    >(),
+  ]);
+
+  const attentionByBook = new Map<string, { bookID: string; sourceChanged: number; broken: number }>();
+  for (const row of attention) {
+    const acc = attentionByBook.get(row._id.book) ?? { bookID: row._id.book, sourceChanged: 0, broken: 0 };
+    if (row._id.status === "broken") acc.broken = row.pages;
+    else acc.sourceChanged = row.pages;
+    attentionByBook.set(row._id.book, acc);
+  }
+
+  // Names for books linked to but missing from Commons (e.g. dev books).
+  const commonsIDs = new Set(books.map((b) => b.bookID));
+  const linked = new Set<string>();
+  for (const s of summaries) {
+    linked.add(s.bookID);
+    for (const l of [...(s.upstream ?? []), ...(s.downstream ?? [])]) linked.add(l.bookID);
+  }
+  const titles = await loadTitles([...linked].filter((id) => !commonsIDs.has(id)));
+
+  const map = buildLibraryMap({
+    books,
+    summaries: summaries.map((s) => ({
+      bookID: s.bookID,
+      lib: s.lib,
+      pages: s.totals?.pages ?? 0,
+      computedAt: s.computedAt ?? null,
+      totals: s.totals ?? null,
+      upstream: s.upstream ?? [],
+      downstream: s.downstream ?? [],
+    })),
+    unscanned: unscanned.map((u) => ({ lib: u._id.lib, book: u._id.book, pages: u.pages, types: u.types })),
+    attention: [...attentionByBook.values()],
+    projects: projects.map((p) => ({ bookID: `${p.libreLibrary}-${p.libreCoverID}`, projectID: p.projectID })),
+    scanStates,
+    titles,
+  });
+  mapCache = { at: Date.now(), map };
+  return map;
 };

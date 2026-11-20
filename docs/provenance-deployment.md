@@ -165,6 +165,7 @@ Also in this change:
   - `provenance-notify`: "Source-change notifications finished" (emails sent, failed, unreachable).
   - `content-sources`: lead actions such as "Source change marked reviewed".
 - **Progress:** Control Panel → Content Reuse shows each library's scan status, last run and broken reuse links.
+- **Library map:** Control Panel → Content Reuse → *Open the library map* (`/controlpanel/content-reuse/map`) draws every Commons book and every reuse link. It's served by `GET /api/v1/provenance/map` (superadmin and support only), built from the summaries, links, scan state and linked projects, and cached in memory for 10 minutes (`?fresh=true` rebuilds it). It needs no schedule, variable, collection or migration; it fills in as the scan covers more books.
 
 ---
 
