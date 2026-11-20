@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Card, Divider, Heading, Text } from "@libretexts/davis-react";
 import { useTypedSelector } from "../../../state/hooks";
 import {
+  IconAccessible,
   IconAddressBook,
   IconArrowsShuffle,
   IconBook,
@@ -147,6 +148,18 @@ const ControlPanel = () => {
   ];
 
   const campusAdminTools: ControlPanelListItem[] = [
+    // LibreTexts has its own dedicated /accessibility page.
+    ...(org.orgID !== "libretexts"
+      ? [
+        {
+          url: "/controlpanel/accessibility-statement",
+          icon: <IconAccessible size={20} />,
+          title: "Accessibility Statement",
+          description:
+            "Publish an accessibility statement on your Campus Commons",
+        },
+      ]
+      : []),
     ...(org.FEAT_AssetTagsManager
       ? [
         {

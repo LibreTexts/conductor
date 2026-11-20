@@ -20,6 +20,7 @@ import cookieParser from "cookie-parser";
 import Promise from "bluebird";
 import helmet from "helmet";
 import api, { permalinkRouter } from "./api.js";
+import Organization from "./models/organization.js";
 import { requestContext } from "./request-context.js";
 import { httpLogger } from "./http-logger.js";
 import { floodShield } from "./util/rateLimitHelpers.js";
@@ -318,6 +319,20 @@ app.get("/projects/:id/accessibility", (req, res) => {
     302,
     `/projects/${req.params.id}/accessibility-remediation${query}`
   );
+});
+
+// The SPA renders its own 404 page; this gives crawlers the matching status when no statement is set.
+app.get("/accessibility-statement", async (_req, res) => {
+  try {
+    const hasStatement = await Organization.exists({
+      orgID: process.env.ORG_ID,
+      accessibilityStatement: { $nin: [null, ""] },
+    });
+    if (!hasStatement) res.status(404);
+  } catch (err) {
+    logger.warn({ err }, "Accessibility statement lookup failed; serving app shell with 200");
+  }
+  sendIndexHtml(res);
 });
 
 let cliRouter = express.Router();

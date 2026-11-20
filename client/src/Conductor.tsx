@@ -20,6 +20,7 @@ const BooksManager = lazyWithRetry(() => import('./screens/conductor/controlpane
 const MasterCatalogPlainView = lazyWithRetry(() => import('./screens/conductor/controlpanel/BooksManager/MasterCatalogPlainView'));
 const IndexManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/IndexManager'));
 const CampusSettings = lazyWithRetry(() => import('./components/controlpanel/CampusSettings'));
+const AccessibilityStatementManager = lazyWithRetry(() => import('./components/controlpanel/AccessibilityStatementManager'));
 const CollectionsManager = lazyWithRetry(() => import('./screens/conductor/controlpanel/CollectionsManager'));
 const CollectionDetail = lazyWithRetry(() => import('./screens/conductor/controlpanel/CollectionsManager/CollectionDetail'));
 const QRCodeGenerator = lazyWithRetry(() => import('./screens/conductor/controlpanel/QRCodeGenerator'));
@@ -193,6 +194,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/booksmanager/mastercatalog' component={MasterCatalogPlainView} />
           <PrivateRoute exact path='/controlpanel/indexmanager' component={IndexManager} />
           <PrivateRoute exact path='/controlpanel/campussettings' component={CampusSettings} />
+          <PrivateRoute exact path='/controlpanel/accessibility-statement' component={AccessibilityStatementManager} />
           <PrivateRoute exact path='/controlpanel/collectionsmanager' component={CollectionsManager} />
           <PrivateRoute exact path='/controlpanel/collectionsmanager/:collID' component={CollectionDetail} />
           <PrivateRoute exact path='/controlpanel/qr-code-generator' component={QRCodeGenerator} />

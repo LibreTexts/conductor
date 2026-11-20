@@ -59,6 +59,7 @@ export interface OrganizationInterface extends Document {
   commonsModules?: CommonsModuleSettings;
   showCollections?: boolean;
   assetFilterExclusions?: string[];
+  accessibilityStatement?: string;
   autoCatalogMatchingDisabled?: boolean;
   customCoverConfig?: CustomCoverConfig;
   listenerPriority: number;
@@ -259,6 +260,10 @@ const OrganizationSchema = new Schema<OrganizationInterface>(
      * Inherent asset filters that should not be displayed in the Commons.
      */
     assetFilterExclusions: [String],
+    /**
+     * Sanitized HTML accessibility statement shown on the Campus Commons. Empty means unset.
+     */
+    accessibilityStatement: String,
     /**
      * Whether automatically attributed books should be added to the organization's catalog.
      */

@@ -22,7 +22,6 @@ import KBPage, { KBPageInterface } from "../models/kbpage.js";
 import authAPI from "./auth.js";
 import { v4 } from "uuid";
 import User from "../models/user.js";
-import DOMPurify from "isomorphic-dompurify";
 import KBFeaturedPage from "../models/kbfeaturedpage.js";
 import KBFeaturedVideo from "../models/kbfeaturedvideo.js";
 import { ZodReqWithOptionalUser, ZodReqWithUser } from "../types/Express.js";
@@ -36,6 +35,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { assembleUrl } from "../util/helpers.js";
 import { addHeadingIds } from "../util/kb-headings.js";
+import { sanitizeRichHtml } from "../util/sanitize-html.js";
 import axios from "axios";
 import projectFilesAPI from "./projectfiles.js";
 import OpenAI from 'openai';
@@ -334,7 +334,7 @@ async function createKBPage(
       uuid: v4(),
       title,
       description,
-      body: addHeadingIds(_sanitizeBodyContent(body)),
+      body: addHeadingIds(sanitizeRichHtml(body)),
       status,
       // Default to internal-only when unspecified so internal docs are never
       // inadvertently released to the public.
@@ -498,7 +498,7 @@ async function updateKBPage(
 
     kbPage.title = title;
     kbPage.description = description;
-    kbPage.body = addHeadingIds(_sanitizeBodyContent(body));
+    kbPage.body = addHeadingIds(sanitizeRichHtml(body));
     kbPage.slug = safeURL;
     kbPage.status = status;
     kbPage.internalOnly = internalOnly ?? kbPage.internalOnly; // Preserve existing value if not provided
@@ -1209,25 +1209,6 @@ async function _deleteKBImagesFromStorage(urls: string[]): Promise<boolean> {
     } else {
       throw err;
     }
-  }
-}
-
-function _sanitizeBodyContent(content: string) {
-  try {
-    return DOMPurify.sanitize(content, {
-      ADD_TAGS: ["iframe", "figure", "oembed"],
-      ADD_ATTR: [
-        "allow",
-        "allowfullscreen",
-        "frameborder",
-        "scrolling",
-        "srcdoc",
-        "class",
-        "url",
-      ],
-    });
-  } catch (err) {
-    throw err;
   }
 }
 

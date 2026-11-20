@@ -6,7 +6,7 @@ import NavbarShell from "./NavbarShell.js";
 import EnvironmentBanner from "../EnvironmentBanner.js";
 import useClientConfig from "../../../hooks/useClientConfig.js";
 import useH5PAuthoringEnabled from "../../../hooks/useH5PAuthoringEnabled.js";
-import { Button } from "@libretexts/davis-react";
+import { Button, Link as DavisLink } from "@libretexts/davis-react";
 import { NavbarContext } from "../../../types/index.js";
 import {
   IconLifebuoy,
@@ -267,6 +267,13 @@ const Navbar: React.FC<{}> = () => {
       desktopActions = (
         <>
           <li><AboutOrgLink org={org} /></li>
+          {org.accessibilityStatement && (
+            <li>
+              <DavisLink href="/accessibility-statement" underline="hover">
+                {org.name} Accessibility Statement
+              </DavisLink>
+            </li>
+          )}
           {libretextsOnly && (
             <>
               <li><DonateLink /></li>
@@ -283,6 +290,13 @@ const Navbar: React.FC<{}> = () => {
       mobileDrawerItems = (
         <>
           <li><AboutOrgLink org={org} /></li>
+          {org.accessibilityStatement && (
+            <li>
+              <DavisLink href="/accessibility-statement" underline="hover">
+                {org.name} Accessibility Statement
+              </DavisLink>
+            </li>
+          )}
           {libretextsOnly && (
               <>
                 <DonateLink />

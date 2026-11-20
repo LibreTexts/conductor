@@ -45,6 +45,7 @@ export type Organization = {
   showCollections?: boolean;
   assetFilterExclusions?: string[];
   autoCatalogMatchingDisabled?: boolean;
+  accessibilityStatement?: string;
 };
 
 export type CampusSettingsOpts = Pick<

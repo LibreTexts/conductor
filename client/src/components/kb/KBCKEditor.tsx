@@ -117,10 +117,20 @@ const EDITOR_CONFIG: EditorConfig = {
   },
 };
 
+const NO_UPLOAD_CONFIG: EditorConfig = {
+  ...EDITOR_CONFIG,
+  toolbar: {
+    items: (EDITOR_CONFIG.toolbar as { items: string[] }).items.filter(
+      (item) => item !== "imageUpload"
+    ),
+  },
+};
+
 interface KBCKEditorProps extends React.HTMLAttributes<HTMLDivElement> {
   data: string | undefined;
   onDataChange: (newData: string) => void;
-  pageUUID: string;
+  /** Image uploads attach to this KB page. Omit to disable image upload. */
+  pageUUID?: string;
 }
 
 const KBCKEditor: React.FC<KBCKEditorProps> = ({
@@ -176,9 +186,10 @@ const KBCKEditor: React.FC<KBCKEditorProps> = ({
       {loading && <LoadingSpinner />}
       <CKEditor
         editor={ClassicEditor}
-        config={EDITOR_CONFIG}
+        config={pageUUID ? EDITOR_CONFIG : NO_UPLOAD_CONFIG}
         data={data}
         onReady={(editor) => {
+          if (!pageUUID) return;
           editor.plugins.get("FileRepository").createUploadAdapter = (
             loader
           ) => {

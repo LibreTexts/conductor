@@ -3,7 +3,7 @@ import { VisuallyHidden } from "@libretexts/davis-react";
 import { IconBrandFacebook, IconBrandX, type IconProps } from "@tabler/icons-react";
 import classNames from "classnames";
 import { useTypedSelector } from "../../state/hooks";
-import { sanitizeCustomColor } from "../../utils/campusSettingsHelpers";
+import { readableTextColor, sanitizeCustomColor } from "../../utils/campusSettingsHelpers";
 
 interface ContactLink {
   key: string;
@@ -31,6 +31,9 @@ const Footer = () => {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const customFooterColor =
+    org.orgID !== "libretexts" ? sanitizeCustomColor(org.footerColor ?? "") : "";
 
   const handleMouseEnter = useCallback(() => {
     setTooltipsDismissed(false);
@@ -116,13 +119,16 @@ const Footer = () => {
         "flex flex-col items-center py-7 px-4 shadow-md text-center",
         org.orgID === "libretexts"
           ? "bg-[#0E5E95] text-white"
-          : org.footerColor
+          : customFooterColor
             ? ""
             : "bg-[#ccecfd]"
       )}
       style={
-        org.orgID !== "libretexts" && org.footerColor
-          ? { backgroundColor: sanitizeCustomColor(org.footerColor) }
+        customFooterColor
+          ? {
+              backgroundColor: customFooterColor,
+              color: readableTextColor(customFooterColor),
+            }
           : {}
       }
     >
@@ -180,6 +186,17 @@ const Footer = () => {
         </nav>
       ) : (
         <>
+          {org.accessibilityStatement && (
+            <nav aria-label="Footer" className="mb-3">
+              <a
+                href="/accessibility-statement"
+                className="underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                style={{ color: "inherit" }}
+              >
+                Accessibility Statement
+              </a>
+            </nav>
+          )}
           <p className="m-0">
             <em>powered by</em>
           </p>

@@ -12,6 +12,7 @@ import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import Organization, { COMMONS_MODULES, OrganizationInterface } from '../models/organization.js';
 import { ensureUniqueStringArray, isEmptyString, sanitizeCustomColor } from '../util/helpers.js';
+import { sanitizeRichHtml } from '../util/sanitize-html.js';
 import conductorErrors from '../conductor-errors.js';
 import authAPI from './auth.js';
 import CustomCatalog from '../models/customcatalog.js';
@@ -272,10 +273,6 @@ async function getCustomCoverConfig(req: Request, res: Response) {
  */
 async function updateOrganizationInfo(req: Request, res: Response) {
   try {
-    req.body.aliases = req.body.aliases ? req.body.aliases.filter(
-      (alias: String) => alias.length >= 1 && alias.length <= 100
-    ) : [];
-
     const { orgID } = req.params;
 
     // Build update object
@@ -307,9 +304,16 @@ async function updateOrganizationInfo(req: Request, res: Response) {
     addToUpdateIfPresent('showCollections');
     addToUpdateIfPresent('assetFilterExclusions')
 
-    if (req.body.aliases && Array.isArray(req.body.aliases)) {
+    // LibreTexts has its own dedicated /accessibility page.
+    if (Object.hasOwn(req.body, 'accessibilityStatement') && orgID !== 'libretexts') {
+      updateObj.accessibilityStatement = sanitizeRichHtml(req.body.accessibilityStatement).trim();
+    }
+
+    // Only touch aliases when sent, so partial updates don't wipe them.
+    if (Array.isArray(req.body.aliases)) {
       updateObj.aliases = req.body.aliases.filter(
-        (alias: string) => typeof alias === "string"
+        (alias: unknown) =>
+          typeof alias === "string" && alias.length >= 1 && alias.length <= 100
       );
     }
 
@@ -572,7 +576,8 @@ function validate(method: string) {
         body('commonsModules', conductorErrors.err1).optional({ checkFalsy: true }).isObject().custom(validateCommonsModules),
         body('showCollections', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
         body('assetFilterExclusions', conductorErrors.err1).optional({ checkFalsy: true }).isArray().customSanitizer(ensureUniqueStringArray),
-        body('autoCatalogMatchingDisabled', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean()
+        body('autoCatalogMatchingDisabled', conductorErrors.err1).optional({ checkFalsy: true }).isBoolean().toBoolean(),
+        body('accessibilityStatement', conductorErrors.err1).optional().isString().isLength({ max: 50000 }),
       ];
     case 'updateBrandingImageAsset':
       return [

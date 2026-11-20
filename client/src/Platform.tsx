@@ -59,6 +59,7 @@ export const COMMONS_PATHS = [
   "/search-results",
   "/file",
   "/sitemap",
+  "/accessibility-statement",
 ];
 
 /**
@@ -109,6 +110,7 @@ const Platform = () => {
     "/search-results",
     "/file/:projectID/:fileID",
     "/sitemap",
+    "/accessibility-statement",
   ];
 
   const standalonePaths = [
