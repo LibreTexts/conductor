@@ -10,8 +10,10 @@ import PageReuseEdge, {
   type ReuseEdgeStatus,
 } from "../../models/pagereuseedge.js";
 import BookReuseSummary, {
+  type BookReuseAttention,
   type BookReuseLink,
   type BookReuseSummaryInterface,
+  type UnscannedSourceLink,
 } from "../../models/bookreusesummary.js";
 import SourceChangeEvent from "../../models/sourcechangeevent.js";
 import { getLibraryAndPageFromBookID } from "../../util/bookutils.js";
@@ -289,10 +291,10 @@ export const recordSourceChange = async ({
   ).lean<{ bookID?: string | null }>();
 
   if (!deleted) {
-    await PageReuseEdge.updateMany(
-      { source: { $eq: sourceId }, status: "active" },
-      { $set: { status: "source-changed" } },
-    );
+    const filter = { source: { $eq: sourceId }, status: "active" as const };
+    const books = await PageReuseEdge.distinct("targetBook", filter);
+    const res = await PageReuseEdge.updateMany(filter, { $set: { status: "source-changed" } });
+    if (res.modifiedCount > 0) await refreshBookAttention(books);
   }
 
   try {
@@ -502,14 +504,14 @@ export const findNeighborBooks = async ({
  * event still tells their leads.
  */
 export const markSourceBroken = async (source: string): Promise<number> => {
-  const res = await PageReuseEdge.updateMany(
-    {
-      source: { $eq: source },
-      status: { $in: CURRENT_EDGE_STATUSES },
-      type: { $in: LIVE_EDGE_TYPES },
-    },
-    { $set: { status: "broken" } },
-  );
+  const filter = {
+    source: { $eq: source },
+    status: { $in: CURRENT_EDGE_STATUSES },
+    type: { $in: LIVE_EDGE_TYPES },
+  };
+  const books = await PageReuseEdge.distinct("targetBook", filter);
+  const res = await PageReuseEdge.updateMany(filter, { $set: { status: "broken" } });
+  if (res.modifiedCount > 0) await refreshBookAttention(books);
   return res.modifiedCount;
 };
 
@@ -696,6 +698,69 @@ const aggregateBookLinks = (
   ]);
 };
 
+/** Statuses that put a page on a book's attention list. */
+const ATTENTION_EDGE_STATUSES: ReuseEdgeStatus[] = ["source-changed", "broken"];
+
+/**
+ * A book's reuse from not-yet-scanned books (by source library) and its pages
+ * needing attention, from its own edges. Two aggregations scoped to the book
+ * (`targetBook` is indexed), so the library views can read these off the
+ * summaries instead of grouping every edge in the collection.
+ */
+const summarizeBookAttention = async (
+  bookID: string,
+): Promise<{ unscannedSources: UnscannedSourceLink[]; attention: BookReuseAttention }> => {
+  const [unscanned, statuses] = await Promise.all([
+    PageReuseEdge.aggregate<UnscannedSourceLink>([
+      {
+        $match: {
+          targetBook: { $eq: bookID },
+          sourceBook: null,
+          status: { $in: CURRENT_EDGE_STATUSES },
+        },
+      },
+      {
+        $group: {
+          _id: { $arrayElemAt: [{ $split: ["$source", "-"] }, 0] },
+          pages: { $addToSet: "$target" },
+          types: { $addToSet: "$type" },
+        },
+      },
+      { $project: { _id: 0, lib: "$_id", pages: { $size: "$pages" }, types: 1 } },
+      { $sort: { pages: -1, lib: 1 } },
+    ]),
+    PageReuseEdge.aggregate<{ _id: ReuseEdgeStatus; pages: number }>([
+      { $match: { targetBook: { $eq: bookID }, status: { $in: ATTENTION_EDGE_STATUSES } } },
+      { $group: { _id: "$status", pages: { $addToSet: "$target" } } },
+      { $project: { pages: { $size: "$pages" } } },
+    ]),
+  ]);
+  const pagesWith = (status: ReuseEdgeStatus) => statuses.find((s) => s._id === status)?.pages ?? 0;
+  return {
+    unscannedSources: unscanned.map((u) => ({ ...u, types: [...u.types].sort() })),
+    attention: { sourceChanged: pagesWith("source-changed"), broken: pagesWith("broken") },
+  };
+};
+
+/**
+ * Brings the unscanned-source and attention counts up to date on the given
+ * books' summaries, after edge statuses changed outside a full rebuild.
+ * Books without a summary are left alone (they haven't been scanned).
+ * Never throws: the counts are a convenience for the library views, and a
+ * failure here mustn't undo the change that triggered it.
+ */
+export const refreshBookAttention = async (bookIDs: (string | null | undefined)[]): Promise<void> => {
+  const unique = [...new Set(bookIDs.filter((id): id is string => Boolean(id)))];
+  for (const bookID of unique) {
+    try {
+      const fields = await summarizeBookAttention(bookID);
+      await BookReuseSummary.updateOne({ bookID: { $eq: bookID } }, { $set: fields });
+    } catch (err) {
+      provenanceLog.warn({ err, bookID }, "Failed to refresh a book's attention counts");
+    }
+  }
+};
+
 /**
  * Recomputes one book's rollup from its page nodes and edges and stores it.
  * Cheap enough to run after every scan of the book: three indexed
@@ -707,7 +772,7 @@ export const rebuildBookSummary = async (
   const [lib] = getLibraryAndPageFromBookID(bookID) as [string, string];
   const livePages = { bookID: { $eq: bookID }, deletedAt: null };
 
-  const [kindCounts, viaChain, upstream, downstream] = await Promise.all([
+  const [kindCounts, viaChain, upstream, downstream, attention] = await Promise.all([
     PageNode.aggregate<{ _id: PageNodeKind; n: number }>([
       { $match: livePages },
       { $group: { _id: "$kind", n: { $sum: 1 } } },
@@ -715,6 +780,7 @@ export const rebuildBookSummary = async (
     PageNode.countDocuments({ ...livePages, reuseDepth: { $gte: 2 } }),
     aggregateBookLinks(bookID, "upstream"),
     aggregateBookLinks(bookID, "downstream"),
+    summarizeBookAttention(bookID),
   ]);
 
   const totals = emptyTotals();
@@ -730,6 +796,7 @@ export const rebuildBookSummary = async (
     totals,
     upstream,
     downstream,
+    ...attention,
     computedAt: new Date(),
   };
   await BookReuseSummary.replaceOne({ bookID: { $eq: bookID } }, summary, {

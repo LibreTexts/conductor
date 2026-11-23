@@ -6,6 +6,7 @@ import {
   Button,
   Combobox,
   Heading,
+  Progress,
   Select,
   Spinner,
   Stack,
@@ -57,15 +58,21 @@ const LibraryMapPage: React.FC = () => {
 
   const [layout, setLayout] = useState<LayoutOutput | null>(null);
   const [layoutError, setLayoutError] = useState(false);
+  const [layoutDone, setLayoutDone] = useState(0);
   useEffect(() => {
     if (!map) return;
     let cancelled = false;
     setLayout(null);
-    runLayout({
-      libs: map.nodes.map((n) => n.lib),
-      radius: map.nodes.map((n) => nodeRadius(n.reusedBy, n.kind)),
-      edges: map.edges.map(([s, t, pages]) => [s, t, pages]),
-    })
+    setLayoutDone(0);
+    runLayout(
+      {
+        libs: map.nodes.map((n) => n.lib),
+        radius: map.nodes.map((n) => nodeRadius(n.reusedBy, n.kind)),
+        edges: map.edges.map(([s, t, pages]) => [s, t, pages]),
+      },
+      // Whole percents only, so a long layout re-renders about 100 times at most.
+      (done) => !cancelled && setLayoutDone(Math.floor(done * 100)),
+    )
       .then((out) => !cancelled && setLayout(out))
       .catch(() => !cancelled && setLayoutError(true));
     return () => {
@@ -205,7 +212,15 @@ const LibraryMapPage: React.FC = () => {
 
           <div className="hidden md:block">
             {layoutError && <Alert variant="error" message="Couldn't lay out the map." />}
-            {!layout && !layoutError && <Spinner text={`Laying out ${plural(stats.books, "book")}…`} />}
+            {!layout && !layoutError && (
+              <div className="max-w-md">
+                <Progress
+                  value={layoutDone}
+                  label={`Laying out ${plural(stats.books, "book")}`}
+                  showValue
+                />
+              </div>
+            )}
             {layout && (
               <LibraryMap
                 map={map}

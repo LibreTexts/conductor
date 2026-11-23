@@ -32,8 +32,12 @@ export type LayoutInput = {
   radius: number[];
   /** `[source, target, pages]` by node index. */
   edges: [number, number, number][];
+  /** Simulation steps; defaults to {@link ticksFor} the books that share. */
   ticks?: number;
 };
+
+/** Called with the share of the layout done, 0 to 1. */
+export type LayoutProgress = (done: number) => void;
 
 /** A library island: its centre, its radius, and how many books it holds. */
 export type LayoutAnchor = { lib: string; x: number; y: number; r: number; count: number };
@@ -46,6 +50,23 @@ export type LayoutOutput = {
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const DEFAULT_TICKS = 260;
+/** Fewest steps a large graph gets; below this the neighbourhoods don't settle. */
+const MIN_TICKS = 120;
+/** Simulated books up to which every graph gets {@link DEFAULT_TICKS}. */
+const FULL_TICKS_UP_TO = 2000;
+/** Report progress about this often, in steps. */
+const PROGRESS_EVERY = 10;
+
+/**
+ * Steps for a simulation of `simulated` books. Each step costs about
+ * n log n, so a large graph gets fewer: 260 up to 2,000 books, falling to
+ * 120 by about 4,300 (measured: 10.8 s → about 5 s for 7,000 books).
+ * Depends only on the input, so the map stays deterministic.
+ */
+export const ticksFor = (simulated: number) =>
+  simulated <= FULL_TICKS_UP_TO
+    ? DEFAULT_TICKS
+    : Math.max(MIN_TICKS, Math.round((DEFAULT_TICKS * FULL_TICKS_UP_TO) / simulated));
 /** Sunflower spacing inside an island: unlinked dots (radius 2.2) don't touch. */
 const ISLAND_SPACING = 3.3;
 /** Room around each island for the linked books that orbit and bridge it. */
@@ -117,7 +138,10 @@ const keepOutOfIslands = (anchors: LayoutAnchor[]): Force<Node, undefined> => {
   return force;
 };
 
-export const computeLayout = ({ libs, radius, edges, ticks = DEFAULT_TICKS }: LayoutInput): LayoutOutput => {
+export const computeLayout = (
+  { libs, radius, edges, ticks: requestedTicks }: LayoutInput,
+  onProgress?: LayoutProgress,
+): LayoutOutput => {
   const n = libs.length;
   const linked = new Uint8Array(n);
   for (const [s, t] of edges) {
@@ -172,6 +196,7 @@ export const computeLayout = ({ libs, radius, edges, ticks = DEFAULT_TICKS }: La
   });
 
   if (nodes.length > 0) {
+    const ticks = requestedTicks ?? ticksFor(nodes.length);
     const maxPages = Math.max(1, ...edges.map((e) => e[2]));
     const links: (SimulationLinkDatum<Node> & { pages: number })[] = edges.map(([s, t, pages]) => ({
       source: simIndex.get(s)!,
@@ -192,7 +217,10 @@ export const computeLayout = ({ libs, radius, edges, ticks = DEFAULT_TICKS }: La
       .force("collide", forceCollide<Node>((d) => d.r + 1.5))
       .force("islands", keepOutOfIslands(anchors))
       .stop();
-    for (let i = 0; i < ticks; i += 1) simulation.tick();
+    for (let i = 0; i < ticks; i += 1) {
+      simulation.tick();
+      if (onProgress && i % PROGRESS_EVERY === 0) onProgress(i / ticks);
+    }
     // Whatever is still inside an island after the last step is moved just
     // outside it, so no linked book ever covers an island's books.
     for (let pass = 0; pass < 3; pass += 1) {
@@ -212,23 +240,101 @@ export const computeLayout = ({ libs, radius, edges, ticks = DEFAULT_TICKS }: La
   return { x, y, anchors };
 };
 
+// ── Browser cache ────────────────────────────────────────────────────────────
+
+/** Bump when the layout rules change, so cached layouts are redone. */
+const LAYOUT_VERSION = 2;
+const CACHE_KEY = "conductor.libraryMap.layout";
+
+/** FNV-1a over the input: the same data gives the same key. */
+export const layoutKey = ({ libs, radius, edges, ticks }: LayoutInput): string => {
+  let h = 0x811c9dc5;
+  const mix = (value: number) => {
+    h ^= value;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  };
+  const mixString = (str: string) => {
+    for (let i = 0; i < str.length; i += 1) mix(str.charCodeAt(i));
+    mix(0);
+  };
+  mix(LAYOUT_VERSION);
+  mix(ticks ?? -1);
+  libs.forEach(mixString);
+  for (const r of radius) mix(Math.round(r * 100));
+  for (const [s, t, pages] of edges) {
+    mix(s);
+    mix(t);
+    mix(pages);
+  }
+  return `${LAYOUT_VERSION}:${libs.length}:${edges.length}:${h.toString(16)}`;
+};
+
+type CachedLayout = { key: string; x: number[]; y: number[]; anchors: LayoutAnchor[] };
+
+/** The stored layout for this input, if the browser kept one. */
+const readCachedLayout = (key: string): LayoutOutput | null => {
+  try {
+    const raw = window.localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as CachedLayout;
+    if (cached.key !== key || cached.x.length !== cached.y.length) return null;
+    return { x: Float32Array.from(cached.x), y: Float32Array.from(cached.y), anchors: cached.anchors };
+  } catch {
+    return null;
+  }
+};
+
+/** Keeps one layout (the latest), rounded to a tenth of a unit to stay small. */
+const writeCachedLayout = (key: string, out: LayoutOutput) => {
+  try {
+    const round = (v: number) => Math.round(v * 10) / 10;
+    const cached: CachedLayout = {
+      key,
+      x: Array.from(out.x, round),
+      y: Array.from(out.y, round),
+      anchors: out.anchors,
+    };
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+  } catch {
+    // Storage full or blocked: the next visit lays the map out again.
+  }
+};
+
+/** Messages from the layout worker. */
+export type LayoutWorkerMessage =
+  | { type: "progress"; done: number }
+  | { type: "done"; out: LayoutOutput };
+
 /**
  * Runs the layout off the main thread when the browser can, so the page
- * stays responsive while the books settle; inline otherwise.
+ * stays responsive while the books settle; inline otherwise. A layout this
+ * browser already computed for the same data is reused straight away.
  */
-export const runLayout = (input: LayoutInput): Promise<LayoutOutput> => {
-  if (typeof Worker === "undefined") return Promise.resolve(computeLayout(input));
+export const runLayout = (input: LayoutInput, onProgress?: LayoutProgress): Promise<LayoutOutput> => {
+  const key = layoutKey(input);
+  const cached = typeof window !== "undefined" ? readCachedLayout(key) : null;
+  if (cached) return Promise.resolve(cached);
+
+  const finish = (out: LayoutOutput) => {
+    if (typeof window !== "undefined") writeCachedLayout(key, out);
+    return out;
+  };
+  if (typeof Worker === "undefined") return Promise.resolve(finish(computeLayout(input, onProgress)));
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL("./layout.worker.ts", import.meta.url), { type: "module" });
-    worker.onmessage = (event: MessageEvent<LayoutOutput>) => {
-      resolve(event.data);
+    worker.onmessage = (event: MessageEvent<LayoutWorkerMessage>) => {
+      if (event.data.type === "progress") {
+        onProgress?.(event.data.done);
+        return;
+      }
+      resolve(finish(event.data.out));
       worker.terminate();
     };
     worker.onerror = (event) => {
       worker.terminate();
       // A worker that fails to start (e.g. a strict CSP) still gets a map.
       try {
-        resolve(computeLayout(input));
+        resolve(finish(computeLayout(input, onProgress)));
       } catch {
         reject(event);
       }

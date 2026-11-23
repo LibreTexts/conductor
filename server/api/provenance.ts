@@ -22,6 +22,7 @@ import {
   getBookGraph,
   getLibraryMap,
   getLibraryReuseStats,
+  warmLibraryMap,
 } from "./services/provenance-insights-service.js";
 import {
   isProvenanceNotifyRunning,
@@ -57,9 +58,11 @@ async function runScanJob(req: Request, res: Response) {
 
     const books = book ? book.split(",") : undefined;
 
-    void runProvenanceScan({ libraries, books, budgetMs, force }).catch((err) =>
-      log.error({ err }, "Provenance scan run failed"),
-    );
+    void runProvenanceScan({ libraries, books, budgetMs, force })
+      // Rebuild the library map while staff aren't waiting for it. An empty
+      // result means another run held the scan, which will rebuild it.
+      .then((outcomes) => (outcomes.length > 0 ? warmLibraryMap() : undefined))
+      .catch((err) => log.error({ err }, "Provenance scan run failed"));
 
     return res.status(202).send({ err: false, started: true });
   } catch (err) {
@@ -168,9 +171,9 @@ async function runChangesJob(req: Request, res: Response) {
         msg: "The changes job is already running on this instance.",
       });
     }
-    void runLibraryChanges({ libraries, budgetMs }).catch((err) =>
-      changesLog.error({ err }, "Changes job failed"),
-    );
+    void runLibraryChanges({ libraries, budgetMs })
+      .then(() => warmLibraryMap())
+      .catch((err) => changesLog.error({ err }, "Changes job failed"));
     return res.status(202).send({ err: false, started: true });
   } catch (err) {
     changesLog.error({ err }, "runChangesJob failed");

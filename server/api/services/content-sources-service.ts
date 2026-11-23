@@ -18,7 +18,7 @@ import {
   type UnscannedSourceGroup,
   type ViewRef,
 } from "../../util/content-sources-view.js";
-import { getLineage } from "./page-provenance-service.js";
+import { getLineage, refreshBookAttention } from "./page-provenance-service.js";
 import { CXOneFetch } from "../../util/librariesclient.js";
 import {
   previousRevision,
@@ -231,6 +231,7 @@ export const markSourceChangeReviewed = async (
       },
     );
     edgesReset = reset.modifiedCount;
+    if (edgesReset > 0) await refreshBookAttention([bookID]);
   }
   return { reviewed: res.modifiedCount, edgesReset };
 };

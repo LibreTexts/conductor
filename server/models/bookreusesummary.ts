@@ -13,6 +13,24 @@ export type BookReuseLink = {
 };
 
 /**
+ * Reuse whose source page belongs to no scanned book yet, from one library.
+ * Lets the library views show it without reading the page-level edges.
+ */
+export type UnscannedSourceLink = {
+  /** The source pages' library. */
+  lib: string;
+  /** Distinct pages of this book reusing them. */
+  pages: number;
+  types: ReuseEdgeType[];
+};
+
+/** Distinct pages of a book whose reused source changed (unreviewed) or broke. */
+export type BookReuseAttention = {
+  sourceChanged: number;
+  broken: number;
+};
+
+/**
  * Precomputed per-book rollup of the provenance graph. Small (one document
  * per book) and read by the UI and the book connection graph, which never
  * touch the page-level collections directly.
@@ -37,6 +55,13 @@ export interface BookReuseSummaryInterface {
   upstream: BookReuseLink[];
   /** Books that reuse content from this book. */
   downstream: BookReuseLink[];
+  /**
+   * Reuse from books not scanned yet, by source library. Absent on summaries
+   * written before it existed (see `BackfillBookReuseAttention`).
+   */
+  unscannedSources?: UnscannedSourceLink[];
+  /** Pages needing attention. Absent on summaries written before it existed. */
+  attention?: BookReuseAttention;
   computedAt: Date;
 }
 
@@ -50,6 +75,15 @@ const BookReuseLinkSchema = new Schema<BookReuseLink>(
 );
 
 const count = { type: Number, default: 0 };
+
+const UnscannedSourceLinkSchema = new Schema<UnscannedSourceLink>(
+  {
+    lib: { type: String, required: true },
+    pages: { type: Number, required: true },
+    types: { type: [String], enum: REUSE_EDGE_TYPES, default: [] },
+  },
+  { _id: false },
+);
 
 const BookReuseSummarySchema = new Schema<BookReuseSummaryInterface>(
   {
@@ -68,6 +102,14 @@ const BookReuseSummarySchema = new Schema<BookReuseSummaryInterface>(
     },
     upstream: { type: [BookReuseLinkSchema], default: [] },
     downstream: { type: [BookReuseLinkSchema], default: [] },
+    unscannedSources: { type: [UnscannedSourceLinkSchema], default: undefined },
+    attention: {
+      type: new Schema<BookReuseAttention>(
+        { sourceChanged: count, broken: count },
+        { _id: false },
+      ),
+      default: undefined,
+    },
     computedAt: { type: Date, required: true },
   },
   { versionKey: false },

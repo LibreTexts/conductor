@@ -16,11 +16,12 @@ Two rules hold throughout:
 
 ### Migrations
 
-**No data migration is required.** All provenance data lives in new collections that start empty and are filled by the scanner.
+**A first deployment needs no data migration.** All provenance data lives in new collections that start empty and are filled by the scanner. Upgrading a deployment that already has summaries needs one backfill (below).
 
 | Migration | Status | Notes |
 |---|---|---|
 | Seed reuse links from past Remixer history (`ProjectRemixerJob` / saved Remixer states) | Planned, not written yet | Optional. Without it, older remixed books are still found by the scanner: transclusions from their markup, and forks only as Phase 4 fingerprinting lands. |
+| `server/migrations/BackfillBookReuseAttention.ts` | Upgrade only | Fills `unscannedSources` and `attention` on summaries written before those fields existed. A first deployment doesn't need it. See *Upgrading an existing deployment: library counts on summaries* below. |
 
 ### New collections
 
@@ -157,6 +158,16 @@ Also in this change:
 - **Deleting a source no longer marks copies broken.** Forks, full copies and excerpts keep their content, so only transclusions and embedded sections become "Source deleted". Leads are still told about the deletion.
 - **The Restacker's remixing percentage is always measured.** It's the share of text blocks carrying another page's `lt-` class. A page's own class counts as its own content, and only a whole-page transclusion stub is 100%.
 
+### Upgrading an existing deployment: library counts on summaries
+Each book's summary now also keeps its reuse from not-yet-scanned libraries (`unscannedSources`) and its pages needing attention (`attention`: source changed, broken). The library map and the book connection graph read these from the summaries instead of grouping every page-level reuse link on each request, which would slow down and could hit MongoDB's 100 MB `$group` limit as the scan covers more books.
+
+Summaries written before this change don't have the fields: until a book is next scanned, the map shows no reuse from unscanned libraries and no attention ring for it. Backfill once after deploying:
+```bash
+# from server/, with MONGOOSEURI set; uncomment the runner at the bottom of the file first
+npx tsx migrations/BackfillBookReuseAttention.ts
+```
+It recomputes both fields from the links, 8 books at a time, and is safe to re-run (about 3.5 s per 100 books on dev). Afterwards the fields stay current on their own: every summary rebuild writes them, and a source change, a broken source and a lead's review refresh them on the books they touch.
+
 ## 5. Monitoring
 
 - **Logs** (Pino, queryable by `component`):
@@ -165,7 +176,7 @@ Also in this change:
   - `provenance-notify`: "Source-change notifications finished" (emails sent, failed, unreachable).
   - `content-sources`: lead actions such as "Source change marked reviewed".
 - **Progress:** Control Panel → Content Reuse shows each library's scan status, last run and broken reuse links.
-- **Library map:** Control Panel → Content Reuse → *Open the library map* (`/controlpanel/content-reuse/map`) draws every Commons book and every reuse link. It's served by `GET /api/v1/provenance/map` (superadmin and support only), built from the summaries, links, scan state and linked projects, and cached in memory for 10 minutes (`?fresh=true` rebuilds it). It needs no schedule, variable, collection or migration; it fills in as the scan covers more books.
+- **Library map:** Control Panel → Content Reuse → *Open the library map* (`/controlpanel/content-reuse/map`) draws every Commons book and every reuse link. It's served by `GET /api/v1/provenance/map` (superadmin and support only), built from the summaries, links, scan state and linked projects, and cached in memory for 10 minutes (`?fresh=true` rebuilds it). The scan and changes jobs rebuild that cache when they finish, so staff rarely wait for a build; the cache is per server instance, so with several instances only the one that ran the job is warmed. Log: `provenance-insights` "Library map rebuilt" (books, links, ms). The browser lays the map out once per data version and keeps that layout in local storage, so a repeat visit shows it at once. It needs no schedule or variable of its own; it fills in as the scan covers more books.
 
 ---
 

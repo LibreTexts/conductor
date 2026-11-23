@@ -1,8 +1,10 @@
 import BookReuseSummary, {
+  type BookReuseAttention,
   type BookReuseSummaryInterface,
+  type UnscannedSourceLink,
 } from "../../models/bookreusesummary.js";
 import ProvenanceScanState from "../../models/provenancescanstate.js";
-import PageReuseEdge, { CURRENT_EDGE_STATUSES } from "../../models/pagereuseedge.js";
+import PageReuseEdge from "../../models/pagereuseedge.js";
 import {
   buildBookGraph,
   toViewRef,
@@ -13,7 +15,9 @@ import { loadTitles } from "./content-sources-service.js";
 import Book from "../../models/book.js";
 import Project from "../../models/project.js";
 import { buildLibraryMap, type LibraryMap, type MapTotals } from "../../util/library-map.js";
-import type { ReuseEdgeType } from "../../util/provenance-graph.js";
+import { childLogger } from "../../logger.js";
+
+const insightsLog = childLogger("provenance-insights");
 
 /**
  * Library-wide views of the provenance graph for LibreTexts staff: reuse
@@ -147,15 +151,20 @@ export const getBookGraph = async ({
   const summaries = await BookReuseSummary.find(
     {
       ...(library ? { lib: { $eq: library } } : {}),
-      $or: [{ "upstream.0": { $exists: true } }, { "downstream.0": { $exists: true } }],
+      $or: [
+        { "upstream.0": { $exists: true } },
+        { "downstream.0": { $exists: true } },
+        { "unscannedSources.0": { $exists: true } },
+      ],
     },
-    { _id: 0, bookID: 1, lib: 1, "totals.pages": 1, upstream: 1, downstream: 1 },
+    { _id: 0, bookID: 1, lib: 1, "totals.pages": 1, upstream: 1, downstream: 1, unscannedSources: 1 },
   ).lean<{
     bookID: string;
     lib: string;
     totals?: { pages?: number };
     upstream?: SummaryLink[];
     downstream?: SummaryLink[];
+    unscannedSources?: UnscannedSourceLink[];
   }[]>();
 
   const graph = buildBookGraph(
@@ -170,39 +179,24 @@ export const getBookGraph = async ({
   );
 
   // Reuse whose source book hasn't been scanned: one link per (source
-  // library, target book), counted in distinct reusing pages.
+  // library, target book), counted in distinct reusing pages. Read off the
+  // summaries, which keep these counts, so no page-level edges are grouped.
   const room = Math.max(0, limit - graph.edges.length);
-  const unscanned = room
-    ? await PageReuseEdge.aggregate<{ _id: { lib: string; book: string }; pages: number; types: BookGraphEdge["types"] }>([
-        {
-          $match: {
-            sourceBook: null,
-            status: { $in: CURRENT_EDGE_STATUSES },
-            targetBook: library
-              ? { $regex: `^${library}-` }
-              : { $ne: null },
-          },
-        },
-        {
-          $group: {
-            _id: { lib: { $arrayElemAt: [{ $split: ["$source", "-"] }, 0] }, book: "$targetBook" },
-            targets: { $addToSet: "$target" },
-            types: { $addToSet: "$type" },
-          },
-        },
-        { $project: { pages: { $size: "$targets" }, types: 1 } },
-        { $match: { pages: { $gte: minPages } } },
-        { $sort: { pages: -1 } },
-        { $limit: room },
-      ])
-    : [];
+  const unscanned = summaries
+    .flatMap((s) =>
+      (s.unscannedSources ?? [])
+        .filter((u) => u.pages >= minPages)
+        .map((u) => ({ lib: u.lib, book: s.bookID, pages: u.pages, types: u.types })),
+    )
+    .sort((a, b) => b.pages - a.pages || a.book.localeCompare(b.book) || a.lib.localeCompare(b.lib))
+    .slice(0, room);
 
   const libraryNodeID = (lib: string) => `library:${lib}`;
   const edges: BookGraphEdge[] = [
     ...graph.edges,
     ...unscanned.map((u) => ({
-      source: libraryNodeID(u._id.lib),
-      target: u._id.book,
+      source: libraryNodeID(u.lib),
+      target: u.book,
       pages: u.pages,
       types: [...u.types].sort(),
     })),
@@ -260,13 +254,25 @@ let mapCache: { at: number; map: LibraryMap } | null = null;
 export const getLibraryMap = async ({ fresh = false }: { fresh?: boolean } = {}): Promise<LibraryMap> => {
   if (!fresh && mapCache && Date.now() - mapCache.at < MAP_CACHE_MS) return mapCache.map;
 
-  const [books, summaries, unscanned, attention, projects, scanStates] = await Promise.all([
+  const [books, summaries, projects, scanStates] = await Promise.all([
     Book.find({}, { _id: 0, bookID: 1, library: 1, title: 1 }).lean<
       { bookID: string; library: string; title?: string }[]
     >(),
+    // Unscanned sources and attention come with each summary, so the map
+    // never groups the page-level edges (which grow with every reused page).
     BookReuseSummary.find(
       {},
-      { _id: 0, bookID: 1, lib: 1, computedAt: 1, totals: 1, upstream: 1, downstream: 1 },
+      {
+        _id: 0,
+        bookID: 1,
+        lib: 1,
+        computedAt: 1,
+        totals: 1,
+        upstream: 1,
+        downstream: 1,
+        unscannedSources: 1,
+        attention: 1,
+      },
     ).lean<{
       bookID: string;
       lib: string;
@@ -274,25 +280,9 @@ export const getLibraryMap = async ({ fresh = false }: { fresh?: boolean } = {})
       totals?: Partial<MapTotals>;
       upstream?: SummaryLink[];
       downstream?: SummaryLink[];
+      unscannedSources?: UnscannedSourceLink[];
+      attention?: BookReuseAttention;
     }[]>(),
-    // Reuse whose source book hasn't been scanned: per (source library, target book).
-    PageReuseEdge.aggregate<{ _id: { lib: string; book: string }; pages: number; types: ReuseEdgeType[] }>([
-      { $match: { sourceBook: null, targetBook: { $ne: null }, status: { $in: CURRENT_EDGE_STATUSES } } },
-      {
-        $group: {
-          _id: { lib: { $arrayElemAt: [{ $split: ["$source", "-"] }, 0] }, book: "$targetBook" },
-          targets: { $addToSet: "$target" },
-          types: { $addToSet: "$type" },
-        },
-      },
-      { $project: { pages: { $size: "$targets" }, types: 1 } },
-    ]),
-    // Pages per book whose source changed (unreviewed) or broke.
-    PageReuseEdge.aggregate<{ _id: { book: string; status: string }; pages: number }>([
-      { $match: { targetBook: { $ne: null }, status: { $in: ["source-changed", "broken"] } } },
-      { $group: { _id: { book: "$targetBook", status: "$status" }, targets: { $addToSet: "$target" } } },
-      { $project: { pages: { $size: "$targets" } } },
-    ]),
     Project.find(
       { libreLibrary: { $nin: [null, ""] }, libreCoverID: { $nin: [null, ""] } },
       { _id: 0, projectID: 1, libreLibrary: 1, libreCoverID: 1 },
@@ -301,14 +291,6 @@ export const getLibraryMap = async ({ fresh = false }: { fresh?: boolean } = {})
       { library: string; phase?: string; lastCompletedAt?: Date }[]
     >(),
   ]);
-
-  const attentionByBook = new Map<string, { bookID: string; sourceChanged: number; broken: number }>();
-  for (const row of attention) {
-    const acc = attentionByBook.get(row._id.book) ?? { bookID: row._id.book, sourceChanged: 0, broken: 0 };
-    if (row._id.status === "broken") acc.broken = row.pages;
-    else acc.sourceChanged = row.pages;
-    attentionByBook.set(row._id.book, acc);
-  }
 
   // Names for books linked to but missing from Commons (e.g. dev books).
   const commonsIDs = new Set(books.map((b) => b.bookID));
@@ -330,12 +312,34 @@ export const getLibraryMap = async ({ fresh = false }: { fresh?: boolean } = {})
       upstream: s.upstream ?? [],
       downstream: s.downstream ?? [],
     })),
-    unscanned: unscanned.map((u) => ({ lib: u._id.lib, book: u._id.book, pages: u.pages, types: u.types })),
-    attention: [...attentionByBook.values()],
+    unscanned: summaries.flatMap((s) =>
+      (s.unscannedSources ?? []).map((u) => ({ lib: u.lib, book: s.bookID, pages: u.pages, types: u.types })),
+    ),
+    attention: summaries
+      .filter((s) => s.attention && (s.attention.sourceChanged > 0 || s.attention.broken > 0))
+      .map((s) => ({ bookID: s.bookID, ...s.attention! })),
     projects: projects.map((p) => ({ bookID: `${p.libreLibrary}-${p.libreCoverID}`, projectID: p.projectID })),
     scanStates,
     titles,
   });
   mapCache = { at: Date.now(), map };
   return map;
+};
+
+/**
+ * Rebuilds the cached library map, so the next staff visit doesn't pay for
+ * the build. Run after the scan and changes jobs. The cache is per server
+ * instance, so this warms the instance that ran the job. Never throws.
+ */
+export const warmLibraryMap = async (): Promise<void> => {
+  try {
+    const started = Date.now();
+    const map = await getLibraryMap({ fresh: true });
+    insightsLog.info(
+      { books: map.nodes.length, links: map.edges.length, ms: Date.now() - started },
+      "Library map rebuilt",
+    );
+  } catch (err) {
+    insightsLog.warn({ err }, "Failed to rebuild the library map");
+  }
 };

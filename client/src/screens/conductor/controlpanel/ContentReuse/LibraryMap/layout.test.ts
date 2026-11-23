@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeLayout, nodeRadius } from "./layout";
+import { computeLayout, layoutKey, nodeRadius, runLayout, ticksFor } from "./layout";
 
 const dist = (out: { x: Float32Array; y: Float32Array }, a: number, b: number) =>
   Math.hypot(out.x[a] - out.x[b], out.y[a] - out.y[b]);
@@ -58,5 +58,44 @@ describe("nodeRadius", () => {
     expect(nodeRadius(0, "book")).toBeLessThan(nodeRadius(4, "book"));
     expect(nodeRadius(4, "book")).toBeLessThan(nodeRadius(100, "book"));
     expect(nodeRadius(10_000, "book")).toBe(22);
+  });
+});
+
+describe("ticksFor", () => {
+  it("gives small graphs every step and large ones fewer, never below the floor", () => {
+    expect(ticksFor(500)).toBe(260);
+    expect(ticksFor(2000)).toBe(260);
+    expect(ticksFor(4000)).toBe(130);
+    expect(ticksFor(7000)).toBe(120);
+  });
+});
+
+describe("layout progress and cache", () => {
+  const libs = ["chem", "chem", "bio", "bio"];
+  const radius = [3, 3, 3, 3];
+  const edges: [number, number, number][] = [[0, 2, 4]];
+
+  it("reports progress up to the end", () => {
+    const seen: number[] = [];
+    computeLayout({ libs, radius, edges, ticks: 40 }, (done) => seen.push(done));
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((d, i) => d >= 0 && d < 1 && (i === 0 || d > seen[i - 1]))).toBe(true);
+  });
+
+  it("keys the same data the same way and different data differently", () => {
+    expect(layoutKey({ libs, radius, edges })).toBe(layoutKey({ libs, radius, edges: [[0, 2, 4]] }));
+    expect(layoutKey({ libs, radius, edges })).not.toBe(layoutKey({ libs, radius, edges: [[0, 2, 5]] }));
+  });
+
+  it("reuses a stored layout instead of computing again", async () => {
+    window.localStorage.clear();
+    const first = await runLayout({ libs, radius, edges }, () => undefined);
+    let progressed = false;
+    const second = await runLayout({ libs, radius, edges }, () => {
+      progressed = true;
+    });
+    expect(progressed).toBe(false);
+    // Stored to a tenth of a unit; float32 adds its own rounding on top.
+    second.x.forEach((v, i) => expect(v).toBeCloseTo(first.x[i], 1));
   });
 });
