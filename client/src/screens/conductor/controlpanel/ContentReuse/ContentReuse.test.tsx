@@ -54,7 +54,9 @@ describe("ContentReuse", () => {
     renderPage();
 
     expect(await screen.findByText("By library")).toBeTruthy();
-    expect(screen.getByRole("rowheader", { name: "dev" })).toBeTruthy();
+    // Davis DataTable renders the library column as a plain cell (no row
+    // headers yet; pending a Davis fix).
+    expect(screen.getByRole("cell", { name: "dev" })).toBeTruthy();
     expect(screen.getByText("2 books waiting to be re-read")).toBeTruthy();
     // One column per kind, under the Remixer's copy-mode names.
     for (const name of ["Reused content", "Copy-Transclude", "Copy-Fork", "Copy-Full"]) {

@@ -14,12 +14,18 @@ import {
   Stack,
   Text,
 } from "@libretexts/davis-react";
+import { DataTable } from "@libretexts/davis-react-table";
+import type { ColumnDef } from "@libretexts/davis-react-table";
 import { format, parseISO } from "date-fns";
 import { IconSitemap } from "@tabler/icons-react";
 import api from "../../../../api";
 import { useTypedSelector } from "../../../../state/hooks";
 import useDocumentTitle from "../../../../hooks/useDocumentTitle";
-import type { BookGraphNode, LibraryReuseStats } from "../../../../types/ContentSources";
+import type {
+  BookGraphEdge,
+  BookGraphNode,
+  LibraryReuseStats,
+} from "../../../../types/ContentSources";
 import {
   CARD_TIPS,
   EDGE_TYPE_LABELS,
@@ -54,6 +60,101 @@ const NodeLink: React.FC<{ node?: BookGraphNode; fallback: string }> = ({ node, 
   ) : (
     <span>{node?.title ?? fallback}</span>
   );
+
+const count = (value: number) => value.toLocaleString();
+
+const LIBRARY_COLUMNS: ColumnDef<LibraryReuseStats, any>[] = [
+  {
+    accessorKey: "library",
+    header: "Library",
+    cell: ({ getValue }) => <span className="font-medium">{getValue<string>()}</span>,
+  },
+  {
+    id: "scan",
+    header: "Scan",
+    accessorFn: (lib) => scanLabel(lib.scan).label,
+    cell: ({ row }) => {
+      const scan = scanLabel(row.original.scan);
+      return <Badge label={scan.label} variant={scan.variant} size="sm" />;
+    },
+  },
+  { accessorKey: "books", header: "Books", cell: ({ getValue }) => count(getValue<number>()) },
+  {
+    id: "pages",
+    header: "Pages",
+    accessorFn: (lib) => lib.totals.pages,
+    cell: ({ getValue }) => count(getValue<number>()),
+  },
+  ...SUMMARY_KINDS.map<ColumnDef<LibraryReuseStats, any>>((kind) => ({
+    id: kind,
+    header: KIND_LABELS[kind],
+    accessorFn: (lib) => lib.totals[kind],
+    cell: ({ getValue }) => count(getValue<number>()),
+  })),
+  {
+    id: "connections",
+    header: "Books reusing / reused",
+    accessorFn: (lib) => lib.booksReusing + lib.booksReused,
+    cell: ({ row }) =>
+      `${count(row.original.booksReusing)} / ${count(row.original.booksReused)}`,
+  },
+  {
+    accessorKey: "brokenLinks",
+    header: "Broken links",
+    cell: ({ getValue }) => count(getValue<number>()),
+  },
+  {
+    id: "lastRun",
+    header: "Last run",
+    accessorFn: (lib) => lib.scan?.lastRunAt ?? "",
+    cell: ({ row }) => shortDate(row.original.scan?.lastRunAt ?? null),
+  },
+  {
+    id: "feed",
+    header: "Change feed",
+    accessorFn: (lib) => lib.feed?.polledAt ?? "",
+    cell: ({ row }) => {
+      const feed = row.original.feed;
+      return (
+        <>
+          {feed?.polledAt ? shortDate(feed.polledAt) : "Not read yet"}
+          {feed?.pendingBooks ? (
+            <span className="block text-xs text-neutral-600">
+              {plural(feed.pendingBooks, "book")} waiting to be re-read
+            </span>
+          ) : null}
+          {feed?.gapAt && (
+            <Badge label={`Gap ${shortDate(feed.gapAt)}`} variant="warning" size="sm" className="mt-1" />
+          )}
+        </>
+      );
+    },
+  },
+];
+
+/** One row of the reuse-links table, with both ends resolved. */
+type LinkRow = BookGraphEdge & { sourceNode?: BookGraphNode; targetNode?: BookGraphNode };
+
+const LINK_COLUMNS: ColumnDef<LinkRow, any>[] = [
+  {
+    id: "source",
+    header: "Source",
+    accessorFn: (row) => row.sourceNode?.title ?? row.source,
+    cell: ({ row }) => <NodeLink node={row.original.sourceNode} fallback={row.original.source} />,
+  },
+  {
+    id: "target",
+    header: "Reused by",
+    accessorFn: (row) => row.targetNode?.title ?? row.target,
+    cell: ({ row }) => <NodeLink node={row.original.targetNode} fallback={row.original.target} />,
+  },
+  { accessorKey: "pages", header: "Pages", cell: ({ getValue }) => count(getValue<number>()) },
+  {
+    id: "how",
+    header: "How",
+    accessorFn: (row) => row.types.map((t) => EDGE_TYPE_LABELS[t]).join(", "),
+  },
+];
 
 /**
  * Content Reuse: how much of each library is original, reused or copied,
@@ -108,6 +209,15 @@ const ContentReuse: React.FC = () => {
   const nodesById = useMemo(
     () => new Map((graph?.nodes ?? []).map((n) => [n.id, n])),
     [graph],
+  );
+  const linkRows = useMemo<LinkRow[]>(
+    () =>
+      (graph?.edges ?? []).slice(0, TABLE_LINKS).map((edge) => ({
+        ...edge,
+        sourceNode: nodesById.get(edge.source),
+        targetNode: nodesById.get(edge.target),
+      })),
+    [graph, nodesById],
   );
   const graphSummary = graph
     ? `Book connection graph: ${plural(graph.nodes.length, "node")} and ${plural(graph.edges.length, "reuse link")}. The table below lists the links.`
@@ -175,65 +285,14 @@ const ContentReuse: React.FC = () => {
                 <Heading level={3} id="cr-libraries-heading" className="mb-3 text-lg">
                   By library
                 </Heading>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-sm">
-                    <caption className="sr-only">Reuse totals and scan progress per library</caption>
-                    <thead>
-                      <tr className="border-b border-neutral-300">
-                        <th scope="col" className="py-2 pr-4 font-semibold">Library</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Scan</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Books</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Pages</th>
-                        {SUMMARY_KINDS.map((kind) => (
-                          <th key={kind} scope="col" className="py-2 pr-4 font-semibold">{KIND_LABELS[kind]}</th>
-                        ))}
-                        <th scope="col" className="py-2 pr-4 font-semibold">Books reusing / reused</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Broken links</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Last run</th>
-                        <th scope="col" className="py-2 font-semibold">Change feed</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {libraries.map((lib) => {
-                        const scan = scanLabel(lib.scan);
-                        return (
-                          <tr key={lib.library} className="border-b border-neutral-200">
-                            <th scope="row" className="py-2 pr-4 font-medium">{lib.library}</th>
-                            <td className="py-2 pr-4">
-                              <Badge label={scan.label} variant={scan.variant} size="sm" />
-                            </td>
-                            <td className="py-2 pr-4">{lib.books.toLocaleString()}</td>
-                            <td className="py-2 pr-4">{lib.totals.pages.toLocaleString()}</td>
-                            {SUMMARY_KINDS.map((kind) => (
-                              <td key={kind} className="py-2 pr-4">{lib.totals[kind].toLocaleString()}</td>
-                            ))}
-                            <td className="py-2 pr-4">
-                              {lib.booksReusing.toLocaleString()} / {lib.booksReused.toLocaleString()}
-                            </td>
-                            <td className="py-2 pr-4">{lib.brokenLinks.toLocaleString()}</td>
-                            <td className="py-2 pr-4">{shortDate(lib.scan?.lastRunAt ?? null)}</td>
-                            <td className="py-2">
-                              {lib.feed?.polledAt ? shortDate(lib.feed.polledAt) : "Not read yet"}
-                              {lib.feed?.pendingBooks ? (
-                                <span className="block text-xs text-neutral-600">
-                                  {plural(lib.feed.pendingBooks, "book")} waiting to be re-read
-                                </span>
-                              ) : null}
-                              {lib.feed?.gapAt && (
-                                <Badge
-                                  label={`Gap ${shortDate(lib.feed.gapAt)}`}
-                                  variant="warning"
-                                  size="sm"
-                                  className="mt-1"
-                                />
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable<LibraryReuseStats>
+                  data={libraries}
+                  columns={LIBRARY_COLUMNS}
+                  enableSorting
+                  density="compact"
+                  caption="Reuse totals and scan progress per library"
+                  emptyState="No libraries scanned yet."
+                />
               </section>
             </Card.Body>
           </Card>
@@ -277,34 +336,18 @@ const ContentReuse: React.FC = () => {
                     ` ${plural(graph.omittedEdges, "smaller link")} left out to keep the picture readable.`}
                 </Text>
 
-                <div className="mt-6 overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-sm">
-                    <caption className="mb-2 text-left font-semibold">
-                      Largest reuse links{graph.edges.length > TABLE_LINKS ? ` (top ${TABLE_LINKS})` : ""}
-                    </caption>
-                    <thead>
-                      <tr className="border-b border-neutral-300">
-                        <th scope="col" className="py-2 pr-4 font-semibold">Source</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Reused by</th>
-                        <th scope="col" className="py-2 pr-4 font-semibold">Pages</th>
-                        <th scope="col" className="py-2 font-semibold">How</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {graph.edges.slice(0, TABLE_LINKS).map((edge) => (
-                        <tr key={`${edge.source}>${edge.target}`} className="border-b border-neutral-200">
-                          <td className="py-2 pr-4">
-                            <NodeLink node={nodesById.get(edge.source)} fallback={edge.source} />
-                          </td>
-                          <td className="py-2 pr-4">
-                            <NodeLink node={nodesById.get(edge.target)} fallback={edge.target} />
-                          </td>
-                          <td className="py-2 pr-4">{edge.pages.toLocaleString()}</td>
-                          <td className="py-2">{edge.types.map((t) => EDGE_TYPE_LABELS[t]).join(", ")}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="mt-6">
+                  <Heading level={4} id="cr-links-heading" className="mb-2 text-base">
+                    Largest reuse links{graph.edges.length > TABLE_LINKS ? ` (top ${TABLE_LINKS})` : ""}
+                  </Heading>
+                  <DataTable<LinkRow>
+                    data={linkRows}
+                    columns={LINK_COLUMNS}
+                    enableSorting
+                    density="compact"
+                    caption="Largest reuse links between books"
+                    tableOptions={{ getRowId: (row) => `${row.source}>${row.target}` }}
+                  />
                 </div>
               </>
             )}
