@@ -1,5 +1,7 @@
 import { Response } from "express";
 import conductorErrors from "../conductor-errors.js";
+import logger from "../logger.js";
+import type { CXOneUnavailableError } from "./CXOne/gate.js";
 
 /**
  * Returns error response based on provided params
@@ -183,4 +185,22 @@ export const serializeError = (error: any): string => {
   } catch (serializationError) {
     return String(error);
   }
+}
+
+/**
+ * 503 while the CXOne gate's breaker is open. `warn`, not `error`: the gate
+ * already reported the block, and this fires once per request until it clears.
+ */
+export function sendCXOneUnavailable(
+  res: Response,
+  err: CXOneUnavailableError,
+  context: string
+) {
+  logger.warn({ err }, `${context} unavailable: CXOne is blocking requests`);
+  res.setHeader("Retry-After", String(Math.ceil(err.retryAfterMs / 1000)));
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(503).send({
+    err: true,
+    errMsg: "The libraries are temporarily unavailable. Please try again shortly.",
+  });
 }

@@ -123,7 +123,11 @@ async function getAuthorByNameKey(
     // Anonymous, identical for every caller, and hit on nearly every MindTouch library
     // page load. A short shared TTL lets browsers and the edge skip the request entirely.
     // Applied to the 404 too, so a key with no author does not re-request on every load.
-    res.setHeader("Cache-Control", `public, max-age=${AUTHOR_BY_KEY_MAX_AGE_SECONDS}`);
+    // s-maxage lets Cloudflare serve repeats for 5 minutes. See the CORS note in api.js.
+    res.setHeader(
+      "Cache-Control",
+      `public, max-age=${AUTHOR_BY_KEY_MAX_AGE_SECONDS}, s-maxage=300`
+    );
 
     if (!author) {
       return res.status(404).send({
@@ -138,6 +142,7 @@ async function getAuthorByNameKey(
     });
   } catch (err: any) {
     logger.error({ err }, "getAuthorByNameKey failed");
+    res.setHeader("Cache-Control", "no-store");
     return conductor500Err(res);
   }
 }

@@ -1,4 +1,5 @@
 import logger, { childLogger } from "../../logger.js";
+import cxoneGate, { CXOneUnavailableError } from "../../util/CXOne/gate.js";
 import base62 from "base62-random";
 import ProjectRemixerJob from "../../models/projectremixerjob";
 import ProjectRemixer, {
@@ -34,6 +35,13 @@ import BookService from "./book-service";
 import GlossaryService from "./glossary-service";
 import { importPageReferences } from "./references-service.js";
 import { rewriteCitationKeys } from "../../util/referenceCitations.js";
+import ExpertWithSSM from "../../util/ExpertWithSSM.js";
+import {
+  ExpertError,
+  type DeletePageParams,
+  type PostPageContentsParams,
+  type PostPageMoveParams,
+} from "@libretexts/cxone-expert-node";
 const remixerLog = childLogger("remixer");
 const glossaryService = new GlossaryService();
 
@@ -175,7 +183,7 @@ const isTransientStatus = (status: number): boolean =>
 
 /** Throws an appropriate error for a non-OK MindTouch response. */
 const throwForMindTouchResponse = (
-  response: Response,
+  response: Pick<Response, "status" | "statusText">,
   prefix: string,
 ): never => {
   const message = `${prefix}: ${response.status} ${response.statusText}`;
@@ -187,6 +195,45 @@ const throwForMindTouchResponse = (
   }
   throw new Error(message);
 };
+
+/** Awaits a CXOne SDK call, mapping HTTP failures through throwForMindTouchResponse. */
+const mindTouchCall = async <T>(call: Promise<T>, prefix: string): Promise<T> => {
+  try {
+    return await call;
+  } catch (err) {
+    if (ExpertError.isExpertError(err) && err.status) {
+      throwForMindTouchResponse(
+        { status: err.status, statusText: err.statusText ?? "" },
+        prefix,
+      );
+    }
+    throw err;
+  }
+};
+
+type PageMove = Pick<PostPageMoveParams, "title" | "name" | "to">;
+
+/** Moves or renames a page, replacing any redirect left at the destination. */
+const movePage = async (
+  subdomain: string,
+  pid: number,
+  move: PageMove,
+  errorPrefix: string,
+): Promise<void> => {
+  const expert = await ExpertWithSSM.getInstance().forLibrary(subdomain);
+  // `allow` isn't in the SDK's param type, but the SDK forwards it as-is.
+  await mindTouchCall(
+    expert.pages.postPageMove(pid, {
+      ...move,
+      allow: "deleteredirects",
+    } as PostPageMoveParams),
+    errorPrefix,
+  );
+};
+
+/** True when the SDK call failed because the page is already gone. */
+const isPageGone = (err: unknown): boolean =>
+  ExpertError.isExpertError(err) && (err.status === 404 || err.status === 410);
 
 const TRANSIENT_ERROR_PATTERNS = [
   "timeout",
@@ -215,6 +262,9 @@ const isTransientError = (error: unknown): boolean => {
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/** Longest a publish waits on the CXOne breaker, before starting or mid-run. Fits one max gate cool-down. */
+const MAX_BREAKER_WAIT_MS = 15 * 60_000;
+
 /**
  * Runs `fn` and retries on transient MindTouch failures using exponential
  * backoff. Non-transient errors propagate immediately.
@@ -233,12 +283,21 @@ const withRetryOnTransient = async <T>(
     onRetry?: (attempt: number, error: unknown) => void | Promise<void>;
   } = {},
 ): Promise<T> => {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
+  let breakerDeadline = 0;
+  let attempt = 1;
+  while (true) {
     try {
       return await fn();
     } catch (error) {
-      lastError = error;
+      if (error instanceof CXOneUnavailableError) {
+        // Waiting out the breaker isn't a failed attempt; the deadline caps it instead.
+        breakerDeadline ||= Date.now() + MAX_BREAKER_WAIT_MS;
+        if (onRetry) {
+          await onRetry(attempt, error);
+        }
+        await cxoneGate.waitUntilClosed(breakerDeadline);
+        continue;
+      }
       if (attempt >= attempts || !isTransientError(error)) {
         throw error;
       }
@@ -250,9 +309,9 @@ const withRetryOnTransient = async <T>(
         baseDelayMs * Math.pow(2, attempt - 1),
       );
       await sleep(delay);
+      attempt++;
     }
   }
-  throw lastError;
 };
 
 /**
@@ -829,17 +888,15 @@ const discardHalfCreatedPage = async (
   subdomain: string,
 ): Promise<boolean> => {
   try {
-    const dekiHeaders = await generateAPIRequestHeaders(subdomain);
-    if (!dekiHeaders) return false;
-    const ref =
-      target.pageID ??
-      `=${encodeURIComponent(encodeURIComponent(target.location))}`;
-    const response = await fetch(
-      `https://${subdomain}.libretexts.org/@api/deki/pages/${ref}?dream.out.format=json&origin=mt-web&recursive=false`,
-      { method: "DELETE", headers: { ...dekiHeaders } },
-    );
-    return response.ok || response.status === 404 || response.status === 410;
+    const expert = await ExpertWithSSM.getInstance().forLibrary(subdomain);
+    // `origin` isn't in the SDK's param type, but the SDK forwards it as-is.
+    await expert.pages.delPageDelete(target.pageID ?? target.location, {
+      recursive: false,
+      origin: "mt-web",
+    } as DeletePageParams);
+    return true;
   } catch (err) {
+    if (isPageGone(err)) return true;
     remixerLog.warn({ err, ...target, subdomain }, "Could not discard half-created page");
     return false;
   }
@@ -879,7 +936,7 @@ const handleNewPage = async (
   page.article = localArticleField(kind);
   const createTitle = options?.titleOverride || title;
   const rawTitle = page["@title"] || page.title || title;
-  // segment must be un-encoded here — we double-encode the full path below,
+  // segment must be un-encoded here: the SDK double-encodes the full path,
   // matching CXOneFetch's encodeURIComponent(encodeURIComponent(path)) convention.
   const segment =
     options?.pathSegmentOverride ||
@@ -902,28 +959,15 @@ const handleNewPage = async (
   })();
   const rawPath = `${parentPath}/${segment}`;
   assertLibraryPagePath(rawPath);
-  // MindTouch pages/=<path> requires the content path to be double-encoded:
-  // the HTTP server decodes once, then the DekiWiki router decodes again.
-  const pathEnc = encodeURIComponent(encodeURIComponent(rawPath));
-  const url = `https://${subdomain}.libretexts.org/@api/deki/pages/=${pathEnc}/${CXOnePageAPIEndpoints.POST_Contents_Title(createTitle)}`;
-  const dekiHeaders = await generateAPIRequestHeaders(subdomain);
-  if (!dekiHeaders) {
-    throw new Error(
-      "Error generating library API headers for remixer request.",
-    );
-  }
-  const response = await fetch(url, {
-    method: "POST",
-    body: content,
-    headers: {
-      "Content-Type": "text/plain",
-      ...dekiHeaders,
-    },
-  });
-
-  if (!response.ok) {
-    throwForMindTouchResponse(response, `Error creating page "${createTitle}"`);
-  }
+  const expert = await ExpertWithSSM.getInstance().forLibrary(subdomain);
+  // No `edittime` on purpose: without it MindTouch answers 409 when the path is
+  // taken (a TitleConflictError), where edittime=now would overwrite the page.
+  await mindTouchCall(
+    expert.pages.postPageContents(rawPath, content, {
+      title: createTitle,
+    } as PostPageContentsParams),
+    `Error creating page "${createTitle}"`,
+  );
   // The page exists live from here on; if the rest fails, remove it again.
   try {
     const createdPage = await getPage(rawPath, subdomain);
@@ -975,33 +1019,21 @@ const handleDeletedPage = async (
   const pid = parseInt(pageId, 10);
   if (Number.isNaN(pid)) return;
 
-  const dekiHeaders = await generateAPIRequestHeaders(subdomain);
-  if (!dekiHeaders) {
-    throw new Error("Error generating library API headers for delete.");
-  }
-
-  const response = await fetch(
-    `https://${subdomain}.libretexts.org/@api/deki/pages/${pid}?dream.out.format=json&origin=mt-web&recursive=true`,
-    {
-      method: "DELETE",
-      headers: {
-        ...dekiHeaders,
-      },
-    },
+  const expert = await ExpertWithSSM.getInstance().forLibrary(subdomain);
+  await mindTouchCall(
+    expert.pages
+      .delPageDelete(pid, { recursive: true, origin: "mt-web" } as DeletePageParams)
+      .catch((err) => {
+        // Deletes are recursive, and a subtree's descendants are queued as their own
+        // entries, so by the time a child's DELETE runs its ancestor has usually
+        // already taken it. "Not there" is the outcome this call wanted, not a
+        // failure. Reporting it as one would flag every multi-level delete.
+        // Same reasoning for a page removed out of band since the draft was loaded.
+        if (isPageGone(err)) return;
+        throw err;
+      }),
+    "Error deleting page",
   );
-
-  // Deletes are recursive, and a subtree's descendants are queued as their own
-  // entries, so by the time a child's DELETE runs its ancestor has usually
-  // already taken it. "Not there" is the outcome this call wanted, not a
-  // failure. Reporting it as one would flag every multi-level delete.
-  // Same reasoning for a page removed out of band since the draft was loaded.
-  if (response.status === 404 || response.status === 410) {
-    return;
-  }
-
-  if (!response.ok) {
-    throwForMindTouchResponse(response, "Error deleting page");
-  }
 };
 
 const handleModifiedPage = async (
@@ -1044,18 +1076,10 @@ const handleModifiedPage = async (
     );
   }
 
-  const dekiHeaders = await generateAPIRequestHeaders(subdomain);
-  if (!dekiHeaders) {
-    throw new Error("Error generating library API headers for move/rename.");
-  }
-
-  const titleEnc = encodeURIComponent(title);
-  const base = `https://${subdomain}.libretexts.org/@api/deki/pages/${pid}`;
-
-  let moveUrl: string;
+  let move: PageMove;
 
   // Decode path segments from uri.ui (which may have %3A-encoded colons)
-  // before double-encoding, to avoid triple-encoding colons in the final URL.
+  // before the SDK double-encodes them, to avoid triple-encoding colons.
   const safeDecPath = (s: string) => {
     try {
       return decodeURIComponent(s);
@@ -1078,13 +1102,12 @@ const handleModifiedPage = async (
     );
     const newPathRaw = `${parentPath}/${leaf}`;
     assertLibraryPagePath(newPathRaw);
-    const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
-    moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
+    move = { title, to: newPathRaw };
   } else if (isRenamed && !isMoved) {
-    const padded = remixerPagePaddedSlug(page, title, isBookRoot, coverId);
-    const nameEnc = encodeURIComponent(padded);
-
-    moveUrl = `${base}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
+    move = {
+      title,
+      name: remixerPagePaddedSlug(page, title, isBookRoot, coverId),
+    };
   } else if (isMoved && isRenamed) {
     const parentPath = safeDecPath(
       extractPagePath(await resolveUiUri(parent!, subdomain)),
@@ -1092,24 +1115,12 @@ const handleModifiedPage = async (
     const padded = remixerPagePaddedSlug(page, title, isBookRoot, coverId);
     const newPathRaw = `${parentPath}/${padded}`;
     assertLibraryPagePath(newPathRaw);
-    const toEnc = encodeURIComponent(encodeURIComponent(newPathRaw));
-    moveUrl = `${base}/move?title=${titleEnc}&to=${toEnc}&allow=deleteredirects&dream.out.format=json`;
+    move = { title, to: newPathRaw };
   } else {
     return;
   }
 
-  const response = await fetch(moveUrl, {
-    method: "POST",
-    body: "",
-    headers: {
-      "Content-Type": "text/plain",
-      ...dekiHeaders,
-    },
-  });
-
-  if (!response.ok) {
-    throwForMindTouchResponse(response, "Error moving/renaming page");
-  }
+  await movePage(subdomain, pid, move, "Error moving/renaming page");
 
   // Placement: cover children are topic-guide; nested pages are topic.
   if (isMoved && coverId && parent) {
@@ -1133,33 +1144,13 @@ const temporarilyRelocatePage = async (
   const pid = parseInt(page["@id"], 10);
   if (Number.isNaN(pid)) return;
 
-  const dekiHeaders = await generateAPIRequestHeaders(subdomain);
-  if (!dekiHeaders) {
-    throw new Error(
-      "Error generating library API headers for temporary relocation.",
-    );
-  }
-
   const tempName = `remixer-swap-tmp-${pid}-${base62(8)}`;
-  const nameEnc = encodeURIComponent(tempName);
-  const titleEnc = encodeURIComponent(tempName);
-  const moveUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${pid}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
-
-  const response = await fetch(moveUrl, {
-    method: "POST",
-    body: "",
-    headers: {
-      "Content-Type": "text/plain",
-      ...dekiHeaders,
-    },
-  });
-
-  if (!response.ok) {
-    throwForMindTouchResponse(
-      response,
-      "Error temporarily relocating page to break a title/URL conflict",
-    );
-  }
+  await movePage(
+    subdomain,
+    pid,
+    { title: tempName, name: tempName },
+    "Error temporarily relocating page to break a title/URL conflict",
+  );
 };
 
 /**
@@ -1221,33 +1212,12 @@ const renamePageToIntended = async (
   const pid = parseInt(page["@id"], 10);
   if (Number.isNaN(pid)) return;
 
-  const dekiHeaders = await generateAPIRequestHeaders(subdomain);
-  if (!dekiHeaders) {
-    throw new Error(
-      "Error generating library API headers for placeholder rename.",
-    );
-  }
-
-  const padded = remixerPagePaddedSlug(page, title, false, coverId);
-  const nameEnc = encodeURIComponent(padded);
-  const titleEnc = encodeURIComponent(title);
-  const moveUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${pid}/move?title=${titleEnc}&name=${nameEnc}&allow=deleteredirects&dream.out.format=json`;
-
-  const response = await fetch(moveUrl, {
-    method: "POST",
-    body: "",
-    headers: {
-      "Content-Type": "text/plain",
-      ...dekiHeaders,
-    },
-  });
-
-  if (!response.ok) {
-    throwForMindTouchResponse(
-      response,
-      `Error renaming placeholder page to "${title}"`,
-    );
-  }
+  await movePage(
+    subdomain,
+    pid,
+    { title, name: remixerPagePaddedSlug(page, title, false, coverId) },
+    `Error renaming placeholder page to "${title}"`,
+  );
 };
 
 /**
@@ -2157,6 +2127,16 @@ const runRemixerJob = async ({
 
   try {
     if (job.status === "pending") {
+      // Stay queued while the CXOne breaker is open so a publish never starts into a block.
+      if (cxoneGate.retryAfterMs > 0) {
+        job.messages.push(
+          "Queued: waiting for available capacity. Publishing will start automatically soon.",
+        );
+        await job.save();
+        await cxoneGate.waitUntilClosed(Date.now() + MAX_BREAKER_WAIT_MS).catch(() => {
+          throw new Error("No capacity became available in time. Nothing was published. Try again later.");
+        });
+      }
       job.status = "running";
       job.messages.push("Remixer job started.");
       await job.save();
