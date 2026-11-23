@@ -110,17 +110,24 @@ export const upsertPageNodes = async (
   return written;
 };
 
-/** Marks a page deleted. Its own reuse edges are removed and edges onto it break. */
+/**
+ * Marks a page deleted. Its own reuse edges are removed and edges onto it
+ * break. The books reusing it are refreshed by {@link markSourceBroken}; its
+ * own book's summary is rebuilt here, since the page no longer counts toward
+ * its totals, links or attention.
+ */
 export const markPageDeleted = async (
   nodeId: string,
   deletedAt: Date = new Date(),
 ): Promise<{ removed: number; broken: number }> => {
-  await PageNode.updateOne(
+  const node = await PageNode.findOneAndUpdate(
     { nodeID: { $eq: nodeId } },
     { $set: { deletedAt } },
-  );
+    { projection: { _id: 0, bookID: 1 } },
+  ).lean<{ bookID?: string | null }>();
   const removed = await reconcileTargetEdges(nodeId, [], null);
   const broken = await markSourceBroken(nodeId);
+  if (node?.bookID) await rebuildSummaryIfScanned(node.bookID);
   return { removed, broken };
 };
 
@@ -758,6 +765,21 @@ export const refreshBookAttention = async (bookIDs: (string | null | undefined)[
     } catch (err) {
       provenanceLog.warn({ err, bookID }, "Failed to refresh a book's attention counts");
     }
+  }
+};
+
+/**
+ * Rebuilds a book's summary only when it already has one, so a change outside
+ * a scan never makes an unscanned book look scanned. Never throws: the change
+ * that triggered it has already been written.
+ */
+export const rebuildSummaryIfScanned = async (bookID: string): Promise<void> => {
+  try {
+    if (await BookReuseSummary.exists({ bookID: { $eq: bookID } })) {
+      await rebuildBookSummary(bookID);
+    }
+  } catch (err) {
+    provenanceLog.warn({ err, bookID }, "Failed to rebuild a book's summary");
   }
 };
 

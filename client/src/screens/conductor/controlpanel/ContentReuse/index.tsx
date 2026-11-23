@@ -328,6 +328,7 @@ const ContentReuse: React.FC = () => {
                   Each dot is a book, sized by its pages and coloured by library;
                   arrows point from the source to the book reusing it. Dashed
                   circles stand for a library's books that haven't been scanned yet.
+                  To zoom, use the + and − buttons, Ctrl/⌘ + scroll or pinch; drag to pan.
                   {graph.omittedEdges > 0 &&
                     ` ${plural(graph.omittedEdges, "smaller link")} left out to keep the picture readable.`}
                 </Text>

@@ -13,6 +13,7 @@ import {
   type ZoomBehavior,
   type SimulationNodeDatum,
 } from "d3";
+import { pageFriendlyZoomFilter } from "./zoomFilter";
 import type { BookGraph } from "../../../../types/ContentSources";
 import {
   estimateTextWidth,
@@ -25,8 +26,9 @@ import {
  * respects reduced-motion preferences. A labelled image only: the table
  * next to it lists the same links with real links and is the accessible view.
  *
- * Shown in a fixed-height frame that starts fitted to the whole graph; wheel,
- * pinch and drag zoom and pan it, and the buttons do the same from the keyboard.
+ * Shown in a fixed-height frame that starts fitted to the whole graph.
+ * Ctrl/⌘ + wheel, pinch and mouse drag zoom and pan it; plain scrolling and
+ * one-finger swipes scroll the page. The buttons zoom from the keyboard.
  */
 
 type Node = SimulationNodeDatum & {
@@ -159,6 +161,8 @@ const ForceBookGraph: React.FC<{ graph: BookGraph; summary: string }> = ({
     const scene = sceneRef.current;
     if (!svg || !scene) return;
     const behavior = zoom<SVGSVGElement, unknown>()
+      // The page keeps plain scrolling and one-finger swipes (see the filter).
+      .filter(pageFriendlyZoomFilter)
       .scaleExtent([MIN_ZOOM, MAX_ZOOM])
       .on("zoom", (event) => {
         scene.setAttribute("transform", event.transform.toString());
@@ -216,7 +220,7 @@ const ForceBookGraph: React.FC<{ graph: BookGraph; summary: string }> = ({
         preserveAspectRatio="xMidYMid meet"
         width="100%"
         height="100%"
-        className="block cursor-grab touch-none active:cursor-grabbing"
+        className="block cursor-grab active:cursor-grabbing"
       >
         <defs>
           <marker

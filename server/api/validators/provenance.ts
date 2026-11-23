@@ -52,6 +52,8 @@ export const GetProvenanceGraphSchema = z.object({
     library: z
       .string()
       .regex(/^[a-z0-9]+(,[a-z0-9]+)*$/i, "Expected library subdomains separated by commas.")
+      // Summaries store subdomains in lowercase; `CHEM` must still find chem.
+      .transform((value) => value.toLowerCase())
       .optional(),
     /** Leave out links sharing fewer pages than this. */
     minPages: z.coerce.number().int().min(1).max(10000).default(1),

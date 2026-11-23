@@ -166,7 +166,7 @@ Summaries written before this change don't have the fields: until a book is next
 # from server/, with MONGOOSEURI set; uncomment the runner at the bottom of the file first
 npx tsx migrations/BackfillBookReuseAttention.ts
 ```
-It recomputes both fields from the links, 8 books at a time, and is safe to re-run (about 3.5 s per 100 books on dev). Afterwards the fields stay current on their own: every summary rebuild writes them, and a source change, a broken source and a lead's review refresh them on the books they touch.
+It recomputes both fields from the links, 8 books at a time, and is safe to re-run (about 3.5 s per 100 books on dev). Afterwards the fields stay current on their own: every summary rebuild writes them, a source change, a broken source and a lead's review refresh them on the books they touch, and a deleted page rebuilds its own book's summary.
 
 ## 5. Monitoring
 
