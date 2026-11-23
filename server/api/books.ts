@@ -58,8 +58,10 @@ import {
 import {
   conductor400Err,
   conductor500Err,
+  sendCXOneUnavailable,
   serializeError,
 } from "../util/errorutils.js";
+import { CXOneUnavailableError } from "../util/CXOne/gate.js";
 import {
   TypedReqUser,
   ZodReqWithOptionalUser,
@@ -2107,6 +2109,9 @@ async function getBookTOC(
       toc,
     });
   } catch (e) {
+    if (e instanceof CXOneUnavailableError) {
+      return sendCXOneUnavailable(res, e, "getBookTOC");
+    }
     logger.error({ err: e }, "getBookTOC failed");
     return res.status(500).send({
       err: true,

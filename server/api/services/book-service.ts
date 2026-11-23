@@ -17,6 +17,7 @@ import {
 import { RemixerSubPage } from "../../types/Remixer";
 import * as cheerio from "cheerio";
 import Book, { BookInterface } from "../../models/book";
+import { BookTOC } from "../../models/booktoc.js";
 import { encodeXML } from "entities";
 import Project from "../../models/project";
 import projectsAPI from "../projects";
@@ -64,7 +65,12 @@ export type GetBookTOCOptions = {
    * access to their own hidden pages.
    */
   includeRestricted: boolean;
-  /** Serve from (and populate) the shared 120-second TOC cache. Defaults to true. */
+  /**
+   * Serve from the TOC caches: in-process for 120 seconds, plus (public trees
+   * only) the Mongo copy shared across containers, up to 30 minutes old.
+   * Defaults to true. `false` always rebuilds from CXOne, and a public rebuild
+   * still refreshes both caches.
+   */
   cache?: boolean;
 };
 
@@ -108,6 +114,13 @@ export default class BookService {
   });
   private static _tocInFlightByBookID = new Map<string, Promise<TableOfContents>>();
 
+  // Shared public TOC (Mongo). A page made private in a library drops off the
+  // public listing within about the soft TTL (the old in-process bound). The
+  // hard TTL only applies while refreshes fail, e.g. while CXOne blocks us.
+  private static readonly PUBLIC_TOC_SOFT_TTL_MS = 2 * 60_000;
+  private static readonly PUBLIC_TOC_HARD_TTL_MS = 30 * 60_000;
+  private static readonly PUBLIC_TOC_LEASE_MS = 2 * 60_000;
+
   /**
    * How many `subpages` requests may be in flight at once while building a
    * filtered table of contents.
@@ -127,6 +140,23 @@ export default class BookService {
    * requests can be found in the logs rather than guessed at.
    */
   private static readonly SUBPAGE_REQUEST_WARN_THRESHOLD = 200;
+
+  /**
+   * Per-call bound on per-page detail requests (overviews, tags). The CXOne
+   * gate paces the process as a whole; this keeps one large book from filling
+   * its whole queue.
+   */
+  private static readonly PAGE_DETAIL_CONCURRENCY = 4;
+
+  /** Per-item failure tolerance for {@link mapWithConcurrency}, like `Promise.allSettled`. */
+  private static _settle<T>(
+    p: Promise<T>,
+  ): Promise<{ status: "fulfilled"; value: T } | { status: "rejected" }> {
+    return p.then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      () => ({ status: "rejected" as const }),
+    );
+  }
 
   /**
    * Per-file ceiling for bulk attachment copying (remixer full-copy mode).
@@ -615,6 +645,10 @@ export default class BookService {
    * @throws If the tree or (when filtering) the restriction lookup fails.
    * Serving the unfiltered tree because the restriction lookup broke would
    * silently reinstate the leak.
+   *
+   * Public trees are also persisted to Mongo ({@link BookTOC}) and served from
+   * there across containers and deploys, so reader traffic does not turn into
+   * CXOne traffic. See {@link BookService._readStoredPublicTOC}.
    */
   async getBookTOCNew({
     includeRestricted,
@@ -624,6 +658,19 @@ export default class BookService {
     const cached = BookService._tocCacheByBookID.get<TableOfContents>(cacheKey);
     if (cached && cache) {
       return cached;
+    }
+
+    if (cache && !includeRestricted) {
+      const stored = await this._readStoredPublicTOC();
+      if (stored) {
+        // Never let the in-process copy outlive the stored copy's freshness.
+        BookService._tocCacheByBookID.set(
+          cacheKey,
+          stored.toc,
+          Math.max(1, Math.min(BookService.TOC_CACHE_TTL_SECONDS, Math.floor(stored.ttlMs / 1000))),
+        );
+        return stored.toc;
+      }
     }
 
     const inFlight = BookService._tocInFlightByBookID.get(cacheKey);
@@ -643,6 +690,9 @@ export default class BookService {
         : await this._buildFilteredTOC(expert);
 
       BookService._tocCacheByBookID.set(cacheKey, toc);
+      if (!includeRestricted) {
+        await this._storePublicTOC(toc);
+      }
       return toc;
     })();
 
@@ -653,6 +703,57 @@ export default class BookService {
     } finally {
       BookService._tocInFlightByBookID.delete(cacheKey);
     }
+  }
+
+  /**
+   * The shared public TOC while it is servable: fresh under the soft TTL,
+   * served stale (with one background refresh) until the hard TTL, then
+   * dropped so the caller rebuilds and fails closed if CXOne is unavailable.
+   * Mongo trouble falls back to building from CXOne, as before this store.
+   */
+  private async _readStoredPublicTOC(): Promise<{ toc: TableOfContents; ttlMs: number } | null> {
+    const doc = await BookTOC.findOne({ bookID: { $eq: this._bookID } })
+      .lean()
+      .catch((err) => {
+        logger.warn({ err, bookID: this._bookID }, "Reading the stored public TOC failed");
+        return null;
+      });
+    if (!doc) return null;
+
+    const age = Date.now() - new Date(doc.builtAt).getTime();
+    if (age >= BookService.PUBLIC_TOC_HARD_TTL_MS) return null;
+    if (age >= BookService.PUBLIC_TOC_SOFT_TTL_MS) {
+      void this._refreshPublicTOC();
+    }
+    return { toc: doc.toc, ttlMs: BookService.PUBLIC_TOC_SOFT_TTL_MS - age };
+  }
+
+  /** Rebuilds a stale public TOC, but only in the one container holding the lease. */
+  private async _refreshPublicTOC(): Promise<void> {
+    try {
+      const now = Date.now();
+      const lease = await BookTOC.findOneAndUpdate(
+        { bookID: { $eq: this._bookID }, refreshLeaseUntil: { $lt: new Date(now) } },
+        { $set: { refreshLeaseUntil: new Date(now + BookService.PUBLIC_TOC_LEASE_MS) } },
+      );
+      if (!lease) return;
+      await this.getBookTOCNew({ includeRestricted: false, cache: false });
+    } catch (err) {
+      logger.warn(
+        { err, bookID: this._bookID },
+        "Background public TOC refresh failed; serving the stored copy",
+      );
+    }
+  }
+
+  private async _storePublicTOC(toc: TableOfContents): Promise<void> {
+    await BookTOC.updateOne(
+      { bookID: { $eq: this._bookID } },
+      { $set: { toc, builtAt: new Date() } },
+      { upsert: true },
+    ).catch((err) => {
+      logger.warn({ err, bookID: this._bookID }, "Storing the public TOC failed");
+    });
   }
 
   async getBookTreeFull(
@@ -741,19 +842,13 @@ export default class BookService {
 
     const flattenedPageData = collectPageData(toc);
 
-    const overviewPromises: Promise<{ overview: string }>[] = [];
-    for (const page of flattenedPageData) {
-      // Add a 1s delay between each fetch to avoid rate limiting
-      const _promise = new Promise<{ overview: string }>((resolve) => {
-        setTimeout(async () => {
-          resolve(this.getPageOverview(page.id));
-        }, 1000);
-      });
-      overviewPromises.push(_promise);
-    }
+    const results = await mapWithConcurrency(
+      flattenedPageData,
+      BookService.PAGE_DETAIL_CONCURRENCY,
+      (page) => BookService._settle(this.getPageOverview(page.id)),
+    );
 
     // Create an array of objects with the page ID, title, url, and its overview property
-    const results = await Promise.allSettled(overviewPromises);
     const pageOverviews: PageSimpleWOverview[] = [];
     for (let i = 0; i < results.length; i++) {
       const _page = flattenedPageData[i];
@@ -788,19 +883,13 @@ export default class BookService {
 
     const flattenedPageData = collectPageData(toc);
 
-    const tagsPromises: Promise<PageTag[]>[] = [];
-    for (const page of flattenedPageData) {
-      // Add a 1s delay between each fetch to avoid rate limiting
-      const _promise = new Promise<PageTag[]>((resolve) => {
-        setTimeout(async () => {
-          resolve(this.getPageTags(page.id));
-        }, 1000);
-      });
-      tagsPromises.push(_promise);
-    }
+    const results = await mapWithConcurrency(
+      flattenedPageData,
+      BookService.PAGE_DETAIL_CONCURRENCY,
+      (page) => BookService._settle(this.getPageTags(page.id)),
+    );
 
     // Create an array of objects with the page ID, title, url, and its tags
-    const results = await Promise.allSettled(tagsPromises);
     const pageTags: PageSimpleWTags[] = [];
     for (let i = 0; i < results.length; i++) {
       const _page = flattenedPageData[i];

@@ -2,6 +2,38 @@ import logger from "../logger.js";
 import { SSMClient, GetParametersByPathCommand } from "@aws-sdk/client-ssm";
 import Expert from "@libretexts/cxone-expert-node";
 import { LibraryTokenPair } from "../types";
+import cxoneGate from "./CXOne/gate.js";
+
+const gatedModules = new WeakMap<object, object>();
+
+/**
+ * Routes every SDK request through {@link cxoneGate}. The SDK bundles a private
+ * axios instance, so wrapping its modules is the only available hook. Methods
+ * apply on the raw module, so the SDK's internal calls are never gated twice.
+ */
+function gateExpert(expert: Expert): Expert {
+  return new Proxy(expert, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop);
+      // `auth` is synchronous token plumbing, not a request.
+      if (prop === "auth" || typeof value !== "object" || value === null) {
+        return value;
+      }
+      const cached = gatedModules.get(value);
+      if (cached) return cached;
+      const wrapped: object = new Proxy(value, {
+        get(mod, key) {
+          const member = Reflect.get(mod, key);
+          return typeof member === "function"
+            ? (...args: unknown[]) => cxoneGate.run(() => member.apply(mod, args))
+            : member;
+        },
+      });
+      gatedModules.set(value, wrapped);
+      return wrapped;
+    },
+  });
+}
 
 type LibraryCredentials = {
   keyPair: LibraryTokenPair;
@@ -136,7 +168,7 @@ class ExpertWithSSM {
       );
     }
 
-    const expert = new Expert({
+    const expert = gateExpert(new Expert({
       tld: `${subdomain}.libretexts.org`,
       auth: {
         type: "server",
@@ -146,7 +178,7 @@ class ExpertWithSSM {
           user: creds.apiUsername,
         },
       },
-    });
+    }));
 
     this.expertCache[subdomain] = {
       expert,

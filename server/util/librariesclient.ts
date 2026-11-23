@@ -10,6 +10,7 @@ import {
 } from "../types";
 import { createHmac } from "crypto";
 import CXOne from "./CXOne/index.js";
+import cxoneGate, { CXOneUnavailableError } from "./CXOne/gate.js";
 import { getLibraryNameKeys } from "../api/libraries";
 
 /**
@@ -163,7 +164,7 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
 
     let request;
     if (scope === "groups") {
-      request = fetch(
+      request = cxoneGate.fetch(
         `https://${subdomain}.libretexts.org/@api/deki/groups?dream.out.format=json${_parseQuery(
           query
         )}`,
@@ -179,9 +180,9 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         }${encodeURIComponent(encodeURIComponent(path))}/${
           api ? api : ""
         }${_parseQuery(query, queryIsFirst)}`;
-        request = fetch(url, finalOptions);
+        request = cxoneGate.fetch(url, finalOptions);
       } else {
-        request = fetch(
+        request = cxoneGate.fetch(
           `https://${subdomain}.libretexts.org/@api/deki/users?dream.out.format=json${_parseQuery(
             query
           )}`,
@@ -198,7 +199,7 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
         query,
         queryIsFirst
       )}`;
-      request = fetch(url, finalOptions);
+      request = cxoneGate.fetch(url, finalOptions);
     } else {
       const { path, api } = params;
       const isNumber = !isNaN(Number(path));
@@ -212,7 +213,7 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
 
       // https://dev.libretexts.org/@api/deki/pages/7137/order?dream.out.format=json&origin=mt-web&afterId=8654
    
-      request = fetch(url, finalOptions);
+      request = cxoneGate.fetch(url, finalOptions);
     }
 
     const result = await request;
@@ -232,6 +233,7 @@ export async function CXOneFetch(params: CXOneFetchParams): Promise<Response> {
     }
     return result;
   } catch (err: any) {
+    if (err instanceof CXOneUnavailableError) throw err;
     throw new Error(`Request failed: ${err.message}`);
   }
 }

@@ -22,7 +22,6 @@ import AuthorService from "./author-service.js";
 import Author from "../../models/author.js";
 import {
   CXOneFetch,
-  generateAPIRequestHeaders,
   getPage,
 } from "../../util/librariesclient.js";
 import { escapeRegEx } from "../../util/helpers.js";
@@ -42,6 +41,8 @@ import {
   extractCitationKeys,
   workIdentity,
 } from "../../util/referenceCitations.js";
+import ExpertWithSSM from "../../util/ExpertWithSSM.js";
+import { ExpertError, type PostPageMoveParams } from "@libretexts/cxone-expert-node";
 
 const populateLog = childLogger("reference-populate");
 
@@ -1011,24 +1012,17 @@ const renamePageTitle = async (
   pageID: string,
   title: string,
 ): Promise<void> => {
-  const dekiHeaders = await generateAPIRequestHeaders(library);
-  if (!dekiHeaders) {
-    throw new Error("Error generating library API headers for page rename.");
-  }
-  const url = `https://${library}.libretexts.org/@api/deki/pages/${encodeURIComponent(
-    pageID,
-  )}/move?title=${encodeURIComponent(title)}&allow=deleteredirects&dream.out.format=json`;
-  const response = await fetch(url, {
-    method: "POST",
-    body: "",
-    headers: {
-      "Content-Type": "text/plain",
-      ...dekiHeaders,
-    },
-  });
-  if (!response.ok) {
+  const expert = await ExpertWithSSM.getInstance().forLibrary(library);
+  try {
+    // `allow` isn't in the SDK's param type, but the SDK forwards it as-is.
+    await expert.pages.postPageMove(pageID, {
+      title,
+      allow: "deleteredirects",
+    } as PostPageMoveParams);
+  } catch (err) {
+    if (!ExpertError.isExpertError(err) || !err.status) throw err;
     throw new Error(
-      `Failed to rename backmatter page ${pageID} to "${title}" (${response.status})`,
+      `Failed to rename backmatter page ${pageID} to "${title}" (${err.status})`,
     );
   }
 };

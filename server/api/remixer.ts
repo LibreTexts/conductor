@@ -13,12 +13,12 @@ import ProjectRemixer from "../models/projectremixer.js";
 import remixerService from "./services/remixer-service.js";
 import ProjectRemixerJob from "../models/projectremixerjob.js";
 import base62 from "base62-random";
-import CXOnePageAPIEndpoints from "../util/CXOne/CXOnePageAPIEndpoints.js";
 import {
   findUnownedRemixerPageIDs,
   getUserWorkbenchProjects,
 } from "../util/remixerutils";
-import { generateAPIRequestHeaders } from "../util/librariesclient.js";
+import ExpertWithSSM from "../util/ExpertWithSSM.js";
+import { ExpertError, type GetPageParams } from "@libretexts/cxone-expert-node";
 import User from "../models/user.js";
 import BookService from "./services/book-service.js";
 import type { RemixerSubPageState } from "../models/projectremixer.js";
@@ -564,8 +564,6 @@ const fetchPage = async (
   res: Response,
 ) => {
   try {
-    const pageDetailsApi = CXOnePageAPIEndpoints.DREAM_OUT_FORMAT_LIMIT(1000);
-    const subpageApi = CXOnePageAPIEndpoints.GET_Subpages;
     const { subdomain, path, option, pageDetails, currentbook } = req.body;
     const {
       includeMatter = false,
@@ -575,58 +573,48 @@ const fetchPage = async (
 
     const numericPath = Number(path);
     const isNumber = !isNaN(numericPath);
-    let normalizedPath = path;
-    if (isNumber && numericPath <= 0) {
-      normalizedPath = "home";
-    }
+    // A loop, not /\/+$/: that regex is quadratic on long runs of "/".
+    let end = path.length;
+    while (path[end - 1] === "/") end--;
+    // The SDK takes an ID, "home", or a raw path (it adds the "=" and encoding).
+    const pageRef = isNumber
+      ? numericPath <= 0
+        ? "home"
+        : numericPath
+      : path.slice(0, end);
 
-    if (!normalizedPath.endsWith("/")) {
-      normalizedPath += "/";
-    }
+    const expert = await ExpertWithSSM.getInstance().forLibrary(subdomain);
+    // `limit` isn't in the SDK's getPage param type, but the SDK forwards it as-is.
+    const getPageDetails = () =>
+      expert.pages.getPage(pageRef, { limit: 1000 } as GetPageParams);
 
-    const isHomePath = String(normalizedPath).toLowerCase() === "home";
-    const pathPrefix = isNumber || isHomePath ? "" : "=";
-
-    const url = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
-      }${normalizedPath}${pageDetails ? pageDetailsApi : subpageApi}`;
-
-    const options = {
-      headers: {
-        ...((await generateAPIRequestHeaders(subdomain)) ?? {}),
-      },
-    };
-    const response = await fetch(url, options);
-    if (response.status !== 200) {
-      const errorBody = await response.text();
-      let upstreamMessage = "";
-
-      try {
-        const parsedBody = JSON.parse(errorBody) as {
-          message?: string;
-          error?: string;
-        };
-        upstreamMessage = parsedBody.message ?? parsedBody.error ?? "";
-      } catch {
-        upstreamMessage = errorBody;
-      }
-
-      const statusMessage = response.statusText || "Request failed";
+    let data: unknown;
+    try {
+      data = pageDetails
+        ? await getPageDetails()
+        : await expert.pages.getPageSubpages(pageRef, { limit: "all" });
+    } catch (err) {
+      if (!ExpertError.isExpertError(err) || !err.status) throw err;
+      const body = err.responseData as
+        | string
+        | { message?: string; error?: string }
+        | undefined;
+      const upstreamMessage =
+        typeof body === "string" ? body : body?.message ?? body?.error ?? "";
+      const statusMessage = err.statusText || "Request failed";
       const cleanUpstreamMessage =
         normalizeUpstreamErrorMessage(upstreamMessage);
       const messageSuffix = cleanUpstreamMessage
         ? `: ${cleanUpstreamMessage}`
         : "";
       throw new FetchPageError(
-        `Failed to fetch remixer page (${response.status} ${statusMessage})${messageSuffix}`,
-        response.status,
+        `Failed to fetch remixer page (${err.status} ${statusMessage})${messageSuffix}`,
+        err.status,
       );
     }
-    const text = await response.text();
     if (pageDetails) {
-      const responseData = JSON.parse(text);
-
       const remixerPageDetails = remixerService.mapToRemixerPageDetailsResponse(
-        responseData,
+        data,
         currentbook,
       );
       return res.send({
@@ -637,20 +625,16 @@ const fetchPage = async (
     let parentID: string | undefined = isNumber ? path : undefined;
 
     if (!parentID) {
-      const detailsUrl = `https://${subdomain}.libretexts.org/@api/deki/pages/${pathPrefix
-        }${normalizedPath}${pageDetailsApi}`;
-      const detailsRes = await fetch(detailsUrl, options);
-      if (detailsRes.ok) {
-        const detailsData = (await detailsRes.json()) as Record<
-          string,
-          unknown
-        >;
-        parentID = String(detailsData["@id"] ?? "");
-      }
+      // Best effort, as before: an HTTP failure here leaves parentID unset.
+      const details = await getPageDetails().catch((err) => {
+        if (ExpertError.isExpertError(err) && err.status) return null;
+        throw err;
+      });
+      if (details) parentID = String(details["@id"] ?? "");
     }
 
     let responseData = remixerService.mapToRemixerSubPageResponse(
-      JSON.parse(text),
+      data,
       parentID,
     );
     // console.log(responseData.length);

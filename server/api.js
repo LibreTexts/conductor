@@ -141,7 +141,19 @@ permalinkRouter.route("/:projectID/:fileID").get(
 
 // Handle standard API routes (with /api/v1 prefix)
 const router = express.Router();
-router.use(corsMiddleware);
+
+// Anonymous reads the library pages fetch on every load, cached at Cloudflare.
+// Cloudflare's cache ignores `Vary: Origin`, so the reflected origin from
+// corsMiddleware would be replayed to every other library. `*` without
+// credentials is safe to cache.
+const publicCacheableCors = cors({ origin: "*", methods: ["GET"], maxAge: 7200 });
+const PUBLIC_CACHEABLE_PATHS = [/^\/reference\/projects\/[^/]+$/, /^\/authors\/key\/[^/]+$/];
+router.use((req, res, next) =>
+  (req.method === "GET" || req.method === "OPTIONS") &&
+  PUBLIC_CACHEABLE_PATHS.some((re) => re.test(req.path))
+    ? publicCacheableCors(req, res, next)
+    : corsMiddleware(req, res, next)
+);
 const globalJsonParser = express.json();
 const rawBodyPaths = ["/payments/webhook", "/store/webhooks/stripe", "/store/webhooks/lulu"];
 router.use((req, res, next) => {

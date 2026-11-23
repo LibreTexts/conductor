@@ -54,6 +54,8 @@ import { PageReferences } from "../models/referenceusage.js";
 import { ReferencePopulateJob } from "../models/referencepopulatejob.js";
 import { collectCitations } from "../util/referenceCitations.js";
 import { isValidCitationKey } from "../util/referenceSanitize.js";
+import { CXOneUnavailableError } from "../util/CXOne/gate.js";
+import { sendCXOneUnavailable } from "../util/errorutils.js";
 
 /**
  * Get the reference permissions for a user within a project context.
@@ -116,6 +118,7 @@ async function getReferencePermissions(
 /** Shared error answer for reference handlers. */
 function sendReferenceError(res: Response, err: unknown, context: string) {
   if (err instanceof ProjectError) return returnProjectError(res, err);
+  if (err instanceof CXOneUnavailableError) return sendCXOneUnavailable(res, err, context);
   if (err instanceof ReferenceServiceError) {
     return res.status(err.statusCode).send({
       err: true,
@@ -674,11 +677,15 @@ async function getReferenceItems(
       children: node.children.map(mapToc),
     });
 
+    // Fetched on every library page view. The edge serves repeats for 5 minutes,
+    // so citation edits reach readers within that window.
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300");
     return res.send({
       err: false,
       data: { referenceItems, toc: mapToc(bookToc) },
     });
   } catch (err) {
+    res.setHeader("Cache-Control", "no-store");
     // An unknown project is a plain 404 here, like an unlisted book.
     if (err instanceof ProjectError) return sendPublicNotFound(res);
     return sendReferenceError(res, err, "getReferenceItems");
