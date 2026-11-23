@@ -141,16 +141,16 @@ export type BookGraphView = {
 
 /**
  * The book connection graph: every book-to-book reuse link, or only links
- * touching `library`'s books. Heaviest links first, capped for drawing.
+ * touching the books of `libraries`. Heaviest links first, capped for drawing.
  */
 export const getBookGraph = async ({
-  library,
+  libraries,
   minPages = 1,
   limit = 300,
-}: { library?: string; minPages?: number; limit?: number } = {}): Promise<BookGraphView> => {
+}: { libraries?: string[]; minPages?: number; limit?: number } = {}): Promise<BookGraphView> => {
   const summaries = await BookReuseSummary.find(
     {
-      ...(library ? { lib: { $eq: library } } : {}),
+      ...(libraries?.length ? { lib: { $in: libraries } } : {}),
       $or: [
         { "upstream.0": { $exists: true } },
         { "downstream.0": { $exists: true } },

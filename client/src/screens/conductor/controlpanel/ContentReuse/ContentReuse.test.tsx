@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ContentReuse from "./index";
@@ -73,5 +74,54 @@ describe("ContentReuse", () => {
     renderPage();
     expect(await screen.findByText("Nothing scanned yet")).toBeTruthy();
     expect(await screen.findByText(/No reuse between books has been found/)).toBeTruthy();
+  });
+
+  it("filters the graph by one or more libraries", async () => {
+    api.getProvenanceStats.mockResolvedValue({
+      err: false,
+      data: { libraries: [stats, { ...stats, library: "chem" }, { ...stats, library: "bio" }] },
+    });
+    api.getProvenanceGraph.mockResolvedValue({ err: false, data: graph });
+    renderPage();
+    const user = userEvent.setup();
+
+    // Nothing selected: every library.
+    await waitFor(() => expect(api.getProvenanceGraph).toHaveBeenCalledWith({ libraries: [] }));
+
+    await user.click(await screen.findByRole("button", { name: /Libraries/ }));
+    await user.click(await screen.findByRole("option", { name: "dev" }));
+    await user.click(await screen.findByRole("option", { name: "chem" }));
+
+    await waitFor(() =>
+      expect(api.getProvenanceGraph).toHaveBeenLastCalledWith({ libraries: ["dev", "chem"] }),
+    );
+    expect(screen.getByText("dev, chem")).toBeTruthy();
+  });
+
+  it("picks a whole group of libraries from the top of the list", async () => {
+    api.getProvenanceStats.mockResolvedValue({
+      err: false,
+      data: { libraries: [stats, { ...stats, library: "chem" }, { ...stats, library: "bio" }, { ...stats, library: "human" }] },
+    });
+    api.getProvenanceGraph.mockResolvedValue({ err: false, data: graph });
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /Libraries/ }));
+    // Groups first, then the libraries, each in its own labelled group.
+    expect(screen.getByRole("group", { name: "Library groups" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Libraries" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: /All libraries/ }).getAttribute("aria-selected")).toBe("true");
+    // No business library has been scanned, so that group can't be chosen.
+    expect(screen.getByRole("option", { name: /Business & workforce/ }).getAttribute("aria-disabled")).toBe("true");
+
+    await user.click(screen.getByRole("option", { name: /STEM/ }));
+    await waitFor(() =>
+      expect(api.getProvenanceGraph).toHaveBeenLastCalledWith({ libraries: ["bio", "chem"] }),
+    );
+    expect(screen.getByRole("option", { name: /STEM/ }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("option", { name: "chem" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("option", { name: /All libraries/ }).getAttribute("aria-selected")).toBe("false");
+    expect(screen.getByText("STEM", { selector: "button *, button" })).toBeTruthy();
   });
 });

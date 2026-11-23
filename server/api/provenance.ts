@@ -124,7 +124,8 @@ async function getGraph(req: Request, res: Response) {
   try {
     const { library, minPages, limit } =
       req.query as unknown as GetProvenanceGraphRequest["query"];
-    const data = await getBookGraph({ library, minPages, limit });
+    const libraries = library ? library.split(",") : undefined;
+    const data = await getBookGraph({ libraries, minPages, limit });
     return res.send({ err: false, data });
   } catch (err) {
     insightsLog.error({ err }, "getGraph failed");

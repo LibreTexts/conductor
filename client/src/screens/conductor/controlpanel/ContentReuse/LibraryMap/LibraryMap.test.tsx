@@ -99,4 +99,23 @@ describe("LibraryMapPage", () => {
     expect(await within(panel).findByRole("heading", { name: "Reused by" })).toBeTruthy();
     expect(within(panel).getByRole("button", { name: "Biology" })).toBeTruthy();
   });
+
+  it("filters the map by a library group or single libraries", async () => {
+    renderPage();
+    await screen.findByRole("img", { name: /^Library map:/ });
+
+    await userEvent.click(screen.getByRole("button", { name: /Libraries/ }));
+    expect(screen.getByRole("group", { name: "Library groups" })).toBeTruthy();
+    // Single libraries keep their names and book counts.
+    expect(screen.getByRole("option", { name: "Chemistry (1)" })).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("option", { name: /STEM/ }));
+    expect(screen.getByRole("option", { name: /STEM/ }).getAttribute("aria-selected")).toBe("true");
+    for (const option of within(screen.getByRole("group", { name: "Libraries" })).getAllByRole("option")) {
+      expect(option.getAttribute("aria-selected")).toBe("true");
+    }
+
+    await userEvent.click(screen.getByRole("option", { name: /All libraries/ }));
+    expect(screen.getByRole("option", { name: /All libraries/ }).getAttribute("aria-selected")).toBe("true");
+  });
 });

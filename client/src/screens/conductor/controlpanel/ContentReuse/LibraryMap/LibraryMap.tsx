@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { quadtree, select, zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from "d3";
+import { Button } from "@libretexts/davis-react";
 import type { LibraryMap as LibraryMapData } from "../../../../../types/ContentSources";
 import { libraryLabel } from "../../../../../components/projects/ContentSources/treeDraw";
 import { plural } from "../../../../../components/projects/ContentSources/labels";
@@ -25,12 +26,12 @@ type Props = {
   onSelect: (index: number) => void;
   /** Bump `nonce` to fly to `index` (from search or the book panel). */
   focus: { index: number; nonce: number } | null;
-  /** Bump to fit the whole map again. */
-  resetNonce: number;
   summary: string;
 };
 
 const HEIGHT = 640;
+/** How much one press of the zoom buttons zooms. */
+const ZOOM_STEP = 1.6;
 /** Books labelled at any zoom: the most reused. */
 const ALWAYS_LABELLED = 12;
 const LABEL_FONT = '11px "Atkinson Hyperlegible", system-ui, sans-serif';
@@ -43,7 +44,7 @@ const ISLAND_FONT = '600 13px "Atkinson Hyperlegible", system-ui, sans-serif';
  * Books the filters hide aren't drawn. A labelled image for assistive
  * technology: the page's search and book panel give the same detail.
  */
-const LibraryMap: React.FC<Props> = ({ map, layout, model, filters, selected, onSelect, focus, resetNonce, summary }) => {
+const LibraryMap: React.FC<Props> = ({ map, layout, model, filters, selected, onSelect, focus, summary }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const transformRef = useRef<ZoomTransform>(zoomIdentity);
@@ -251,11 +252,21 @@ const LibraryMap: React.FC<Props> = ({ map, layout, model, filters, selected, on
     };
   }, [schedule]);
 
-  // Fit on first draw, on reset and when the filters change what's shown.
+  // Fit on first draw and when the filters change what's shown.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas && zoomRef.current) select(canvas).call(zoomRef.current.transform, fitTransform());
-  }, [resetNonce, fitTransform]);
+  }, [fitTransform]);
+
+  /** The zoom buttons: the same zoom as the wheel, about the map's centre. */
+  const zoomBy = (factor: number) => {
+    const canvas = canvasRef.current;
+    if (canvas && zoomRef.current) select(canvas).transition().duration(200).call(zoomRef.current.scaleBy, factor);
+  };
+  const fit = () => {
+    const canvas = canvasRef.current;
+    if (canvas && zoomRef.current) select(canvas).transition().duration(300).call(zoomRef.current.transform, fitTransform());
+  };
 
   // Fly to a book from search or the panel.
   useEffect(() => {
@@ -288,6 +299,17 @@ const LibraryMap: React.FC<Props> = ({ map, layout, model, filters, selected, on
 
   return (
     <div ref={wrapRef} className="relative w-full overflow-hidden rounded-lg border border-neutral-200">
+      <div className="absolute right-2 top-2 z-20 flex gap-1">
+        <Button variant="secondary" size="sm" onClick={() => zoomBy(ZOOM_STEP)} aria-label="Zoom in">
+          +
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => zoomBy(1 / ZOOM_STEP)} aria-label="Zoom out">
+          −
+        </Button>
+        <Button variant="secondary" size="sm" onClick={fit} aria-label="Fit the whole map">
+          Fit
+        </Button>
+      </div>
       <canvas
         ref={canvasRef}
         role="img"

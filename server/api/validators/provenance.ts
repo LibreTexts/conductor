@@ -48,7 +48,11 @@ export type RunProvenanceNotifyRequest = z.infer<typeof RunProvenanceNotifySchem
 /** `GET /provenance/graph`: book-to-book reuse links, optionally for one library. */
 export const GetProvenanceGraphSchema = z.object({
   query: z.object({
-    library: z.string().regex(/^[a-z0-9]+$/i, "Expected a library subdomain.").optional(),
+    /** One library subdomain, or several separated by commas. */
+    library: z
+      .string()
+      .regex(/^[a-z0-9]+(,[a-z0-9]+)*$/i, "Expected library subdomains separated by commas.")
+      .optional(),
     /** Leave out links sharing fewer pages than this. */
     minPages: z.coerce.number().int().min(1).max(10000).default(1),
     limit: z.coerce.number().int().min(1).max(1000).default(300),

@@ -9,7 +9,6 @@ import {
   EmptyState,
   Heading,
   Link,
-  Select,
   Spinner,
   Stack,
   Text,
@@ -36,8 +35,8 @@ import {
 } from "../../../../components/projects/ContentSources/labels";
 import TipStatCard from "../../../../components/projects/ContentSources/TipStatCard";
 import ForceBookGraph from "./ForceBookGraph";
+import LibraryMultiSelect from "./LibraryMultiSelect";
 
-const ALL_LIBRARIES = "all";
 const TABLE_LINKS = 50;
 
 const scanLabel = (scan: LibraryReuseStats["scan"]) => {
@@ -164,7 +163,8 @@ const LINK_COLUMNS: ColumnDef<LinkRow, any>[] = [
 const ContentReuse: React.FC = () => {
   useDocumentTitle("LibreTexts Conductor | Content Reuse");
   const user = useTypedSelector((state) => state.user);
-  const [library, setLibrary] = useState(ALL_LIBRARIES);
+  /** Libraries whose books the graph shows; none selected means every library. */
+  const [selectedLibraries, setSelectedLibraries] = useState<string[]>([]);
 
   useEffect(() => {
     if (!user?.uuid) return;
@@ -178,11 +178,11 @@ const ContentReuse: React.FC = () => {
     refetchOnWindowFocus: false,
   });
   const libraries = statsQuery.data?.data.libraries ?? [];
+  const libraryChoices = useMemo(() => libraries.map((lib) => ({ id: lib.library })), [libraries]);
 
   const graphQuery = useQuery({
-    queryKey: ["provenanceGraph", library],
-    queryFn: () =>
-      api.getProvenanceGraph(library === ALL_LIBRARIES ? {} : { library }),
+    queryKey: ["provenanceGraph", [...selectedLibraries].sort().join(",")],
+    queryFn: () => api.getProvenanceGraph({ libraries: selectedLibraries }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
@@ -306,23 +306,19 @@ const ContentReuse: React.FC = () => {
               <Heading level={3} id="cr-graph-heading" className="text-lg">
                 Book connections
               </Heading>
-              <Select
-                name="contentReuseLibrary"
-                label="Library"
-                placeholder="All libraries"
-                options={[
-                  { label: "All libraries", value: ALL_LIBRARIES },
-                  ...libraries.map((lib) => ({ label: lib.library, value: lib.library })),
-                ]}
-                value={library}
-                onChange={(e) => setLibrary(e.target.value)}
+              <LibraryMultiSelect
+                libraries={libraryChoices}
+                value={selectedLibraries}
+                onChange={setSelectedLibraries}
+                name="contentReuseLibraries"
               />
             </div>
             {graphQuery.isLoading && <Spinner text="Loading the book graph" />}
             {graphQuery.isError && <Alert variant="error" message="Couldn't load the book graph." />}
             {graph && graph.edges.length === 0 && (
               <Text className="block text-neutral-700">
-                No reuse between books has been found{library === ALL_LIBRARIES ? "" : ` in ${library}`} yet.
+                No reuse between books has been found
+                {selectedLibraries.length ? ` in ${selectedLibraries.join(", ")}` : ""} yet.
               </Text>
             )}
             {graph && graph.edges.length > 0 && (

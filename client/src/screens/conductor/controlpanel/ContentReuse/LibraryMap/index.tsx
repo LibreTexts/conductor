@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Breadcrumb,
-  Button,
   Combobox,
   Heading,
   Progress,
@@ -23,8 +22,8 @@ import { nodeRadius, runLayout, type LayoutOutput } from "./layout";
 import { OTHER_COLOR, UNSCANNED_COLOR, buildMapModel } from "./mapModel";
 import LibraryMap, { type MapFilters } from "./LibraryMap";
 import BookDrawer from "./BookDrawer";
+import LibraryMultiSelect from "../LibraryMultiSelect";
 
-const ALL = "all";
 const SEARCH_RESULTS = 20;
 
 /**
@@ -80,17 +79,25 @@ const LibraryMapPage: React.FC = () => {
     };
   }, [map]);
 
-  const [library, setLibrary] = useState(ALL);
+  /** Libraries whose books are shown; none selected means every library. */
+  const [selectedLibraries, setSelectedLibraries] = useState<string[]>([]);
+  const libraryChoices = useMemo(
+    () =>
+      (map?.libraries ?? []).map((l) => ({
+        id: l.lib,
+        label: `${libraryLabel(l.lib)} (${l.books.toLocaleString()})`,
+      })),
+    [map],
+  );
   const [sharedOnly, setSharedOnly] = useState(false);
   const [links, setLinks] = useState<MapFilters["links"]>("all");
   const filters = useMemo<MapFilters>(
-    () => ({ libs: library === ALL ? null : new Set([library]), sharedOnly, links }),
-    [library, sharedOnly, links],
+    () => ({ libs: selectedLibraries.length ? new Set(selectedLibraries) : null, sharedOnly, links }),
+    [selectedLibraries, sharedOnly, links],
   );
 
   const [selected, setSelected] = useState<number | null>(null);
   const [focus, setFocus] = useState<{ index: number; nonce: number } | null>(null);
-  const [resetNonce, setResetNonce] = useState(0);
   const pick = (index: number) => {
     setSelected(index);
     setFocus({ index, nonce: Date.now() });
@@ -149,8 +156,9 @@ const LibraryMapPage: React.FC = () => {
 
       {map && model && stats && (
         <>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="w-full max-w-sm">
+          {/* One row from md up: search takes the spare width, the rest keep theirs. */}
+          <div className="flex flex-wrap items-end gap-3 md:flex-nowrap">
+            <div className="w-full md:w-auto md:min-w-0 md:flex-1">
               <Combobox<number | null>
                 value={selected}
                 onChange={(i) => {
@@ -175,18 +183,15 @@ const LibraryMapPage: React.FC = () => {
               </Combobox>
             </div>
             <div className="hidden md:contents">
-              <Select
-                name="libraryMapLibrary"
-                label="Library"
-                placeholder="All libraries"
-                options={[
-                  { label: "All libraries", value: ALL },
-                  ...map.libraries.map((l) => ({ label: `${libraryLabel(l.lib)} (${l.books.toLocaleString()})`, value: l.lib })),
-                ]}
-                value={library}
-                onChange={(e) => setLibrary(e.target.value)}
+              <LibraryMultiSelect
+                libraries={libraryChoices}
+                value={selectedLibraries}
+                onChange={setSelectedLibraries}
+                name="libraryMapLibraries"
+                className="w-52 shrink-0"
               />
               <Select
+                className="w-52 shrink-0"
                 name="libraryMapLinks"
                 label="Links"
                 placeholder="All reuse"
@@ -199,14 +204,12 @@ const LibraryMapPage: React.FC = () => {
                 onChange={(e) => setLinks(e.target.value as MapFilters["links"])}
               />
               <Switch
+                className="shrink-0 whitespace-nowrap pb-2"
                 name="libraryMapShared"
                 label="Only books that share content"
                 checked={sharedOnly}
                 onChange={setSharedOnly}
               />
-              <Button variant="secondary" size="sm" onClick={() => setResetNonce((n) => n + 1)}>
-                Reset view
-              </Button>
             </div>
           </div>
 
@@ -230,7 +233,6 @@ const LibraryMapPage: React.FC = () => {
                 selected={selected}
                 onSelect={pick}
                 focus={focus}
-                resetNonce={resetNonce}
                 summary={summary}
               />
             )}

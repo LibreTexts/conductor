@@ -3547,10 +3547,14 @@ class API {
   }
 
   /** The book connection graph, optionally for one library (LibreTexts staff). */
-  async getProvenanceGraph(params: { library?: string; minPages?: number; limit?: number } = {}) {
+  /** `libraries` empty or left out means every library. */
+  async getProvenanceGraph({
+    libraries,
+    ...params
+  }: { libraries?: string[]; minPages?: number; limit?: number } = {}) {
     const res = await axios.get<{ data: BookGraph } & ConductorBaseResponse>(
       "/provenance/graph",
-      { params },
+      { params: { ...params, ...(libraries?.length ? { library: libraries.join(",") } : {}) } },
     );
     return res.data;
   }
