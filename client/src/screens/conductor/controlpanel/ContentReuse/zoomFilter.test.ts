@@ -16,6 +16,8 @@ describe("pageFriendlyZoomFilter", () => {
   it("pans with the main mouse button only", () => {
     expect(pageFriendlyZoomFilter({ type: "mousedown", button: 0 })).toBe(true);
     expect(pageFriendlyZoomFilter({ type: "mousedown", button: 2 })).toBe(false);
+    // Ctrl+click is a right-click on macOS: left to the browser.
+    expect(pageFriendlyZoomFilter({ type: "mousedown", button: 0, ctrlKey: true })).toBe(false);
     expect(pageFriendlyZoomFilter({ type: "dblclick", button: 0 })).toBe(true);
   });
 });

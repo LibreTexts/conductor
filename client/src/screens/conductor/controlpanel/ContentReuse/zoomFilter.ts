@@ -14,12 +14,13 @@ export type ZoomFilterEvent = {
  * - Mouse wheel zooms only with Ctrl or ⌘ held (trackpad pinch arrives as a
  *   Ctrl-wheel, so it still zooms).
  * - Touch zooms and pans only with two or more fingers.
- * - A mouse drag with the main button pans, as usual.
+ * - A mouse drag with the main button pans, as usual. Ctrl+click is left to
+ *   the browser, as in d3's own filter (on macOS it's a right-click).
  *
  * The graph's zoom buttons cover zooming without any of these.
  */
 export const pageFriendlyZoomFilter = (event: ZoomFilterEvent): boolean => {
   if (event.type === "wheel") return Boolean(event.ctrlKey || event.metaKey);
   if (event.type.startsWith("touch")) return (event.touches?.length ?? 0) > 1;
-  return !event.button;
+  return !event.ctrlKey && !event.button;
 };

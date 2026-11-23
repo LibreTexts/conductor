@@ -117,6 +117,17 @@ describe("counts kept on book summaries", () => {
     assert.deepEqual(chem?.downstream, []);
   });
 
+  it("leave the own book's rebuild to the caller when asked, and say which book it was", async () => {
+    const result = await provenance.deletePageWithNotice("chem-11", new Date(), { rebuildOwnBook: false });
+    assert.equal(result.bookID, "chem-1");
+    // The reusing book is still refreshed; the page's own book waits for the caller.
+    assert.deepEqual((await summary("bio-2"))?.attention, { sourceChanged: 0, broken: 1 });
+    assert.equal((await summary("chem-1"))?.totals.pages, 2);
+
+    await provenance.rebuildSummaryIfScanned("chem-1");
+    assert.equal((await summary("chem-1"))?.totals.pages, 1);
+  });
+
   it("never give an unscanned book a summary", async () => {
     await provenance.markPageDeleted("math-92");
     assert.equal(await BookReuseSummary.exists({ bookID: "math-9" }), null);

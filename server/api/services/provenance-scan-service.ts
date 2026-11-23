@@ -526,7 +526,8 @@ const reconcileMissingPages = async (
     }
 
     if (gone) {
-      await deletePageWithNotice(node.nodeID);
+      // The scan rebuilds this book's summary once it's done with it.
+      await deletePageWithNotice(node.nodeID, new Date(), { rebuildOwnBook: false });
       stats.deleted += 1;
     } else {
       await PageNode.updateOne({ nodeID: { $eq: node.nodeID } }, { $set: { bookID: null } });

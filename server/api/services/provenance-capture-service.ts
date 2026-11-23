@@ -290,7 +290,10 @@ export const syncBookStructure = async ({
       if (!pageID) continue;
       // Queues a change event for every book that reuses the page first, so
       // their leads hear that it is gone, then breaks the edges onto it.
-      const result = await deletePageWithNotice(pageNodeId(lib, pageID));
+      // The book's summary is rebuilt once below, not once per deleted page.
+      const result = await deletePageWithNotice(pageNodeId(lib, pageID), new Date(), {
+        rebuildOwnBook: false,
+      });
       broken += result.broken;
     }
     if (broken > 0) {

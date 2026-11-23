@@ -110,16 +110,33 @@ export const upsertPageNodes = async (
   return written;
 };
 
+export type PageDeletionOptions = {
+  /**
+   * Rebuild the deleted page's own book summary (default). Callers deleting
+   * many pages pass false and rebuild each book once afterwards, using the
+   * returned `bookID`; a rebuild is several aggregations over the whole book.
+   */
+  rebuildOwnBook?: boolean;
+};
+
+export type PageDeletionResult = {
+  removed: number;
+  broken: number;
+  /** The deleted page's book, if it had one. */
+  bookID: string | null;
+};
+
 /**
  * Marks a page deleted. Its own reuse edges are removed and edges onto it
  * break. The books reusing it are refreshed by {@link markSourceBroken}; its
- * own book's summary is rebuilt here, since the page no longer counts toward
- * its totals, links or attention.
+ * own book's summary is rebuilt (unless `rebuildOwnBook` is false), since the
+ * page no longer counts toward its totals, links or attention.
  */
 export const markPageDeleted = async (
   nodeId: string,
   deletedAt: Date = new Date(),
-): Promise<{ removed: number; broken: number }> => {
+  { rebuildOwnBook = true }: PageDeletionOptions = {},
+): Promise<PageDeletionResult> => {
   const node = await PageNode.findOneAndUpdate(
     { nodeID: { $eq: nodeId } },
     { $set: { deletedAt } },
@@ -127,8 +144,9 @@ export const markPageDeleted = async (
   ).lean<{ bookID?: string | null }>();
   const removed = await reconcileTargetEdges(nodeId, [], null);
   const broken = await markSourceBroken(nodeId);
-  if (node?.bookID) await rebuildSummaryIfScanned(node.bookID);
-  return { removed, broken };
+  const bookID = node?.bookID ?? null;
+  if (rebuildOwnBook && bookID) await rebuildSummaryIfScanned(bookID);
+  return { removed, broken, bookID };
 };
 
 // ── Edges ────────────────────────────────────────────────────────────────────
@@ -345,9 +363,10 @@ export const recordSourceChange = async ({
 export const deletePageWithNotice = async (
   nodeId: string,
   deletedAt: Date = new Date(),
-): Promise<{ removed: number; broken: number }> => {
+  options: PageDeletionOptions = {},
+): Promise<PageDeletionResult> => {
   await recordSourceChange({ sourceId: nodeId, deleted: true, changedAt: deletedAt });
-  return markPageDeleted(nodeId, deletedAt);
+  return markPageDeleted(nodeId, deletedAt, options);
 };
 
 /**

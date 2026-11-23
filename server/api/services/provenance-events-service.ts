@@ -13,7 +13,11 @@ import {
   type TrackedPage,
 } from "../../util/library-events.js";
 import { createThrottle } from "./library-sync-service.js";
-import { deletePageWithNotice, recordSourceChange } from "./page-provenance-service.js";
+import {
+  deletePageWithNotice,
+  rebuildSummaryIfScanned,
+  recordSourceChange,
+} from "./page-provenance-service.js";
 import {
   EXCLUDED_LIBRARIES,
   ScanLease,
@@ -213,7 +217,13 @@ export const applyLibraryFeed = async (
     };
     if (dryRun) return { library: lib, status: "dry-run", ...summary, plan };
 
-    for (const nodeID of plan.deletions) await deletePageWithNotice(nodeID, now);
+    // One summary rebuild per book, however many of its pages were deleted.
+    const deletedFrom = new Set<string>();
+    for (const nodeID of plan.deletions) {
+      const { bookID } = await deletePageWithNotice(nodeID, now, { rebuildOwnBook: false });
+      if (bookID) deletedFrom.add(bookID);
+    }
+    for (const bookID of deletedFrom) await rebuildSummaryIfScanned(bookID);
     for (const change of plan.sourceRevisions) {
       await recordSourceChange({
         sourceId: change.nodeID,
