@@ -110,6 +110,36 @@ export const upsertPageNodes = async (
   return written;
 };
 
+/**
+ * Summary refreshes held back while a caller processes many pages, possibly
+ * concurrently, then run once per book by {@link SummaryRefreshBatch.flush}.
+ *
+ * Two refreshes of the same book running at once can leave the older result
+ * in place (both read, then the slower one writes last). Deferring them to a
+ * single sequential pass avoids that and does each book's work once.
+ */
+export class SummaryRefreshBatch {
+  /** Books whose whole summary is rebuilt: a page of theirs was deleted. */
+  readonly rebuild = new Set<string>();
+  /** Books whose attention counts are refreshed: a page they reuse changed or broke. */
+  readonly attention = new Set<string>();
+
+  addAttention(bookIDs: (string | null | undefined)[]) {
+    for (const id of bookIDs) if (id) this.attention.add(id);
+  }
+
+  /** Runs the held refreshes, one book at a time, and empties the batch. Never throws. */
+  async flush(): Promise<void> {
+    const rebuild = [...this.rebuild];
+    // A rebuild writes the attention counts too.
+    const attention = [...this.attention].filter((id) => !this.rebuild.has(id));
+    this.rebuild.clear();
+    this.attention.clear();
+    for (const bookID of rebuild) await rebuildSummaryIfScanned(bookID);
+    if (attention.length > 0) await refreshBookAttention(attention);
+  }
+}
+
 export type PageDeletionOptions = {
   /**
    * Rebuild the deleted page's own book summary (default). Callers deleting
@@ -117,6 +147,12 @@ export type PageDeletionOptions = {
    * returned `bookID`; a rebuild is several aggregations over the whole book.
    */
   rebuildOwnBook?: boolean;
+  /**
+   * Hold every summary refresh this deletion causes (its own book and the
+   * books reusing it) in the batch instead of running them now. For callers
+   * deleting pages concurrently; they must `flush()` the batch afterwards.
+   */
+  batch?: SummaryRefreshBatch;
 };
 
 export type PageDeletionResult = {
@@ -135,7 +171,7 @@ export type PageDeletionResult = {
 export const markPageDeleted = async (
   nodeId: string,
   deletedAt: Date = new Date(),
-  { rebuildOwnBook = true }: PageDeletionOptions = {},
+  { rebuildOwnBook = true, batch }: PageDeletionOptions = {},
 ): Promise<PageDeletionResult> => {
   const node = await PageNode.findOneAndUpdate(
     { nodeID: { $eq: nodeId } },
@@ -143,9 +179,10 @@ export const markPageDeleted = async (
     { projection: { _id: 0, bookID: 1 } },
   ).lean<{ bookID?: string | null }>();
   const removed = await reconcileTargetEdges(nodeId, [], null);
-  const broken = await markSourceBroken(nodeId);
+  const broken = await markSourceBroken(nodeId, batch);
   const bookID = node?.bookID ?? null;
-  if (rebuildOwnBook && bookID) await rebuildSummaryIfScanned(bookID);
+  if (bookID && batch) batch.rebuild.add(bookID);
+  else if (bookID && rebuildOwnBook) await rebuildSummaryIfScanned(bookID);
   return { removed, broken, bookID };
 };
 
@@ -286,6 +323,8 @@ export type SourceChangeParams = {
   toRev?: number;
   deleted?: boolean;
   changedAt?: Date;
+  /** Hold the reusing books' attention refresh in this batch (see {@link SummaryRefreshBatch}). */
+  batch?: SummaryRefreshBatch;
 };
 
 /**
@@ -305,6 +344,7 @@ export const recordSourceChange = async ({
   toRev,
   deleted = false,
   changedAt = new Date(),
+  batch,
 }: SourceChangeParams): Promise<{ recorded: boolean; affectedPages: number }> => {
   const walk = await findAffectedByChange(sourceId);
   if (walk.hits.length === 0) return { recorded: false, affectedPages: 0 };
@@ -319,7 +359,10 @@ export const recordSourceChange = async ({
     const filter = { source: { $eq: sourceId }, status: "active" as const };
     const books = await PageReuseEdge.distinct("targetBook", filter);
     const res = await PageReuseEdge.updateMany(filter, { $set: { status: "source-changed" } });
-    if (res.modifiedCount > 0) await refreshBookAttention(books);
+    if (res.modifiedCount > 0) {
+      if (batch) batch.addAttention(books);
+      else await refreshBookAttention(books);
+    }
   }
 
   try {
@@ -365,7 +408,7 @@ export const deletePageWithNotice = async (
   deletedAt: Date = new Date(),
   options: PageDeletionOptions = {},
 ): Promise<PageDeletionResult> => {
-  await recordSourceChange({ sourceId: nodeId, deleted: true, changedAt: deletedAt });
+  await recordSourceChange({ sourceId: nodeId, deleted: true, changedAt: deletedAt, batch: options.batch });
   return markPageDeleted(nodeId, deletedAt, options);
 };
 
@@ -529,7 +572,11 @@ export const findNeighborBooks = async ({
  * excerpt) keep their content, so their edges stay as they are; the deletion
  * event still tells their leads.
  */
-export const markSourceBroken = async (source: string): Promise<number> => {
+export const markSourceBroken = async (
+  source: string,
+  /** Hold the reusing books' attention refresh here instead of running it now. */
+  batch?: SummaryRefreshBatch,
+): Promise<number> => {
   const filter = {
     source: { $eq: source },
     status: { $in: CURRENT_EDGE_STATUSES },
@@ -537,7 +584,10 @@ export const markSourceBroken = async (source: string): Promise<number> => {
   };
   const books = await PageReuseEdge.distinct("targetBook", filter);
   const res = await PageReuseEdge.updateMany(filter, { $set: { status: "broken" } });
-  if (res.modifiedCount > 0) await refreshBookAttention(books);
+  if (res.modifiedCount > 0) {
+    if (batch) batch.addAttention(books);
+    else await refreshBookAttention(books);
+  }
   return res.modifiedCount;
 };
 

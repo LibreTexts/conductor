@@ -33,6 +33,7 @@ import {
   recordSourceChange,
   rebuildBookSummary,
   reconcileTargetEdgesBulk,
+  SummaryRefreshBatch,
   refreshChainRoot,
   upsertPageNodes,
   upsertReuseEdges,
@@ -720,6 +721,11 @@ export const checkReusedSources = async ({
     return throttle;
   };
 
+  // Pages are checked four at a time, and several may belong to (or be reused
+  // by) the same book: summary refreshes wait here and run once per book
+  // after each batch, so concurrent refreshes can't overwrite each other.
+  const refreshes = new SummaryRefreshBatch();
+
   const checkOne = async (node: { nodeID: string; lib: string; pageID: number; revision?: number }) => {
     try {
       const res = await fetchLibraryPage(
@@ -730,7 +736,7 @@ export const checkReusedSources = async ({
       );
       const checkedAt = new Date();
       if (res.status === 404) {
-        await deletePageWithNotice(node.nodeID, checkedAt);
+        await deletePageWithNotice(node.nodeID, checkedAt, { batch: refreshes });
         await PageNode.updateOne({ nodeID: { $eq: node.nodeID } }, { $set: { sourceCheckedAt: checkedAt } });
         outcome.deleted += 1;
         return;
@@ -743,7 +749,7 @@ export const checkReusedSources = async ({
       }
       const info = await res.json().catch(() => null);
       if (String(info?.["@deleted"]) === "true") {
-        await deletePageWithNotice(node.nodeID, checkedAt);
+        await deletePageWithNotice(node.nodeID, checkedAt, { batch: refreshes });
         await PageNode.updateOne({ nodeID: { $eq: node.nodeID } }, { $set: { sourceCheckedAt: checkedAt } });
         outcome.deleted += 1;
         return;
@@ -762,6 +768,7 @@ export const checkReusedSources = async ({
           fromRev: node.revision,
           toRev,
           changedAt: checkedAt,
+          batch: refreshes,
         });
         if (recorded) outcome.changed += 1;
       }
@@ -796,6 +803,7 @@ export const checkReusedSources = async ({
   if (onlyNodeIDs?.length) {
     const nodes = await PageNode.find({ nodeID: { $in: onlyNodeIDs } }, projection).lean<SourceRow[]>();
     await mapWithConcurrency(nodes, CONTENT_CONCURRENCY, checkOne);
+    await refreshes.flush();
     return outcome;
   }
 
@@ -816,6 +824,7 @@ export const checkReusedSources = async ({
     await mapWithConcurrency(due, CONTENT_CONCURRENCY, async (node) => {
       if (Date.now() < deadline) await checkOne(node);
     });
+    await refreshes.flush();
   }
   return outcome;
 };

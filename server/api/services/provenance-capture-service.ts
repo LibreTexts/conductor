@@ -12,6 +12,7 @@ import PageNode, { type PageNodeKind } from "../../models/pagenode.js";
 import {
   deletePageWithNotice,
   rebuildBookSummary,
+  rebuildSummaryIfScanned,
   refreshChainRoot,
   upsertPageNodes,
   upsertReuseEdges,
@@ -285,6 +286,8 @@ export const syncBookStructure = async ({
     await upsertPageNodes(nodes);
 
     let broken = 0;
+    // Books other than this one that lost a page (it had moved there).
+    const otherBooks = new Set<string>();
     for (const raw of deletedPageIDs) {
       const pageID = toPageID(raw);
       if (!pageID) continue;
@@ -295,6 +298,7 @@ export const syncBookStructure = async ({
         rebuildOwnBook: false,
       });
       broken += result.broken;
+      if (result.bookID && result.bookID !== bookID) otherBooks.add(result.bookID);
     }
     if (broken > 0) {
       captureLog.info(
@@ -304,6 +308,7 @@ export const syncBookStructure = async ({
     }
 
     await rebuildBookSummary(bookID);
+    for (const other of otherBooks) await rebuildSummaryIfScanned(other);
     recentStructureSyncs.set(bookID, Date.now());
   } catch (err) {
     captureLog.warn({ err, bookID }, "Failed to sync book structure");

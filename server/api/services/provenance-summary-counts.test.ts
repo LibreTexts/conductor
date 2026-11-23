@@ -128,6 +128,25 @@ describe("counts kept on book summaries", () => {
     assert.equal((await summary("chem-1"))?.totals.pages, 1);
   });
 
+  it("hold every refresh in a batch until it's flushed, then run each book once", async () => {
+    const batch = new provenance.SummaryRefreshBatch();
+    // Two deletions from the same book, at the same time, as the source check does.
+    await Promise.all([
+      provenance.deletePageWithNotice("chem-11", new Date(), { batch }),
+      provenance.deletePageWithNotice("chem-12", new Date(), { batch }),
+    ]);
+    assert.deepEqual([...batch.rebuild], ["chem-1"]);
+    assert.deepEqual([...batch.attention], ["bio-2"]);
+    // Nothing refreshed yet.
+    assert.equal((await summary("chem-1"))?.totals.pages, 2);
+    assert.deepEqual((await summary("bio-2"))?.attention, { sourceChanged: 0, broken: 0 });
+
+    await batch.flush();
+    assert.equal((await summary("chem-1"))?.totals.pages, 0);
+    assert.deepEqual((await summary("bio-2"))?.attention, { sourceChanged: 0, broken: 1 });
+    assert.equal(batch.rebuild.size + batch.attention.size, 0);
+  });
+
   it("never give an unscanned book a summary", async () => {
     await provenance.markPageDeleted("math-92");
     assert.equal(await BookReuseSummary.exists({ bookID: "math-9" }), null);
