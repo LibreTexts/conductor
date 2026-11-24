@@ -55,7 +55,7 @@
     "@uppy/react": "4.5.2",
     "@uppy/screen-capture": "4.4.2",
     "axios": "1.20.0",
-    "ckeditor5": "48.3.1",
+    "ckeditor5": "48.5.3",
     "classnames": "2.5.1",
     "d3": "7.9.0",
     "date-and-time": "0.14.2",
