@@ -1810,6 +1810,10 @@ async function getBookDetail(
         },
       },
     ]);
+
+    // Set cache control header to cache the response for 5 minutes (300 seconds)
+    res.set("Cache-Control", "public, max-age=300");
+
     if (bookRes.length < 1) {
       return res.status(404).send({
         err: true,
