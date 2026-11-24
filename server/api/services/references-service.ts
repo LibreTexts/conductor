@@ -1014,9 +1014,12 @@ const renamePageTitle = async (
 ): Promise<void> => {
   const expert = await ExpertWithSSM.getInstance().forLibrary(library);
   try {
+    // Without `name`, MindTouch derives the slug from the title and drops the
+    // "31:_" prefix BACKMATTER_REFS_URL_RE uses to find this page next scan.
     // `allow` isn't in the SDK's param type, but the SDK forwards it as-is.
     await expert.pages.postPageMove(pageID, {
       title,
+      name: `31:_${titleToRemixerPathSegment(title)}`,
       allow: "deleteredirects",
     } as PostPageMoveParams);
   } catch (err) {
