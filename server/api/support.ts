@@ -1808,23 +1808,21 @@ async function autoCloseTickets(req: Request, res: Response) {
 }
 
 async function sendPrivacyDeadlineReminders(req: Request, res: Response) {
-  try {
-    const sent = await new SupportTicketService().sendPrivacyDeadlineReminders();
-    return res.send({ err: false, sent });
-  } catch (err) {
-    logger.error({ err }, "sendPrivacyDeadlineReminders failed");
-    return conductor500Err(res);
-  }
+  // respond first and run in the background
+  res.send({ err: false, msg: "Privacy deadline reminders started." });
+  new SupportTicketService()
+    .sendPrivacyDeadlineReminders()
+    .then((sent) => logger.info({ sent }, "sendPrivacyDeadlineReminders finished"))
+    .catch((err) => logger.error({ err }, "sendPrivacyDeadlineReminders failed"));
 }
 
 async function purgeExpiredPrivacyTickets(req: Request, res: Response) {
-  try {
-    const purged = await new SupportTicketService().purgeExpiredPrivacyTickets();
-    return res.send({ err: false, purged });
-  } catch (err) {
-    logger.error({ err }, "purgeExpiredPrivacyTickets failed");
-    return conductor500Err(res);
-  }
+  // respond first and run in the background
+  res.send({ err: false, msg: "Privacy retention purge started." });
+  new SupportTicketService()
+    .purgeExpiredPrivacyTickets()
+    .then((purged) => logger.info({ purged }, "purgeExpiredPrivacyTickets finished"))
+    .catch((err) => logger.error({ err }, "purgeExpiredPrivacyTickets failed"));
 }
 
 async function syncWithSearchIndex(req: Request, res: Response) {
