@@ -196,7 +196,7 @@ export function sendCXOneUnavailable(
   err: CXOneUnavailableError,
   context: string
 ) {
-  logger.warn({ err }, `${context} unavailable: CXOne is blocking requests`);
+  logger.warn({ err }, `${context} unavailable: CXOne gate rejected the request`);
   res.setHeader("Retry-After", String(Math.ceil(err.retryAfterMs / 1000)));
   res.setHeader("Cache-Control", "no-store");
   return res.status(503).send({

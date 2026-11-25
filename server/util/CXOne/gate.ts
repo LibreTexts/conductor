@@ -1,17 +1,27 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { ExpertError } from "@libretexts/cxone-expert-node";
 import { childLogger } from "../../logger.js";
 
 const log = childLogger("cxone-gate");
+
+const bulkContext = new AsyncLocalStorage<true>();
+
+/**
+ * Runs `fn` with every CXOne request it makes (including async work it starts)
+ * queued behind interactive requests. Wrap job runners and fan-outs, never a
+ * single user-facing call: unmarked work is interactive by default.
+ */
+export function runAsBulk<T>(fn: () => Promise<T>): Promise<T> {
+  return bulkContext.run(true, fn);
+}
 
 /**
  * Thrown instead of sending a request while the libraries' edge is blocking
  * Conductor. Carries how long until the gate will try again.
  */
 export class CXOneUnavailableError extends Error {
-  constructor(public readonly retryAfterMs: number) {
-    super(
-      `CXOne is refusing Conductor's requests; retrying in ${Math.ceil(retryAfterMs / 1000)}s`,
-    );
+  constructor(public readonly retryAfterMs: number, reason = "CXOne is refusing Conductor's requests") {
+    super(`${reason}; retrying in ${Math.ceil(retryAfterMs / 1000)}s`);
     this.name = "CXOneUnavailableError";
   }
 }
@@ -40,8 +50,8 @@ export type CXOneGateOptions = {
 // shortcut: limits are per container, so N tasks send N× the rate. Move to a
 // shared limiter (Redis) if task count grows or blocks recur.
 const DEFAULTS: CXOneGateOptions = {
-  maxInFlight: 4,
-  minIntervalMs: 125,
+  maxInFlight: 6,
+  minIntervalMs: 100,
   baseCooldownMs: 60_000,
   maxCooldownMs: 15 * 60_000,
 };
@@ -59,6 +69,7 @@ const DEFAULTS: CXOneGateOptions = {
 export class CXOneGate {
   private inFlight = 0;
   private waiters: (() => void)[] = [];
+  private bulkWaiters: (() => void)[] = [];
   private nextStartAt = 0;
   /** 0 while closed. */
   private openUntil = 0;
@@ -181,11 +192,13 @@ export class CXOneGate {
       return;
     }
     // release() hands its slot straight to the next waiter, so inFlight stays put.
-    await new Promise<void>((resolve) => this.waiters.push(resolve));
+    const queue = bulkContext.getStore() ? this.bulkWaiters : this.waiters;
+    await new Promise<void>((resolve) => queue.push(resolve));
   }
 
+  // shortcut: interactive always goes first, so steady interactive load starves bulk; add an aging cap if bulk jobs stall.
   private release(): void {
-    const next = this.waiters.shift();
+    const next = this.waiters.shift() ?? this.bulkWaiters.shift();
     if (next) next();
     else this.inFlight--;
   }

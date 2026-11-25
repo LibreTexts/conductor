@@ -61,7 +61,7 @@ import {
   sendCXOneUnavailable,
   serializeError,
 } from "../util/errorutils.js";
-import { CXOneUnavailableError } from "../util/CXOne/gate.js";
+import { CXOneUnavailableError, runAsBulk } from "../util/CXOne/gate.js";
 import {
   TypedReqUser,
   ZodReqWithOptionalUser,
@@ -1453,8 +1453,8 @@ async function createBook(
     // will need to be created manually.
     try {
       const bookService = new BookService({ bookID: newBookID });
-      // Fire-and-forget
-      bookService.createDefaultFrontMatter({
+      // Fire-and-forget, queued as bulk so it never delays the permission calls below.
+      runAsBulk(() => bookService.createDefaultFrontMatter({
         coverPagePath: bookPath,
         coverPageFullURL: bookURL,
         titlePageInfo: {
@@ -1462,14 +1462,14 @@ async function createBook(
           title,
           summary: "",
         }
-      }).catch((err) => {
+      })).catch((err) => {
         logger.error(`Error creating default front matter: ${err instanceof Error ? err.message : err}`);
       });
 
       // Fire-and-forget
-      bookService.createDefaultBackMatter({
+      runAsBulk(() => bookService.createDefaultBackMatter({
         coverPagePath: bookPath,
-      }).catch((err) => {
+      })).catch((err) => {
         logger.error(`Error creating default back matter: ${err instanceof Error ? err.message : err}`);
       });
     } catch (err) {
@@ -2876,14 +2876,14 @@ async function importPressBooksBook(
       jobID,
     });
 
-    void runPressbooksImportJob({
+    void runAsBulk(() => runPressbooksImportJob({
       jobID,
       library,
       title,
       projectID,
       pbBookURL,
       userID,
-    });
+    }));
   } catch (err: any) {
     if (err instanceof ProjectError) {
       return returnProjectError(res, err);
@@ -3769,14 +3769,14 @@ async function startGlossaryCsvImportJob(
 
     res.send({ err: false, jobID, totalRows: entries.length });
 
-    void runGlossaryCsvImportJob({
+    void runAsBulk(() => runGlossaryCsvImportJob({
       jobID,
       entries,
       coverID: coverID.toString(),
       library,
       userID,
       glossaryID: glossaryID?.toString().trim() || undefined,
-    });
+    }));
   } catch (err) {
     logger.error({ err }, "startGlossaryCsvImportJob failed");
     return res.status(500).send({ err: true, errMsg: conductorErrors.err6 });

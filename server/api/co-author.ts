@@ -1,4 +1,5 @@
 import logger from "../logger.js";
+import { runAsBulk } from "../util/CXOne/gate.js";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { _generatePageImagesAltTextResObj, PageFile, PageFileProperty, PageImagesRes, TableOfContents, ZodReqWithUser } from "../types";
@@ -235,8 +236,9 @@ async function batchGenerateAIMetadata(
             logger.warn(`SSE client disconnected for batch AI metadata job ${job.jobID}. This is not necessarily an error.`);
         });
 
-        await _runBulkUpdateJob(
-            session,
+        const activeSession = session;
+        await runAsBulk(() => _runBulkUpdateJob(
+            activeSession,
             job.jobID,
             job.type,
             project.projectID,
@@ -248,7 +250,7 @@ async function batchGenerateAIMetadata(
                 alttext: req.body.alttext,
             },
             [user.email]
-        );
+        ));
 
         if (!session.isConnected) {
             logger.warn(`SSE client disconnected before completion of batch AI metadata job ${job.jobID}. This is not necessarily an error.`);
@@ -337,8 +339,9 @@ async function batchUpdateBookMetadata(
             logger.warn(`SSE client disconnected for batch book metadata update job ${job.jobID}. This is not necessarily an error.`);
         });
 
-        await _runBulkUpdateJob(
-            session,
+        const activeSession = session;
+        await runAsBulk(() => _runBulkUpdateJob(
+            activeSession,
             job.jobID,
             job.type,
             project.projectID,
@@ -347,7 +350,7 @@ async function batchUpdateBookMetadata(
             undefined,
             [user.email],
             newPageData
-        );
+        ));
 
         if (session && session.isConnected) {
             session.push('END');

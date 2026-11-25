@@ -39,6 +39,7 @@ import {
   pageRestriction,
 } from "../../util/CXOne/page-restriction.js";
 import { mapWithConcurrency } from "../../util/concurrency.js";
+import { CXOneUnavailableError, runAsBulk } from "../../util/CXOne/gate.js";
 import { toCanonicalPageUrl } from "../../util/remixerutils.js";
 import LibraryService from "./library-service";
 
@@ -147,6 +148,15 @@ export default class BookService {
    * its whole queue.
    */
   private static readonly PAGE_DETAIL_CONCURRENCY = 4;
+
+  /**
+   * Cold public TOC builds allowed at once per container. Each walk keeps
+   * SUBPAGE_CONCURRENCY requests queued on the shared CXOne gate, so unbounded
+   * reader/crawler traffic on unseen books would starve every other caller
+   * (Remixer included) until requests time out. Overflow gets a fast 503.
+   */
+  private static readonly PUBLIC_TOC_BUILD_SLOTS = 2;
+  private static _publicTOCBuilds = 0;
 
   /** Per-item failure tolerance for {@link mapWithConcurrency}, like `Promise.allSettled`. */
   private static _settle<T>(
@@ -678,6 +688,13 @@ export default class BookService {
       return inFlight;
     }
 
+    if (!includeRestricted) {
+      if (BookService._publicTOCBuilds >= BookService.PUBLIC_TOC_BUILD_SLOTS) {
+        throw new CXOneUnavailableError(10_000, "Too many public TOC builds in progress");
+      }
+      BookService._publicTOCBuilds++;
+    }
+
     const tocPromise = (async () => {
       const expert = await ExpertWithSSM.getInstance().forLibrary(this._library);
 
@@ -687,7 +704,7 @@ export default class BookService {
       // one request per parent. See _buildFilteredTOC.
       const toc = includeRestricted
         ? await this._buildFullTOC(expert)
-        : await this._buildFilteredTOC(expert);
+        : await runAsBulk(() => this._buildFilteredTOC(expert));
 
       BookService._tocCacheByBookID.set(cacheKey, toc);
       if (!includeRestricted) {
@@ -702,6 +719,7 @@ export default class BookService {
       return await tocPromise;
     } finally {
       BookService._tocInFlightByBookID.delete(cacheKey);
+      if (!includeRestricted) BookService._publicTOCBuilds--;
     }
   }
 
@@ -842,11 +860,11 @@ export default class BookService {
 
     const flattenedPageData = collectPageData(toc);
 
-    const results = await mapWithConcurrency(
+    const results = await runAsBulk(() => mapWithConcurrency(
       flattenedPageData,
       BookService.PAGE_DETAIL_CONCURRENCY,
       (page) => BookService._settle(this.getPageOverview(page.id)),
-    );
+    ));
 
     // Create an array of objects with the page ID, title, url, and its overview property
     const pageOverviews: PageSimpleWOverview[] = [];
@@ -883,11 +901,11 @@ export default class BookService {
 
     const flattenedPageData = collectPageData(toc);
 
-    const results = await mapWithConcurrency(
+    const results = await runAsBulk(() => mapWithConcurrency(
       flattenedPageData,
       BookService.PAGE_DETAIL_CONCURRENCY,
       (page) => BookService._settle(this.getPageTags(page.id)),
-    );
+    ));
 
     // Create an array of objects with the page ID, title, url, and its tags
     const pageTags: PageSimpleWTags[] = [];

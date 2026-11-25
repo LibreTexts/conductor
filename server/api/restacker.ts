@@ -1,4 +1,5 @@
 import logger from "../logger.js";
+import { runAsBulk } from "../util/CXOne/gate.js";
 import { conductor500Err } from "../util/errorutils.js";
 import { z } from "zod";
 import Project from "../models/project";
@@ -539,13 +540,15 @@ const restackerReload = async (
     // Kick off the reload job here (fire-and-forget) so the client doesn't have to make a
     // follow-up /toc call to start it; the client polls /restacker/status for progress.
     // Started right after the reset so nothing between them can strand the lock.
-    restackerService.runRestacker(
+    // Read before the closure, which would drop TypeScript's narrowing.
+    const { libreLibrary, libreCoverID } = project;
+    runAsBulk(() => restackerService.runRestacker(
       projectID,
-      project.libreLibrary,
-      project.libreCoverID,
+      libreLibrary,
+      libreCoverID,
       mode,
       lockID,
-    ).catch((err) => {
+    )).catch((err) => {
       logger.error({ err, projectID, mode }, "Restacker reload failed");
     });
 

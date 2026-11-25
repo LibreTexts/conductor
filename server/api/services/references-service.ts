@@ -33,6 +33,7 @@ import MindTouch from "../../util/CXOne/index.js";
 import RemixerTemplates from "../../util/CXOne/CXOneRemixerTemplates.js";
 import { titleToRemixerPathSegment } from "../../util/remixerutils.js";
 import { childLogger } from "../../logger.js";
+import { runAsBulk } from "../../util/CXOne/gate.js";
 import {
   isValidCitationKey,
   sanitizeReferenceField,
@@ -1368,14 +1369,14 @@ export const createReferencePopulateJob = async (
   }
 
   // Runs in the background; it records its own success or failure on the job.
-  void runJob({
+  void runAsBulk(() => runJob({
     jobID: populateJob.jobID,
     toc,
     bookService,
     coverID: project.libreCoverID,
     library: project.libreLibrary,
     projectID,
-  });
+  }));
 
   return populateJob;
 };

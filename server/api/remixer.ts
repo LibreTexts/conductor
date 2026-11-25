@@ -1,4 +1,5 @@
 import logger, { childLogger } from "../logger.js";
+import { runAsBulk } from "../util/CXOne/gate.js";
 import type { Response } from "express";
 import { z } from "zod";
 import { ZodReqWithUser } from "../types/Express.js";
@@ -377,8 +378,7 @@ const publishRemixerProject = async (
       messages: ["Remixer job created."],
     });
 
-    remixerService
-      .runRemixerJob({
+    runAsBulk(() => remixerService.runRemixerJob({
         jobID: job.jobID,
         projectID: id,
         remixerID: remixerState?.remixerID ?? publishedRemixerID,
@@ -386,7 +386,7 @@ const publishRemixerProject = async (
         coverId: project.libreCoverID ?? "",
         importGlossaryTerms: Boolean(importGlossaryTerms),
         importReferences: Boolean(importReferences),
-      })
+      }))
       .catch((error: unknown) => {
         logger.error({ err: error }, "Failed to run remixer job");
       });

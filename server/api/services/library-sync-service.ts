@@ -1,4 +1,5 @@
 import logger, { childLogger } from "../../logger.js";
+import { runAsBulk } from "../../util/CXOne/gate.js";
 import Library, { LibraryInterface } from "../../models/library.js";
 import { AuthorInterface } from "../../models/author.js";
 import Expert from "../../util/ExpertWithSSM.js";
@@ -980,10 +981,10 @@ export default class LibrarySyncService {
       options?.signal
     );
 
-    return Promise.all(
+    return runAsBulk(() => Promise.all(
       libraries.map((library) =>
         this.syncLibrary(library, { throttle, authorIndex, limits })
       )
-    );
+    ));
   }
 }
