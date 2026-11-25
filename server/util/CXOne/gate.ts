@@ -4,15 +4,20 @@ import { childLogger } from "../../logger.js";
 
 const log = childLogger("cxone-gate");
 
-const bulkContext = new AsyncLocalStorage<true>();
+const bulkContext = new AsyncLocalStorage<{ maxWaitMs: number }>();
 
 /**
  * Runs `fn` with every CXOne request it makes (including async work it starts)
  * queued behind interactive requests. Wrap job runners and fan-outs, never a
  * single user-facing call: unmarked work is interactive by default.
+ *
+ * Jobs wait in the queue as long as needed. Pass `maxWaitMs` for low-priority
+ * work inside a request, which must give up before the client does.
  */
-export function runAsBulk<T>(fn: () => Promise<T>): Promise<T> {
-  return bulkContext.run(true, fn);
+export function runAsBulk<T>(fn: () => Promise<T>, maxWaitMs = Infinity): Promise<T> {
+  // A nested limit never shortens an outer job's wait.
+  const outer = bulkContext.getStore()?.maxWaitMs ?? 0;
+  return bulkContext.run({ maxWaitMs: Math.max(maxWaitMs, outer) }, fn);
 }
 
 /**
@@ -45,6 +50,8 @@ export type CXOneGateOptions = {
   minIntervalMs: number;
   baseCooldownMs: number;
   maxCooldownMs: number;
+  /** Longest an interactive call waits for a slot before failing fast. */
+  maxQueueWaitMs: number;
 };
 
 // shortcut: limits are per container, so N tasks send N× the rate. Move to a
@@ -54,6 +61,8 @@ const DEFAULTS: CXOneGateOptions = {
   minIntervalMs: 100,
   baseCooldownMs: 60_000,
   maxCooldownMs: 15 * 60_000,
+  // Well under the load balancer timeout, so callers get a 503 instead of an abort.
+  maxQueueWaitMs: 15_000,
 };
 
 /**
@@ -192,8 +201,24 @@ export class CXOneGate {
       return;
     }
     // release() hands its slot straight to the next waiter, so inFlight stays put.
-    const queue = bulkContext.getStore() ? this.bulkWaiters : this.waiters;
-    await new Promise<void>((resolve) => queue.push(resolve));
+    const bulk = bulkContext.getStore();
+    const queue = bulk ? this.bulkWaiters : this.waiters;
+    const maxWaitMs = bulk ? bulk.maxWaitMs : this.opts.maxQueueWaitMs;
+    await new Promise<void>((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const waiter = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      if (Number.isFinite(maxWaitMs)) {
+        timer = setTimeout(() => {
+          // Leave the queue before rejecting so release() never hands this caller a slot.
+          queue.splice(queue.indexOf(waiter), 1);
+          reject(new CXOneUnavailableError(5_000, "CXOne request queue is backed up"));
+        }, maxWaitMs);
+      }
+      queue.push(waiter);
+    });
   }
 
   // shortcut: interactive always goes first, so steady interactive load starves bulk; add an aging cap if bulk jobs stall.

@@ -3484,12 +3484,16 @@ async function getGlossaryDetails(
   try {
     const glossaryService = new GlossaryService();
     const glossaryDetails = await glossaryService.getGlossaryDetails(pageID, library);
+    // Public and the same for every viewer. Every library page view calls this.
+    res.set("Cache-Control", "public, max-age=300");
     return res.send({ err: false, ...glossaryDetails })
   }
   catch (err) {
     // A page with no glossary is the common case across the libraries, not a
     // failure. Returning 500 here buried real errors in CloudWatch noise.
     if (err instanceof GlossaryNotFoundError) {
+      // Cache the miss too: most pages have no glossary.
+      res.set("Cache-Control", "public, max-age=300");
       return res.status(404).send({ err: true, errMsg: conductorErrors.err11 });
     }
     logger.error({ err }, "getGlossaryDetails failed");

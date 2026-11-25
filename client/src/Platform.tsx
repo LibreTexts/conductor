@@ -30,6 +30,14 @@ const notificationRef: { current: ((n: any) => void) | null } = {
   current: null,
 };
 const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // The server is shedding load on 503/429; retrying only adds to it.
+      retry: (failureCount, error) =>
+        failureCount < 3 &&
+        !(axios.isAxiosError(error) && [429, 503].includes(error.response?.status ?? 0)),
+    },
+  },
   queryCache: new QueryCache({
     onError(error, query) {
       const errMsg =

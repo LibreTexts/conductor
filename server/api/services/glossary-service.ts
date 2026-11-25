@@ -26,6 +26,8 @@ import {
 } from "../../util/sanitize-text.js";
 import BookService from "./book-service";
 import { childLogger } from "../../logger.js";
+import { createResponseCache } from "../../util/response-cache.js";
+import { runAsBulk } from "../../util/CXOne/gate.js";
 import { TableOfContents } from "../../types";
 
 const glossaryLog = childLogger("glossary");
@@ -1047,6 +1049,14 @@ export default class GlossaryService {
     }
   }
 
+  // Every library page view hits the glossary routes, and ancestor chains only
+  // change on a page move, so cache them instead of spending the CXOne budget.
+  private static readonly _candidateIDsCache = createResponseCache<number[]>({
+    name: "glossary-candidate-ids",
+    ttlSeconds: 60 * 60,
+    maxKeys: 50_000,
+  });
+
   /**
    * Fetches the page from MindTouch and returns numeric IDs for the page itself
    * and every ancestor in the `parent` chain. Falls back to `[pageID]` on error.
@@ -1057,27 +1067,40 @@ export default class GlossaryService {
     library: string,
   ): Promise<number[]> {
     try {
-      const res = await CXOneFetch({
-        scope: "page",
-        path: pageID,
-        api: CXOnePageAPIEndpoints.GET_Page,
-        subdomain: library,
-      });
-      if (!res.ok) return [pageID];
-      const info = await res.json();
-      const ids: number[] = [];
-      const selfId = parseInt(info?.["@id"], 10);
-      if (!Number.isNaN(selfId)) ids.push(selfId);
-      let cursor = info?.["page.parent"];
-      while (cursor) {
-        const pid = parseInt(cursor["@id"], 10);
-        if (!Number.isNaN(pid)) ids.push(pid);
-        cursor = cursor?.["page.parent"];
-      }
-      return ids.length > 0 ? ids : [pageID];
+      return await GlossaryService._candidateIDsCache.getOrLoad(
+        `${library}:${pageID}`,
+        // Bulk: page-view lookups must not queue ahead of author actions, and
+        // give up after 3s since the fallback still serves the book's own terms.
+        () => runAsBulk(() => GlossaryService._fetchCandidateCoverIDs(pageID, library), 3_000),
+      );
     } catch {
       return [pageID];
     }
+  }
+
+  /** Throws on failure so the fallback is never cached. */
+  private static async _fetchCandidateCoverIDs(
+    pageID: number,
+    library: string,
+  ): Promise<number[]> {
+    const res = await CXOneFetch({
+      scope: "page",
+      path: pageID,
+      api: CXOnePageAPIEndpoints.GET_Page,
+      subdomain: library,
+    });
+    if (!res.ok) throw new Error(`GET_Page failed: ${res.status}`);
+    const info = await res.json();
+    const ids: number[] = [];
+    const selfId = parseInt(info?.["@id"], 10);
+    if (!Number.isNaN(selfId)) ids.push(selfId);
+    let cursor = info?.["page.parent"];
+    while (cursor) {
+      const pid = parseInt(cursor["@id"], 10);
+      if (!Number.isNaN(pid)) ids.push(pid);
+      cursor = cursor?.["page.parent"];
+    }
+    return ids.length > 0 ? ids : [pageID];
   }
 
   async getGlossaryDetails(

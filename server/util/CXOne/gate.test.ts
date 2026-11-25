@@ -15,6 +15,7 @@ const newGate = () =>
     minIntervalMs: 0,
     baseCooldownMs: 60_000,
     maxCooldownMs: 240_000,
+    maxQueueWaitMs: Infinity,
   });
 
 describe("isUpstreamBlock", () => {
@@ -117,6 +118,41 @@ describe("CXOneGate concurrency", () => {
     assert.deepEqual(order, ["b1", "b2", "i1", "b3", "b4"]);
   });
 
+  it("fails a caller that waits past its queue limit and hands the slot to the next", async () => {
+    const gate = new CXOneGate({
+      maxInFlight: 1,
+      minIntervalMs: 0,
+      baseCooldownMs: 60_000,
+      maxCooldownMs: 240_000,
+      maxQueueWaitMs: 20,
+    });
+    let finish!: () => void;
+    const first = gate.run(() => new Promise<void>((r) => (finish = r)));
+    const timedOut = gate.run(async () => "never");
+    const patient = runAsBulk(() => gate.run(async () => "bulk"));
+    await assert.rejects(timedOut, CXOneUnavailableError);
+    finish();
+    await first;
+    assert.equal(await patient, "bulk");
+  });
+
+  it("keeps an outer job's unlimited wait when a nested call asks for a short one", async () => {
+    const gate = new CXOneGate({
+      maxInFlight: 1,
+      minIntervalMs: 0,
+      baseCooldownMs: 60_000,
+      maxCooldownMs: 240_000,
+      maxQueueWaitMs: Infinity,
+    });
+    let finish!: () => void;
+    const first = gate.run(() => new Promise<void>((r) => (finish = r)));
+    const nested = runAsBulk(() => runAsBulk(() => gate.run(async () => "ok"), 20));
+    await new Promise((r) => setTimeout(r, 40));
+    finish();
+    await first;
+    assert.equal(await nested, "ok");
+  });
+
   it("rejects queued callers when the breaker opens, without waiting for a paced slot", async () => {
     mock.timers.enable({ apis: ["Date", "setTimeout"], now: 0 } as never);
     try {
@@ -125,6 +161,7 @@ describe("CXOneGate concurrency", () => {
         minIntervalMs: 1000,
         baseCooldownMs: 60_000,
         maxCooldownMs: 240_000,
+        maxQueueWaitMs: Infinity,
       });
       let block!: (e: unknown) => void;
       const first = gate.run(() => new Promise((_, reject) => (block = reject)));
