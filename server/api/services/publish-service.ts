@@ -5,6 +5,7 @@ import Project, {
   PublishStepState,
 } from "../../models/project.js";
 import BookBotService from "./book-bot-service.js";
+import BookService from "./book-service.js";
 import LibraryService from "./library-service.js";
 import ShapeshiftService from "./shapeshift-service.js";
 import { syncSingleBook } from "./book-sync-service.js";
@@ -290,6 +291,7 @@ export default class PublishService {
       }
 
       await this.markSucceeded(projectID, "security");
+      void BookService.invalidatePublicTOC(`${libreLibrary}-${libreCoverID}`);
       publishLog.info({ projectID }, "Book set public on library");
     });
   }
@@ -477,6 +479,7 @@ export default class PublishService {
       // Refreshing Commons keeps the catalog's path honest, but a book that
       // moved successfully has moved whether or not the catalog caught up.
       const bookID = `${libreLibrary}-${libreCoverID}`;
+      void BookService.invalidatePublicTOC(bookID);
       syncSingleBook(bookID).catch((err) => {
         publishLog.warn(
           { err, bookID },

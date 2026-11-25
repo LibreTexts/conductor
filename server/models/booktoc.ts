@@ -9,7 +9,10 @@ import type { TableOfContents } from "../types/Book.js";
 export interface BookTOCInterface {
   bookID: string;
   toc: TableOfContents;
+  /** When the walk that produced `toc` started. */
   builtAt: Date;
+  /** Last Conductor write to the book. Later than `builtAt` means stale. */
+  invalidatedAt?: Date;
   /** One container at a time refreshes a stale copy; others serve it meanwhile. */
   refreshLeaseUntil: Date;
 }
@@ -18,6 +21,7 @@ const BookTOCSchema = new Schema<BookTOCInterface>({
   bookID: { type: String, required: true, unique: true },
   toc: { type: Schema.Types.Mixed, required: true },
   builtAt: { type: Date, required: true },
+  invalidatedAt: { type: Date },
   refreshLeaseUntil: { type: Date, default: () => new Date(0) },
 });
 

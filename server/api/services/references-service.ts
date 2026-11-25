@@ -1056,6 +1056,7 @@ const ensureBackmatterReferencesPage = async ({
   if (existing) {
     if (existing.title.trim() !== desiredTitle) {
       await renamePageTitle(library, existing.id, desiredTitle);
+      void BookService.invalidatePublicTOC(bookService.bookID);
     }
     await ReferenceUsage.updateOne(
       { projectID: { $eq: projectID } },
@@ -1119,6 +1120,7 @@ const ensureBackmatterReferencesPage = async ({
     { projectID: { $eq: projectID } },
     { $set: { backmatterPageID: pageID } },
   );
+  void BookService.invalidatePublicTOC(bookService.bookID);
   return pageID;
 };
 

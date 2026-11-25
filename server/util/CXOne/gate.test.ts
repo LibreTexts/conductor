@@ -203,3 +203,21 @@ describe("CXOneGate.waitUntilClosed", () => {
     assert.equal(gate.retryAfterMs, 0);
   });
 });
+
+describe("CXOneGate sentCounts", () => {
+  beforeEach(() => mock.timers.enable({ apis: ["Date"], now: 0 } as never));
+  afterEach(() => mock.timers.reset());
+
+  it("counts request starts per window and forgets ones older than 10 min", async () => {
+    const gate = newGate();
+    await gate.run(async () => "a");
+    mock.timers.tick(4 * 60_000);
+    await gate.run(async () => "b");
+    mock.timers.tick(2 * 60_000);
+    await gate.run(async () => "c");
+    assert.deepEqual(gate.sentCounts(), { sent1m: 1, sent5m: 2, sent10m: 3 });
+    mock.timers.tick(5 * 60_000);
+    await gate.run(async () => "d"); // t=11m: the t=0 start drops out
+    assert.deepEqual(gate.sentCounts(), { sent1m: 1, sent5m: 1, sent10m: 3 });
+  });
+});

@@ -2990,6 +2990,9 @@ const runRemixerJob = async ({
       );
     });
     throw error;
+  } finally {
+    // A failed run can still have changed the book, so refresh either way.
+    void BookService.invalidatePublicTOC(`${subdomain}-${coverId}`);
   }
 };
 

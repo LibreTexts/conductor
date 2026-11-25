@@ -68,7 +68,8 @@ export type GetBookTOCOptions = {
   includeRestricted: boolean;
   /**
    * Serve from the TOC caches: in-process for 120 seconds, plus (public trees
-   * only) the Mongo copy shared across containers, up to 30 minutes old.
+   * only) the Mongo copy shared across containers, served until
+   * {@link BookService.invalidatePublicTOC} or the weekly backstop refreshes it.
    * Defaults to true. `false` always rebuilds from CXOne, and a public rebuild
    * still refreshes both caches.
    */
@@ -115,11 +116,10 @@ export default class BookService {
   });
   private static _tocInFlightByBookID = new Map<string, Promise<TableOfContents>>();
 
-  // Shared public TOC (Mongo). A page made private in a library drops off the
-  // public listing within about the soft TTL (the old in-process bound). The
-  // hard TTL only applies while refreshes fail, e.g. while CXOne blocks us.
-  private static readonly PUBLIC_TOC_SOFT_TTL_MS = 2 * 60_000;
-  private static readonly PUBLIC_TOC_HARD_TTL_MS = 30 * 60_000;
+  // Shared public TOC (Mongo). Conductor's own writes invalidate it
+  // (invalidatePublicTOC). The backstop only bounds how long a change made
+  // directly in a library (e.g. a page made private there) stays listed.
+  private static readonly PUBLIC_TOC_BACKSTOP_MS = 7 * 24 * 60 * 60_000;
   private static readonly PUBLIC_TOC_LEASE_MS = 2 * 60_000;
 
   /**
@@ -696,6 +696,7 @@ export default class BookService {
     }
 
     const tocPromise = (async () => {
+      const startedAt = new Date();
       const expert = await ExpertWithSSM.getInstance().forLibrary(this._library);
 
       // Two endpoints, picked by what the caller needs. `tree` returns the whole
@@ -708,7 +709,7 @@ export default class BookService {
 
       BookService._tocCacheByBookID.set(cacheKey, toc);
       if (!includeRestricted) {
-        await this._storePublicTOC(toc);
+        await this._storePublicTOC(toc, startedAt);
       }
       return toc;
     })();
@@ -724,9 +725,8 @@ export default class BookService {
   }
 
   /**
-   * The shared public TOC while it is servable: fresh under the soft TTL,
-   * served stale (with one background refresh) until the hard TTL, then
-   * dropped so the caller rebuilds and fails closed if CXOne is unavailable.
+   * The shared public TOC, whatever its age. A stale copy (invalidated, or past
+   * the backstop) is still served while one background refresh rebuilds it.
    * Mongo trouble falls back to building from CXOne, as before this store.
    */
   private async _readStoredPublicTOC(): Promise<{ toc: TableOfContents; ttlMs: number } | null> {
@@ -738,12 +738,30 @@ export default class BookService {
       });
     if (!doc) return null;
 
-    const age = Date.now() - new Date(doc.builtAt).getTime();
-    if (age >= BookService.PUBLIC_TOC_HARD_TTL_MS) return null;
-    if (age >= BookService.PUBLIC_TOC_SOFT_TTL_MS) {
+    const builtAt = new Date(doc.builtAt).getTime();
+    const ttlMs = BookService.PUBLIC_TOC_BACKSTOP_MS - (Date.now() - builtAt);
+    const invalidated = !!doc.invalidatedAt && new Date(doc.invalidatedAt).getTime() > builtAt;
+    if (ttlMs <= 0 || invalidated) {
       void this._refreshPublicTOC();
+      return { toc: doc.toc, ttlMs: 0 };
     }
-    return { toc: doc.toc, ttlMs: BookService.PUBLIC_TOC_SOFT_TTL_MS - age };
+    return { toc: doc.toc, ttlMs };
+  }
+
+  /**
+   * Marks the book's public TOC stale and rebuilds it in the background.
+   * Readers keep the old copy until the rebuild lands. Call after any Conductor
+   * write that changes a book's structure, page titles or page visibility.
+   * Never throws: callers fire and forget it after their write succeeded.
+   */
+  static async invalidatePublicTOC(bookID: string): Promise<void> {
+    try {
+      BookService._tocCacheByBookID.del([`${bookID}:public`, `${bookID}:all`]);
+      await BookTOC.updateOne({ bookID: { $eq: bookID } }, { $set: { invalidatedAt: new Date() } });
+      await new BookService({ bookID })._refreshPublicTOC();
+    } catch (err) {
+      logger.warn({ err, bookID }, "Invalidating the stored public TOC failed");
+    }
   }
 
   /** Rebuilds a stale public TOC, but only in the one container holding the lease. */
@@ -764,10 +782,15 @@ export default class BookService {
     }
   }
 
-  private async _storePublicTOC(toc: TableOfContents): Promise<void> {
+  /**
+   * `builtAt` is when the walk started, not when it finished: a build that
+   * began before an invalidation then still reads as stale, so its pre-write
+   * tree gets rebuilt instead of passing for fresh.
+   */
+  private async _storePublicTOC(toc: TableOfContents, startedAt: Date): Promise<void> {
     await BookTOC.updateOne(
       { bookID: { $eq: this._bookID } },
-      { $set: { toc, builtAt: new Date() } },
+      { $set: { toc, builtAt: startedAt } },
       { upsert: true },
     ).catch((err) => {
       logger.warn({ err, bookID: this._bookID }, "Storing the public TOC failed");
@@ -2110,6 +2133,7 @@ export default class BookService {
 
       // Set thumbnail and misc properties
       await this._setMatterRootPageProperties(basePath, 'Front');
+      void BookService.invalidatePublicTOC(this._bookID);
     } catch (err) {
       logger.error({ err }, 'Fatal error creating default front matter pages');
       throw err;
@@ -2183,6 +2207,7 @@ export default class BookService {
 
       // Set thumbnail and misc properties
       await this._setMatterRootPageProperties(basePath, 'Back');
+      void BookService.invalidatePublicTOC(this._bookID);
     } catch (err) {
       logger.error({ err }, 'Fatal error creating default back matter pages');
       throw err;

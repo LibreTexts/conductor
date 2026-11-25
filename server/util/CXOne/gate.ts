@@ -84,6 +84,8 @@ export class CXOneGate {
   private openUntil = 0;
   private probing = false;
   private cooldownMs: number;
+  /** Request start times over the last 10 min, logged when the edge blocks us. */
+  private starts: number[] = [];
 
   constructor(private readonly opts: CXOneGateOptions = DEFAULTS) {
     this.cooldownMs = opts.baseCooldownMs;
@@ -181,7 +183,11 @@ export class CXOneGate {
     if (blocked) {
       if (this.openUntil === 0) {
         this.cooldownMs = this.opts.baseCooldownMs;
-        log.warn({ cooldownMs: this.cooldownMs }, "CXOne edge is blocking requests; breaker open");
+        // WAF rate rules count over 1-10 min windows, so these bound this IP's real limit (this container only).
+        log.warn(
+          { cooldownMs: this.cooldownMs, ...this.sentCounts() },
+          "CXOne edge is blocking requests; breaker open",
+        );
       } else if (isProbe) {
         this.cooldownMs = Math.min(this.cooldownMs * 2, this.opts.maxCooldownMs);
         log.warn({ cooldownMs: this.cooldownMs }, "CXOne probe still blocked; breaker stays open");
@@ -228,10 +234,17 @@ export class CXOneGate {
     else this.inFlight--;
   }
 
+  sentCounts(now = Date.now()): { sent1m: number; sent5m: number; sent10m: number } {
+    const since = (ms: number) => this.starts.filter((t) => t > now - ms).length;
+    return { sent1m: since(60_000), sent5m: since(5 * 60_000), sent10m: since(10 * 60_000) };
+  }
+
   private async pace(): Promise<void> {
     const now = Date.now();
     const startAt = Math.max(now, this.nextStartAt);
     this.nextStartAt = startAt + this.opts.minIntervalMs;
+    this.starts.push(startAt);
+    while (this.starts[0] < startAt - 10 * 60_000) this.starts.shift();
     if (startAt > now) {
       await new Promise((resolve) => setTimeout(resolve, startAt - now));
     }
