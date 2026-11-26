@@ -537,7 +537,7 @@ async function addBookPageAsReference(
   }
 }
 
-/** 404 shared by the public routes, so an unlisted book looks like a missing one. */
+/** 404 shared by the public routes. */
 const sendPublicNotFound = (res: Response) =>
   res.status(404).send({
     err: true,
@@ -545,8 +545,11 @@ const sendPublicNotFound = (res: Response) =>
   });
 
 /**
- * Public (library script). Only books listed in the Commons catalog are
- * served; editing stays member-only on the `/projects/...` routes.
+ * Public (library script). Served for any book linked to a Conductor project,
+ * Commons-listed or not (Workbench/Sandbox), so authors can check citations
+ * and bibliography on the library page — the same rule as the glossary's
+ * public routes. Editing stays member-only on the `/projects/...` routes, and
+ * reusing references across projects (search) stays Commons-only.
  */
 async function getReferencePageDetails(
   req: ZodReqWithOptionalUser<
@@ -567,10 +570,7 @@ async function getReferencePageDetails(
       libreCoverID: { $in: candidateCoverIDs },
       libreLibrary: { $eq: library },
     });
-    if (
-      !project ||
-      !(await isInCommonsCatalog(`${library}-${project.libreCoverID}`))
-    ) {
+    if (!project) {
       return sendPublicNotFound(res);
     }
 
@@ -630,7 +630,7 @@ async function getReferencePageDetails(
   }
 }
 
-/** Public (library script); same Commons-catalog gate as getReferencePageDetails. */
+/** Public (library script); same rule as getReferencePageDetails. */
 async function getReferenceItems(
   req: ZodReqWithOptionalUser<z.infer<typeof GetReferenceProjectsSchema>>,
   res: Response,
@@ -647,7 +647,7 @@ async function getReferenceItems(
 
 
     const { linkedBook } = await getReferencePermissions(projectID, null, req.user, { useProjectOwnBookID: true });
-    if (!linkedBook || !(await isInCommonsCatalog(linkedBook))) {
+    if (!linkedBook) {
       return sendPublicNotFound(res);
     }
 
