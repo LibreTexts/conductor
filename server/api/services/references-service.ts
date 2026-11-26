@@ -61,8 +61,9 @@ type ReferenceEntryInput = z.infer<typeof ReferenceEntrySchema>;
 
 /**
  * True when `bookID` is listed in the Commons catalog (the `Book` collection,
- * synced from the libraries). References are publicly readable — by the
- * library script and in other projects' searches — only for these books.
+ * synced from the libraries). Only these books' references can be found and
+ * reused by other projects; the library script's public routes serve any
+ * book's references on its own pages.
  */
 export const isInCommonsCatalog = async (bookID: string): Promise<boolean> =>
   !!(await Book.exists({ bookID: { $eq: bookID } }));
@@ -492,9 +493,9 @@ export const searchReferences = async (
   const searchpipeline: PipelineStage[] = [
     { $match: { $text: { $search: trimmed } } },
     { $match: { referenceID: { $nin: [...referenceUsage.entries] } } },
-    // Only references that are already public: this project's own, or those
-    // of projects whose book is listed in the Commons catalog (the same rule
-    // that gates the library script's public reference routes).
+    // Only references that may be reused: this project's own, or those of
+    // projects whose book is listed in the Commons catalog. Workbench and
+    // Sandbox books' references stay out of other projects' searches.
     {
       $lookup: {
         from: Project.collection.name,
