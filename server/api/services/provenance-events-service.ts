@@ -219,11 +219,16 @@ export const applyLibraryFeed = async (
 
     // One summary rebuild per book, however many of its pages were deleted.
     const deletedFrom = new Set<string>();
-    for (const nodeID of plan.deletions) {
-      const { bookID } = await deletePageWithNotice(nodeID, now, { rebuildOwnBook: false });
-      if (bookID) deletedFrom.add(bookID);
+    try {
+      for (const nodeID of plan.deletions) {
+        const { bookID } = await deletePageWithNotice(nodeID, now, { rebuildOwnBook: false });
+        if (bookID) deletedFrom.add(bookID);
+      }
+    } finally {
+      // Also when a deletion fails part way: the retry skips pages already
+      // marked deleted, so their books must be rebuilt now.
+      for (const bookID of deletedFrom) await rebuildSummaryIfScanned(bookID);
     }
-    for (const bookID of deletedFrom) await rebuildSummaryIfScanned(bookID);
     for (const change of plan.sourceRevisions) {
       await recordSourceChange({
         sourceId: change.nodeID,

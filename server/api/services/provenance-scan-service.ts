@@ -331,10 +331,14 @@ const resolveRef = async (ctx: ScanContext, ref: ReuseRef): Promise<string | nul
   return id ? pageNodeId(ctx.lib, id) : null;
 };
 
+/** Link statuses a scan keeps when the page has references it couldn't resolve. */
+const ATTENTION_KEEP_STATUSES: ("broken" | "source-changed")[] = ["broken", "source-changed"];
+
 type PageScanResult = {
   node: PageNodeUpsert;
   edges: ReuseEdgeUpsert[];
-  reconcile: { target: string; scan: string[] };
+  /** `unresolved`: a reference couldn't be resolved to a page (gone, or a failed lookup). */
+  reconcile: { target: string; scan: string[]; unresolved: boolean };
 } | null;
 
 /**
@@ -401,9 +405,14 @@ const scanPage = async (
   });
   const edges: ReuseEdgeUpsert[] = [];
   const scanSources: string[] = [];
+  let unresolved = false;
   for (const ref of classification.refs) {
     const source = await resolveRef(ctx, ref);
-    if (!source || source === targetId || scanSources.includes(source)) continue;
+    if (!source) {
+      unresolved = true;
+      continue;
+    }
+    if (source === targetId || scanSources.includes(source)) continue;
     scanSources.push(source);
     edges.push({
       target: targetId,
@@ -495,7 +504,7 @@ const scanPage = async (
       ...(ownsContent ? { rootSource: null, reuseDepth: 0, reuseCycle: false } : {}),
     },
     edges,
-    reconcile: { target: targetId, scan: scanSources },
+    reconcile: { target: targetId, scan: scanSources, unresolved },
   };
 };
 
@@ -509,14 +518,14 @@ const reconcileMissingPages = async (
   bookID: string,
   seenIds: string[],
   stats: ScanStats,
-): Promise<void> => {
+): Promise<boolean> => {
   const missing = await PageNode.find(
     { bookID: { $eq: bookID }, deletedAt: null, nodeID: { $nin: seenIds } },
     { _id: 0, nodeID: 1, pageID: 1 },
   ).lean<{ nodeID: string; pageID: number }[]>();
 
   for (const node of missing) {
-    if (outOfTime(ctx)) return;
+    if (outOfTime(ctx)) return false;
     const res = await fetchPage(ctx, node.pageID, MindTouch.API.Page.GET_Page_Info);
     let gone = res.status === 404;
     if (res.ok) {
@@ -534,16 +543,25 @@ const reconcileMissingPages = async (
       await PageNode.updateOne({ nodeID: { $eq: node.nodeID } }, { $set: { bookID: null } });
     }
   }
+  return true;
 };
 
-/** Scans one book: structure for every page, content for changed pages. */
+/**
+ * Scans one book: structure for every page, content for changed pages.
+ *
+ * @returns Whether the book was finished. False when the time budget ran out
+ *   part way: some changed pages weren't read, or missing pages weren't
+ *   checked. Callers then leave the book to be scanned again, which is cheap,
+ *   since the pages already read are unchanged and skipped. True for a book
+ *   that can't be scanned at all (bad id, empty tree): retrying won't help.
+ */
 const scanBook = async (
   ctx: ScanContext,
   bookID: string,
   stats: ScanStats,
-): Promise<void> => {
+): Promise<boolean> => {
   const coverID = parseInt(bookID.slice(ctx.lib.length + 1), 10);
-  if (!Number.isFinite(coverID)) return;
+  if (!Number.isFinite(coverID)) return true;
 
   const expert = await ExpertWithSSM.getInstance().forLibrary(ctx.lib);
   const tree = await ctx.throttle(() =>
@@ -553,7 +571,7 @@ const scanBook = async (
   if (pages.length === 0) {
     stats.errors += 1;
     scanLog.warn({ bookID }, "Empty tree for book; skipping");
-    return;
+    return true;
   }
 
   const ids = pages.map((p) => pageNodeId(ctx.lib, p.pageID));
@@ -606,8 +624,12 @@ const scanBook = async (
     }
   }
 
+  let cutShort = false;
   const results = await mapWithConcurrency(changed, CONTENT_CONCURRENCY, async (page) => {
-    if (outOfTime(ctx)) return { page, result: null as PageScanResult };
+    if (outOfTime(ctx)) {
+      cutShort = true;
+      return { page, result: null as PageScanResult, skipped: true };
+    }
     try {
       const prev = storedById.get(pageNodeId(ctx.lib, page.pageID));
       return { page, result: await scanPage(ctx, bookID, page, prev?.kind, baseFor(page)) };
@@ -620,11 +642,12 @@ const scanBook = async (
   const edges: ReuseEdgeUpsert[] = [];
   const reconcile: Parameters<typeof reconcileTargetEdgesBulk>[0] = [];
   const sourceShells = new Map<string, PageNodeUpsert>();
-  for (const { page, result } of results) {
+  for (const { page, result, skipped } of results as { page: TreePageInfo; result: PageScanResult; skipped?: boolean }[]) {
     if (!result) {
       // Keep the page in the graph; its content is read on the next pass.
+      // A page left for lack of time isn't an error.
       nodes.push(baseFor(page));
-      stats.errors += 1;
+      if (!skipped) stats.errors += 1;
       continue;
     }
     stats.scanned += 1;
@@ -634,6 +657,9 @@ const scanBook = async (
       target: result.reconcile.target,
       presentSources: result.reconcile.scan,
       origins: ["scan"],
+      // A reference that didn't resolve may be the source of a broken or
+      // changed link; keep those rather than drop the warning.
+      ...(result.reconcile.unresolved ? { keepStatuses: ATTENTION_KEEP_STATUSES } : {}),
     });
     for (const edge of result.edges) {
       const parts = splitNodeId(edge.source);
@@ -646,9 +672,11 @@ const scanBook = async (
   await upsertPageNodes([...nodes, ...sourceShells.values()]);
   stats.edgesWritten += await upsertReuseEdges(edges);
   stats.edgesRemoved += await reconcileTargetEdgesBulk(reconcile);
-  await reconcileMissingPages(ctx, bookID, ids, stats);
+  const missingChecked = await reconcileMissingPages(ctx, bookID, ids, stats);
   stats.sourceChanges += await queueSourceChanges(revisionChanges);
-  stats.books += 1;
+  const finished = !cutShort && missingChecked;
+  if (finished) stats.books += 1;
+  return finished;
 };
 
 /**
@@ -794,6 +822,14 @@ export const checkReusedSources = async ({
     } catch (err) {
       outcome.errors += 1;
       scanLog.warn({ err, nodeID: node.nodeID }, "Failed to check reused page");
+      // Back of the queue: otherwise the same failing pages sort first again
+      // and the check spins on them until its deadline.
+      await PageNode.updateOne(
+        { nodeID: { $eq: node.nodeID } },
+        { $set: { sourceCheckedAt: new Date() } },
+      ).catch((markErr) =>
+        scanLog.warn({ err: markErr, nodeID: node.nodeID }, "Failed to mark reused page checked"),
+      );
     }
   };
 
@@ -802,28 +838,38 @@ export const checkReusedSources = async ({
 
   if (onlyNodeIDs?.length) {
     const nodes = await PageNode.find({ nodeID: { $in: onlyNodeIDs } }, projection).lean<SourceRow[]>();
-    await mapWithConcurrency(nodes, CONTENT_CONCURRENCY, checkOne);
-    await refreshes.flush();
+    try {
+      await mapWithConcurrency(nodes, CONTENT_CONCURRENCY, checkOne);
+    } finally {
+      // Pages already marked deleted won't be picked again; refresh their books now.
+      await refreshes.flush();
+    }
     return outcome;
   }
 
-  while (Date.now() < deadline) {
-    const dueBefore = new Date(Date.now() - SOURCE_CHECK_INTERVAL_MS);
-    const due = await PageNode.find(
-      {
-        isSource: true,
-        deletedAt: null,
-        $or: [{ sourceCheckedAt: null }, { sourceCheckedAt: { $lt: dueBefore } }],
-      },
-      projection,
-    )
-      .sort({ sourceCheckedAt: 1 })
-      .limit(SOURCE_CHECK_BATCH)
-      .lean<SourceRow[]>();
-    if (due.length === 0) break;
-    await mapWithConcurrency(due, CONTENT_CONCURRENCY, async (node) => {
-      if (Date.now() < deadline) await checkOne(node);
-    });
+  try {
+    while (Date.now() < deadline) {
+      const dueBefore = new Date(Date.now() - SOURCE_CHECK_INTERVAL_MS);
+      const due = await PageNode.find(
+        {
+          isSource: true,
+          deletedAt: null,
+          $or: [{ sourceCheckedAt: null }, { sourceCheckedAt: { $lt: dueBefore } }],
+        },
+        projection,
+      )
+        .sort({ sourceCheckedAt: 1 })
+        .limit(SOURCE_CHECK_BATCH)
+        .lean<SourceRow[]>();
+      if (due.length === 0) break;
+      await mapWithConcurrency(due, CONTENT_CONCURRENCY, async (node) => {
+        if (Date.now() < deadline) await checkOne(node);
+      });
+      await refreshes.flush();
+    }
+  } finally {
+    // Also on an error between batches: pages already marked deleted won't be
+    // picked again, so their books must be refreshed now.
     await refreshes.flush();
   }
   return outcome;
@@ -903,17 +949,21 @@ const scanLibrary = async (
       for (const { bookID } of books) {
         if (outOfTime(ctx)) break;
         const bookStats = emptyStats();
+        // A book that throws is moved past, so one broken book can't stall the
+        // library; one cut short by the budget is scanned again next run.
+        let finished = true;
         try {
-          await scanBook(ctx, bookID, bookStats);
+          finished = await scanBook(ctx, bookID, bookStats);
         } catch (err) {
           bookStats.errors += 1;
           scanLog.warn({ err, bookID }, "Failed to scan book");
         }
-        cursor = bookID;
+        if (finished) cursor = bookID;
         for (const key of Object.keys(stats) as (keyof ScanStats)[]) {
           stats[key] += bookStats[key];
         }
         if (!(await lease.save({ cursor }, bookStats))) break;
+        if (!finished) break;
       }
     }
 
@@ -1055,8 +1105,9 @@ export const scanSpecificBooks = async (
       for (const bookID of books) {
         if (outOfTime(ctx)) break;
         try {
-          await scanBook(ctx, bookID, stats);
-          scannedBooks.push(bookID);
+          // A book cut short stays out of `scannedBooks`, so the changes job
+          // keeps it queued and finishes it on its next run.
+          if (await scanBook(ctx, bookID, stats)) scannedBooks.push(bookID);
         } catch (err) {
           stats.errors += 1;
           scanLog.warn({ err, bookID }, "Failed to scan book");

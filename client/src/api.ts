@@ -3546,8 +3546,10 @@ class API {
     return res.data;
   }
 
-  /** The book connection graph, optionally for one library (LibreTexts staff). */
-  /** `libraries` empty or left out means every library. */
+  /**
+   * The book connection graph (LibreTexts staff): links touching the books of
+   * any of `libraries`, or every library when it's empty or left out.
+   */
   async getProvenanceGraph({
     libraries,
     ...params

@@ -148,9 +148,10 @@ export type PageDeletionOptions = {
    */
   rebuildOwnBook?: boolean;
   /**
-   * Hold every summary refresh this deletion causes (its own book and the
-   * books reusing it) in the batch instead of running them now. For callers
-   * deleting pages concurrently; they must `flush()` the batch afterwards.
+   * Hold every summary refresh this deletion causes (its own book, unless
+   * `rebuildOwnBook` is false, and the books reusing it) in the batch instead
+   * of running them now. For callers deleting pages concurrently; they must
+   * `flush()` the batch afterwards.
    */
   batch?: SummaryRefreshBatch;
 };
@@ -181,8 +182,10 @@ export const markPageDeleted = async (
   const removed = await reconcileTargetEdges(nodeId, [], null);
   const broken = await markSourceBroken(nodeId, batch);
   const bookID = node?.bookID ?? null;
-  if (bookID && batch) batch.rebuild.add(bookID);
-  else if (bookID && rebuildOwnBook) await rebuildSummaryIfScanned(bookID);
+  if (bookID && rebuildOwnBook) {
+    if (batch) batch.rebuild.add(bookID);
+    else await rebuildSummaryIfScanned(bookID);
+  }
   return { removed, broken, bookID };
 };
 
@@ -453,6 +456,13 @@ export const reconcileTargetEdgesBulk = async (
     target: string;
     presentSources: string[];
     origins: ReuseEdgeOrigin[];
+    /**
+     * Leave links in these statuses alone even when their source isn't in
+     * `presentSources`. Set when some of the page's references couldn't be
+     * resolved: a missing source may simply be one of those, and a broken or
+     * changed link must not quietly disappear.
+     */
+    keepStatuses?: ReuseEdgeStatus[];
   }[],
 ): Promise<number> => {
   const removedAt = new Date();
@@ -463,7 +473,7 @@ export const reconcileTargetEdgesBulk = async (
         filter: {
           target: { $eq: item.target },
           source: { $nin: item.presentSources },
-          status: { $ne: "removed" },
+          status: { $nin: ["removed", ...(item.keepStatuses ?? [])] },
           origin: { $in: item.origins },
         },
         update: { $set: { status: "removed", removedAt } },

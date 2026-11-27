@@ -1,13 +1,20 @@
 import { z } from "zod";
 
+/**
+ * Comma-separated library subdomains, lowercased: every provenance record
+ * stores them lowercase, so `CHEM` must reach the same data as `chem`.
+ */
+const libraryList = z
+  .string()
+  .regex(/^[a-z0-9]+(,[a-z0-9]+)*$/i, "Expected comma-separated library subdomains.")
+  .transform((value) => value.toLowerCase())
+  .optional();
+
 /** `PUT /provenance/automation/scan`: run one time-boxed slice of the backfill scanner. */
 export const RunProvenanceScanSchema = z.object({
   query: z.object({
     /** Comma-separated library subdomains; defaults to every synced library. */
-    library: z
-      .string()
-      .regex(/^[a-z0-9]+(,[a-z0-9]+)*$/i, "Expected comma-separated library subdomains.")
-      .optional(),
+    library: libraryList,
     /**
      * Comma-separated bookIDs (`dev-9213`) to scan directly instead of walking
      * libraries; works for libraries that are not sync-enabled.
@@ -15,6 +22,8 @@ export const RunProvenanceScanSchema = z.object({
     book: z
       .string()
       .regex(/^[a-z0-9]+-\d+(,[a-z0-9]+-\d+)*$/i, "Expected comma-separated bookIDs like dev-9213.")
+      // Page and book ids are stored lowercase; `DEV-9213` must not create `DEV-…` nodes.
+      .transform((value) => value.toLowerCase())
       .optional(),
     /** Minutes this run may work before yielding to the next one. */
     minutes: z.coerce.number().int().min(1).max(55).optional(),
@@ -83,10 +92,7 @@ export type GetProvenanceMapRequest = z.infer<typeof GetProvenanceMapSchema>;
 export const RunProvenanceChangesSchema = z.object({
   query: z.object({
     /** Comma-separated library subdomains; defaults to every library provenance follows. */
-    library: z
-      .string()
-      .regex(/^[a-z0-9]+(,[a-z0-9]+)*$/i, "Expected comma-separated library subdomains.")
-      .optional(),
+    library: libraryList,
     /** Minutes this run may work before yielding to the next one. */
     minutes: z.coerce.number().int().min(1).max(55).optional(),
     /** Read the feeds and return the planned actions; write nothing, keep the cursors. */

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Types } from "mongoose";
 import { childLogger } from "../../logger.js";
 import mailAPI from "../mail.js";
@@ -26,14 +27,18 @@ import {
  * Safe to re-run and to run on two instances at once: every (event, lead)
  * pair is claimed in `provenancenotificationlogs` before its email is sent,
  * so a lead hears about a change at most once. An event is marked notified
- * only when every lead it reaches has been emailed; a failed send releases
- * its claim and the next run retries it.
+ * once every lead it reaches has been emailed or given up on: a failed send
+ * frees its claim for the next run, and after {@link MAX_SEND_ATTEMPTS}
+ * failures that lead is skipped for that event, so one address that always
+ * bounces can't hold up the queue for everyone.
  */
 
 const notifyLog = childLogger("provenance-notify");
 
 /** Oldest unsent events handled per run. */
 const MAX_EVENTS_PER_RUN = 1000;
+/** Failed sends of one event to one lead before giving up on that pair. */
+const MAX_SEND_ATTEMPTS = 3;
 /**
  * A claim with no `sentAt` older than this was left by a run that died
  * between claiming and sending; it is released so the email goes out.
@@ -41,11 +46,15 @@ const MAX_EVENTS_PER_RUN = 1000;
  */
 const STALE_CLAIM_MS = 30 * 60 * 1000;
 
-/** Claims that still count: sent, or claimed recently by a run that may be sending. */
+/**
+ * Claims that still count: sent, given up on, or claimed recently by a run
+ * that may be sending. A failed send's claim doesn't count; it's retried.
+ */
 const liveClaimFilter = () => ({
   $or: [
     { sentAt: { $ne: null } },
-    { claimedAt: { $gt: new Date(Date.now() - STALE_CLAIM_MS) } },
+    { gaveUpAt: { $ne: null } },
+    { claimedAt: { $gt: new Date(Date.now() - STALE_CLAIM_MS) }, failedAt: null },
   ],
 });
 const OR_QUERY_CHUNK = 200;
@@ -81,6 +90,8 @@ export type NotifyOutcome = {
   failed: number;
   /** Leads with no Conductor user or email address. */
   unreachable: number;
+  /** (event, lead) pairs given up on after repeated failed sends, this run. */
+  gaveUp: number;
   eventsCompleted: number;
   /** Only on a dry run. */
   preview?: PreparedDigest[];
@@ -174,7 +185,8 @@ const toDigestEvent = (row: EventRow): DigestEvent => ({
 
 /**
  * Claims (event, lead) pairs for this run. Returns the events claimed; a pair
- * another run already holds is left to it.
+ * another run already holds is left to it. A pair left by a run that died,
+ * or whose last send failed, is taken over with its failure count kept.
  */
 const claimEvents = async (
   recipient: string,
@@ -183,34 +195,69 @@ const claimEvents = async (
 ): Promise<Set<string>> => {
   if (eventIDs.length === 0) return new Set();
   const claimedAt = new Date();
-  // Release this lead's stale claims first, so the upsert below can take them.
-  await ProvenanceNotificationLog.deleteMany({
-    eventID: { $in: eventIDs.map((id) => new Types.ObjectId(id)) },
-    recipient: { $eq: recipient },
-    sentAt: null,
-    claimedAt: { $lte: new Date(Date.now() - STALE_CLAIM_MS) },
-  });
-  const ops = eventIDs.map((id) => {
-    const eventID = new Types.ObjectId(id);
-    return {
-      updateOne: {
-        filter: { eventID, recipient },
-        update: { $setOnInsert: { eventID, recipient, projectIDs, claimedAt, sentAt: null } },
-        upsert: true,
+  const claimToken = randomUUID();
+  const ids = eventIDs.map((id) => new Types.ObjectId(id));
+
+  // Take over this lead's free claims: stale, or failed and waiting for a retry.
+  await ProvenanceNotificationLog.updateMany(
+    {
+      eventID: { $in: ids },
+      recipient: { $eq: recipient },
+      sentAt: null,
+      gaveUpAt: null,
+      $or: [
+        { claimedAt: { $lte: new Date(Date.now() - STALE_CLAIM_MS) } },
+        { failedAt: { $ne: null } },
+      ],
+    },
+    { $set: { claimedAt, claimToken, projectIDs, failedAt: null } },
+  );
+  // Claim the pairs nobody has touched yet.
+  const ops = ids.map((eventID) => ({
+    updateOne: {
+      filter: { eventID, recipient },
+      update: {
+        $setOnInsert: { eventID, recipient, projectIDs, claimedAt, claimToken, sentAt: null, failures: 0 },
       },
-    };
-  });
-  let upserted: Record<string, unknown> = {};
+      upsert: true,
+    },
+  }));
   try {
-    const res = await ProvenanceNotificationLog.bulkWrite(ops, { ordered: false });
-    upserted = res.upsertedIds ?? {};
+    await ProvenanceNotificationLog.bulkWrite(ops, { ordered: false });
   } catch (err) {
-    // A concurrent run claimed some pairs first (duplicate key); keep ours.
-    const partial = (err as { result?: { upsertedIds?: Record<string, unknown> } })?.result;
-    if (!partial?.upsertedIds) throw err;
-    upserted = partial.upsertedIds;
+    // A concurrent run inserted some pairs first (duplicate key); those are its.
+    // Any other write error is real.
+    const writeErrors = (err as { writeErrors?: { code?: number }[] })?.writeErrors;
+    const onlyDuplicates = writeErrors?.length
+      ? writeErrors.every((e) => e.code === 11000)
+      : (err as { code?: number })?.code === 11000;
+    if (!onlyDuplicates) throw err;
   }
-  return new Set(Object.keys(upserted).map((index) => eventIDs[Number(index)]));
+  const mine = await ProvenanceNotificationLog.find(
+    { eventID: { $in: ids }, recipient: { $eq: recipient }, claimToken: { $eq: claimToken } },
+    { _id: 0, eventID: 1 },
+  ).lean<{ eventID: Types.ObjectId }[]>();
+  return new Set(mine.map((row) => String(row.eventID)));
+};
+
+/**
+ * Records a failed send for the claimed pairs and frees them for the next
+ * run; pairs that have now failed {@link MAX_SEND_ATTEMPTS} times are given
+ * up on. Returns how many were given up on.
+ */
+const recordFailedSend = async (
+  claimFilter: { eventID: { $in: string[] }; recipient: string },
+): Promise<number> => {
+  const failedAt = new Date();
+  await ProvenanceNotificationLog.updateMany(claimFilter, {
+    $inc: { failures: 1 },
+    $set: { failedAt, claimToken: null },
+  });
+  const res = await ProvenanceNotificationLog.updateMany(
+    { ...claimFilter, failures: { $gte: MAX_SEND_ATTEMPTS }, gaveUpAt: null },
+    { $set: { gaveUpAt: failedAt } },
+  );
+  return res.modifiedCount;
 };
 
 let notifyRunning = false;
@@ -244,6 +291,7 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
     sent: 0,
     failed: 0,
     unreachable: 0,
+    gaveUp: 0,
     eventsCompleted: 0,
   };
 
@@ -335,9 +383,16 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
       await ProvenanceNotificationLog.updateMany(claimFilter, { $set: { sentAt: new Date() } });
       outcome.sent += 1;
     } catch (err) {
-      await ProvenanceNotificationLog.deleteMany(claimFilter);
       outcome.failed += 1;
       notifyLog.warn({ err, recipient: digest.recipient }, "Failed to send source-change digest");
+      const gaveUp = await recordFailedSend(claimFilter);
+      if (gaveUp > 0) {
+        outcome.gaveUp += gaveUp;
+        notifyLog.warn(
+          { recipient: digest.recipient, events: gaveUp, attempts: MAX_SEND_ATTEMPTS },
+          "Gave up emailing a lead about source changes after repeated failures",
+        );
+      }
     }
   }
 
@@ -350,6 +405,7 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
       sent: outcome.sent,
       failed: outcome.failed,
       unreachable: outcome.unreachable,
+      gaveUp: outcome.gaveUp,
       eventsCompleted: outcome.eventsCompleted,
     },
     "Source-change notifications finished",
@@ -358,8 +414,8 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
 };
 
 /**
- * Marks events whose every reachable lead has been emailed (or that reach no
- * one). The links they flagged stay `source-changed` until each book's
+ * Marks events whose every reachable lead has been emailed or given up on
+ * (or that reach no one). The links they flagged stay `source-changed` until each book's
  * project marks the change reviewed.
  */
 const completeEvents = async (
@@ -377,7 +433,10 @@ const completeEvents = async (
   }
 
   const sentLogs = await ProvenanceNotificationLog.find(
-    { eventID: { $in: rows.map((r) => r._id) }, sentAt: { $ne: null } },
+    {
+      eventID: { $in: rows.map((r) => r._id) },
+      $or: [{ sentAt: { $ne: null } }, { gaveUpAt: { $ne: null } }],
+    },
     { _id: 0, eventID: 1, recipient: 1 },
   ).lean<{ eventID: Types.ObjectId; recipient: string }[]>();
   const sentByEvent = new Map<string, Set<string>>();

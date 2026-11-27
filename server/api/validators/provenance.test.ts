@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { GetProvenanceGraphSchema } from "./provenance.js";
+import {
+  GetProvenanceGraphSchema,
+  RunProvenanceChangesSchema,
+  RunProvenanceScanSchema,
+} from "./provenance.js";
 
 const parseGraphQuery = (query: Record<string, string>) =>
   GetProvenanceGraphSchema.safeParse({ query });
@@ -26,5 +30,23 @@ describe("GetProvenanceGraphSchema", () => {
     for (const library of ["chem,", ",chem", "chem bio", "chem;bio", "../chem"]) {
       assert.equal(parseGraphQuery({ library }).success, false, library);
     }
+  });
+});
+
+describe("scan and changes job parameters", () => {
+  it("lowercase libraries and books, so mixed case can't create duplicate records", () => {
+    const scan = RunProvenanceScanSchema.safeParse({ query: { library: "CHEM,Bio", book: "DEV-9213,Chem-1" } });
+    assert.ok(scan.success);
+    assert.equal(scan.data.query.library, "chem,bio");
+    assert.equal(scan.data.query.book, "dev-9213,chem-1");
+
+    const changes = RunProvenanceChangesSchema.safeParse({ query: { library: "MATH" } });
+    assert.ok(changes.success);
+    assert.equal(changes.data.query.library, "math");
+  });
+
+  it("still reject malformed values", () => {
+    assert.equal(RunProvenanceScanSchema.safeParse({ query: { book: "dev-abc" } }).success, false);
+    assert.equal(RunProvenanceChangesSchema.safeParse({ query: { library: "chem," } }).success, false);
   });
 });

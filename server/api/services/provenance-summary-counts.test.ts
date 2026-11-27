@@ -178,3 +178,23 @@ describe("getBookGraph by library", () => {
     assert.deepEqual(edgeKeys(await getBookGraph({ libraries: ["math"] })), []);
   });
 });
+
+describe("scan reconcile", () => {
+  it("keeps broken and changed links when the page has references it couldn't resolve", async () => {
+    await PageReuseEdge.updateOne({ target: "bio-21" }, { $set: { status: "broken" } });
+    await PageReuseEdge.updateOne({ target: "bio-22" }, { $set: { status: "source-changed" } });
+    const status = async (target: string) => (await PageReuseEdge.findOne({ target }).lean())?.status;
+
+    // A rescan that resolved neither source, with a reference left unresolved: both kept.
+    await provenance.reconcileTargetEdgesBulk([
+      { target: "bio-21", presentSources: [], origins: ["scan"], keepStatuses: ["broken", "source-changed"] },
+      { target: "bio-22", presentSources: [], origins: ["scan"], keepStatuses: ["broken", "source-changed"] },
+    ]);
+    assert.equal(await status("bio-21"), "broken");
+    assert.equal(await status("bio-22"), "source-changed");
+
+    // Everything resolved and the references are gone: removed, as before.
+    await provenance.reconcileTargetEdgesBulk([{ target: "bio-21", presentSources: [], origins: ["scan"] }]);
+    assert.equal(await status("bio-21"), "removed");
+  });
+});

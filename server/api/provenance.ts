@@ -12,11 +12,13 @@ import {
   DEFAULT_SCAN_BUDGET_MS,
   isProvenanceScanRunning,
   runProvenanceScan,
+  type LibraryScanOutcome,
 } from "./services/provenance-scan-service.js";
 import {
   DEFAULT_CHANGES_BUDGET_MS,
   isProvenanceChangesRunning,
   runLibraryChanges,
+  type ChangesRunOutcome,
 } from "./services/provenance-events-service.js";
 import {
   getBookGraph,
@@ -40,6 +42,22 @@ const log = childLogger("provenance-scan");
  * `?library=chem,bio` limits the run, `?minutes=` sets its budget (default 10,
  * at most 55), `?force=true` re-scans libraries that completed recently.
  */
+
+/** Whether a scan run wrote anything the library map shows. */
+const scanChangedGraph = (outcomes: LibraryScanOutcome[]): boolean =>
+  outcomes.some(
+    ({ stats }) => stats.scanned + stats.edgesWritten + stats.edgesRemoved + stats.deleted > 0,
+  );
+
+/** Whether a changes run applied anything the library map shows. */
+const changesChangedGraph = (outcome: ChangesRunOutcome): boolean =>
+  outcome.booksRescanned > 0 ||
+  outcome.libraries.some(
+    (lib) =>
+      lib.status === "applied" &&
+      (lib.sourceChanges ?? 0) + (lib.deletions ?? 0) + (lib.updates ?? 0) > 0,
+  );
+
 async function runScanJob(req: Request, res: Response) {
   try {
     const { library, book, minutes, force } =
@@ -58,11 +76,15 @@ async function runScanJob(req: Request, res: Response) {
 
     const books = book ? book.split(",") : undefined;
 
-    void runProvenanceScan({ libraries, books, budgetMs, force })
-      // Rebuild the library map while staff aren't waiting for it. An empty
-      // result means another run held the scan, which will rebuild it.
-      .then((outcomes) => (outcomes.length > 0 ? warmLibraryMap() : undefined))
-      .catch((err) => log.error({ err }, "Provenance scan run failed"));
+    void runProvenanceScan({ libraries, books, budgetMs, force }).then(
+      // Rebuild the library map while staff aren't waiting for it, but only
+      // when the scan changed something. warmLibraryMap logs its own failures,
+      // so they're never reported as a failed scan.
+      (outcomes) => {
+        if (scanChangedGraph(outcomes)) void warmLibraryMap();
+      },
+      (err) => log.error({ err }, "Provenance scan run failed"),
+    );
 
     return res.status(202).send({ err: false, started: true });
   } catch (err) {
@@ -172,9 +194,12 @@ async function runChangesJob(req: Request, res: Response) {
         msg: "The changes job is already running on this instance.",
       });
     }
-    void runLibraryChanges({ libraries, budgetMs })
-      .then(() => warmLibraryMap())
-      .catch((err) => changesLog.error({ err }, "Changes job failed"));
+    void runLibraryChanges({ libraries, budgetMs }).then(
+      (outcome) => {
+        if (changesChangedGraph(outcome)) void warmLibraryMap();
+      },
+      (err) => changesLog.error({ err }, "Changes job failed"),
+    );
     return res.status(202).send({ err: false, started: true });
   } catch (err) {
     changesLog.error({ err }, "runChangesJob failed");

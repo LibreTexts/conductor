@@ -135,7 +135,7 @@ curl -X PUT -H "Authorization: Bearer $LIBRE_API_KEY"   "https://<conductor-host
 2. **Scan one book or library by hand**, for example `…/scan?book=<lib>-<coverID>` or `…/scan?library=<small library>&minutes=10`.
    - **Check:** the book's project → Co-Authoring Tools → **Content Sources** shows page types and sources.
    - **Check:** Control Panel → **Content Reuse** shows the library's totals and scan status.
-3. **Schedule the scan job.** The first full backfill takes many runs (it's time-sliced and resumes each time). Watch progress in Content Reuse → *By library*.
+3. **Schedule the scan job.** The first full backfill takes many runs (it's time-sliced and resumes each time). A book the time budget cuts off part way is picked up again by the next run rather than skipped; its pages already read are unchanged then, so finishing it is quick. Watch progress in Content Reuse → *By library*.
 4. **Dry-run notifications:** call `…/notify?dryRun=true` and check the returned emails look right.
 5. **Schedule the notify job last.** Only now do leads start getting emails. Every project linked to a scanned book gets them; they can't be turned off.
 
@@ -173,7 +173,7 @@ It recomputes both fields from the links, 8 books at a time, and is safe to re-r
 - **Logs** (Pino, queryable by `component`):
   - `provenance-scan`: per-run summary (pages scanned and skipped, links added and removed, errors), plus "Transclusion became a fork".
   - `page-provenance`: "Reused page changed" / "Reused page deleted".
-  - `provenance-notify`: "Source-change notifications finished" (emails sent, failed, unreachable).
+  - `provenance-notify`: "Source-change notifications finished" (emails sent, failed, unreachable, given up). A failed email is retried on the next run; after 3 failures for the same change, that lead is skipped for it ("Gave up emailing a lead about source changes after repeated failures") so one bouncing address can't hold up everyone else's emails.
   - `content-sources`: lead actions such as "Source change marked reviewed".
 - **Progress:** Control Panel → Content Reuse shows each library's scan status, last run and broken reuse links.
 - **Library map:** Control Panel → Content Reuse → *Open the library map* (`/controlpanel/content-reuse/map`) draws every Commons book and every reuse link. It's served by `GET /api/v1/provenance/map` (superadmin and support only), built from the summaries, links, scan state and linked projects, and cached in memory for 10 minutes (`?fresh=true` rebuilds it). The scan and changes jobs rebuild that cache when they finish, so staff rarely wait for a build; the cache is per server instance, so with several instances only the one that ran the job is warmed. Log: `provenance-insights` "Library map rebuilt" (books, links, ms). The browser lays the map out once per data version and keeps that layout in local storage, so a repeat visit shows it at once. It needs no schedule or variable of its own; it fills in as the scan covers more books.
