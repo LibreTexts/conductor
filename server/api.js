@@ -61,6 +61,10 @@ import * as studioLegacyValidators from "./api/validators/studio-legacy.js";
 import * as kbValidators from "./api/validators/kb.js";
 import * as LibraryValidators from "./api/validators/libraries.js";
 import * as supportValidators from "./api/validators/support.js";
+import * as provenanceValidators from "./api/validators/provenance.js";
+import provenanceAPI from "./api/provenance.js";
+import * as contentSourcesValidators from "./api/validators/content-sources.js";
+import contentSourcesAPI from "./api/content-sources.js";
 import * as supportQueueValidators from "./api/validators/supportqueues.js";
 import * as ProjectValidators from "./api/validators/projects.js";
 import * as ProjectFileValidators from "./api/validators/projectfiles.js";
@@ -1209,6 +1213,66 @@ router
 router
   .route("/activities/automation/h5p-visibility")
   .put(middleware.checkLibreAPIKey, activityAuthoringAPI.reconcileH5PVisibility);
+
+// Triggered externally on a schedule. Each call runs one time-boxed slice of
+// the page provenance backfill and resumes where the previous one stopped.
+router
+  .route("/provenance/automation/scan")
+  .put(
+    middleware.checkLibreAPIKey,
+    middleware.validateZod(provenanceValidators.RunProvenanceScanSchema),
+    provenanceAPI.runScanJob,
+  );
+
+// LibreTexts staff: library-wide reuse totals and the book connection graph.
+router
+  .route("/provenance/stats")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin", "support"]),
+    provenanceAPI.getStats,
+  );
+
+router
+  .route("/provenance/graph")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin", "support"]),
+    middleware.validateZod(provenanceValidators.GetProvenanceGraphSchema),
+    provenanceAPI.getGraph,
+  );
+
+router
+  .route("/provenance/map")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    authAPI.checkHasRoleMiddleware("libretexts", ["superadmin", "support"]),
+    middleware.validateZod(provenanceValidators.GetProvenanceMapSchema),
+    provenanceAPI.getMap,
+  );
+
+// Triggered externally once or a few times a day, before notify: reads each
+// library's change feed from where the last run stopped and applies it.
+router
+  .route("/provenance/automation/changes")
+  .put(
+    middleware.checkLibreAPIKey,
+    middleware.validateZod(provenanceValidators.RunProvenanceChangesSchema),
+    provenanceAPI.runChangesJob,
+  );
+
+// Daily, triggered externally: one email per project lead about reused pages
+// that changed or were deleted since the last run.
+router
+  .route("/provenance/automation/notify")
+  .put(
+    middleware.checkLibreAPIKey,
+    middleware.validateZod(provenanceValidators.RunProvenanceNotifySchema),
+    provenanceAPI.runNotifyJob,
+  );
 
 router
   .route("/activities/:activityID")
@@ -3927,6 +3991,62 @@ router.route('/projects/:projectID/restacker/license/bulk').patch(
   middleware.validateZod(RestackerValidators.BulkUpdateRestackerLicenseSchema),
   restackerAPI.bulkUpdateRestackerLicense
 );
+
+// Project Content Sources: where the project's book takes its content from,
+// who reuses it, and what changed (provenance graph, read-only).
+router
+  .route("/project/:projectID/content-sources")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetContentSourcesSchema),
+    contentSourcesAPI.getContentSources,
+  );
+
+router
+  .route("/project/:projectID/content-sources/pages")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetContentPagesSchema),
+    contentSourcesAPI.getContentPages,
+  );
+
+router
+  .route("/project/:projectID/content-sources/pages/:pageID/lineage")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetContentPageLineageSchema),
+    contentSourcesAPI.getContentPageLineage,
+  );
+
+router
+  .route("/project/:projectID/content-sources/changes/:eventID/revisions")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetSourceChangeRevisionsSchema),
+    contentSourcesAPI.getChangeRevisions,
+  );
+
+router
+  .route("/project/:projectID/content-sources/changes/:eventID/revisions/:revision")
+  .get(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.GetSourceRevisionSchema),
+    contentSourcesAPI.getChangeRevision,
+  );
+
+router
+  .route("/project/:projectID/content-sources/changes/:eventID/review")
+  .post(
+    authAPI.verifyRequest,
+    authAPI.getUserAttributes,
+    middleware.validateZod(contentSourcesValidators.ReviewSourceChangeSchema),
+    contentSourcesAPI.reviewSourceChange,
+  );
 
 router.route('/projects/:projectID/reference')
 .get(

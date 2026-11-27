@@ -27,6 +27,8 @@ const QRCodeGenerator = lazyWithRetry(() => import('./screens/conductor/controlp
 const CentralIdentityOrganizationView = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentityOrganizationView'));
 const CentralIdentitySystemView = lazyWithRetry(() => import('./screens/conductor/controlpanel/CentralIdentity/CentralIdentitySystemView'));
 const ControlPanel = lazyWithRetry(() => import('./screens/conductor/controlpanel'));
+const ContentReuse = lazyWithRetry(() => import('./screens/conductor/controlpanel/ContentReuse'));
+const LibraryMap = lazyWithRetry(() => import('./screens/conductor/controlpanel/ContentReuse/LibraryMap'));
 import EventsManager from './screens/conductor/controlpanel/EventsManager';
 import EventRegistration from './screens/conductor/OrgEvents/EventRegistration';
 const FallbackAuth = lazyWithRetry(() => import('./screens/conductor/FallbackAuth'));
@@ -102,6 +104,7 @@ import SupportCenterDataLoader from './providers/SupportCenterDataLoader';
 import Restacker from './components/projects/Restacker';
 import { useTypedSelector } from './state/hooks';
 import ReferenceManager from './components/projects/References';
+import ContentSources from './components/projects/ContentSources';
 
 /**
  * The project planning and internal tools system. Requires authentication to access most pages.
@@ -179,6 +182,7 @@ const Conductor = () => {
           <PrivateRoute exact path='/projects/:id/remixer' component={RemixerDashboard} />
           <PrivateRoute exact path='/projects/:id/restacker' component={Restacker} />
           <PrivateRoute exact path='/projects/:id/references' component={ReferenceManager} />
+          <PrivateRoute exact path='/projects/:id/content-sources' component={ContentSources} />
           <Route exact path='/projects/:id/analytics' component={ProjectAnalytics} /> {/* Auth handled at page level. Can be private or public*/}
           <PrivateRoute exact path='/projects/accept-invite/:id' component={AcceptProjectInviteScreen} />
           {/* <PrivateRoute exact path='/analytics/(create)?' component={AnalyticsPortal} />
@@ -189,6 +193,8 @@ const Conductor = () => {
           <PrivateRoute exact path='/controlpanel/adoptionreports' component={AdoptionReports} />
           <PrivateRoute exact path='/controlpanel/analyticsrequests' component={AnalyticsRequests} />
           <PrivateRoute exact path='/controlpanel/assettagsmanager' component={AssetTagsManager} />
+          <PrivateRoute exact path='/controlpanel/content-reuse' component={ContentReuse} />
+          <PrivateRoute exact path='/controlpanel/content-reuse/map' component={LibraryMap} />
           <PrivateRoute exact path='/controlpanel/authorsmanager' component={AuthorsManager} />
           <PrivateRoute exact path='/controlpanel/booksmanager' component={BooksManager} />
           <PrivateRoute exact path='/controlpanel/booksmanager/mastercatalog' component={MasterCatalogPlainView} />

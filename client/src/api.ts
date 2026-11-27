@@ -1,4 +1,15 @@
 import axios, { AxiosRequestConfig } from "axios";
+import type {
+  BookGraph,
+  ContentSourcesChangeRevisions,
+  ContentSourcesRevisionDetail,
+  LibraryMap,
+  LibraryReuseStats,
+  ContentSourcesLineage,
+  ContentSourcesOverview,
+  ContentSourcesPagesResult,
+  PageNodeKind,
+} from "./types/ContentSources";
 import {
   Announcement,
   ActivityMetadataInput,
@@ -3524,6 +3535,97 @@ class API {
         };
       } & ConductorBaseResponse
     >(`/projects/${projectID}/reference`, data);
+    return res.data;
+  }
+
+  /** Reuse totals and scan progress per library (LibreTexts staff). */
+  async getProvenanceStats() {
+    const res = await axios.get<
+      { data: { libraries: LibraryReuseStats[] } } & ConductorBaseResponse
+    >("/provenance/stats");
+    return res.data;
+  }
+
+  /**
+   * The book connection graph (LibreTexts staff): links touching the books of
+   * any of `libraries`, or every library when it's empty or left out.
+   */
+  async getProvenanceGraph({
+    libraries,
+    ...params
+  }: { libraries?: string[]; minPages?: number; limit?: number } = {}) {
+    const res = await axios.get<{ data: BookGraph } & ConductorBaseResponse>(
+      "/provenance/graph",
+      { params: { ...params, ...(libraries?.length ? { library: libraries.join(",") } : {}) } },
+    );
+    return res.data;
+  }
+
+  /** Every book and reuse link, for the staff library map. */
+  async getProvenanceMap() {
+    const res = await axios.get<{ data: LibraryMap } & ConductorBaseResponse>("/provenance/map");
+    return res.data;
+  }
+
+  /** The project book's provenance overview (Content Sources). */
+  async getContentSources(projectID: string) {
+    const res = await axios.get<
+      { data: ContentSourcesOverview } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources`);
+    return res.data;
+  }
+
+  /** The project book's pages, in table-of-contents order, with their direct sources. */
+  async getContentSourcesPages(
+    projectID: string,
+    params: { kind?: PageNodeKind; attention?: boolean } = {},
+  ) {
+    const res = await axios.get<
+      { data: ContentSourcesPagesResult } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/pages`, {
+      params: {
+        ...params,
+        attention: params.attention ? "true" : undefined,
+      },
+    });
+    return res.data;
+  }
+
+  /** One page's reuse chain: `up` = where it comes from, `down` = who reuses it. */
+  async getContentSourcesLineage(
+    projectID: string,
+    pageID: number,
+    direction: "up" | "down" = "up",
+  ) {
+    const res = await axios.get<
+      { data: ContentSourcesLineage } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/pages/${pageID}/lineage`, {
+      params: { direction },
+    });
+    return res.data;
+  }
+
+  /** The library revisions a source change spans, with the diff between its ends. */
+  async getContentSourcesChangeRevisions(projectID: string, eventID: string) {
+    const res = await axios.get<
+      { data: ContentSourcesChangeRevisions } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/changes/${eventID}/revisions`);
+    return res.data;
+  }
+
+  /** One revision of a change's source page: its message, the page then, and its diff. */
+  async getContentSourcesRevision(projectID: string, eventID: string, revision: number) {
+    const res = await axios.get<
+      { data: ContentSourcesRevisionDetail } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/changes/${eventID}/revisions/${revision}`);
+    return res.data;
+  }
+
+  /** Marks a source change reviewed for the project's book (leads and liaisons). */
+  async reviewContentSourcesChange(projectID: string, eventID: string) {
+    const res = await axios.post<
+      { data: { reviewed: number; edgesReset: number } } & ConductorBaseResponse
+    >(`/project/${projectID}/content-sources/changes/${eventID}/review`);
     return res.data;
   }
 

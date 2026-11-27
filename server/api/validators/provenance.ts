@@ -1,0 +1,106 @@
+import { z } from "zod";
+
+/**
+ * Comma-separated library subdomains, lowercased: every provenance record
+ * stores them lowercase, so `CHEM` must reach the same data as `chem`.
+ */
+const libraryList = z
+  .string()
+  .regex(/^[a-z0-9]+(,[a-z0-9]+)*$/i, "Expected comma-separated library subdomains.")
+  .transform((value) => value.toLowerCase())
+  .optional();
+
+/** `PUT /provenance/automation/scan`: run one time-boxed slice of the backfill scanner. */
+export const RunProvenanceScanSchema = z.object({
+  query: z.object({
+    /** Comma-separated library subdomains; defaults to every synced library. */
+    library: libraryList,
+    /**
+     * Comma-separated bookIDs (`dev-9213`) to scan directly instead of walking
+     * libraries; works for libraries that are not sync-enabled.
+     */
+    book: z
+      .string()
+      .regex(/^[a-z0-9]+-\d+(,[a-z0-9]+-\d+)*$/i, "Expected comma-separated bookIDs like dev-9213.")
+      // Page and book ids are stored lowercase; `DEV-9213` must not create `DEV-…` nodes.
+      .transform((value) => value.toLowerCase())
+      .optional(),
+    /** Minutes this run may work before yielding to the next one. */
+    minutes: z.coerce.number().int().min(1).max(55).optional(),
+    /**
+     * Re-scan libraries that completed recently, and re-read pages whose
+     * revision is unchanged (use after classification rules change).
+     */
+    force: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => value === "true"),
+  }),
+});
+
+export type RunProvenanceScanRequest = z.infer<typeof RunProvenanceScanSchema>;
+
+/** `PUT /provenance/automation/notify`: email leads about changed sources. */
+export const RunProvenanceNotifySchema = z.object({
+  query: z.object({
+    /** Return the digests that would be sent; send nothing, change nothing. */
+    dryRun: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => value === "true"),
+  }),
+});
+
+export type RunProvenanceNotifyRequest = z.infer<typeof RunProvenanceNotifySchema>;
+
+
+/** `GET /provenance/graph`: book-to-book reuse links, optionally for one library. */
+export const GetProvenanceGraphSchema = z.object({
+  query: z.object({
+    /** One library subdomain, or several separated by commas. */
+    library: z
+      .string()
+      .regex(/^[a-z0-9]+(,[a-z0-9]+)*$/i, "Expected library subdomains separated by commas.")
+      // Summaries store subdomains in lowercase; `CHEM` must still find chem.
+      .transform((value) => value.toLowerCase())
+      .optional(),
+    /** Leave out links sharing fewer pages than this. */
+    minPages: z.coerce.number().int().min(1).max(10000).default(1),
+    limit: z.coerce.number().int().min(1).max(1000).default(300),
+  }),
+});
+
+export type GetProvenanceGraphRequest = z.infer<typeof GetProvenanceGraphSchema>;
+
+/** `GET /provenance/map`: every book and reuse link, for the staff library map. */
+export const GetProvenanceMapSchema = z.object({
+  query: z.object({
+    /** Rebuild now instead of using the cached map. */
+    fresh: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => v === "true"),
+  }),
+});
+
+export type GetProvenanceMapRequest = z.infer<typeof GetProvenanceMapSchema>;
+
+/**
+ * `PUT /provenance/automation/changes`: read each library's change feed from
+ * where the last run stopped and apply it.
+ */
+export const RunProvenanceChangesSchema = z.object({
+  query: z.object({
+    /** Comma-separated library subdomains; defaults to every library provenance follows. */
+    library: libraryList,
+    /** Minutes this run may work before yielding to the next one. */
+    minutes: z.coerce.number().int().min(1).max(55).optional(),
+    /** Read the feeds and return the planned actions; write nothing, keep the cursors. */
+    dryRun: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => value === "true"),
+  }),
+});
+
+export type RunProvenanceChangesRequest = z.infer<typeof RunProvenanceChangesSchema>;

@@ -1201,6 +1201,66 @@ const sendPrivacyDeadlineReminder = (recipientAddresses, ticketID, subject, dueD
     });
 };
 
+/**
+ * Tells a project lead which pages their books reuse were edited or deleted
+ * since the last digest. One message per lead, since every digest differs.
+ * NOTE: Do NOT use this method directly from a Conductor API route. Use internally
+ *  only after proper verification via other internal methods.
+ * @param {string} recipientAddress - the lead's email address
+ * @param {string} recipientName    - the lead's first name
+ * @param {Array<{projectID: string, title: string, more: number, items: Array<{urgent: boolean, label: string, source: {title: string, url: string}, summary: string, through: Array<{title: string, url: string}>, pages: Array<{title: string, url: string}>, morePages: number}>}>} sections
+ *  - one per project, worded by `describeDigest` in util/provenance-digest.ts
+ * @returns {Promise<Object|Error>} a Mailgun API promise
+ */
+const sendSourceChangeDigest = (recipientAddress, recipientName, sections) => {
+    const items = sections.flatMap((section) => section.items);
+    const urgent = items.filter((item) => item.urgent).length;
+    const subject = urgent > 0
+        ? `Action needed: ${urgent === 1 ? 'a page your book reuses was' : `${urgent} pages your books reuse were`} deleted`
+        : 'Pages your books reuse were updated';
+
+    const link = (ref) => `<a href="${escapeHTML(ref.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(ref.title)}</a>`;
+    const pageList = (item) => {
+        if (item.pages.length === 0) return '';
+        const more = item.morePages > 0 ? ` and ${item.morePages} more` : '';
+        return `<br>Your pages: ${item.pages.map(link).join(', ')}${more}`;
+    };
+
+    const htmlSections = sections.map((section) => {
+        const lines = section.items.map((item) => `
+            <li style="margin-bottom: 10px;">
+                <strong${item.urgent ? ' style="color: #b00020;"' : ''}>${escapeHTML(item.label)}:</strong> ${link(item.source)}
+                <br>${escapeHTML(item.summary)}
+                ${item.through.length > 0 ? `<br>It reaches your book through ${item.through.map(link).join(' → ')}.` : ''}
+                ${pageList(item)}
+            </li>`).join('');
+        const more = section.more > 0 ? `<p><em>And ${section.more} more changed ${section.more === 1 ? 'page' : 'pages'} for this project.</em></p>` : '';
+        return `<h3><a href="https://commons.libretexts.org/projects/${escapeHTML(section.projectID)}" target="_blank" rel="noopener noreferrer">${escapeHTML(section.title)}</a></h3><ul>${lines}</ul>${more}`;
+    }).join('');
+
+    const textSections = sections.map((section) => {
+        const lines = section.items.map((item) => {
+            const through = item.through.length > 0 ? ` It reaches your book through ${item.through.map((ref) => ref.title).join(' -> ')}.` : '';
+            const pages = item.pages.length > 0
+                ? ` Your pages: ${item.pages.map((ref) => `${ref.title} (${ref.url})`).join(', ')}${item.morePages > 0 ? ` and ${item.morePages} more` : ''}.`
+                : '';
+            return `- ${item.label}: ${item.source.title} (${item.source.url}). ${item.summary}${through}${pages}`;
+        }).join(' ');
+        const more = section.more > 0 ? ` And ${section.more} more for this project.` : '';
+        return `${section.title} (https://commons.libretexts.org/projects/${section.projectID}): ${lines}${more}`;
+    }).join(' ');
+
+    const why = 'You are receiving this message because you lead a Conductor project whose book reuses these pages.';
+    return mailgun.messages.create(process.env.MAILGUN_DOMAIN, {
+        from: DEFAULT_MAIL_FROM,
+        to: [recipientAddress],
+        subject,
+        text: `Hi ${recipientName || 'there'}, some pages your books reuse from other books have changed since our last update. ${textSections} ${why} Sincerely, The LibreTexts team` + autoGenNoticeText,
+        html: `<p>Hi ${escapeHTML(recipientName || 'there')},</p><p>Some pages your books reuse from other books have changed since our last update.</p>${htmlSections}<p><em>${why}</em></p><p>Sincerely,</p><p>The LibreTexts team</p>` + autoGenNoticeHTML,
+    });
+};
+
+
 export default {
     sendPasswordReset,
     sendRegistrationConfirmation,
@@ -1240,6 +1300,7 @@ export default {
     sendZIPFileReadyNotification,
     sendProjectInvitation,
     sendSupportTicketCCedNotification,
+    sendSourceChangeDigest,
     sendPrivacyResponseNotification,
     sendPrivacyExtensionNotification,
     sendPrivacyDeadlineReminder,

@@ -197,3 +197,18 @@ ol[role="list"] p {
   margin: 0;
   line-height: inherit;
 }
+/*
+  Semantic UI sets `html, body { height: 100% }` and `body { overflow-x: hidden }`.
+  Normally body's overflow is handed on to the viewport and does nothing. But
+  while a Headless UI dialog is open (Davis Drawer/Modal), its scroll lock puts
+  `overflow: hidden` on <html>; body's overflow then stops being handed on and
+  body becomes a one-screen-tall box that clips the page. Opened after
+  scrolling down, a dialog shows the dimmed page cut off part-way, with flat
+  gray below. While the lock is on, let body take its content's height again;
+  <html> still stops the page from scrolling.
+  This can be removed when Semantic UI is removed entirely.
+*/
+html[style*="overflow: hidden"] > body {
+  height: auto;
+  overflow: visible;
+}

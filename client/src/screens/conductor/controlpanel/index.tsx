@@ -12,6 +12,7 @@ import {
   IconChevronRight,
   IconDatabase,
   IconFolderOpen,
+  IconGitFork,
   IconKey,
   IconListCheck,
   IconMessages,
@@ -71,6 +72,14 @@ const ControlPanel = () => {
       title: "Authors Manager",
       description:
         "Manage the master list of Authors that can be associated with Conductor projects and LibreTexts textbooks",
+    },
+    {
+      url: "/controlpanel/content-reuse",
+      icon: <IconGitFork size={20} />,
+      title: "Content Reuse",
+      description:
+        "See which library pages are original, reused or copied, the provenance scan's progress, and how books share content",
+      roles: ["superAdmin", "support"],
     },
     {
       url: "/controlpanel/eventsmanager",
