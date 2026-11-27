@@ -29,8 +29,9 @@ import {
  * so a lead hears about a change at most once. An event is marked notified
  * once every lead it reaches has been emailed or given up on: a failed send
  * frees its claim for the next run, and after {@link MAX_SEND_ATTEMPTS}
- * failures that lead is skipped for that event, so one address that always
- * bounces can't hold up the queue for everyone.
+ * rejections of that lead's address that lead is skipped for that event, so
+ * one bad address can't hold up the queue for everyone. Provider failures
+ * (outage, bad credentials) are never counted, and stop the run.
  */
 
 const notifyLog = childLogger("provenance-notify");
@@ -39,6 +40,25 @@ const notifyLog = childLogger("provenance-notify");
 const MAX_EVENTS_PER_RUN = 1000;
 /** Failed sends of one event to one lead before giving up on that pair. */
 const MAX_SEND_ATTEMPTS = 3;
+/**
+ * Failures in a row, not about one address, after which the run stops:
+ * the mail provider looks down or misconfigured, and the rest would fail too.
+ */
+const PROVIDER_DOWN_AFTER = 3;
+
+/**
+ * Whether a failed send was about this recipient (the provider rejected the
+ * message, e.g. a malformed address), so retrying the same email won't help.
+ * Outages, timeouts, rate limits and credential problems (5xx, network
+ * errors, 408/429, 401/403) are the provider's, not the lead's: they must
+ * never count toward giving up, or an outage would cost everyone their emails.
+ */
+export const isRecipientFailure = (err: unknown): boolean => {
+  const e = err as { status?: unknown; statusCode?: unknown } | null;
+  const status = Number(e?.status ?? e?.statusCode);
+  if (!Number.isFinite(status)) return false;
+  return status >= 400 && status < 500 && ![401, 403, 408, 429].includes(status);
+};
 /**
  * A claim with no `sentAt` older than this was left by a run that died
  * between claiming and sending; it is released so the email goes out.
@@ -92,6 +112,8 @@ export type NotifyOutcome = {
   unreachable: number;
   /** (event, lead) pairs given up on after repeated failed sends, this run. */
   gaveUp: number;
+  /** The run stopped early: the mail provider looked down. Nothing was counted against leads. */
+  providerDown: boolean;
   eventsCompleted: number;
   /** Only on a dry run. */
   preview?: PreparedDigest[];
@@ -260,6 +282,15 @@ const recordFailedSend = async (
   return res.modifiedCount;
 };
 
+/** Frees claimed pairs for the next run without counting a failure against the lead. */
+const releaseClaims = async (
+  claimFilter: { eventID: { $in: string[] }; recipient: string },
+): Promise<void> => {
+  await ProvenanceNotificationLog.updateMany(claimFilter, {
+    $set: { failedAt: new Date(), claimToken: null },
+  });
+};
+
 let notifyRunning = false;
 
 /** True while this server instance is sending source-change digests. */
@@ -292,6 +323,7 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
     failed: 0,
     unreachable: 0,
     gaveUp: 0,
+    providerDown: false,
     eventsCompleted: 0,
   };
 
@@ -369,6 +401,9 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
     return outcome;
   }
 
+  // Provider failures in a row; reset by any send that gets through or any
+  // failure about a specific address.
+  let providerFailures = 0;
   for (const digest of pending) {
     const projectIDs = digest.sections.map((s) => s.projectID);
     const claimed = await claimEvents(digest.recipient, digest.eventIDs, projectIDs);
@@ -382,9 +417,25 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
       await mailAPI.sendSourceChangeDigest(prepared.email, prepared.name, prepared.sections);
       await ProvenanceNotificationLog.updateMany(claimFilter, { $set: { sentAt: new Date() } });
       outcome.sent += 1;
+      providerFailures = 0;
     } catch (err) {
       outcome.failed += 1;
       notifyLog.warn({ err, recipient: digest.recipient }, "Failed to send source-change digest");
+      if (!isRecipientFailure(err)) {
+        // Not this lead's fault: retry next run, count nothing against them.
+        await releaseClaims(claimFilter);
+        providerFailures += 1;
+        if (providerFailures >= PROVIDER_DOWN_AFTER) {
+          outcome.providerDown = true;
+          notifyLog.error(
+            { err, failedInARow: providerFailures },
+            "Source-change emails keep failing on the mail provider's side; stopping this run",
+          );
+          break;
+        }
+        continue;
+      }
+      providerFailures = 0;
       const gaveUp = await recordFailedSend(claimFilter);
       if (gaveUp > 0) {
         outcome.gaveUp += gaveUp;
@@ -406,6 +457,7 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
       failed: outcome.failed,
       unreachable: outcome.unreachable,
       gaveUp: outcome.gaveUp,
+      providerDown: outcome.providerDown,
       eventsCompleted: outcome.eventsCompleted,
     },
     "Source-change notifications finished",

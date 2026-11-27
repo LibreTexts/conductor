@@ -24,10 +24,18 @@ let runSourceChangeNotifications: typeof import("./provenance-notify-service.js"
 let originalSend: (...args: unknown[]) => Promise<unknown>;
 
 let sends = 0;
+/** The provider rejects this lead's address (a 4xx about the recipient). */
 const sendFails = () => {
   mailAPI.sendSourceChangeDigest = async () => {
     sends += 1;
-    throw new Error("mailbox rejected");
+    throw Object.assign(new Error("'to' parameter is not a valid address"), { status: 400 });
+  };
+};
+/** The provider itself is down. */
+const providerDown = () => {
+  mailAPI.sendSourceChangeDigest = async () => {
+    sends += 1;
+    throw Object.assign(new Error("Service Unavailable"), { status: 503 });
   };
 };
 const sendWorks = () => {
@@ -136,5 +144,47 @@ describe("source-change notifications", () => {
     assert.equal(outcome.sent, 1);
     assert.equal(outcome.eventsCompleted, 1);
     assert.equal(await SourceChangeEvent.countDocuments({ notifiedAt: null }), 0);
+  });
+
+  it("never give up on anyone because the mail provider is down, and stop the run early", async () => {
+    // Four leads, four projects on four books, one change reaching all of them.
+    for (const n of [2, 3, 4]) {
+      await User.collection.insertOne({ uuid: `lead-${n}`, email: `lead${n}@example.org`, firstName: "Lee" });
+      await Project.collection.insertOne({
+        projectID: `P${n}`,
+        title: `Book ${n}`,
+        leads: [`lead-${n}`],
+        libreLibrary: "bio",
+        libreCoverID: String(n * 10),
+      });
+    }
+    await SourceChangeEvent.create({
+      sourcePage: "chem-11",
+      fromRev: 1,
+      toRev: 2,
+      changedAt: new Date("2026-11-01"),
+      affected: ["bio-2", "bio-20", "bio-30", "bio-40"].map((bookID) => ({ bookID, pages: 1, minHops: 1 })),
+      affectedPageCount: 4,
+    });
+
+    providerDown();
+    for (let run = 1; run <= 4; run += 1) {
+      sends = 0;
+      const outcome = await runSourceChangeNotifications();
+      // Stops after three provider failures in a row instead of trying all four leads.
+      assert.equal(sends, 3, `run ${run}`);
+      assert.equal(outcome.providerDown, true, `run ${run}`);
+      assert.equal(outcome.gaveUp, 0, `run ${run}`);
+      assert.equal(outcome.eventsCompleted, 0, `run ${run}`);
+    }
+    // Nothing counted against any lead.
+    assert.equal(await ProvenanceNotificationLog.countDocuments({ failures: { $gt: 0 } }), 0);
+
+    // Once the provider is back, everyone is emailed.
+    sendWorks();
+    sends = 0;
+    const recovered = await runSourceChangeNotifications();
+    assert.equal(recovered.sent, 4);
+    assert.equal(recovered.eventsCompleted, 1);
   });
 });
