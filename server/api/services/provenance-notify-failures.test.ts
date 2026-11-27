@@ -19,6 +19,8 @@ describe("isRecipientFailure", () => {
     for (const status of [500, 502, 503, 504]) assert.equal(isRecipientFailure(withStatus(status)), false, String(status));
     // Bad or expired credentials, timeouts and rate limits are ours, not the lead's.
     for (const status of [401, 403, 408, 429]) assert.equal(isRecipientFailure(withStatus(status)), false, String(status));
+    // An unknown sending domain is a configuration mistake, never one recipient's.
+    assert.equal(isRecipientFailure(withStatus(404)), false);
   });
 
   it("treats an error without a status (network failure) as the provider's", () => {

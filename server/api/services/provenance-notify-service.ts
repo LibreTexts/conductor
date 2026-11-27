@@ -47,18 +47,30 @@ const MAX_SEND_ATTEMPTS = 3;
 const PROVIDER_DOWN_AFTER = 3;
 
 /**
- * Whether a failed send was about this recipient (the provider rejected the
- * message, e.g. a malformed address), so retrying the same email won't help.
- * Outages, timeouts, rate limits and credential problems (5xx, network
- * errors, 408/429, 401/403) are the provider's, not the lead's: they must
- * never count toward giving up, or an outage would cost everyone their emails.
+ * 4xx responses that are never about one recipient: credentials (401/403),
+ * an unknown sending domain (404), timeouts (408) and rate limits (429).
+ */
+const NOT_RECIPIENT_STATUSES = [401, 403, 404, 408, 429];
+
+/**
+ * Whether a failed send may have been about this recipient (the provider
+ * rejected the message, e.g. a malformed address), so retrying the same email
+ * won't help. Outages, timeouts, rate limits and configuration problems (5xx,
+ * network errors, and {@link NOT_RECIPIENT_STATUSES}) are the provider's or
+ * ours, not the lead's: they must never count toward giving up, or an outage
+ * would cost everyone their emails.
+ *
+ * Some configuration mistakes also come back as a plain 400 (a bad sender
+ * address, say), so the send loop only counts these once another email in the
+ * same run has gone through, proving the settings work.
  */
 export const isRecipientFailure = (err: unknown): boolean => {
   const e = err as { status?: unknown; statusCode?: unknown } | null;
   const status = Number(e?.status ?? e?.statusCode);
   if (!Number.isFinite(status)) return false;
-  return status >= 400 && status < 500 && ![401, 403, 408, 429].includes(status);
+  return status >= 400 && status < 500 && !NOT_RECIPIENT_STATUSES.includes(status);
 };
+
 /**
  * A claim with no `sentAt` older than this was left by a run that died
  * between claiming and sending; it is released so the email goes out.
@@ -262,14 +274,14 @@ const claimEvents = async (
   return new Set(mine.map((row) => String(row.eventID)));
 };
 
+type ClaimFilter = { eventID: { $in: string[] }; recipient: string };
+
 /**
  * Records a failed send for the claimed pairs and frees them for the next
  * run; pairs that have now failed {@link MAX_SEND_ATTEMPTS} times are given
  * up on. Returns how many were given up on.
  */
-const recordFailedSend = async (
-  claimFilter: { eventID: { $in: string[] }; recipient: string },
-): Promise<number> => {
+const recordFailedSend = async (claimFilter: ClaimFilter): Promise<number> => {
   const failedAt = new Date();
   await ProvenanceNotificationLog.updateMany(claimFilter, {
     $inc: { failures: 1 },
@@ -283,9 +295,7 @@ const recordFailedSend = async (
 };
 
 /** Frees claimed pairs for the next run without counting a failure against the lead. */
-const releaseClaims = async (
-  claimFilter: { eventID: { $in: string[] }; recipient: string },
-): Promise<void> => {
+const releaseClaims = async (claimFilter: ClaimFilter): Promise<void> => {
   await ProvenanceNotificationLog.updateMany(claimFilter, {
     $set: { failedAt: new Date(), claimToken: null },
   });
@@ -404,6 +414,20 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
   // Provider failures in a row; reset by any send that gets through or any
   // failure about a specific address.
   let providerFailures = 0;
+  // Address rejections seen before any email in this run went through. They
+  // may be a configuration mistake rather than bad addresses, so they're only
+  // counted once a send succeeds, and released uncounted if none does.
+  const heldRejections: { recipient: string; claimFilter: ClaimFilter }[] = [];
+  const countRejection = async (recipient: string, claimFilter: ClaimFilter) => {
+    const gaveUp = await recordFailedSend(claimFilter);
+    if (gaveUp > 0) {
+      outcome.gaveUp += gaveUp;
+      notifyLog.warn(
+        { recipient, events: gaveUp, attempts: MAX_SEND_ATTEMPTS },
+        "Gave up emailing a lead about source changes after repeated failures",
+      );
+    }
+  };
   for (const digest of pending) {
     const projectIDs = digest.sections.map((s) => s.projectID);
     const claimed = await claimEvents(digest.recipient, digest.eventIDs, projectIDs);
@@ -418,6 +442,8 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
       await ProvenanceNotificationLog.updateMany(claimFilter, { $set: { sentAt: new Date() } });
       outcome.sent += 1;
       providerFailures = 0;
+      // The settings work, so the earlier rejections were about those addresses.
+      for (const held of heldRejections.splice(0)) await countRejection(held.recipient, held.claimFilter);
     } catch (err) {
       outcome.failed += 1;
       notifyLog.warn({ err, recipient: digest.recipient }, "Failed to send source-change digest");
@@ -436,15 +462,19 @@ const notify = async (dryRun: boolean, maxEvents: number): Promise<NotifyOutcome
         continue;
       }
       providerFailures = 0;
-      const gaveUp = await recordFailedSend(claimFilter);
-      if (gaveUp > 0) {
-        outcome.gaveUp += gaveUp;
-        notifyLog.warn(
-          { recipient: digest.recipient, events: gaveUp, attempts: MAX_SEND_ATTEMPTS },
-          "Gave up emailing a lead about source changes after repeated failures",
-        );
-      }
+      if (outcome.sent > 0) await countRejection(digest.recipient, claimFilter);
+      else heldRejections.push({ recipient: digest.recipient, claimFilter });
     }
+  }
+
+  if (heldRejections.length > 0) {
+    // Nothing went through this run, so these rejections prove nothing about
+    // the addresses: retry them next run without counting.
+    for (const held of heldRejections) await releaseClaims(held.claimFilter);
+    notifyLog.warn(
+      { rejected: heldRejections.length },
+      "Every source-change email this run was rejected; not counting it against leads in case the mail settings are wrong",
+    );
   }
 
   await completeEvents(rows, reachable, outcome);
